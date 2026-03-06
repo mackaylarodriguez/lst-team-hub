@@ -14,7 +14,9 @@ export default function TripPage() {
   const [trainingDone, setTrainingDone] = useState({});
   const [docs, setDocs] = useState([]);
 
-  const tabs = ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents"];
+  const tabs = session?.role === "staff"
+    ? ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", "Staff Tasks"]
+    : ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents"];
 
   useEffect(() => {
     const s = requireSession(router);
@@ -22,6 +24,7 @@ export default function TripPage() {
   }, [router]);
 
   const trip = useMemo(() => (tripId ? getTrip(tripId) : null), [tripId]);
+  const staffTasks = trip?.staffTasks || [];
 
   useEffect(() => {
     if (!session || !trip) return;
@@ -265,78 +268,78 @@ export default function TripPage() {
       )}
 
       {tab === "Documents" && (
-  <div className="card pad">
-    <div className="row" style={{ marginBottom: 10 }}>
-      <div style={{ fontWeight: 900 }}>Documents & Links</div>
-      <div className="spacer" />
-
-      {session?.role === "staff" && (
-        <button
-          className="btn"
-          type="button"
-          onClick={() => {
-            const next = [
-              ...docs,
-              { name: "New Document", date: "—", status: "Coming soon", url: "" },
-            ];
-            saveDocs(next);
-          }}
-        >
-          Add Link
-        </button>
-      )}
-    </div>
-
-    {docs.map((d, i) => {
-      const available = d.status === "Available" && d.url;
-
-      return (
-        <div key={i} className="row" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)", alignItems: "flex-start" }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 900 }}>{d.name}</div>
-            <div className="small">{d.date}</div>
+        <div className="card pad">
+          <div className="row" style={{ marginBottom: 10 }}>
+            <div style={{ fontWeight: 900 }}>Documents & Links</div>
+            <div className="spacer" />
 
             {session?.role === "staff" && (
-              <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                <div className="small">Status</div>
-                <select
-                  className="input"
-                  value={d.status}
-                  onChange={(e) => {
-                    const next = [...docs];
-                    next[i] = { ...next[i], status: e.target.value };
-                    saveDocs(next);
-                  }}
-                >
-                  <option value="Coming soon">Coming soon</option>
-                  <option value="Available">Available</option>
-                </select>
-
-                <div className="small">SharePoint Link</div>
-                <input
-                  className="input"
-                  value={d.url || ""}
-                  placeholder="Paste SharePoint link…"
-                  onChange={(e) => {
-                    const next = [...docs];
-                    next[i] = { ...next[i], url: e.target.value };
-                    saveDocs(next);
-                  }}
-                />
-
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => {
-                    const next = docs.filter((_, idx) => idx !== i);
-                    saveDocs(next);
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  const next = [
+                    ...docs,
+                    { name: "New Document", date: "—", status: "Coming soon", url: "" },
+                  ];
+                  saveDocs(next);
+                }}
+              >
+                Add Link
+              </button>
             )}
           </div>
+
+          {docs.map((d, i) => {
+            const available = d.status === "Available" && d.url;
+
+            return (
+              <div key={i} className="row" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)", alignItems: "flex-start" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 900 }}>{d.name}</div>
+                  <div className="small">{d.date}</div>
+
+                  {session?.role === "staff" && (
+                    <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                      <div className="small">Status</div>
+                      <select
+                        className="input"
+                        value={d.status}
+                        onChange={(e) => {
+                          const next = [...docs];
+                          next[i] = { ...next[i], status: e.target.value };
+                          saveDocs(next);
+                        }}
+                      >
+                        <option value="Coming soon">Coming soon</option>
+                        <option value="Available">Available</option>
+                      </select>
+
+                      <div className="small">SharePoint Link</div>
+                      <input
+                        className="input"
+                        value={d.url || ""}
+                        placeholder="Paste SharePoint link…"
+                        onChange={(e) => {
+                          const next = [...docs];
+                          next[i] = { ...next[i], url: e.target.value };
+                          saveDocs(next);
+                        }}
+                      />
+
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          const next = docs.filter((_, idx) => idx !== i);
+                          saveDocs(next);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
 
           <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
             {available ? "Available" : "Coming soon"}
@@ -353,17 +356,52 @@ export default function TripPage() {
           )}
         </div>
       );
-    })}
+      {tab === "Staff Tasks" && session?.role === "staff" && (
+        <div className="card pad">
+          <div className="row" style={{ marginBottom: 10 }}>
+            <div style={{ fontWeight: 900 }}>Staff Tasks</div>
+            <div className="spacer" />
+            <span className="badge">{staffTasks.length} total</span>
+          </div>
 
-    <div className="small" style={{ marginTop: 12 }}>
-      Staff can update status + links here (demo saves to localStorage). Later: move to a database so all staff share updates.
-    </div>
-  </div>
-)}
+          {!staffTasks.length ? (
+            <div className="small">No staff tasks found for this trip yet.</div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Work Area</th>
+                  <th>Task</th>
+                  <th>Assigned To</th>
+                  <th>Progress</th>
+                  <th>Due Date</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staffTasks.map((t) => (
+                  <tr key={t.id}>
+                    <td>{t.workArea || "-"}</td>
+                    <td style={{ fontWeight: 800 }}>{t.taskName || t.title || "-"}</td>
+                    <td>{t.assignedTo || "-"}</td>
+                    <td>{t.progress || "Not started"}</td>
+                    <td>{t.dueDate || "-"}</td>
+                    <td>{t.notes || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
 
           <div className="small" style={{ marginTop: 12 }}>
-            Real version: store files in secure storage (Drive/S3) and keep links + approval status here.
+            Staff-only checklist for trip management tasks.
           </div>
+        </div>
+      )}
+    })}
+  </div>
+  
+    )}
     </Shell>
   );
 }
