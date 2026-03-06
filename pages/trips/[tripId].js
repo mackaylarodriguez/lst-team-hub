@@ -8,39 +8,23 @@ import { loadTaskState, saveTaskState, percentComplete } from "@/lib/tasks";
 export default function TripPage() {
   const router = useRouter();
   const { tripId } = router.query;
+
   const [tab, setTab] = useState("Overview");
-
-  if (!router.isReady || !tripID){
-    return <p>Loading...</p>
-  }
-  if (!trip) return <p>Trip not found.</p>;
-    return (
-      <div>
-        <h1>{trip.name}</h1>
-        {staffTasks?.length ? (
-          staffTasks.map((task) => <div key={task.id}>{task.title}</div>)
-        ) : (
-          <p>No tasks yet.</p>
-        )}
-      </div>
-    );
-
   const [state, setState] = useState({});
   const [session, setSession] = useState(null);
   const [trainingDone, setTrainingDone] = useState({});
   const [docs, setDocs] = useState([]);
 
-  const tabs = session?.role === "staff"
-    ? ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", "Staff Tasks"]
-    : ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents"];
+  const trip = useMemo(() => {
+    return tripId ? getTrip(tripId) : null;
+  }, [tripId]);
+
+  const staffTasks = trip?.staffTasks || [];
 
   useEffect(() => {
     const s = requireSession(router);
     if (s) setSession(s);
   }, [router]);
-
-  const trip = useMemo(() => (tripId ? getTrip(tripId) : null), [tripId]);
-  const staffTasks = trip?.staffTasks || [];
 
   useEffect(() => {
     if (!session || !trip) return;
@@ -62,21 +46,9 @@ export default function TripPage() {
 
   function saveDocs(nextDocs) {
     setDocs(nextDocs);
+    if (!trip) return;
     localStorage.setItem(`docs:${trip.id}`, JSON.stringify(nextDocs));
   }
-
-  if (!trip) {
-    return (
-      <Shell>
-        <div className="card pad">
-          <div style={{ fontWeight: 900 }}>Loading trip…</div>
-          <div className="small">If this persists, the trip ID wasn’t found in the demo data.</div>
-        </div>
-      </Shell>
-    );
-  }
-
-  const pct = session ? percentComplete(trip.tasks, state) : 0;
 
   function toggleTask(taskId) {
     const next = { ...state, [taskId]: !state[taskId] };
@@ -90,6 +62,30 @@ export default function TripPage() {
   const key = `training:${session.email}:${trip.id}`;
   localStorage.setItem(key, JSON.stringify(next));
   }
+
+  const tabs = 
+    session?.role === "staff"
+      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", "Staff Tasks"]
+      : ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents"];
+
+  if (!router.isReady || !tripId) {
+    return <p>Loading...</p>;
+  }
+
+  if (!trip) {
+    return (
+      <Shell>
+        <div className="card pad">
+          <div style={{ fontWeight: 900 }}>Loading trip…</div>
+          <div className="small">
+            If this persists, the trip ID wasn’t found in the demo data.
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
+  const pct = session ? percentComplete(trip.tasks, state) : 0;
 
   return (
     <Shell>
