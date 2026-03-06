@@ -9,6 +9,22 @@ export default function TripPage() {
   const router = useRouter();
   const { tripId } = router.query;
   const [tab, setTab] = useState("Overview");
+
+  if (!router.isReady || !tripID){
+    return <p>Loading...</p>
+  }
+  if (!trip) return <p>Trip not found.</p>;
+    return (
+      <div>
+        <h1>{trip.name}</h1>
+        {staffTasks?.length ? (
+          staffTasks.map((task) => <div key={task.id}>{task.title}</div>)
+        ) : (
+          <p>No tasks yet.</p>
+        )}
+      </div>
+    );
+
   const [state, setState] = useState({});
   const [session, setSession] = useState(null);
   const [trainingDone, setTrainingDone] = useState({});
