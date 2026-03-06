@@ -19,12 +19,36 @@ export default function TripPage() {
     return tripId ? getTrip(tripId) : null;
   }, [tripId]);
 
-  const staffTasks = trip?.staffTasks || [];
+  const defaultStaffTasks = trip?.staffTasks || [];
+  const [editableStaffTasks, setEditableStaffTasks] = useState([]);
 
+  const workAreas = [
+    "Team/Project Formation",
+    "Team Prep-Training",
+    "Team Prep-Travel",
+    "Site Prep",
+    "Team Prep-Materials",
+    "Support During Project",
+    "Post Project",
+  ];
+
+  const staffList = [
+    "Mackayla",
+    "Craig",
+    "Leslee",
+    "Donna",
+    "Hannah",
+    "Kelly",
+    "Craig & Kelly",
+  ];
+
+  // useEffect(() => {
+  //   const s = requireSession(router);
+  //   if (s) setSession(s);
+  // }, [router]);
   useEffect(() => {
-    const s = requireSession(router);
-    if (s) setSession(s);
-  }, [router]);
+    setSession({ role: "staff", email: "test@example.com" });
+  }, []);
 
   useEffect(() => {
     if (!session || !trip) return;
@@ -44,6 +68,13 @@ export default function TripPage() {
     setDocs(saved ? JSON.parse(saved) : (trip.docs || []));
   }, [trip]);
 
+  useEffect(() => {
+    if (!trip) return;
+    const key = `staffTasks:${trip.id}`;
+    const saved = localStorage.getItem(key);
+    setEditableStaffTasks(saved ? JSON.parse(saved) : defaultStaffTasks);
+  }, [trip, defaultStaffTasks]);
+
   function saveDocs(nextDocs) {
     setDocs(nextDocs);
     if (!trip) return;
@@ -57,12 +88,17 @@ export default function TripPage() {
   }
 
   function toggleTraining(id) {
-  const next = { ...trainingDone, [id]: !trainingDone[id] };
-  setTrainingDone(next);
-  const key = `training:${session.email}:${trip.id}`;
-  localStorage.setItem(key, JSON.stringify(next));
+    const next = { ...trainingDone, [id]: !trainingDone[id] };
+    setTrainingDone(next);
+    const key = `training:${session.email}:${trip.id}`;
+    localStorage.setItem(key, JSON.stringify(next));
   }
 
+  function saveStaffTasks(nextTasks) {
+    setEditableStaffTasks(nextTasks);
+    if (!trip) return;
+    localStorage.setItem(`staffTasks:${trip.id}`, JSON.stringify(nextTasks));
+  }
   const tabs = 
     session?.role === "staff"
       ? ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", "Staff Tasks"]
@@ -279,12 +315,11 @@ export default function TripPage() {
         </div>
       )}
 
-      {tab === "Documents" && (
+            {tab === "Documents" && (
         <div className="card pad">
           <div className="row" style={{ marginBottom: 10 }}>
             <div style={{ fontWeight: 900 }}>Documents & Links</div>
             <div className="spacer" />
-
             {session?.role === "staff" && (
               <button
                 className="btn"
@@ -302,81 +337,124 @@ export default function TripPage() {
             )}
           </div>
 
-          {docs.map((d, i) => {
-            const available = d.status === "Available" && d.url;
+          {docs.length === 0 ? (
+            <div className="small">No documents yet.</div>
+          ) : (
+            docs.map((d, i) => {
+              const available = d.status === "Available" && d.url;
 
-            return (
-              <div key={i} className="row" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)", alignItems: "flex-start" }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 900 }}>{d.name}</div>
-                  <div className="small">{d.date}</div>
+              return (
+                <div
+                  key={i}
+                  className="row"
+                  style={{
+                    padding: "10px 0",
+                    borderBottom: "1px solid var(--border)",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 900 }}>{d.name}</div>
+                    <div className="small">{d.date}</div>
 
-                  {session?.role === "staff" && (
-                    <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                      <div className="small">Status</div>
-                      <select
-                        className="input"
-                        value={d.status}
-                        onChange={(e) => {
-                          const next = [...docs];
-                          next[i] = { ...next[i], status: e.target.value };
-                          saveDocs(next);
-                        }}
-                      >
-                        <option value="Coming soon">Coming soon</option>
-                        <option value="Available">Available</option>
-                      </select>
+                    {session?.role === "staff" && (
+                      <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                        <div className="small">Status</div>
+                        <select
+                          className="input"
+                          value={d.status}
+                          onChange={(e) => {
+                            const next = [...docs];
+                            next[i] = { ...next[i], status: e.target.value };
+                            saveDocs(next);
+                          }}
+                        >
+                          <option value="Coming soon">Coming soon</option>
+                          <option value="Available">Available</option>
+                        </select>
 
-                      <div className="small">SharePoint Link</div>
-                      <input
-                        className="input"
-                        value={d.url || ""}
-                        placeholder="Paste SharePoint link…"
-                        onChange={(e) => {
-                          const next = [...docs];
-                          next[i] = { ...next[i], url: e.target.value };
-                          saveDocs(next);
-                        }}
-                      />
+                        <div className="small">SharePoint Link</div>
+                        <input
+                          className="input"
+                          value={d.url || ""}
+                          placeholder="Paste SharePoint link…"
+                          onChange={(e) => {
+                            const next = [...docs];
+                            next[i] = { ...next[i], url: e.target.value };
+                            saveDocs(next);
+                          }}
+                        />
 
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={() => {
-                          const next = docs.filter((_, idx) => idx !== i);
-                          saveDocs(next);
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => {
+                            const next = docs.filter((_, idx) => idx !== i);
+                            saveDocs(next);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
+                    {available ? "Available" : "Coming soon"}
+                  </span>
+
+                  {available ? (
+                    <a className="btn btnPrimary" href={d.url} target="_blank" rel="noreferrer">
+                      Open
+                    </a>
+                  ) : (
+                    <button
+                      className="btn"
+                      type="button"
+                      disabled
+                      style={{ opacity: 0.6, cursor: "not-allowed" }}
+                    >
+                      Coming soon
+                    </button>
                   )}
                 </div>
-
-          <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-            {available ? "Available" : "Coming soon"}
-          </span>
-
-          {available ? (
-            <a className="btn btnPrimary" href={d.url} target="_blank" rel="noreferrer">
-              Open
-            </a>
-          ) : (
-            <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
-              Coming soon
-            </button>
+              );
+            })
           )}
         </div>
-      );
+      )}
+
       {tab === "Staff Tasks" && session?.role === "staff" && (
         <div className="card pad">
           <div className="row" style={{ marginBottom: 10 }}>
             <div style={{ fontWeight: 900 }}>Staff Tasks</div>
             <div className="spacer" />
-            <span className="badge">{staffTasks.length} total</span>
+            <span className="badge">{editableStaffTasks.length} total</span>
+
+            <button
+              className="btn"
+              type="button"
+              onClick={() => {
+                const next = [
+                  ...editableStaffTasks,
+                  {
+                    id: Date.now().toString(),
+                    workArea: "",
+                    taskName: "",
+                    assignedTo: "",
+                    progress: "Not started",
+                    dueDate: "",
+                    notes: "",
+                  },
+                ];
+                saveStaffTasks(next);
+              }}
+            >
+              Add Task
+            </button>
           </div>
 
-          {!staffTasks.length ? (
+          {!editableStaffTasks.length ? (
             <div className="small">No staff tasks found for this trip yet.</div>
           ) : (
             <table className="table">
@@ -388,17 +466,116 @@ export default function TripPage() {
                   <th>Progress</th>
                   <th>Due Date</th>
                   <th>Notes</th>
+                  <th>Delete</th>
                 </tr>
               </thead>
               <tbody>
-                {staffTasks.map((t) => (
+                {editableStaffTasks.map((t, i) => (
                   <tr key={t.id}>
-                    <td>{t.workArea || "-"}</td>
-                    <td style={{ fontWeight: 800 }}>{t.taskName || t.title || "-"}</td>
-                    <td>{t.assignedTo || "-"}</td>
-                    <td>{t.progress || "Not started"}</td>
-                    <td>{t.dueDate || "-"}</td>
-                    <td>{t.notes || "-"}</td>
+                    <td>
+                      <select
+                        className="input"
+                        value={t.workArea || ""}
+                        onChange={(e) => {
+                          const next = [...editableStaffTasks];
+                          next[i] = { ...next[i], workArea: e.target.value };
+                          saveStaffTasks(next);
+                        }}
+                      >
+                        <option value="">Select Area</option>
+                        {workAreas.map((area) => (
+                          <option key={area} value={area}>
+                            {area}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
+                    <td>
+                      <input
+                        className="input"
+                        value={t.taskName || t.title || ""}
+                        onChange={(e) => {
+                          const next = [...editableStaffTasks];
+                          next[i] = { ...next[i], taskName: e.target.value };
+                          saveStaffTasks(next);
+                        }}
+                      />
+                    </td>
+
+                    <td>
+                      <select
+                        className="input"
+                        value={t.assignedTo || ""}
+                        onChange={(e) => {
+                          const next = [...editableStaffTasks];
+                          next[i] = { ...next[i], assignedTo: e.target.value };
+                          saveStaffTasks(next);
+                        }}
+                      >
+                        <option value="">Assign Staff</option>
+                        {staffList.map((person) => (
+                          <option key={person} value={person}>
+                            {person}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
+                    <td>
+                      <select
+                        className="input"
+                        value={t.progress || "Not started"}
+                        onChange={(e) => {
+                          const next = [...editableStaffTasks];
+                          next[i] = { ...next[i], progress: e.target.value };
+                          saveStaffTasks(next);
+                        }}
+                      >
+                        <option value="Not started">Not started</option>
+                        <option value="In progress">In progress</option>
+                        <option value="Complete">Complete</option>
+                        <option value="Waiting">Waiting</option>
+                      </select>
+                    </td>
+
+                    <td>
+                      <input
+                        className="input"
+                        value={t.dueDate || ""}
+                        placeholder="April 15"
+                        onChange={(e) => {
+                          const next = [...editableStaffTasks];
+                          next[i] = { ...next[i], dueDate: e.target.value };
+                          saveStaffTasks(next);
+                        }}
+                      />
+                    </td>
+
+                    <td>
+                      <input
+                        className="input"
+                        value={t.notes || ""}
+                        onChange={(e) => {
+                          const next = [...editableStaffTasks];
+                          next[i] = { ...next[i], notes: e.target.value };
+                          saveStaffTasks(next);
+                        }}
+                      />
+                    </td>
+
+                    <td>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          const next = editableStaffTasks.filter((_, idx) => idx !== i);
+                          saveStaffTasks(next);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -410,10 +587,7 @@ export default function TripPage() {
           </div>
         </div>
       )}
-    })}
-  </div>
-  
-    )}
+
     </Shell>
   );
 }
