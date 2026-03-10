@@ -28,10 +28,11 @@ export default function TripPage() {
 
   const workAreas = [
     "Team/Project Formation",
-    "Team Prep-Training",
-    "Team Prep-Travel",
+    "Fundraising",
+    "Training",
+    "Travel",
     "Site Prep",
-    "Team Prep-Materials",
+    "Materials",
     "Support During Project",
     "Post Project",
   ];
@@ -46,7 +47,7 @@ export default function TripPage() {
     "Craig & Kelly",
   ];
 
-  const [staffTaskSort, setStaffTaskSort] = useState("sequence");
+  const [staffTaskSort, setStaffTaskSort] = useState("workArea");
 
   useEffect(() => {
     setSession({ role: "staff", email: "test@example.com" });
@@ -175,7 +176,7 @@ export default function TripPage() {
     return isNaN(d.getTime()) ? null : d;
   }
 
-  function sortStaffTasks(tasks, mode = "sequence") {
+  function sortStaffTasks(tasks, mode = "workArea") {
     const list = [...tasks];
 
     if (mode === "dueDate") {
@@ -228,8 +229,36 @@ export default function TripPage() {
     });
   }
 
+  function groupTasksByWorkArea(tasks) {
+    const groups = {};
+
+    tasks.forEach((task) => {
+      const area = task.workArea || "Other";
+
+      if (!groups[area]) {
+        groups[area] = [];
+      }
+
+      groups[area].push(task);
+    });
+
+    // Move completed tasks to the bottom of each group
+    Object.keys(groups).forEach((area) => {
+      groups[area].sort((a, b) => {
+        const aDone = a.progress === "Complete" ? 1 : 0;
+        const bDone = b.progress === "Complete" ? 1 : 0;
+        return aDone - bDone;
+      });
+    });
+
+    return groups;
+  }
+
   const sortedViewTasks = sortStaffTasks(editableStaffTasks || [], staffTaskSort);
   const sortedDraftTasks = sortStaffTasks(draftStaffTasks || [], staffTaskSort);
+
+  const groupedViewTasks = groupTasksByWorkArea(editableStaffTasks || []);
+  const groupedDraftTasks = groupTasksByWorkArea(draftStaffTasks || []);
 
   const completedCount = (editableStaffTasks || []).filter(
     (t) => t.progress === "Complete"
@@ -454,344 +483,365 @@ export default function TripPage() {
       )}
 
             {tab === "Documents" && (
-        <div className="card pad">
-          <div className="row" style={{ marginBottom: 10 }}>
-            <div style={{ fontWeight: 900 }}>Documents & Links</div>
-            <div className="spacer" />
-            {session?.role === "staff" && (
-              <button
-                className="btn"
-                type="button"
-                onClick={() => {
-                  const next = [
-                    ...docs,
-                    { name: "New Document", date: "—", status: "Coming soon", url: "" },
-                  ];
-                  saveDocs(next);
-                }}
-              >
-                Add Link
-              </button>
-            )}
-          </div>
-
-          {docs.length === 0 ? (
-            <div className="small">No documents yet.</div>
-          ) : (
-            docs.map((d, i) => {
-              const available = d.status === "Available" && d.url;
-
-              return (
-                <div
-                  key={i}
-                  className="row"
-                  style={{
-                    padding: "10px 0",
-                    borderBottom: "1px solid var(--border)",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 900 }}>{d.name}</div>
-                    <div className="small">{d.date}</div>
-
-                    {session?.role === "staff" && (
-                      <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                        <div className="small">Status</div>
-                        <select
-                          className="input"
-                          value={d.status}
-                          onChange={(e) => {
-                            const next = [...docs];
-                            next[i] = { ...next[i], status: e.target.value };
-                            saveDocs(next);
-                          }}
-                        >
-                          <option value="Coming soon">Coming soon</option>
-                          <option value="Available">Available</option>
-                        </select>
-
-                        <div className="small">SharePoint Link</div>
-                        <input
-                          className="input"
-                          value={d.url || ""}
-                          placeholder="Paste SharePoint link…"
-                          onChange={(e) => {
-                            const next = [...docs];
-                            next[i] = { ...next[i], url: e.target.value };
-                            saveDocs(next);
-                          }}
-                        />
-
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => {
-                            const next = docs.filter((_, idx) => idx !== i);
-                            saveDocs(next);
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-                    {available ? "Available" : "Coming soon"}
-                  </span>
-
-                  {available ? (
-                    <a className="btn btnPrimary" href={d.url} target="_blank" rel="noreferrer">
-                      Open
-                    </a>
-                  ) : (
+              <div className="card pad">
+                <div className="row" style={{ marginBottom: 10 }}>
+                  <div style={{ fontWeight: 900 }}>Documents & Links</div>
+                  <div className="spacer" />
+                  {session?.role === "staff" && (
                     <button
                       className="btn"
                       type="button"
-                      disabled
-                      style={{ opacity: 0.6, cursor: "not-allowed" }}
+                      onClick={() => {
+                        const next = [
+                          ...docs,
+                          { name: "New Document", date: "—", status: "Coming soon", url: "" },
+                        ];
+                        saveDocs(next);
+                      }}
                     >
-                      Coming soon
+                      Add Link
                     </button>
                   )}
                 </div>
-              );
-            })
-          )}
-        </div>
-      )}
 
-      {tab === "Staff Tasks" && session?.role === "staff" && (
-        <div className="card pad">
-          <div className="row" style={{ marginBottom: 10 }}>
-            <div>
-              <div style={{ fontWeight: 900 }}>Staff Tasks</div>
-              <div className="small">
-                {completedCount} of {totalCount} complete
-              </div>
-            </div>
+                {docs.length === 0 ? (
+                  <div className="small">No documents yet.</div>
+                ) : (
+                  docs.map((d, i) => {
+                    const available = d.status === "Available" && d.url;
 
-            <div className="spacer" />
+                    return (
+                      <div
+                        key={i}
+                        className="row"
+                        style={{
+                          padding: "10px 0",
+                          borderBottom: "1px solid var(--border)",
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 900 }}>{d.name}</div>
+                          <div className="small">{d.date}</div>
 
-            <span className="badge">{completionPct}% complete</span>
+                          {session?.role === "staff" && (
+                            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                              <div className="small">Status</div>
+                              <select
+                                className="input"
+                                value={d.status}
+                                onChange={(e) => {
+                                  const next = [...docs];
+                                  next[i] = { ...next[i], status: e.target.value };
+                                  saveDocs(next);
+                                }}
+                              >
+                                <option value="Coming soon">Coming soon</option>
+                                <option value="Available">Available</option>
+                              </select>
 
-            <select
-              className="input"
-              style={{ width: 160 }}
-              value={staffTaskSort}
-              onChange={(e) => setStaffTaskSort(e.target.value)}
-            >
-              <option value="sequence">Sort by: Sequence</option>
-              <option value="dueDate">Sort by: Due Date</option>
-              <option value="assignedTo">Sort by: Assigned To</option>
-              <option value="progress">Sort by: Progress</option>
-            </select>
+                              <div className="small">SharePoint Link</div>
+                              <input
+                                className="input"
+                                value={d.url || ""}
+                                placeholder="Paste SharePoint link…"
+                                onChange={(e) => {
+                                  const next = [...docs];
+                                  next[i] = { ...next[i], url: e.target.value };
+                                  saveDocs(next);
+                                }}
+                              />
 
-            {!isEditingStaffTasks ? (
-              <button
-                className="btn"
-                type="button"
-                onClick={handleEditStaffTasks}
-              >
-                Edit
-              </button>
-            ) : (
-              <div className="row" style={{ gap: 8 }}>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={handleCancelStaffTasks}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn btnPrimary"
-                  type="button"
-                  onClick={handleSaveStaffTasks}
-                >
-                  Save
-                </button>
-              </div>
-            )}
-          </div>
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={() => {
+                                  const next = docs.filter((_, idx) => idx !== i);
+                                  saveDocs(next);
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
 
-          <div style={{ marginBottom: 14 }}>
-            <div className="small" style={{ marginBottom: 6 }}>
-              Trip Progress
-            </div>
-            <div className="progress">
-              <div style={{ width: `${completionPct}%` }} />
-            </div>
-          </div>
+                        <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
+                          {available ? "Available" : "Coming soon"}
+                        </span>
 
-          {!(isEditingStaffTasks ? sortedDraftTasks : sortedViewTasks).length ? (
-            <div className="small">No staff tasks found for this trip yet.</div>
-          ) : (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Work Area</th>
-                  <th>Task</th>
-                  <th>Assigned To</th>
-                  <th>Progress</th>
-                  <th>Due Date</th>
-                  <th>Notes</th>
-                  {isEditingStaffTasks && <th>Delete</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {(isEditingStaffTasks ? sortedDraftTasks : sortedViewTasks).map((t) => {
-                  const i = draftStaffTasks.findIndex((x) => x.id === t.id);
-
-                  return (
-                    <tr key={t.id}>
-                      <td>
-                        {isEditingStaffTasks ? (
-                          <select
-                            className="input"
-                            value={t.workArea || ""}
-                            onChange={(e) => updateDraftTask(i, "workArea", e.target.value)}
-                          >
-                            <option value="">Select Area</option>
-                            {workAreas.map((area) => (
-                              <option key={area} value={area}>
-                                {area}
-                              </option>
-                            ))}
-                          </select>
+                        {available ? (
+                          <a className="btn btnPrimary" href={d.url} target="_blank" rel="noreferrer">
+                            Open
+                          </a>
                         ) : (
-                          <span className="small">{t.workArea || "-"}</span>
-                        )}
-                      </td>
-
-                      <td>
-                        {isEditingStaffTasks ? (
-                          <input
-                            className="input"
-                            value={t.taskName || t.title || ""}
-                            onChange={(e) => updateDraftTask(i, "taskName", e.target.value)}
-                          />
-                        ) : (
-                          <span>{t.taskName || t.title || "-"}</span>
-                        )}
-                      </td>
-
-                      <td>
-                        {isEditingStaffTasks ? (
-                          <select
-                            className="input"
-                            value={t.assignedTo || ""}
-                            onChange={(e) => updateDraftTask(i, "assignedTo", e.target.value)}
-                          >
-                            <option value="">Assign Staff</option>
-                            {staffList.map((person) => (
-                              <option key={person} value={person}>
-                                {person}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="small">{t.assignedTo || "-"}</span>
-                        )}
-                      </td>
-
-                      <td>
-                        {isEditingStaffTasks ? (
-                          <select
-                            className="input"
-                            value={t.progress || "Not started"}
-                            onChange={(e) => updateDraftTask(i, "progress", e.target.value)}
-                          >
-                            <option value="Not started">Not started</option>
-                            <option value="In progress">In progress</option>
-                            <option value="Complete">Complete</option>
-                            <option value="Waiting">Waiting</option>
-                          </select>
-                        ) : (
-                          <span className={`badge ${getProgressClass(t.progress)}`}>
-                            {t.progress || "Not started"}
-                          </span>
-                        )}
-                      </td>
-
-                      <td>
-                        {isEditingStaffTasks ? (
-                          <input
-                            className="input"
-                            type="date"
-                            value={t.dueDate || ""}
-                            onChange={(e) => updateDraftTask(i, "dueDate", e.target.value)}
-                          />
-                        ) : (
-                          <span className="small">{t.dueDate || "-"}</span>
-                        )}
-                      </td>
-
-                      <td>
-                        {isEditingStaffTasks ? (
-                          <input
-                            className="input"
-                            value={t.notes || ""}
-                            onChange={(e) => updateDraftTask(i, "notes", e.target.value)}
-                          />
-                        ) : (
-                          <span className="small">{t.notes || "-"}</span>
-                        )}
-                      </td>
-
-                      {isEditingStaffTasks && (
-                        <td>
                           <button
                             className="btn"
                             type="button"
-                            onClick={() => {
-                              const next = draftStaffTasks.filter((x) => x.id !== t.id);
-                              setDraftStaffTasks(next);
-                            }}
+                            disabled
+                            style={{ opacity: 0.6, cursor: "not-allowed" }}
                           >
-                            Delete
+                            Coming soon
                           </button>
-                        </td>
-                      )}
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+            {tab === "Staff Tasks" && session?.role === "staff" && (
+              <div className="card pad">
+
+                <div className="row" style={{ marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 900 }}>Staff Tasks</div>
+                    <div className="small">
+                      {completedCount} of {totalCount} complete
+                    </div>
+                  </div>
+
+                  <div className="spacer" />
+
+                  <span className="badge">{completionPct}% complete</span>
+
+                  {!isEditingStaffTasks ? (
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={handleEditStaffTasks}
+                    >
+                      Edit
+                    </button>
+                  ) : (
+                    <div className="row" style={{ gap: 8 }}>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={handleCancelStaffTasks}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="btn btnPrimary"
+                        type="button"
+                        onClick={handleSaveStaffTasks}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ marginBottom: 14 }}>
+                  <div className="small" style={{ marginBottom: 6 }}>
+                    Trip Progress
+                  </div>
+                  <div className="progress">
+                    <div style={{ width: `${completionPct}%` }} />
+                  </div>
+                </div>
+
+                <table className="table">
+
+                  <thead>
+                    <tr>
+                      <th style={{ width: "45%" }}>Task</th>
+                      <th style={{ width: "7%" }}>Assigned To</th>
+                      <th style={{ width: "7%" }}>Progress</th>
+                      <th style={{ width: "7%" }}>Due Date</th>
+                      <th style={{ width: "34%" }}>Notes</th>
+                      {isEditingStaffTasks && <th style={{ width: "10%" }}>Delete</th>}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+                  </thead>
 
-          {isEditingStaffTasks && (
-            <div style={{ marginTop: 12 }}>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => {
-                  const next = [
-                    ...draftStaffTasks,
-                    {
-                      id: Date.now().toString(),
-                      workArea: "",
-                      taskName: "",
-                      assignedTo: "",
-                      progress: "Not started",
-                      dueDate: "",
-                      notes: "",
-                    },
-                  ];
-                  setDraftStaffTasks(next);
-                }}
-              >
-                Add Task
-              </button>
-            </div>
-          )}
+                  {Object.entries(
+                    isEditingStaffTasks ? groupedDraftTasks : groupedViewTasks
+                  ).map(([area, tasks]) => {
 
-          <div className="small" style={{ marginTop: 12 }}>
-            Staff-only checklist for trip management tasks.
-          </div>
-        </div>
-      )}
+                    const sortedTasks = [
+                      ...tasks.filter(t => t.progress !== "Complete"),
+                      ...tasks.filter(t => t.progress === "Complete")
+                    ];
+
+                    return (
+                      <tbody key={area}>
+
+                        {/* WORK AREA PILL HEADER */}
+
+                        <tr>
+                          <td colSpan={isEditingStaffTasks ? 6 : 5}>
+
+                            <div className="workAreaPill">
+                              {area}
+                            </div>
+
+                          </td>
+                        </tr>
+
+                        {sortedTasks.map((t) => {
+
+                          const i = draftStaffTasks.findIndex((x) => x.id === t.id);
+
+                          return (
+                            <tr key={t.id}>
+
+                              {/* TASK TITLE */}
+
+                              <td>
+                                {isEditingStaffTasks ? (
+                                  <input
+                                    className="input"
+                                    value={t.taskName || t.title || ""}
+                                    onChange={(e) =>
+                                      updateDraftTask(i, "taskName", e.target.value)
+                                    }
+                                  />
+                                ) : (
+                                  <span style={{ fontSize: "14px", fontWeight: 600 }}>
+                                    {t.taskName || t.title || "-"}
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* ASSIGNED */}
+
+                              <td>
+                                {isEditingStaffTasks ? (
+                                  <select
+                                    className="input"
+                                    value={t.assignedTo || ""}
+                                    onChange={(e) =>
+                                      updateDraftTask(i, "assignedTo", e.target.value)
+                                    }
+                                  >
+                                    <option value="">Assign Staff</option>
+                                    {staffList.map((person) => (
+                                      <option key={person} value={person}>
+                                        {person}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span className="small">{t.assignedTo || "-"}</span>
+                                )}
+                              </td>
+
+                              {/* PROGRESS */}
+
+                              <td>
+                                {isEditingStaffTasks ? (
+                                  <select
+                                    className="input"
+                                    value={t.progress || "Not started"}
+                                    onChange={(e) =>
+                                      updateDraftTask(i, "progress", e.target.value)
+                                    }
+                                  >
+                                    <option value="Not started">Not started</option>
+                                    <option value="In progress">In progress</option>
+                                    <option value="Complete">Complete</option>
+                                    <option value="Waiting">Waiting</option>
+                                  </select>
+                                ) : (
+                                  <span className={`badge ${getProgressClass(t.progress)}`}>
+                                    {t.progress || "Not started"}
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* DUE DATE */}
+
+                              <td>
+                                {isEditingStaffTasks ? (
+                                  <input
+                                    className="input"
+                                    type="date"
+                                    value={t.dueDate || ""}
+                                    onChange={(e) =>
+                                      updateDraftTask(i, "dueDate", e.target.value)
+                                    }
+                                  />
+                                ) : (
+                                  <span className="small">{t.dueDate || "-"}</span>
+                                )}
+                              </td>
+
+                              {/* NOTES */}
+
+                              <td>
+                                {isEditingStaffTasks ? (
+                                  <input
+                                    className="input"
+                                    value={t.notes || ""}
+                                    onChange={(e) =>
+                                      updateDraftTask(i, "notes", e.target.value)
+                                    }
+                                  />
+                                ) : (
+                                  <span className="small">{t.notes || "-"}</span>
+                                )}
+                              </td>
+
+                              {/* DELETE */}
+
+                              {isEditingStaffTasks && (
+                                <td>
+                                  <button
+                                    className="btn"
+                                    type="button"
+                                    onClick={() => {
+                                      const next = draftStaffTasks.filter(
+                                        (x) => x.id !== t.id
+                                      );
+                                      setDraftStaffTasks(next);
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              )}
+
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    );
+                  })}
+                </table>
+
+                {isEditingStaffTasks && (
+                  <div style={{ marginTop: 12 }}>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => {
+                        const next = [
+                          ...draftStaffTasks,
+                          {
+                            id: Date.now().toString(),
+                            workArea: "",
+                            taskName: "",
+                            assignedTo: "",
+                            progress: "Not started",
+                            dueDate: "",
+                            notes: "",
+                          },
+                        ];
+                        setDraftStaffTasks(next);
+                      }}
+                    >
+                      Add Task
+                    </button>
+                  </div>
+                )}
+
+                <div className="small" style={{ marginTop: 12 }}>
+                  Staff-only checklist for trip management tasks.
+                </div>
+
+              </div>
+            )}
 
     </Shell>
   );
