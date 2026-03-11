@@ -5,9 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import {
   createTripForCurrentUser,
-  listAssignedTrips,
+  listTripsForCurrentUser,
   TRIPS_UPDATED_EVENT,
 } from "@/lib/trips";
+import { isManagerRole } from "@/lib/roles";
 
 function parseTripDates(dateLabel) {
   const sameMonthMatch = String(dateLabel).match(
@@ -75,7 +76,7 @@ export default function Trips() {
       if (cancelled || !session) return;
       setSession(session);
       try {
-        const assignedTrips = await listAssignedTrips();
+        const assignedTrips = await listTripsForCurrentUser();
         if (!cancelled) {
           setTrips(assignedTrips);
         }
@@ -88,7 +89,7 @@ export default function Trips() {
 
     async function syncTrips() {
       try {
-        const assignedTrips = await listAssignedTrips();
+        const assignedTrips = await listTripsForCurrentUser();
         if (!cancelled) {
           setTrips(assignedTrips);
         }
@@ -132,7 +133,7 @@ export default function Trips() {
     };
   }, [trips]);
 
-  const isStaff = session?.role === "staff";
+  const canManageTrips = isManagerRole(session?.role);
 
   function updateTripDraft(field, value) {
     setTripDraft((current) => ({ ...current, [field]: value }));
@@ -165,7 +166,7 @@ export default function Trips() {
           <p className="p">Everything you need for your team, in one place.</p>
         </div>
         <div className="spacer" />
-        {isStaff && (
+        {canManageTrips && (
           <button
             className="btn btnPrimary"
             type="button"
@@ -177,7 +178,7 @@ export default function Trips() {
         <span className="badge">Demo</span>
       </div>
 
-      {isStaff && showTripForm && (
+      {canManageTrips && showTripForm && (
         <div className="card pad" style={{ marginBottom: 24 }}>
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Create Trip</div>
           <div className="small" style={{ marginBottom: 16 }}>

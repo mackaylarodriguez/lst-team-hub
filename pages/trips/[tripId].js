@@ -2,7 +2,8 @@ import Shell from "@/components/Shell";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
-import { getAssignedTrip } from "@/lib/trips";
+import { getTripForCurrentUser } from "@/lib/trips";
+import { isManagerRole } from "@/lib/roles";
 import {
   addLinkResource,
   addPdfResource,
@@ -135,7 +136,7 @@ export default function TripPage() {
 
     async function loadTrip() {
       try {
-        const assignedTrip = await getAssignedTrip(tripId);
+        const assignedTrip = await getTripForCurrentUser(tripId);
         if (!cancelled) {
           setTrip(assignedTrip);
         }
@@ -607,9 +608,8 @@ export default function TripPage() {
   ).length;
   const totalCount = (editableStaffTasks || []).length;
   const completionPct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
-  const isStaff = session?.role === "staff";
-  const canViewAllParticipantData =
-    session?.role === "staff" || session?.role === "leader";
+  const canManageTrips = isManagerRole(session?.role);
+  const canViewAllParticipantData = canManageTrips;
 
   const currentParticipant = useMemo(() => {
     if (!trip || !session || canViewAllParticipantData) return null;
@@ -782,7 +782,7 @@ export default function TripPage() {
       : [];
 
   const tabs = 
-    isStaff
+    canManageTrips
       ? ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", "Staff Tasks"]
       : ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents"];
 
@@ -971,7 +971,7 @@ export default function TripPage() {
             </table>
           </div>
 
-          {session?.role === "staff" && (
+          {canManageTrips && (
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Reference Emails</div>
               <table className="table">
@@ -1119,7 +1119,7 @@ export default function TripPage() {
             </div>
             <p className="small">
               {canViewAllParticipantData
-                ? "Staff and leaders can view every participant's fundraising progress."
+                ? "Admin and staff can view every participant's fundraising progress."
                 : "This page only shows your own fundraising progress."}
             </p>
             <div style={{ height: 10 }} />
@@ -1171,7 +1171,7 @@ export default function TripPage() {
 
       {tab === "Training" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {isStaff && (
+          {canManageTrips && (
             <div className="card pad">
               <div className="row" style={{ marginBottom: 10 }}>
                 <div style={{ fontWeight: 900 }}>Training Progress</div>
@@ -1467,7 +1467,7 @@ export default function TripPage() {
                 <div className="row" style={{ marginBottom: 10 }}>
                   <div style={{ fontWeight: 900 }}>Documents & Links</div>
                   <div className="spacer" />
-                  {session?.role === "staff" && (
+                  {canManageTrips && (
                     <div className="row">
                       <button className="btn" type="button" onClick={handleAddLink}>
                         Add Link
@@ -1607,7 +1607,7 @@ export default function TripPage() {
                             </>
                           )}
 
-                          {session?.role === "staff" && (
+                          {canManageTrips && (
                             <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
                               {!isEditing && (
                                 <div className="row">
@@ -1669,7 +1669,7 @@ export default function TripPage() {
                 )}
               </div>
             )}
-            {tab === "Staff Tasks" && session?.role === "staff" && (
+            {tab === "Staff Tasks" && canManageTrips && (
               <div className="card pad">
                 <div className="row" style={{ marginBottom: 10 }}>
                   <div>

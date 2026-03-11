@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { clearSession, getSession } from "@/lib/auth";
 import { useEffect, useState } from "react";
+import { isManagerRole } from "@/lib/roles";
 
 export default function Shell({ children }) {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function Shell({ children }) {
     };
   }, []);
 
-  const isAdmin = session?.role === "staff";
+  const canManageTrips = isManagerRole(session?.role);
 
   return (
     <div className="shell">
@@ -33,7 +34,7 @@ export default function Shell({ children }) {
         <div className="brand">
           <div className="logo" aria-hidden="true" />
           <div>
-            <div style={{ fontWeight: 900, letterSpacing: "-.02em" }}>Mission Team Hub</div>
+            <div style={{ fontWeight: 900, letterSpacing: "-.02em" }}>LST International Projects Hub</div>
             <div className="small">LST • sample prototype</div>
           </div>
         </div>
@@ -47,7 +48,7 @@ export default function Shell({ children }) {
         <div style={{ height: 14 }} />
         <nav className="nav">
           <Link className={path.startsWith("/trips") ? "active" : ""} href="/trips">My Trips</Link>
-          {isAdmin && <Link className={path === "/admin" ? "active" : ""} href="/admin">Admin</Link>}
+          {canManageTrips && <Link className={path === "/admin" ? "active" : ""} href="/admin">Admin</Link>}
           <Link className={path === "/profile" ? "active" : ""} href="/profile">Profile</Link>
           <a
             href="#"
