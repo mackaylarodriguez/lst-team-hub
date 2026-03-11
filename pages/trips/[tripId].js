@@ -861,16 +861,18 @@ export default function TripPage() {
               </div>
             </div>
 
-            <div className="card pad">
-              <div className="small" style={{ marginBottom: 8 }}>Staff Tasks</div>
-              <div style={{ fontSize: 28, fontWeight: 900 }}>{completionPct}%</div>
-              <div className="progress" style={{ marginTop: 10 }}>
-                <div style={{ width: `${completionPct}%` }} />
+            {canManageTrips && (
+              <div className="card pad">
+                <div className="small" style={{ marginBottom: 8 }}>Staff Tasks</div>
+                <div style={{ fontSize: 28, fontWeight: 900 }}>{completionPct}%</div>
+                <div className="progress" style={{ marginTop: 10 }}>
+                  <div style={{ width: `${completionPct}%` }} />
+                </div>
+                <div className="small" style={{ marginTop: 8 }}>
+                  {completedCount} of {totalCount} staff tasks marked complete.
+                </div>
               </div>
-              <div className="small" style={{ marginTop: 8 }}>
-                {completedCount} of {totalCount} staff tasks marked complete.
-              </div>
-            </div>
+            )}
 
             <div className="card pad">
               <div className="small" style={{ marginBottom: 8 }}>{overviewTrainingLabel}</div>
