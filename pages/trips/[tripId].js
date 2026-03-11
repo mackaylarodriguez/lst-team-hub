@@ -1,9 +1,92 @@
 import Shell from "@/components/Shell";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { getTrip } from "@/lib/sampleData";
 import { loadTaskState, saveTaskState, percentComplete } from "@/lib/tasks";
+import {
+  loadStaffTasks,
+  saveStaffTasks as persistStaffTasks,
+  staffTasksKey,
+  STAFF_TASKS_UPDATED_EVENT,
+} from "@/lib/staffTasks";
+
+const REQUIRED_TRIP_LINKS = [
+  { key: "flights", title: "Flights" },
+  { key: "trip-insurance", title: "Trip Insurance" },
+  { key: "budget-link", title: "Budget Link" },
+];
+
+const STAFF_TASK_AREA_LABELS = {
+  "Team/Project Formation": "Project Formation",
+  "Project Formation": "Project Formation",
+  Fundraising: "Fundraising",
+  Training: "Training",
+  Travel: "Travel",
+  "Site Prep": "Travel",
+  Materials: "Materials",
+  "Support During Project": "During Project",
+  "During Project": "During Project",
+  "Post Project": "Post Project",
+};
+
+function normalizeDocItem(doc, tripId, index = 0) {
+  if (!doc) {
+    return {
+      id: `${tripId}-doc-${index}`,
+      type: "link",
+      title: "Untitled",
+      url: "",
+      dataUrl: "",
+      fileName: "",
+      uploadedAt: "",
+    };
+  }
+
+  return {
+    id: doc.id || `${tripId}-doc-${index}`,
+    type: doc.type || (doc.url ? "link" : "file"),
+    title: doc.title || doc.name || "Untitled",
+    url: doc.url || "",
+    dataUrl: doc.dataUrl || "",
+    fileName: doc.fileName || doc.name || "",
+    uploadedAt: doc.uploadedAt || doc.date || "",
+  };
+}
+
+function buildTripDocs(trip, savedDocs = null) {
+  const sourceDocs = Array.isArray(savedDocs) ? savedDocs : trip.docs || [];
+  const normalizedDocs = sourceDocs.map((doc, index) =>
+    normalizeDocItem(doc, trip.id, index)
+  );
+
+  const requiredLinks = REQUIRED_TRIP_LINKS.map((link) => ({
+    id: `${trip.id}-${link.key}`,
+    type: "link",
+    title: link.title,
+    url: "",
+    dataUrl: "",
+    fileName: "",
+    uploadedAt: "",
+  }));
+
+  const mergedRequiredLinks = requiredLinks.map(
+    (requiredLink) =>
+      normalizedDocs.find(
+        (doc) => doc.id === requiredLink.id || doc.title === requiredLink.title
+      ) || requiredLink
+  );
+
+  const extraDocs = normalizedDocs.filter(
+    (doc) =>
+      !requiredLinks.some(
+        (requiredLink) =>
+          doc.id === requiredLink.id || doc.title === requiredLink.title
+      )
+  );
+
+  return [...mergedRequiredLinks, ...extraDocs];
+}
 
 export default function TripPage() {
   const router = useRouter();
@@ -11,31 +94,24 @@ export default function TripPage() {
 
   const [tab, setTab] = useState("Overview");
   const [state, setState] = useState({});
+  const [participantTaskStates, setParticipantTaskStates] = useState({});
+  const [participantTrainingStates, setParticipantTrainingStates] = useState({});
   const [session, setSession] = useState(null);
   const [trainingDone, setTrainingDone] = useState({});
   const [docs, setDocs] = useState([]);
+  const [isAddingLink, setIsAddingLink] = useState(false);
+  const [linkDraft, setLinkDraft] = useState({ title: "", url: "" });
+  const [editingDocId, setEditingDocId] = useState(null);
+  const [docDraft, setDocDraft] = useState(null);
+  const [referenceEmails, setReferenceEmails] = useState({});
+  const addDocumentInputRef = useRef(null);
 
   const trip = useMemo(() => {
     return tripId ? getTrip(tripId) : null;
   }, [tripId]);
-  const staffTasks = trip?.staffTasks || [];
-
-  const defaultStaffTasks = trip?.staffTasks || [];
   const [editableStaffTasks, setEditableStaffTasks] = useState([]);
-
-  const [isEditingStaffTasks, setIsEditingStaffTasks] = useState(false);
-  const [draftStaffTasks, setDraftStaffTasks] = useState([]);
-
-  const workAreas = [
-    "Team/Project Formation",
-    "Fundraising",
-    "Training",
-    "Travel",
-    "Site Prep",
-    "Materials",
-    "Support During Project",
-    "Post Project",
-  ];
+  const [editingStaffTaskId, setEditingStaffTaskId] = useState(null);
+  const [staffTaskTitleDraft, setStaffTaskTitleDraft] = useState("");
 
   const staffList = [
     "Mackayla",
@@ -47,16 +123,91 @@ export default function TripPage() {
     "Craig & Kelly",
   ];
 
+  const trainingResources = [
+    {
+      id: "canvas",
+      title: "Canvas",
+      description: "Modules 1-9 and trip training content.",
+      url: "https://canvas.example.com/course/123",
+      icon: "CV",
+      accent: "#2f4993",
+    },
+    {
+      id: "basic",
+      title: "Basic Training",
+      description: "Core pre-trip foundations and prep.",
+      url: "https://example.com/basic-training",
+      icon: "BT",
+      accent: "#3caae1",
+    },
+    {
+      id: "gateway",
+      title: "Gateway Training",
+      description: "Gateway content and EndMeeting follow-through.",
+      url: "https://example.com/gateway-training",
+      icon: "GT",
+      accent: "#f99d2a",
+    },
+  ];
+
+  const canvasTrainingModules = [
+    { id: "m1", title: "Canvas Mod 1 (Welcome)" },
+    { id: "m2", title: "Canvas Mod 2 (Fundraising)" },
+    { id: "m3", title: "Canvas Mod 3 (Basic Training)" },
+    { id: "m4", title: "Canvas Mod 4 (Team Dynamics)" },
+    { id: "m5", title: "Canvas Mod 5 (Culture)" },
+    { id: "m6", title: "Canvas Mod 6 (LST Onsite)" },
+    { id: "m7", title: "Canvas Mod 7 (LST Onsite Tools)" },
+    { id: "m8", title: "Canvas Mod 8 (Gateway Training)" },
+    { id: "m9", title: "Canvas Mod 9 (Debriefing)" },
+  ];
+
+  const supplementalTrainingModules = [
+    { id: "bt", title: "Basic Training" },
+    { id: "gt", title: "Gateway Training" },
+    { id: "em", title: "EndMeeting" },
+  ];
+  const datedTrainingModuleIds = ["bt", "gt", "em"];
+  const allTrainingModules = [
+    ...canvasTrainingModules,
+    ...supplementalTrainingModules,
+  ];
+
   const [staffTaskSort, setStaffTaskSort] = useState("workArea");
 
   useEffect(() => {
-    setSession({ role: "staff", email: "test@example.com" });
-  }, []);
+    if (!router.isReady) return;
+    const activeSession = requireSession(router);
+    if (activeSession) {
+      setSession(activeSession);
+    }
+  }, [router, router.isReady]);
 
   useEffect(() => {
     if (!session || !trip) return;
     setState(loadTaskState(session.email, trip.id));
   }, [session, trip]);
+
+  useEffect(() => {
+    if (!trip) return;
+
+    const nextStates = {};
+    (trip.participants || []).forEach((participant) => {
+      nextStates[participant.email] = loadTaskState(participant.email, trip.id);
+    });
+    setParticipantTaskStates(nextStates);
+  }, [trip]);
+
+  useEffect(() => {
+    if (!trip) return;
+
+    const nextStates = {};
+    (trip.participants || []).forEach((participant) => {
+      const key = `training:${participant.email}:${trip.id}`;
+      nextStates[participant.email] = JSON.parse(localStorage.getItem(key) || "{}");
+    });
+    setParticipantTrainingStates(nextStates);
+  }, [trip]);
 
   useEffect(() => {
     if (!session || !trip) return;
@@ -68,23 +219,45 @@ export default function TripPage() {
     if (!trip) return;
     const key = `docs:${trip.id}`;
     const saved = localStorage.getItem(key);
-    setDocs(saved ? JSON.parse(saved) : (trip.docs || []));
+    const parsed = saved ? JSON.parse(saved) : null;
+    setDocs(buildTripDocs(trip, parsed));
   }, [trip]);
 
   useEffect(() => {
     if (!trip) return;
-    const key = `staffTasks:${trip.id}`;
+    const key = `referenceEmails:${trip.id}`;
     const saved = localStorage.getItem(key);
-    setEditableStaffTasks(saved ? JSON.parse(saved) : defaultStaffTasks);
-  }, [trip, defaultStaffTasks]);
+    setReferenceEmails(saved ? JSON.parse(saved) : {});
+  }, [trip]);
 
   useEffect(() => {
-    setDraftStaffTasks(staffTasks);
-  }, [tripId, trip]);
+    if (!trip) return;
+    const syncStaffTasks = () => {
+      setEditableStaffTasks(loadStaffTasks(trip));
+    };
 
-  useEffect(() => {
-    setDraftStaffTasks(editableStaffTasks || []);
-  }, [editableStaffTasks]);
+    syncStaffTasks();
+
+    function handleTaskUpdate(event) {
+      if (!event.detail?.tripId || event.detail.tripId === trip.id) {
+        syncStaffTasks();
+      }
+    }
+
+    function handleStorage(event) {
+      if (!event.key || event.key === staffTasksKey(trip.id)) {
+        syncStaffTasks();
+      }
+    }
+
+    window.addEventListener(STAFF_TASKS_UPDATED_EVENT, handleTaskUpdate);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener(STAFF_TASKS_UPDATED_EVENT, handleTaskUpdate);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [trip]);
 
   function saveDocs(nextDocs) {
     setDocs(nextDocs);
@@ -92,69 +265,262 @@ export default function TripPage() {
     localStorage.setItem(`docs:${trip.id}`, JSON.stringify(nextDocs));
   }
 
-  function toggleTask(taskId) {
-    const next = { ...state, [taskId]: !state[taskId] };
-    setState(next);
-    saveTaskState(session.email, trip.id, next);
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 
-  function toggleTraining(id) {
-    const next = { ...trainingDone, [id]: !trainingDone[id] };
-    setTrainingDone(next);
-    const key = `training:${session.email}:${trip.id}`;
+  async function handleAddDocument(event) {
+    const file = event.target.files?.[0];
+    if (!file || !trip) return;
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const nextDocs = [
+        ...docs,
+        {
+          id: `${trip.id}-file-${Date.now()}`,
+          type: "file",
+          title: file.name,
+          url: "",
+          dataUrl,
+          fileName: file.name,
+          uploadedAt: new Date().toLocaleDateString(),
+        },
+      ];
+      saveDocs(nextDocs);
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function handleAddLink() {
+    setIsAddingLink(true);
+    setLinkDraft({ title: "", url: "" });
+  }
+
+  function handleCancelAddLink() {
+    setIsAddingLink(false);
+    setLinkDraft({ title: "", url: "" });
+  }
+
+  function handleSaveLink() {
+    if (!trip || !linkDraft.title.trim()) return;
+
+    const nextDocs = [
+      ...docs,
+      {
+        id: `${trip.id}-link-${Date.now()}`,
+        type: "link",
+        title: linkDraft.title.trim(),
+        url: linkDraft.url.trim(),
+        dataUrl: "",
+        fileName: "",
+        uploadedAt: "",
+      },
+    ];
+    saveDocs(nextDocs);
+    handleCancelAddLink();
+  }
+
+  function handleEditDoc(doc) {
+    setEditingDocId(doc.id);
+    setDocDraft({ ...doc });
+  }
+
+  function handleCancelEditDoc() {
+    setEditingDocId(null);
+    setDocDraft(null);
+  }
+
+  function handleSaveDoc() {
+    if (!docDraft) return;
+
+    const nextDocs = docs.map((doc) =>
+      doc.id === docDraft.id ? { ...docDraft, title: docDraft.title?.trim() || doc.title } : doc
+    );
+    saveDocs(nextDocs);
+    handleCancelEditDoc();
+  }
+
+  async function handleReplaceDocumentFile(event) {
+    const file = event.target.files?.[0];
+    if (!file || !docDraft) return;
+
+    const dataUrl = await readFileAsDataUrl(file);
+    setDocDraft((prev) => ({
+      ...prev,
+      type: "file",
+      dataUrl,
+      fileName: file.name,
+      title: prev?.title || file.name,
+      uploadedAt: new Date().toLocaleDateString(),
+    }));
+    event.target.value = "";
+  }
+
+  function saveReferenceEmails(nextReferenceEmails) {
+    setReferenceEmails(nextReferenceEmails);
+    if (!trip) return;
+    localStorage.setItem(
+      `referenceEmails:${trip.id}`,
+      JSON.stringify(nextReferenceEmails)
+    );
+  }
+
+  function getReferenceStatus(email) {
+    return referenceEmails[email] || {
+      referenceName: "",
+      referenceEmail: "",
+      referencePhone: "",
+      sent: false,
+      received: false,
+      sentDate: "",
+    };
+  }
+
+  function toggleReferenceEmail(email, field) {
+    const current = getReferenceStatus(email);
+    const nextValue = !current[field];
+
+    saveReferenceEmails({
+      ...referenceEmails,
+      [email]: {
+        ...current,
+        [field]: nextValue,
+        sentDate:
+          field === "sent" && !nextValue ? "" : current.sentDate || "",
+      },
+    });
+  }
+
+  function updateReferenceSentDate(email, value) {
+    const current = getReferenceStatus(email);
+    saveReferenceEmails({
+      ...referenceEmails,
+      [email]: {
+        ...current,
+        sent: value ? true : current.sent,
+        sentDate: value,
+      },
+    });
+  }
+
+  function updateReferenceField(email, field, value) {
+    const current = getReferenceStatus(email);
+    saveReferenceEmails({
+      ...referenceEmails,
+      [email]: {
+        ...current,
+        [field]: value,
+      },
+    });
+  }
+
+  function toggleTask(taskId, ownerEmail = session?.email) {
+    if (!trip || !ownerEmail) return;
+
+    const currentState =
+      participantTaskStates[ownerEmail] ||
+      (ownerEmail === session?.email ? state : {});
+    const next = { ...currentState, [taskId]: !currentState[taskId] };
+
+    if (ownerEmail === session?.email) {
+      setState(next);
+    }
+
+    setParticipantTaskStates((prev) => ({
+      ...prev,
+      [ownerEmail]: next,
+    }));
+
+    saveTaskState(ownerEmail, trip.id, next);
+  }
+
+  function toggleTraining(id, ownerEmail = session?.email) {
+    if (!trip || !ownerEmail) return;
+
+    const currentState =
+      participantTrainingStates[ownerEmail] ||
+      (ownerEmail === session?.email ? trainingDone : {});
+    const next = { ...currentState, [id]: !currentState[id] };
+    const nextValue = !currentState[id];
+    const key = `training:${ownerEmail}:${trip.id}`;
+
+    if (datedTrainingModuleIds.includes(id) && !nextValue) {
+      next[`${id}Date`] = "";
+    }
+
+    if (ownerEmail === session?.email) {
+      setTrainingDone(next);
+    }
+
     localStorage.setItem(key, JSON.stringify(next));
+    setParticipantTrainingStates((prev) => ({
+      ...prev,
+      [ownerEmail]: next,
+    }));
+  }
+
+  function updateTrainingDate(id, value, ownerEmail = session?.email) {
+    if (!trip || !ownerEmail) return;
+
+    const currentState =
+      participantTrainingStates[ownerEmail] ||
+      (ownerEmail === session?.email ? trainingDone : {});
+    const next = {
+      ...currentState,
+      [`${id}Date`]: value,
+      [id]: value ? true : currentState[id],
+    };
+    const key = `training:${ownerEmail}:${trip.id}`;
+
+    if (ownerEmail === session?.email) {
+      setTrainingDone(next);
+    }
+
+    localStorage.setItem(key, JSON.stringify(next));
+    setParticipantTrainingStates((prev) => ({
+      ...prev,
+      [ownerEmail]: next,
+    }));
   }
 
   function saveStaffTasks(nextTasks) {
     setEditableStaffTasks(nextTasks);
     if (!trip) return;
-    localStorage.setItem(`staffTasks:${trip.id}`, JSON.stringify(nextTasks));
+    persistStaffTasks(trip.id, nextTasks);
   }
 
-  function handleEditStaffTasks() {
-    setDraftStaffTasks(staffTasks);
-    setIsEditingStaffTasks(true);
-  }
-
-  function handleCancelStaffTasks() {
-    setDraftStaffTasks(staffTasks);
-    setIsEditingStaffTasks(false);
-  }
-
-  function handleSaveStaffTasks() {
-    // For now this just updates the current trip object in-memory for the session.
-    // Later we can wire this to localStorage or a DB.
-    if (!trip) return;
-
-    trip.staffTasks = draftStaffTasks;
-    setIsEditingStaffTasks(false);
-  }
-
-  function updateDraftStaffTask(index, field, value) {
-    setDraftStaffTasks((prev) =>
-      prev.map((task, i) => (i === index ? { ...task, [field]: value } : task))
+  function updateStaffTask(taskId, field, value) {
+    saveStaffTasks(
+      editableStaffTasks.map((task) =>
+        task.id === taskId ? { ...task, [field]: value } : task
+      )
     );
   }
 
-  function handleEditStaffTasks() {
-    setDraftStaffTasks(editableStaffTasks || []);
-    setIsEditingStaffTasks(true);
+  function handleEditStaffTask(task) {
+    setEditingStaffTaskId(task.id);
+    setStaffTaskTitleDraft(task.taskName || task.title || "");
   }
 
-  function handleCancelStaffTasks() {
-    setDraftStaffTasks(editableStaffTasks || []);
-    setIsEditingStaffTasks(false);
+  function handleCancelStaffTaskEdit() {
+    setEditingStaffTaskId(null);
+    setStaffTaskTitleDraft("");
   }
 
-  function handleSaveStaffTasks() {
-    saveStaffTasks(draftStaffTasks);
-    setIsEditingStaffTasks(false);
+  function handleSaveStaffTaskTitle(taskId) {
+    updateStaffTask(taskId, "taskName", staffTaskTitleDraft.trim() || "Untitled task");
+    handleCancelStaffTaskEdit();
   }
 
-  function updateDraftTask(index, field, value) {
-    const next = [...draftStaffTasks];
-    next[index] = { ...next[index], [field]: value };
-    setDraftStaffTasks(next);
+  function getStaffTaskAreaLabel(area) {
+    return STAFF_TASK_AREA_LABELS[area] || area || "Other";
   }
 
   function getProgressClass(progress) {
@@ -174,6 +540,29 @@ export default function TripPage() {
     if (!dateStr) return null;
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatMoney(value) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(value || 0);
+  }
+
+  function getFundraisingTotals(participants = []) {
+    const totals = participants.reduce(
+      (sum, participant) => ({
+        raised: sum.raised + Number(participant.fundraisingRaised || 0),
+        goal: sum.goal + Number(participant.fundraisingGoal || 0),
+      }),
+      { raised: 0, goal: 0 }
+    );
+
+    return {
+      ...totals,
+      percent: totals.goal ? Math.round((totals.raised / totals.goal) * 100) : 0,
+    };
   }
 
   function sortStaffTasks(tasks, mode = "workArea") {
@@ -233,7 +622,7 @@ export default function TripPage() {
     const groups = {};
 
     tasks.forEach((task) => {
-      const area = task.workArea || "Other";
+      const area = getStaffTaskAreaLabel(task.workArea);
 
       if (!groups[area]) {
         groups[area] = [];
@@ -255,19 +644,189 @@ export default function TripPage() {
   }
 
   const sortedViewTasks = sortStaffTasks(editableStaffTasks || [], staffTaskSort);
-  const sortedDraftTasks = sortStaffTasks(draftStaffTasks || [], staffTaskSort);
-
-  const groupedViewTasks = groupTasksByWorkArea(editableStaffTasks || []);
-  const groupedDraftTasks = groupTasksByWorkArea(draftStaffTasks || []);
+  const groupedViewTasks = groupTasksByWorkArea(sortedViewTasks);
 
   const completedCount = (editableStaffTasks || []).filter(
     (t) => t.progress === "Complete"
   ).length;
   const totalCount = (editableStaffTasks || []).length;
   const completionPct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
+  const isStaff = session?.role === "staff";
+  const canViewAllParticipantData =
+    session?.role === "staff" || session?.role === "leader";
+
+  const currentParticipant = useMemo(() => {
+    if (!trip || !session || canViewAllParticipantData) return null;
+
+    return (
+      trip.participants.find(
+        (participant) =>
+          participant.email.toLowerCase() === session.email.toLowerCase()
+      ) || null
+    );
+  }, [trip, session, canViewAllParticipantData]);
+
+  const participantTaskProgress = useMemo(() => {
+    if (!trip) return [];
+
+    return (trip.participants || []).map((participant) => {
+      const taskState = participantTaskStates[participant.email] || {};
+      const completed = trip.tasks.filter((task) => !!taskState[task.id]).length;
+
+      return {
+        ...participant,
+        taskState,
+        completed,
+        total: trip.tasks.length,
+        percent: percentComplete(trip.tasks, taskState),
+      };
+    });
+  }, [trip, participantTaskStates]);
+
+  const currentParticipantProgress = useMemo(() => {
+    if (!session) return null;
+
+    return (
+      participantTaskProgress.find(
+        (participant) =>
+          participant.email.toLowerCase() === session.email.toLowerCase()
+      ) || null
+    );
+  }, [participantTaskProgress, session]);
+
+  const participantTaskPct = useMemo(() => {
+    const totalPossible = participantTaskProgress.reduce(
+      (sum, participant) => sum + participant.total,
+      0
+    );
+    const completed = participantTaskProgress.reduce(
+      (sum, participant) => sum + participant.completed,
+      0
+    );
+
+    return totalPossible ? Math.round((completed / totalPossible) * 100) : 0;
+  }, [participantTaskProgress]);
+
+  const trainingProgress = useMemo(() => {
+    if (!trip) return [];
+
+    return (trip.participants || []).map((participant) => {
+      const trainingState = participantTrainingStates[participant.email] || {};
+      const completed = allTrainingModules.filter(
+        (module) => !!trainingState[module.id]
+      ).length;
+      const total = allTrainingModules.length;
+
+      return {
+        ...participant,
+        trainingState,
+        completed,
+        total,
+        percent: total ? Math.round((completed / total) * 100) : 0,
+      };
+    });
+  }, [trip, participantTrainingStates, allTrainingModules]);
+
+  const currentTrainingProgress = useMemo(() => {
+    if (!session) return null;
+
+    return (
+      trainingProgress.find(
+        (participant) =>
+          participant.email.toLowerCase() === session.email.toLowerCase()
+      ) || null
+    );
+  }, [trainingProgress, session]);
+
+  const trainingPct = useMemo(() => {
+    const totalPossible = trainingProgress.reduce(
+      (sum, participant) => sum + participant.total,
+      0
+    );
+    const completed = trainingProgress.reduce(
+      (sum, participant) => sum + participant.completed,
+      0
+    );
+
+    return totalPossible ? Math.round((completed / totalPossible) * 100) : 0;
+  }, [trainingProgress]);
+
+  const teamFundraisingTotals = useMemo(() => {
+    if (!trip) return { raised: 0, goal: 0, percent: 0 };
+    return getFundraisingTotals(trip.participants || []);
+  }, [trip]);
+
+  const visibleFundraisingParticipants = useMemo(() => {
+    if (!trip) return [];
+    if (canViewAllParticipantData) return trip.participants || [];
+    return currentParticipant ? [currentParticipant] : [];
+  }, [trip, canViewAllParticipantData, currentParticipant]);
+
+  const visibleFundraisingTotals = useMemo(() => {
+    return getFundraisingTotals(visibleFundraisingParticipants);
+  }, [visibleFundraisingParticipants]);
+
+  const referenceReceivedProgress = useMemo(() => {
+    if (!trip) {
+      return {
+        label: "References Received",
+        percent: 0,
+        completed: 0,
+        total: 0,
+      };
+    }
+
+    if (canViewAllParticipantData) {
+      const total = trip.participants.length;
+      const completed = trip.participants.filter(
+        (participant) => !!getReferenceStatus(participant.email).received
+      ).length;
+
+      return {
+        label: "References Received",
+        percent: total ? Math.round((completed / total) * 100) : 0,
+        completed,
+        total,
+      };
+    }
+
+    const received = currentParticipant
+      ? !!getReferenceStatus(currentParticipant.email).received
+      : false;
+
+    return {
+      label: "My Reference",
+      percent: received ? 100 : 0,
+      completed: received ? 1 : 0,
+      total: 1,
+    };
+  }, [trip, canViewAllParticipantData, currentParticipant, referenceEmails]);
+
+  const overviewTaskLabel = canViewAllParticipantData ? "Participant Tasks" : "My Tasks";
+  const overviewTaskPct = canViewAllParticipantData
+    ? participantTaskPct
+    : currentParticipantProgress?.percent || 0;
+  const overviewTrainingLabel = canViewAllParticipantData ? "Training" : "My Training";
+  const overviewTrainingPct = canViewAllParticipantData
+    ? trainingPct
+    : currentTrainingProgress?.percent || 0;
+  const overviewFundraisingLabel = canViewAllParticipantData ? "Team Fundraising" : "My Fundraising";
+  const overviewFundraisingTotals = canViewAllParticipantData
+    ? teamFundraisingTotals
+    : visibleFundraisingTotals;
+  const visibleTaskParticipants = canViewAllParticipantData
+    ? participantTaskProgress
+    : currentParticipantProgress
+      ? [currentParticipantProgress]
+      : [];
+  const visibleTrainingParticipants = canViewAllParticipantData
+    ? trainingProgress
+    : currentTrainingProgress
+      ? [currentTrainingProgress]
+      : [];
 
   const tabs = 
-    session?.role === "staff"
+    isStaff
       ? ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", "Staff Tasks"]
       : ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents"];
 
@@ -288,7 +847,9 @@ export default function TripPage() {
     );
   }
 
-  const pct = session ? percentComplete(trip.tasks, state) : 0;
+  const pct = canViewAllParticipantData
+    ? participantTaskPct
+    : currentParticipantProgress?.percent || 0;
 
   return (
     <Shell>
@@ -323,161 +884,624 @@ export default function TripPage() {
       </div>
 
       {tab === "Overview" && (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap: 16 }}>
-          <div className="card pad">
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Trip Details</div>
-            <div className="small">Staff lead</div>
-            <div style={{ fontWeight: 800 }}>{trip.staffLead}</div>
-            <div className="small">{trip.staffEmail}</div>
-            <div style={{ height: 12 }} />
-            <div className="small">Location</div>
-            <div style={{ fontWeight: 800 }}>{trip.location}</div>
-            <div style={{ height: 12 }} />
-            <div className="small">Dates</div>
-            <div style={{ fontWeight: 800 }}>{trip.dates}</div>
+        <div style={{ display: "grid", gap: 16 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 16,
+            }}
+          >
+            <div className="card pad">
+              <div className="small" style={{ marginBottom: 8 }}>{overviewTaskLabel}</div>
+              <div style={{ fontSize: 28, fontWeight: 900 }}>{overviewTaskPct}%</div>
+              <div className="progress" style={{ marginTop: 10 }}>
+                <div style={{ width: `${overviewTaskPct}%` }} />
+              </div>
+              <div className="small" style={{ marginTop: 8 }}>
+                {canViewAllParticipantData
+                  ? "Combined completion across all participant task lists."
+                  : "Your task completion progress for this trip."}
+              </div>
+            </div>
+
+            <div className="card pad">
+              <div className="small" style={{ marginBottom: 8 }}>Staff Tasks</div>
+              <div style={{ fontSize: 28, fontWeight: 900 }}>{completionPct}%</div>
+              <div className="progress" style={{ marginTop: 10 }}>
+                <div style={{ width: `${completionPct}%` }} />
+              </div>
+              <div className="small" style={{ marginTop: 8 }}>
+                {completedCount} of {totalCount} staff tasks marked complete.
+              </div>
+            </div>
+
+            <div className="card pad">
+              <div className="small" style={{ marginBottom: 8 }}>{overviewTrainingLabel}</div>
+              <div style={{ fontSize: 28, fontWeight: 900 }}>{overviewTrainingPct}%</div>
+              <div className="progress" style={{ marginTop: 10 }}>
+                <div style={{ width: `${overviewTrainingPct}%` }} />
+              </div>
+              <div className="small" style={{ marginTop: 8 }}>
+                {canViewAllParticipantData
+                  ? "Combined completion across all participant training checklists."
+                  : "Your training completion progress for this trip."}
+              </div>
+            </div>
+
+            <div className="card pad">
+              <div className="small" style={{ marginBottom: 8 }}>{overviewFundraisingLabel}</div>
+              <div style={{ fontSize: 28, fontWeight: 900 }}>{overviewFundraisingTotals.percent}%</div>
+              <div className="progress" style={{ marginTop: 10 }}>
+                <div style={{ width: `${Math.min(overviewFundraisingTotals.percent, 100)}%` }} />
+              </div>
+              <div className="small" style={{ marginTop: 8 }}>
+                {formatMoney(overviewFundraisingTotals.raised)} of {formatMoney(overviewFundraisingTotals.goal)} raised.
+              </div>
+            </div>
+
+            <div className="card pad">
+              <div className="small" style={{ marginBottom: 8 }}>{referenceReceivedProgress.label}</div>
+              <div style={{ fontSize: 28, fontWeight: 900 }}>{referenceReceivedProgress.percent}%</div>
+              <div className="progress" style={{ marginTop: 10 }}>
+                <div style={{ width: `${referenceReceivedProgress.percent}%` }} />
+              </div>
+              <div className="small" style={{ marginTop: 8 }}>
+                {referenceReceivedProgress.completed} of {referenceReceivedProgress.total} received.
+              </div>
+            </div>
           </div>
 
-          <div className="card pad">
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Quick Links</div>
-            <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {trip.quickLinks.map(l => (
-                <li key={l.label} style={{ marginBottom: 8 }}>
-                  <a href={l.url} target="_blank" rel="noreferrer">{l.label}</a>
-                </li>
-              ))}
-            </ul>
-            <div style={{ height: 10 }} />
-            <div className="small">
-              Later, this is where Neon + Canvas links can be automatically pulled per trip.
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: 16,
+            }}
+          >
+            <div className="card pad">
+              <div style={{ fontWeight: 900, marginBottom: 10 }}>Trip Details</div>
+              <div className="small">Staff lead</div>
+              <div style={{ fontWeight: 800 }}>{trip.staffLead}</div>
+              <div className="small">{trip.staffEmail}</div>
+              <div style={{ height: 12 }} />
+              <div className="small">Location</div>
+              <div style={{ fontWeight: 800 }}>{trip.location}</div>
+              <div style={{ height: 12 }} />
+              <div className="small">Dates</div>
+              <div style={{ fontWeight: 800 }}>{trip.dates}</div>
+            </div>
+
+            <div className="card pad">
+              <div style={{ fontWeight: 900, marginBottom: 10 }}>Quick Links</div>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {trip.quickLinks.map(l => (
+                  <li key={l.label} style={{ marginBottom: 8 }}>
+                    <a href={l.url} target="_blank" rel="noreferrer">{l.label}</a>
+                  </li>
+                ))}
+              </ul>
+              <div style={{ height: 10 }} />
+              <div className="small">
+                Later, this is where Neon + Canvas links can be automatically pulled per trip.
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {tab === "Team" && (
-        <div className="card pad">
-          <div style={{ fontWeight: 900, marginBottom: 10 }}>Team Roster</div>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Name</th><th>Role</th><th>Email</th><th>Fundraising</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trip.participants.map(p => (
-                <tr key={p.email}>
-                  <td style={{ fontWeight: 800 }}>{p.name}</td>
-                  <td><span className={"badge " + (p.role === "Leader" ? "badgeWarn" : "")}>{p.role}</span></td>
-                  <td>{p.email}</td>
-                  <td><a href={p.fundraisingUrl} target="_blank" rel="noreferrer">Open</a></td>
+        <div style={{ display: "grid", gap: 16 }}>
+          <div className="card pad">
+            <div style={{ fontWeight: 900, marginBottom: 10 }}>Team Roster</div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Name</th><th>Role</th><th>Email</th>{canViewAllParticipantData && <th>Fundraising</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {trip.participants.map(p => (
+                  <tr key={p.email}>
+                    <td style={{ fontWeight: 800 }}>{p.name}</td>
+                    <td><span className={"badge " + (p.role === "Leader" ? "badgeWarn" : "")}>{p.role}</span></td>
+                    <td>{p.email}</td>
+                    {canViewAllParticipantData && (
+                      <td><a href={p.fundraisingUrl} target="_blank" rel="noreferrer">Open</a></td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {session?.role === "staff" && (
+            <div className="card pad">
+              <div style={{ fontWeight: 900, marginBottom: 10 }}>Reference Emails</div>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Reference Contact</th>
+                    <th>Reference Email Sent</th>
+                    <th>Date Sent</th>
+                    <th>Reference Email Received</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trip.participants.map((participant) => {
+                    const referenceStatus = getReferenceStatus(participant.email);
+
+                    return (
+                      <tr key={`${participant.email}-reference`}>
+                        <td style={{ fontWeight: 800 }}>{participant.name}</td>
+                        <td style={{ minWidth: 260 }}>
+                          <div style={{ display: "grid", gap: 8 }}>
+                            <input
+                              className="input"
+                              value={referenceStatus.referenceName || ""}
+                              placeholder="Reference name"
+                              onChange={(e) =>
+                                updateReferenceField(
+                                  participant.email,
+                                  "referenceName",
+                                  e.target.value
+                                )
+                              }
+                            />
+                            <input
+                              className="input"
+                              type="email"
+                              value={referenceStatus.referenceEmail || ""}
+                              placeholder="Reference email"
+                              onChange={(e) =>
+                                updateReferenceField(
+                                  participant.email,
+                                  "referenceEmail",
+                                  e.target.value
+                                )
+                              }
+                            />
+                            <input
+                              className="input"
+                              type="tel"
+                              value={referenceStatus.referencePhone || ""}
+                              placeholder="Reference phone"
+                              onChange={(e) =>
+                                updateReferenceField(
+                                  participant.email,
+                                  "referencePhone",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                        </td>
+                        <td>
+                          <label
+                            className="row"
+                            style={{ gap: 8, alignItems: "center", cursor: "pointer" }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!!referenceStatus.sent}
+                              onChange={() =>
+                                toggleReferenceEmail(participant.email, "sent")
+                              }
+                            />
+                            <span className={"badge " + (referenceStatus.sent ? "badgeSuccess" : "")}>
+                              {referenceStatus.sent ? "Sent" : "Not sent"}
+                            </span>
+                          </label>
+                        </td>
+                        <td>
+                          <input
+                            className="input"
+                            type="date"
+                            value={referenceStatus.sentDate || ""}
+                            onChange={(e) =>
+                              updateReferenceSentDate(participant.email, e.target.value)
+                            }
+                          />
+                        </td>
+                        <td>
+                          <label
+                            className="row"
+                            style={{ gap: 8, alignItems: "center", cursor: "pointer" }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!!referenceStatus.received}
+                              onChange={() =>
+                                toggleReferenceEmail(participant.email, "received")
+                              }
+                            />
+                            <span
+                              className={
+                                "badge " + (referenceStatus.received ? "badgeSuccess" : "")
+                              }
+                            >
+                              {referenceStatus.received ? "Received" : "Not received"}
+                            </span>
+                          </label>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              <div className="small" style={{ marginTop: 12 }}>
+                Reference email tracking is saved locally for this demo trip.
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {tab === "Fundraising" && (
-        <div className="card pad">
-          <div style={{ fontWeight: 900, marginBottom: 8 }}>Fundraising Pages</div>
-          <p className="small">In the real version, these could be pulled from Neon and show progress bars.</p>
-          <div style={{ height: 10 }} />
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
-            {trip.participants.map(p => (
-              <li key={p.email} style={{ marginBottom: 8 }}>
-                <b>{p.name}:</b> <a href={p.fundraisingUrl} target="_blank" rel="noreferrer">{p.fundraisingUrl}</a>
-              </li>
-            ))}
-          </ul>
+        <div style={{ display: "grid", gap: 16 }}>
+          {canViewAllParticipantData && (
+            <div className="card pad">
+              <div className="row" style={{ marginBottom: 8 }}>
+                <div style={{ fontWeight: 900 }}>Team Fundraising Overview</div>
+                <div className="spacer" />
+                <span className="badge badgeSuccess">{teamFundraisingTotals.percent}%</span>
+              </div>
+              <div className="progress">
+                <div style={{ width: `${Math.min(teamFundraisingTotals.percent, 100)}%` }} />
+              </div>
+              <div className="small" style={{ marginTop: 8 }}>
+                {formatMoney(teamFundraisingTotals.raised)} raised of {formatMoney(teamFundraisingTotals.goal)} total goal.
+              </div>
+            </div>
+          )}
+
+          <div className="card pad">
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>
+              {canViewAllParticipantData ? "Fundraising Pages" : "My Fundraising"}
+            </div>
+            <p className="small">
+              {canViewAllParticipantData
+                ? "Staff and leaders can view every participant's fundraising progress."
+                : "This page only shows your own fundraising progress."}
+            </p>
+            <div style={{ height: 10 }} />
+
+            {visibleFundraisingParticipants.length === 0 ? (
+              <div className="small">No fundraising record found for this login.</div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                  gap: 16,
+                }}
+              >
+                {visibleFundraisingParticipants.map((participant) => {
+                  const individualPct = participant.fundraisingGoal
+                    ? Math.round(
+                        (Number(participant.fundraisingRaised || 0) /
+                          Number(participant.fundraisingGoal)) *
+                          100
+                      )
+                    : 0;
+
+                  return (
+                    <div key={participant.email} className="card pad" style={{ boxShadow: "none" }}>
+                      <div className="row" style={{ marginBottom: 8 }}>
+                        <div style={{ fontWeight: 900 }}>{participant.name}</div>
+                        <div className="spacer" />
+                        <span className="badge badgeSuccess">{individualPct}%</span>
+                      </div>
+                      <div className="progress">
+                        <div style={{ width: `${Math.min(individualPct, 100)}%` }} />
+                      </div>
+                      <div className="small" style={{ marginTop: 8 }}>
+                        {formatMoney(participant.fundraisingRaised || 0)} of {formatMoney(participant.fundraisingGoal || 0)} raised.
+                      </div>
+                      <div style={{ height: 10 }} />
+                      <a className="btn btnPrimary" href={participant.fundraisingUrl} target="_blank" rel="noreferrer">
+                        Open Fundraising Page
+                      </a>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {tab === "Training" && (
-        <div className="card pad">
-        <div style={{ fontWeight: 900, marginBottom: 8 }}>Training</div>
-        <p className="small">
-          Central place for training links + checklist. (Demo content for now.)
-        </p>
-
-        <div style={{ height: 12 }} />
-
-        <div style={{ fontWeight: 900, marginBottom: 6 }}>Links</div>
-        <ul style={{ margin: 0, paddingLeft: 18 }}>
-          <li style={{ marginBottom: 8 }}>
-            <a href="https://canvas.example.com/course/123" target="_blank" rel="noreferrer">
-              Canvas Login / Course
-            </a>
-          </li>
-          <li style={{ marginBottom: 8 }}>
-            <a href="https://example.com/basic-training" target="_blank" rel="noreferrer">
-              Basic Training
-            </a>
-          </li>
-          <li style={{ marginBottom: 8 }}>
-            <a href="https://example.com/gateway-training" target="_blank" rel="noreferrer">
-              Gateway Training + EndMeeting
-            </a>
-          </li>
-        </ul>
-
-        <div style={{ height: 14 }} />
-        <div style={{ fontWeight: 900, marginBottom: 6 }}>Training Checklist</div>
-
-        {[
-          { id: "m1", title: "Canvas Mod 1" },
-          { id: "m2", title: "Canvas Mod 2" },
-          { id: "m3", title: "Canvas Mod 3" },
-          { id: "m4", title: "Canvas Mod 4" },
-          { id: "m5", title: "Canvas Mod 5" },
-          { id: "m6", title: "Canvas Mod 6" },
-          { id: "m7", title: "Canvas Mod 7" },
-          { id: "m8", title: "Canvas Mod 8" },
-          { id: "m9", title: "Canvas Mod 9" },
-          { id: "bt", title: "Basic Training" },
-          { id: "gt", title: "Gateway Training" },
-          { id: "em", title: "EndMeeting" },
-        ].map((m) => (
-          <div key={m.id} className="row" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-            <input
-              type="checkbox"
-              checked={!!trainingDone[m.id]}
-              onChange={() => toggleTraining(m.id)}
-            />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 900 }}>{m.title}</div>
+        <div style={{ display: "grid", gap: 16 }}>
+          {isStaff && (
+            <div className="card pad">
+              <div className="row" style={{ marginBottom: 10 }}>
+                <div style={{ fontWeight: 900 }}>Training Progress</div>
+                <div className="spacer" />
+                <span className="badge">{trainingPct}% complete</span>
+              </div>
+              <div className="progress">
+                <div style={{ width: `${trainingPct}%` }} />
+              </div>
+              <div className="small" style={{ marginTop: 8 }}>
+                Overall completion across all participant training checklists.
+              </div>
             </div>
-            <span className={"badge " + (!!trainingDone[m.id] ? "badgeSuccess" : "badgeDanger")}>
-              {!!trainingDone[m.id] ? "Complete" : "Not started"}
-            </span>
-          </div>
-        ))}
+          )}
 
-        <div className="small" style={{ marginTop: 12 }}>
-          Next step: connect these checkboxes to localStorage like Tasks does.
+          <div className="card pad">
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>Training</div>
+            <p className="small">
+              Central place for training links and module tracking.
+            </p>
+
+            <div style={{ height: 14 }} />
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {trainingResources.map((resource) => (
+                <a
+                  key={resource.id}
+                  href={resource.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="card pad"
+                  style={{
+                    display: "block",
+                    color: "inherit",
+                    boxShadow: "none",
+                    textDecoration: "none",
+                    borderColor: "rgba(15, 23, 42, 0.08)",
+                  }}
+                >
+                  <div className="row" style={{ alignItems: "flex-start" }}>
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 12,
+                        background: resource.accent,
+                        color: "#fff",
+                        display: "grid",
+                        placeItems: "center",
+                        fontWeight: 900,
+                        fontSize: 13,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {resource.icon}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 900, marginBottom: 4 }}>{resource.title}</div>
+                      <div className="small">{resource.description}</div>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: canViewAllParticipantData
+                ? "repeat(auto-fit, minmax(260px, 1fr))"
+                : "1fr",
+              gap: 16,
+            }}
+          >
+            {visibleTrainingParticipants.map((participant) => {
+              const trainingState = participant.trainingState || {};
+
+              return (
+                <div key={participant.email} className="card pad">
+                  <div className="row" style={{ marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontWeight: 900 }}>
+                        {canViewAllParticipantData ? participant.name : "My Training"}
+                      </div>
+                      {canViewAllParticipantData && (
+                        <div className="small">{participant.email}</div>
+                      )}
+                    </div>
+                    <div className="spacer" />
+                    <span className="badge">{participant.percent}% complete</span>
+                  </div>
+
+                  <div style={{ fontWeight: 900, marginBottom: 10 }}>Canvas Modules</div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {canvasTrainingModules.map((module) => (
+                      <div
+                        key={`${participant.email}-${module.id}`}
+                        className="card pad"
+                        style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
+                      >
+                        <div className="row" style={{ alignItems: "flex-start" }}>
+                          <input
+                            type="checkbox"
+                            checked={!!trainingState[module.id]}
+                            onChange={() => toggleTraining(module.id, participant.email)}
+                            style={{ marginTop: 3 }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 900 }}>{module.title}</div>
+                          </div>
+                          <span className={"badge " + (!!trainingState[module.id] ? "badgeSuccess" : "badgeDanger")}>
+                            {!!trainingState[module.id] ? "Complete" : "Not started"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {supplementalTrainingModules.map((module) => (
+                        <div
+                          key={`${participant.email}-${module.id}`}
+                          className="card pad"
+                          style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
+                        >
+                          <div className="row" style={{ alignItems: "flex-start" }}>
+                            <input
+                              type="checkbox"
+                              checked={!!trainingState[module.id]}
+                              onChange={() => toggleTraining(module.id, participant.email)}
+                              style={{ marginTop: 3 }}
+                            />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 900 }}>{module.title}</div>
+                              <div style={{ marginTop: 8 }}>
+                                <div className="small" style={{ marginBottom: 6 }}>Date Attended</div>
+                                <input
+                                  className="input"
+                                  type="date"
+                                  value={trainingState[`${module.id}Date`] || ""}
+                                  onChange={(e) =>
+                                    updateTrainingDate(module.id, e.target.value, participant.email)
+                                  }
+                                />
+                              </div>
+                            </div>
+                            <span className={"badge " + (!!trainingState[module.id] ? "badgeSuccess" : "badgeDanger")}>
+                              {!!trainingState[module.id] ? "Complete" : "Not started"}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="small">
+            Training progress is saved separately for each participant in this demo.
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
       {tab === "Tasks" && (
-        <div className="card pad">
-          <div style={{ fontWeight: 900, marginBottom: 10 }}>Tasks</div>
-          {trip.tasks.map(t => {
-            const done = !!state[t.id];
-            return (
-              <div key={t.id} className="row" style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-                <input type="checkbox" checked={done} onChange={() => toggleTask(t.id)} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 900 }}>{t.title}</div>
-                  <div className="small">Due: {t.due}</div>
+        <div style={{ display: "grid", gap: 16 }}>
+          <div className="card pad">
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 900 }}>Task Progress</div>
+              <div className="spacer" />
+              <span className="badge">{overviewTaskPct}% complete</span>
+            </div>
+
+            <div className="progress">
+              <div style={{ width: `${overviewTaskPct}%` }} />
+            </div>
+
+            <div className="small" style={{ marginTop: 8 }}>
+              {canViewAllParticipantData
+                ? "Overall completion across all participant task lists."
+                : "Your current task completion for this trip."}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 12,
+                marginTop: 14,
+              }}
+            >
+              {visibleTaskParticipants.map((participant) => (
+                <div
+                  key={`${participant.email}-summary`}
+                  className="card pad"
+                  style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
+                >
+                  <div className="row" style={{ marginBottom: 8 }}>
+                    <div style={{ fontWeight: 900 }}>
+                      {canViewAllParticipantData ? participant.name : "My Tasks"}
+                    </div>
+                    <div className="spacer" />
+                    <span className="badge badgeSuccess">{participant.percent}%</span>
+                  </div>
+                  <div className="progress">
+                    <div style={{ width: `${participant.percent}%` }} />
+                  </div>
+                  <div className="small" style={{ marginTop: 8 }}>
+                    {participant.completed} of {participant.total} tasks complete.
+                  </div>
                 </div>
-                <span className={"badge " + (done ? "badgeSuccess" : "badgeDanger")}>
-                  {done ? "Complete" : "Not started"}
-                </span>
-              </div>
-            );
-          })}
-          <div className="small" style={{ marginTop: 12 }}>
-            Saved locally for demo. Later: store per-user completion in a database.
+              ))}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: canViewAllParticipantData
+                ? "repeat(auto-fit, minmax(260px, 1fr))"
+                : "1fr",
+              gap: 16,
+            }}
+          >
+            {visibleTaskParticipants.map((participant) => {
+              const taskState = participantTaskStates[participant.email] || {};
+
+              return (
+                <div key={participant.email} className="card pad">
+                  <div className="row" style={{ marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontWeight: 900 }}>
+                        {canViewAllParticipantData ? participant.name : "My Tasks"}
+                      </div>
+                      {canViewAllParticipantData && (
+                        <div className="small">{participant.email}</div>
+                      )}
+                    </div>
+                    <div className="spacer" />
+                    <span className="badge">{participant.percent}% complete</span>
+                  </div>
+
+                  {trip.tasks.length > 0 ? (
+                    trip.tasks.map((task) => {
+                      const done = !!taskState[task.id];
+
+                      return (
+                        <div
+                          key={`${participant.email}-${task.id}`}
+                          className="row"
+                          style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={done}
+                            onChange={() => toggleTask(task.id, participant.email)}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 900 }}>{task.title}</div>
+                            <div className="small">Due: {task.due}</div>
+                          </div>
+                          <span className={"badge " + (done ? "badgeSuccess" : "badgeDanger")}>
+                            {done ? "Complete" : "Not started"}
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="small">No tasks for this trip yet.</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="small">
+            Task progress is saved separately for each participant in this demo.
           </div>
         </div>
       )}
@@ -592,7 +1616,6 @@ export default function TripPage() {
             )}
             {tab === "Staff Tasks" && session?.role === "staff" && (
               <div className="card pad">
-
                 <div className="row" style={{ marginBottom: 10 }}>
                   <div>
                     <div style={{ fontWeight: 900 }}>Staff Tasks</div>
@@ -603,34 +1626,23 @@ export default function TripPage() {
 
                   <div className="spacer" />
 
-                  <span className="badge">{completionPct}% complete</span>
+                  <label className="small" htmlFor="staff-task-sort">
+                    Sort
+                  </label>
+                  <select
+                    id="staff-task-sort"
+                    className="input"
+                    value={staffTaskSort}
+                    onChange={(e) => setStaffTaskSort(e.target.value)}
+                    style={{ width: 180 }}
+                  >
+                    <option value="workArea">Work area</option>
+                    <option value="dueDate">Due date</option>
+                    <option value="assignedTo">Assigned to</option>
+                    <option value="progress">Progress</option>
+                  </select>
 
-                  {!isEditingStaffTasks ? (
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={handleEditStaffTasks}
-                    >
-                      Edit
-                    </button>
-                  ) : (
-                    <div className="row" style={{ gap: 8 }}>
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={handleCancelStaffTasks}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="btn btnPrimary"
-                        type="button"
-                        onClick={handleSaveStaffTasks}
-                      >
-                        Save
-                      </button>
-                    </div>
-                  )}
+                  <span className="badge">{completionPct}% complete</span>
                 </div>
 
                 <div style={{ marginBottom: 14 }}>
@@ -643,59 +1655,46 @@ export default function TripPage() {
                 </div>
 
                 <table className="table">
-
                   <thead>
                     <tr>
-                      <th style={{ width: "45%" }}>Task</th>
-                      <th style={{ width: "7%" }}>Assigned To</th>
-                      <th style={{ width: "7%" }}>Progress</th>
-                      <th style={{ width: "7%" }}>Due Date</th>
-                      <th style={{ width: "34%" }}>Notes</th>
-                      {isEditingStaffTasks && <th style={{ width: "10%" }}>Delete</th>}
+                      <th style={{ width: "36%" }}>Task</th>
+                      <th style={{ width: "16%" }}>Assigned To</th>
+                      <th style={{ width: "14%" }}>Progress</th>
+                      <th style={{ width: "14%" }}>Due Date</th>
+                      <th style={{ width: "20%" }}>Notes</th>
+                      <th style={{ width: "8%" }} />
                     </tr>
                   </thead>
 
-                  {Object.entries(
-                    isEditingStaffTasks ? groupedDraftTasks : groupedViewTasks
-                  ).map(([area, tasks]) => {
-
+                  {Object.entries(groupedViewTasks).map(([area, tasks]) => {
                     const sortedTasks = [
-                      ...tasks.filter(t => t.progress !== "Complete"),
-                      ...tasks.filter(t => t.progress === "Complete")
+                      ...tasks.filter((t) => t.progress !== "Complete"),
+                      ...tasks.filter((t) => t.progress === "Complete"),
                     ];
 
                     return (
                       <tbody key={area}>
-
-                        {/* WORK AREA PILL HEADER */}
-
                         <tr>
-                          <td colSpan={isEditingStaffTasks ? 6 : 5}>
-
-                            <div className="workAreaPill">
-                              {area}
+                          <td colSpan={6}>
+                            <div className="staffTaskSectionHeader">
+                              <span className="staffTaskSectionTitle">{area}</span>
+                              <div className="staffTaskSectionRule" />
+                              <span className="badge">{tasks.length}</span>
                             </div>
-
                           </td>
                         </tr>
 
                         {sortedTasks.map((t) => {
-
-                          const i = draftStaffTasks.findIndex((x) => x.id === t.id);
+                          const isEditingTitle = editingStaffTaskId === t.id;
 
                           return (
-                            <tr key={t.id}>
-
-                              {/* TASK TITLE */}
-
+                            <tr key={t.id} className="staffTaskRow">
                               <td>
-                                {isEditingStaffTasks ? (
+                                {isEditingTitle ? (
                                   <input
                                     className="input"
-                                    value={t.taskName || t.title || ""}
-                                    onChange={(e) =>
-                                      updateDraftTask(i, "taskName", e.target.value)
-                                    }
+                                    value={staffTaskTitleDraft}
+                                    onChange={(e) => setStaffTaskTitleDraft(e.target.value)}
                                   />
                                 ) : (
                                   <span style={{ fontSize: "14px", fontWeight: 600 }}>
@@ -704,104 +1703,89 @@ export default function TripPage() {
                                 )}
                               </td>
 
-                              {/* ASSIGNED */}
-
                               <td>
-                                {isEditingStaffTasks ? (
-                                  <select
-                                    className="input"
-                                    value={t.assignedTo || ""}
-                                    onChange={(e) =>
-                                      updateDraftTask(i, "assignedTo", e.target.value)
-                                    }
-                                  >
-                                    <option value="">Assign Staff</option>
-                                    {staffList.map((person) => (
-                                      <option key={person} value={person}>
-                                        {person}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <span className="small">{t.assignedTo || "-"}</span>
-                                )}
+                                <select
+                                  className="input"
+                                  value={t.assignedTo || ""}
+                                  onChange={(e) =>
+                                    updateStaffTask(t.id, "assignedTo", e.target.value)
+                                  }
+                                >
+                                  <option value="">Assign Staff</option>
+                                  {staffList.map((person) => (
+                                    <option key={person} value={person}>
+                                      {person}
+                                    </option>
+                                  ))}
+                                </select>
                               </td>
 
-                              {/* PROGRESS */}
-
                               <td>
-                                {isEditingStaffTasks ? (
-                                  <select
-                                    className="input"
-                                    value={t.progress || "Not started"}
-                                    onChange={(e) =>
-                                      updateDraftTask(i, "progress", e.target.value)
-                                    }
-                                  >
-                                    <option value="Not started">Not started</option>
-                                    <option value="In progress">In progress</option>
-                                    <option value="Complete">Complete</option>
-                                    <option value="Waiting">Waiting</option>
-                                  </select>
-                                ) : (
-                                  <span className={`badge ${getProgressClass(t.progress)}`}>
-                                    {t.progress || "Not started"}
-                                  </span>
-                                )}
+                                <select
+                                  className="input"
+                                  value={t.progress || "Not started"}
+                                  onChange={(e) =>
+                                    updateStaffTask(t.id, "progress", e.target.value)
+                                  }
+                                >
+                                  <option value="Not started">Not started</option>
+                                  <option value="In progress">In progress</option>
+                                  <option value="Complete">Complete</option>
+                                  <option value="Waiting">Waiting</option>
+                                </select>
                               </td>
 
-                              {/* DUE DATE */}
-
                               <td>
-                                {isEditingStaffTasks ? (
-                                  <input
-                                    className="input"
-                                    type="date"
-                                    value={t.dueDate || ""}
-                                    onChange={(e) =>
-                                      updateDraftTask(i, "dueDate", e.target.value)
-                                    }
-                                  />
-                                ) : (
-                                  <span className="small">{t.dueDate || "-"}</span>
-                                )}
+                                <input
+                                  className="input"
+                                  type="date"
+                                  value={t.dueDate || ""}
+                                  onChange={(e) =>
+                                    updateStaffTask(t.id, "dueDate", e.target.value)
+                                  }
+                                />
                               </td>
 
-                              {/* NOTES */}
-
                               <td>
-                                {isEditingStaffTasks ? (
-                                  <input
-                                    className="input"
-                                    value={t.notes || ""}
-                                    onChange={(e) =>
-                                      updateDraftTask(i, "notes", e.target.value)
-                                    }
-                                  />
-                                ) : (
-                                  <span className="small">{t.notes || "-"}</span>
-                                )}
+                                <input
+                                  className="input"
+                                  value={t.notes || ""}
+                                  onChange={(e) =>
+                                    updateStaffTask(t.id, "notes", e.target.value)
+                                  }
+                                />
                               </td>
 
-                              {/* DELETE */}
-
-                              {isEditingStaffTasks && (
-                                <td>
-                                  <button
-                                    className="btn"
-                                    type="button"
-                                    onClick={() => {
-                                      const next = draftStaffTasks.filter(
-                                        (x) => x.id !== t.id
-                                      );
-                                      setDraftStaffTasks(next);
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
-                                </td>
-                              )}
-
+                              <td>
+                                <div className="staffTaskRowActions">
+                                  {isEditingTitle ? (
+                                    <>
+                                      <button
+                                        className="btn"
+                                        type="button"
+                                        onClick={handleCancelStaffTaskEdit}
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        className="btn btnPrimary"
+                                        type="button"
+                                        onClick={() => handleSaveStaffTaskTitle(t.id)}
+                                      >
+                                        Save
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      className="btn"
+                                      type="button"
+                                      onClick={() => handleEditStaffTask(t)}
+                                    >
+                                      Edit
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
                             </tr>
                           );
                         })}
@@ -810,36 +1794,9 @@ export default function TripPage() {
                   })}
                 </table>
 
-                {isEditingStaffTasks && (
-                  <div style={{ marginTop: 12 }}>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                        const next = [
-                          ...draftStaffTasks,
-                          {
-                            id: Date.now().toString(),
-                            workArea: "",
-                            taskName: "",
-                            assignedTo: "",
-                            progress: "Not started",
-                            dueDate: "",
-                            notes: "",
-                          },
-                        ];
-                        setDraftStaffTasks(next);
-                      }}
-                    >
-                      Add Task
-                    </button>
-                  </div>
-                )}
-
                 <div className="small" style={{ marginTop: 12 }}>
                   Staff-only checklist for trip management tasks.
                 </div>
-
               </div>
             )}
 
