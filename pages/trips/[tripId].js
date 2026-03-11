@@ -45,6 +45,7 @@ export default function TripPage() {
   const [docsError, setDocsError] = useState("");
 
   const [trip, setTrip] = useState(null);
+  const [tripLoadComplete, setTripLoadComplete] = useState(false);
   const [editableStaffTasks, setEditableStaffTasks] = useState([]);
   const [editingStaffTaskId, setEditingStaffTaskId] = useState(null);
   const [editingDueDateTaskId, setEditingDueDateTaskId] = useState(null);
@@ -136,14 +137,17 @@ export default function TripPage() {
 
     async function loadTrip() {
       try {
+        setTripLoadComplete(false);
         const assignedTrip = await getTripForCurrentUser(tripId);
         if (!cancelled) {
           setTrip(assignedTrip);
+          setTripLoadComplete(true);
         }
       } catch (error) {
         console.error("Unable to load assigned trip", error);
         if (!cancelled) {
           setTrip(null);
+          setTripLoadComplete(true);
         }
       }
     }
@@ -794,9 +798,13 @@ export default function TripPage() {
     return (
       <Shell>
         <div className="card pad">
-          <div style={{ fontWeight: 900 }}>Loading trip…</div>
+          <div style={{ fontWeight: 900 }}>
+            {tripLoadComplete ? "Trip not found" : "Loading trip..."}
+          </div>
           <div className="small">
-            If this persists, the trip ID wasn’t found in the demo data.
+            {tripLoadComplete
+              ? "This trip could not be loaded for your current account."
+              : "Fetching trip details."}
           </div>
         </div>
       </Shell>
