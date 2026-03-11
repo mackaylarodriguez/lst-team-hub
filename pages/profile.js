@@ -1,15 +1,27 @@
 import Shell from "@/components/Shell";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { getSession, requireSession } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 
 export default function Profile() {
   const router = useRouter();
   const [session, setSession] = useState(null);
 
   useEffect(() => {
-    const s = requireSession(router);
-    if (s) setSession(getSession());
+    let cancelled = false;
+
+    async function loadSession() {
+      const nextSession = await requireSession(router);
+      if (!cancelled && nextSession) {
+        setSession(nextSession);
+      }
+    }
+
+    loadSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   return (

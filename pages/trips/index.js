@@ -1,9 +1,9 @@
 import Shell from "@/components/Shell";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
-import { SAMPLE } from "@/lib/sampleData";
+import { addTrip, getTrips, TRIPS_UPDATED_EVENT } from "@/lib/sampleData";
 
 function parseTripDates(dateLabel) {
   const sameMonthMatch = String(dateLabel).match(
@@ -46,12 +46,47 @@ function getCountdownLabel(start, end) {
 
 export default function Trips() {
   const router = useRouter();
-  const session = useMemo(() => null, []);
-  useEffect(() => { requireSession(router); }, [router]);
+  const [session, setSession] = useState(null);
+  const [trips, setTrips] = useState([]);
+  const [showTripForm, setShowTripForm] = useState(false);
+  const [tripDraft, setTripDraft] = useState({
+    name: "",
+    location: "",
+    dates: "",
+  });
+  const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkSession() {
+      const session = await requireSession(router);
+      if (cancelled || !session) return;
+      setSession(session);
+      setTrips(getTrips());
+    }
+
+    checkSession();
+
+    function syncTrips() {
+      if (!cancelled) {
+        setTrips(getTrips());
+      }
+    }
+
+    window.addEventListener(TRIPS_UPDATED_EVENT, syncTrips);
+    window.addEventListener("storage", syncTrips);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(TRIPS_UPDATED_EVENT, syncTrips);
+      window.removeEventListener("storage", syncTrips);
+    };
+  }, [router]);
 
   const { activeTrips, finishedTrips } = useMemo(() => {
     const today = startOfToday();
-    const grouped = SAMPLE.trips.map((trip) => {
+    const grouped = trips.map((trip) => {
       const { start, end } = parseTripDates(trip.dates);
       return { ...trip, start, end };
     });
@@ -72,7 +107,36 @@ export default function Trips() {
           return b.end - a.end;
         }),
     };
-  }, []);
+  }, [trips]);
+
+  const isStaff = session?.role === "staff";
+
+  function updateTripDraft(field, value) {
+    setTripDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleCancelTripForm() {
+    setShowTripForm(false);
+    setTripDraft({ name: "", location: "", dates: "" });
+    setSubmitError("");
+  }
+
+  function handleCreateTrip(event) {
+    event.preventDefault();
+    setSubmitError("");
+
+    try {
+      const trip = addTrip({
+        ...tripDraft,
+        staffLead: session?.name || "",
+        staffEmail: session?.email || "",
+      });
+      handleCancelTripForm();
+      router.push(`/trips/${trip.id}`);
+    } catch (error) {
+      setSubmitError(error.message || "Unable to create trip.");
+    }
+  }
 
   return (
     <Shell>
@@ -82,8 +146,67 @@ export default function Trips() {
           <p className="p">Everything you need for your team, in one place.</p>
         </div>
         <div className="spacer" />
+        {isStaff && (
+          <button
+            className="btn btnPrimary"
+            type="button"
+            onClick={() => setShowTripForm((current) => !current)}
+          >
+            {showTripForm ? "Close" : "Add Trip"}
+          </button>
+        )}
         <span className="badge">Demo</span>
       </div>
+
+      {isStaff && showTripForm && (
+        <div className="card pad" style={{ marginBottom: 24 }}>
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>Create Trip</div>
+          <div className="small" style={{ marginBottom: 16 }}>
+            This currently saves in the browser for the prototype. The next step is moving trips into Supabase so the whole team sees them.
+          </div>
+
+          <form onSubmit={handleCreateTrip} style={{ display: "grid", gap: 12 }}>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Trip Name</div>
+              <input
+                className="input"
+                value={tripDraft.name}
+                onChange={(event) => updateTripDraft("name", event.target.value)}
+                placeholder="UT Austin - Brazil"
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Location</div>
+              <input
+                className="input"
+                value={tripDraft.location}
+                onChange={(event) => updateTripDraft("location", event.target.value)}
+                placeholder="Florianopolis, Brazil"
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Dates</div>
+              <input
+                className="input"
+                value={tripDraft.dates}
+                onChange={(event) => updateTripDraft("dates", event.target.value)}
+                placeholder="June 12-27, 2026"
+              />
+            </div>
+            {submitError && (
+              <div className="small" style={{ color: "var(--danger)" }}>
+                {submitError}
+              </div>
+            )}
+            <div className="row">
+              <button className="btn btnPrimary" type="submit">Create Trip</button>
+              <button className="btn" type="button" onClick={handleCancelTripForm}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <div style={{ display: "grid", gap: 24 }}>
         <div>

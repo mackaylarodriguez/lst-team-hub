@@ -1,15 +1,28 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { clearSession, getSession } from "@/lib/auth";
-import { useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
 
 export default function Shell({ children }) {
   const router = useRouter();
-  const session = useMemo(() => getSession(), []);
+  const [session, setSession] = useState(null);
   const path = router.pathname;
 
   useEffect(() => {
-    // client-only; just ensures session exists when using Shell
+    let cancelled = false;
+
+    async function loadSession() {
+      const nextSession = await getSession();
+      if (!cancelled) {
+        setSession(nextSession);
+      }
+    }
+
+    loadSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const isAdmin = session?.role === "staff";
@@ -36,7 +49,16 @@ export default function Shell({ children }) {
           <Link className={path.startsWith("/trips") ? "active" : ""} href="/trips">My Trips</Link>
           {isAdmin && <Link className={path === "/admin" ? "active" : ""} href="/admin">Admin</Link>}
           <Link className={path === "/profile" ? "active" : ""} href="/profile">Profile</Link>
-          <a href="#" onClick={(e)=>{e.preventDefault(); clearSession(); router.push("/login");}}>Logout</a>
+          <a
+            href="#"
+            onClick={async (e) => {
+              e.preventDefault();
+              await clearSession();
+              router.push("/login");
+            }}
+          >
+            Logout
+          </a>
         </nav>
 
         <div style={{ height: 14 }} />

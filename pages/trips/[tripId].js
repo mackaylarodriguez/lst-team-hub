@@ -3,6 +3,13 @@ import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { getTrip } from "@/lib/sampleData";
+import {
+  addLinkResource,
+  addPdfResource,
+  deleteResource,
+  listResources,
+  updateResource,
+} from "@/lib/resources";
 import { loadTaskState, saveTaskState, percentComplete } from "@/lib/tasks";
 import {
   loadStaffTasks,
@@ -12,74 +19,10 @@ import {
   STAFF_TASKS_UPDATED_EVENT,
 } from "@/lib/staffTasks";
 
-const REQUIRED_TRIP_LINKS = [
-  { key: "flights", title: "Flights" },
-  { key: "trip-insurance", title: "Trip Insurance" },
-  { key: "budget-link", title: "Budget Link" },
-];
-
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
   "Support During Project": "During Project",
 };
-
-function normalizeDocItem(doc, tripId, index = 0) {
-  if (!doc) {
-    return {
-      id: `${tripId}-doc-${index}`,
-      type: "link",
-      title: "Untitled",
-      url: "",
-      dataUrl: "",
-      fileName: "",
-      uploadedAt: "",
-    };
-  }
-
-  return {
-    id: doc.id || `${tripId}-doc-${index}`,
-    type: doc.type || (doc.url ? "link" : "file"),
-    title: doc.title || doc.name || "Untitled",
-    url: doc.url || "",
-    dataUrl: doc.dataUrl || "",
-    fileName: doc.fileName || doc.name || "",
-    uploadedAt: doc.uploadedAt || doc.date || "",
-  };
-}
-
-function buildTripDocs(trip, savedDocs = null) {
-  const sourceDocs = Array.isArray(savedDocs) ? savedDocs : trip.docs || [];
-  const normalizedDocs = sourceDocs.map((doc, index) =>
-    normalizeDocItem(doc, trip.id, index)
-  );
-
-  const requiredLinks = REQUIRED_TRIP_LINKS.map((link) => ({
-    id: `${trip.id}-${link.key}`,
-    type: "link",
-    title: link.title,
-    url: "",
-    dataUrl: "",
-    fileName: "",
-    uploadedAt: "",
-  }));
-
-  const mergedRequiredLinks = requiredLinks.map(
-    (requiredLink) =>
-      normalizedDocs.find(
-        (doc) => doc.id === requiredLink.id || doc.title === requiredLink.title
-      ) || requiredLink
-  );
-
-  const extraDocs = normalizedDocs.filter(
-    (doc) =>
-      !requiredLinks.some(
-        (requiredLink) =>
-          doc.id === requiredLink.id || doc.title === requiredLink.title
-      )
-  );
-
-  return [...mergedRequiredLinks, ...extraDocs];
-}
 
 export default function TripPage() {
   const router = useRouter();
@@ -93,11 +36,12 @@ export default function TripPage() {
   const [trainingDone, setTrainingDone] = useState({});
   const [docs, setDocs] = useState([]);
   const [isAddingLink, setIsAddingLink] = useState(false);
-  const [linkDraft, setLinkDraft] = useState({ title: "", url: "" });
+  const [linkDraft, setLinkDraft] = useState({ title: "", link: "", workArea: "" });
   const [editingDocId, setEditingDocId] = useState(null);
   const [docDraft, setDocDraft] = useState(null);
   const [referenceEmails, setReferenceEmails] = useState({});
   const addDocumentInputRef = useRef(null);
+  const [docsError, setDocsError] = useState("");
 
   const trip = useMemo(() => {
     return tripId ? getTrip(tripId) : null;
@@ -169,10 +113,21 @@ export default function TripPage() {
 
   useEffect(() => {
     if (!router.isReady) return;
-    const activeSession = requireSession(router);
-    if (activeSession) {
-      setSession(activeSession);
+
+    let cancelled = false;
+
+    async function loadSession() {
+      const activeSession = await requireSession(router);
+      if (!cancelled && activeSession) {
+        setSession(activeSession);
+      }
     }
+
+    loadSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router, router.isReady]);
 
   useEffect(() => {
@@ -209,10 +164,30 @@ export default function TripPage() {
 
   useEffect(() => {
     if (!trip) return;
-    const key = `docs:${trip.id}`;
-    const saved = localStorage.getItem(key);
-    const parsed = saved ? JSON.parse(saved) : null;
-    setDocs(buildTripDocs(trip, parsed));
+
+    let cancelled = false;
+
+    async function loadDocs() {
+      try {
+        const savedDocs = await listResources();
+        if (!cancelled) {
+          setDocs(savedDocs);
+          setDocsError("");
+        }
+      } catch (error) {
+        console.error("Unable to load resources", error);
+        if (!cancelled) {
+          setDocs([]);
+          setDocsError(error.message || "Unable to load resources.");
+        }
+      }
+    }
+
+    loadDocs();
+
+    return () => {
+      cancelled = true;
+    };
   }, [trip]);
 
   useEffect(() => {
@@ -251,40 +226,21 @@ export default function TripPage() {
     };
   }, [trip]);
 
-  function saveDocs(nextDocs) {
-    setDocs(nextDocs);
-    if (!trip) return;
-    localStorage.setItem(`docs:${trip.id}`, JSON.stringify(nextDocs));
-  }
-
-  function readFileAsDataUrl(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
   async function handleAddDocument(event) {
     const file = event.target.files?.[0];
-    if (!file || !trip) return;
+    if (!file) return;
 
     try {
-      const dataUrl = await readFileAsDataUrl(file);
-      const nextDocs = [
-        ...docs,
-        {
-          id: `${trip.id}-file-${Date.now()}`,
-          type: "file",
-          title: file.name,
-          url: "",
-          dataUrl,
-          fileName: file.name,
-          uploadedAt: new Date().toLocaleDateString(),
-        },
-      ];
-      saveDocs(nextDocs);
+      const created = await addPdfResource({
+        title: file.name,
+        file,
+        workArea: trip?.name || "",
+      });
+      setDocs((current) => [created, ...current]);
+      setDocsError("");
+    } catch (error) {
+      console.error("Unable to add PDF resource", error);
+      setDocsError(error.message || "Unable to save resources.");
     } finally {
       event.target.value = "";
     }
@@ -292,31 +248,26 @@ export default function TripPage() {
 
   function handleAddLink() {
     setIsAddingLink(true);
-    setLinkDraft({ title: "", url: "" });
+    setLinkDraft({ title: "", link: "", workArea: trip?.name || "" });
   }
 
   function handleCancelAddLink() {
     setIsAddingLink(false);
-    setLinkDraft({ title: "", url: "" });
+    setLinkDraft({ title: "", link: "", workArea: trip?.name || "" });
   }
 
-  function handleSaveLink() {
-    if (!trip || !linkDraft.title.trim()) return;
+  async function handleSaveLink() {
+    if (!linkDraft.title.trim()) return;
 
-    const nextDocs = [
-      ...docs,
-      {
-        id: `${trip.id}-link-${Date.now()}`,
-        type: "link",
-        title: linkDraft.title.trim(),
-        url: linkDraft.url.trim(),
-        dataUrl: "",
-        fileName: "",
-        uploadedAt: "",
-      },
-    ];
-    saveDocs(nextDocs);
-    handleCancelAddLink();
+    try {
+      const created = await addLinkResource(linkDraft);
+      setDocs((current) => [created, ...current]);
+      setDocsError("");
+      handleCancelAddLink();
+    } catch (error) {
+      console.error("Unable to add link resource", error);
+      setDocsError(error.message || "Unable to save resources.");
+    }
   }
 
   function handleEditDoc(doc) {
@@ -329,30 +280,56 @@ export default function TripPage() {
     setDocDraft(null);
   }
 
-  function handleSaveDoc() {
+  async function handleSaveDoc() {
     if (!docDraft) return;
 
-    const nextDocs = docs.map((doc) =>
-      doc.id === docDraft.id ? { ...docDraft, title: docDraft.title?.trim() || doc.title } : doc
-    );
-    saveDocs(nextDocs);
-    handleCancelEditDoc();
+    try {
+      const updated = await updateResource({
+        id: docDraft.id,
+        title: docDraft.title,
+        link: docDraft.link,
+        pdfUrl: docDraft.pdfUrl,
+        workArea: docDraft.workArea,
+      });
+      setDocs((current) =>
+        current.map((doc) => (doc.id === updated.id ? updated : doc))
+      );
+      setDocsError("");
+      handleCancelEditDoc();
+    } catch (error) {
+      console.error("Unable to update resource", error);
+      setDocsError(error.message || "Unable to save resources.");
+    }
   }
 
   async function handleReplaceDocumentFile(event) {
     const file = event.target.files?.[0];
     if (!file || !docDraft) return;
 
-    const dataUrl = await readFileAsDataUrl(file);
-    setDocDraft((prev) => ({
-      ...prev,
-      type: "file",
-      dataUrl,
-      fileName: file.name,
-      title: prev?.title || file.name,
-      uploadedAt: new Date().toLocaleDateString(),
-    }));
-    event.target.value = "";
+    try {
+      const created = await addPdfResource({
+        title: docDraft.title || file.name,
+        file,
+        workArea: docDraft.workArea,
+      });
+      const updated = await updateResource({
+        id: docDraft.id,
+        title: created.title,
+        link: null,
+        pdfUrl: created.pdfUrl,
+        workArea: created.workArea,
+      });
+      setDocs((current) =>
+        current.map((doc) => (doc.id === updated.id ? updated : doc))
+      );
+      setDocsError("");
+      handleCancelEditDoc();
+    } catch (error) {
+      console.error("Unable to replace PDF resource", error);
+      setDocsError(error.message || "Unable to save resources.");
+    } finally {
+      event.target.value = "";
+    }
   }
 
   function saveReferenceEmails(nextReferenceEmails) {
@@ -1461,31 +1438,87 @@ export default function TripPage() {
                   <div style={{ fontWeight: 900 }}>Documents & Links</div>
                   <div className="spacer" />
                   {session?.role === "staff" && (
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                        const next = [
-                          ...docs,
-                          { name: "New Document", date: "—", status: "Coming soon", url: "" },
-                        ];
-                        saveDocs(next);
-                      }}
-                    >
-                      Add Link
-                    </button>
+                    <div className="row">
+                      <button className="btn" type="button" onClick={handleAddLink}>
+                        Add Link
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => addDocumentInputRef.current?.click()}
+                      >
+                        Upload File
+                      </button>
+                      <input
+                        ref={addDocumentInputRef}
+                        type="file"
+                        hidden
+                        onChange={handleAddDocument}
+                      />
+                    </div>
                   )}
                 </div>
+
+                {docsError && (
+                  <div className="small" style={{ color: "var(--danger)", marginBottom: 12 }}>
+                    {docsError}
+                  </div>
+                )}
+
+                {isAddingLink && (
+                  <div
+                    className="card pad"
+                    style={{ boxShadow: "none", marginBottom: 14, background: "rgba(255,255,255,.7)" }}
+                  >
+                    <div style={{ fontWeight: 900, marginBottom: 10 }}>New Link</div>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      <input
+                        className="input"
+                        value={linkDraft.title}
+                        onChange={(e) =>
+                          setLinkDraft((prev) => ({ ...prev, title: e.target.value }))
+                        }
+                        placeholder="Training folder"
+                      />
+                      <input
+                        className="input"
+                        value={linkDraft.link}
+                        onChange={(e) =>
+                          setLinkDraft((prev) => ({ ...prev, link: e.target.value }))
+                        }
+                        placeholder="https://..."
+                      />
+                      <input
+                        className="input"
+                        value={linkDraft.workArea}
+                        onChange={(e) =>
+                          setLinkDraft((prev) => ({ ...prev, workArea: e.target.value }))
+                        }
+                        placeholder="Work area"
+                      />
+                      <div className="row">
+                        <button className="btn btnPrimary" type="button" onClick={handleSaveLink}>
+                          Save Link
+                        </button>
+                        <button className="btn" type="button" onClick={handleCancelAddLink}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {docs.length === 0 ? (
                   <div className="small">No documents yet.</div>
                 ) : (
-                  docs.map((d, i) => {
-                    const available = d.status === "Available" && d.url;
+                  docs.map((d) => {
+                    const available = !!(d.pdfUrl || d.link);
+                    const isEditing = editingDocId === d.id;
+                    const isPdf = !!d.pdfUrl;
 
                     return (
                       <div
-                        key={i}
+                        key={d.id}
                         className="row"
                         style={{
                           padding: "10px 0",
@@ -1494,57 +1527,100 @@ export default function TripPage() {
                         }}
                       >
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 900 }}>{d.name}</div>
-                          <div className="small">{d.date}</div>
+                          {isEditing ? (
+                            <div style={{ display: "grid", gap: 8 }}>
+                              <input
+                                className="input"
+                                value={docDraft?.title || ""}
+                                onChange={(e) =>
+                                  setDocDraft((prev) => ({ ...prev, title: e.target.value }))
+                                }
+                                placeholder="Title"
+                              />
+                              <input
+                                className="input"
+                                value={docDraft?.link || ""}
+                                onChange={(e) =>
+                                  setDocDraft((prev) => ({ ...prev, link: e.target.value }))
+                                }
+                                placeholder="https://..."
+                                disabled={!!docDraft?.pdfUrl}
+                              />
+                              <input
+                                className="input"
+                                value={docDraft?.workArea || ""}
+                                onChange={(e) =>
+                                  setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
+                                }
+                                placeholder="Work area"
+                              />
+                              {!!docDraft?.pdfUrl && (
+                                <input type="file" onChange={handleReplaceDocumentFile} />
+                              )}
+                              <div className="row">
+                                <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
+                                  Save
+                                </button>
+                                <button className="btn" type="button" onClick={handleCancelEditDoc}>
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{ fontWeight: 900 }}>{d.title}</div>
+                              <div className="small">
+                                {isPdf ? "PDF" : "Link"}
+                                {d.workArea ? ` • ${d.workArea}` : ""}
+                                {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
+                              </div>
+                            </>
+                          )}
 
                           {session?.role === "staff" && (
                             <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                              <div className="small">Status</div>
-                              <select
-                                className="input"
-                                value={d.status}
-                                onChange={(e) => {
-                                  const next = [...docs];
-                                  next[i] = { ...next[i], status: e.target.value };
-                                  saveDocs(next);
-                                }}
-                              >
-                                <option value="Coming soon">Coming soon</option>
-                                <option value="Available">Available</option>
-                              </select>
-
-                              <div className="small">SharePoint Link</div>
-                              <input
-                                className="input"
-                                value={d.url || ""}
-                                placeholder="Paste SharePoint link…"
-                                onChange={(e) => {
-                                  const next = [...docs];
-                                  next[i] = { ...next[i], url: e.target.value };
-                                  saveDocs(next);
-                                }}
-                              />
-
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={() => {
-                                  const next = docs.filter((_, idx) => idx !== i);
-                                  saveDocs(next);
-                                }}
-                              >
-                                Delete
-                              </button>
+                              {!isEditing && (
+                                <div className="row">
+                                  <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="btn"
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        await deleteResource(d.id);
+                                        setDocs((current) =>
+                                          current.filter((doc) => doc.id !== d.id)
+                                        );
+                                        setDocsError("");
+                                      } catch (error) {
+                                        console.error("Unable to delete resource", error);
+                                        setDocsError(
+                                          error.message || "Unable to save resources."
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
 
                         <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-                          {available ? "Available" : "Coming soon"}
+                          {isPdf ? "PDF" : available ? "Link ready" : "Missing URL"}
                         </span>
 
                         {available ? (
-                          <a className="btn btnPrimary" href={d.url} target="_blank" rel="noreferrer">
+                          <a
+                            className="btn btnPrimary"
+                            href={d.pdfUrl || d.link}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
                             Open
                           </a>
                         ) : (

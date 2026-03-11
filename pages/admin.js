@@ -1,8 +1,8 @@
 import Shell from "@/components/Shell";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
-import { getSession, requireSession } from "@/lib/auth";
-import { SAMPLE } from "@/lib/sampleData";
+import { requireSession } from "@/lib/auth";
+import { getTrips, TRIPS_UPDATED_EVENT } from "@/lib/sampleData";
 import {
   isTaskAssignedToUser,
   loadStaffTasks,
@@ -24,18 +24,48 @@ export default function Admin() {
   const [staffTasksByTrip, setStaffTasksByTrip] = useState({});
   const [editingTaskKey, setEditingTaskKey] = useState(null);
   const [taskTitleDraft, setTaskTitleDraft] = useState("");
+  const [trips, setTrips] = useState([]);
 
   useEffect(() => {
-    requireSession(router);
-    const sess = getSession();
-    setSession(sess);
-    if (sess?.role !== "staff") router.replace("/trips");
+    let cancelled = false;
+
+    async function loadSession() {
+      const nextSession = await requireSession(router);
+      if (cancelled || !nextSession) return;
+
+      setSession(nextSession);
+      if (nextSession.role !== "staff") {
+        router.replace("/trips");
+      }
+    }
+
+    loadSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
+
+  useEffect(() => {
+    const syncTrips = () => {
+      setTrips(getTrips());
+    };
+
+    syncTrips();
+
+    window.addEventListener(TRIPS_UPDATED_EVENT, syncTrips);
+    window.addEventListener("storage", syncTrips);
+
+    return () => {
+      window.removeEventListener(TRIPS_UPDATED_EVENT, syncTrips);
+      window.removeEventListener("storage", syncTrips);
+    };
+  }, []);
 
   useEffect(() => {
     const syncStaffTasks = () => {
       const next = {};
-      SAMPLE.trips.forEach((trip) => {
+      trips.forEach((trip) => {
         next[trip.id] = loadStaffTasks(trip);
       });
       setStaffTasksByTrip(next);
@@ -60,18 +90,18 @@ export default function Admin() {
       window.removeEventListener(STAFF_TASKS_UPDATED_EVENT, handleTaskUpdate);
       window.removeEventListener("storage", handleStorage);
     };
-  }, []);
+  }, [trips]);
 
   const allTasks = useMemo(
     () =>
-      SAMPLE.trips.flatMap((trip) =>
+      trips.flatMap((trip) =>
         (staffTasksByTrip[trip.id] || trip.staffTasks || []).map((task) => ({
           ...task,
           tripId: trip.id,
           tripName: trip.name,
         }))
       ),
-    [staffTasksByTrip]
+    [staffTasksByTrip, trips]
   );
 
   const myTasks = useMemo(
@@ -113,7 +143,7 @@ export default function Admin() {
   }, [myTasks, sortMode]);
 
   function updateTask(tripId, taskId, field, value) {
-    const trip = SAMPLE.trips.find((item) => item.id === tripId);
+    const trip = trips.find((item) => item.id === tripId);
     const baseTasks = staffTasksByTrip[tripId] || loadStaffTasks(trip) || [];
     const nextTripTasks = baseTasks.map((task) =>
       task.id === taskId ? { ...task, [field]: value } : task
