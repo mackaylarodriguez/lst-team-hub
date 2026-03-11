@@ -82,31 +82,6 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="row" style={{ marginBottom: 14, gap: 8 }}>
-          <button
-            className={mode === "signin" ? "btn btnPrimary" : "btn"}
-            type="button"
-            onClick={() => {
-              setMode("signin");
-              setErr("");
-              setMessage("");
-            }}
-          >
-            Sign In
-          </button>
-          <button
-            className={mode === "signup" ? "btn btnPrimary" : "btn"}
-            type="button"
-            onClick={() => {
-              setMode("signup");
-              setErr("");
-              setMessage("");
-            }}
-          >
-            Create Account
-          </button>
-        </div>
-
         <form onSubmit={onSubmit} style={{ display:"grid", gap: 12 }}>
           <div>
             <div className="small" style={{ marginBottom: 6 }}>Email</div>
@@ -118,15 +93,32 @@ export default function Login() {
           </div>
           {message && <div className="small" style={{ color:"var(--success)" }}>{message}</div>}
           {err && <div className="small" style={{ color:"var(--danger)" }}>{err}</div>}
-          <button className="btn btnPrimary" type="submit" disabled={submitting}>
-            {submitting
-              ? mode === "signup"
-                ? "Creating Account..."
-                : "Signing In..."
-              : mode === "signup"
-                ? "Create Account"
-                : "Sign In"}
-          </button>
+          <div className="row" style={{ gap: 8 }}>
+            <button
+              className={mode === "signin" ? "btn btnPrimary" : "btn"}
+              type="submit"
+              disabled={submitting}
+              onClick={() => {
+                setMode("signin");
+                setErr("");
+                setMessage("");
+              }}
+            >
+              {submitting && mode === "signin" ? "Signing In..." : "Sign In"}
+            </button>
+            <button
+              className={mode === "signup" ? "btn btnPrimary" : "btn"}
+              type="submit"
+              disabled={submitting}
+              onClick={() => {
+                setMode("signup");
+                setErr("");
+                setMessage("");
+              }}
+            >
+              {submitting && mode === "signup" ? "Creating Account..." : "Create Account"}
+            </button>
+          </div>
         </form>
       </div>
     </div>

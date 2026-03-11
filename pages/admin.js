@@ -3,11 +3,8 @@ import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import {
-  assignWorkerToTrip,
-  listTripAssignments,
+  assignWorkerByEmailToTrip,
   listTripsForCurrentUser,
-  listWorkers,
-  removeTripAssignment,
   TRIPS_UPDATED_EVENT,
 } from "@/lib/trips";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
@@ -33,10 +30,10 @@ export default function Admin() {
   const [editingTaskKey, setEditingTaskKey] = useState(null);
   const [taskTitleDraft, setTaskTitleDraft] = useState("");
   const [trips, setTrips] = useState([]);
-  const [workers, setWorkers] = useState([]);
-  const [selectedWorkerByTrip, setSelectedWorkerByTrip] = useState({});
-  const [assignmentsByTrip, setAssignmentsByTrip] = useState({});
+  const [workerEmail, setWorkerEmail] = useState("");
+  const [selectedTripId, setSelectedTripId] = useState("");
   const [assignmentError, setAssignmentError] = useState("");
+  const [assignmentMessage, setAssignmentMessage] = useState("");
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
   useEffect(() => {
@@ -78,43 +75,6 @@ export default function Admin() {
       window.removeEventListener("storage", syncTrips);
     };
   }, []);
-
-  useEffect(() => {
-    if (!isAdminUser) return;
-
-    let cancelled = false;
-
-    async function loadWorkersAndAssignments() {
-      try {
-        const availableWorkers = await listWorkers();
-        if (!cancelled) {
-          setWorkers(availableWorkers);
-        }
-
-        const assignmentEntries = await Promise.all(
-          trips.map(async (trip) => [trip.id, await listTripAssignments(trip.id)])
-        );
-
-        if (!cancelled) {
-          setAssignmentsByTrip(Object.fromEntries(assignmentEntries));
-          setAssignmentError("");
-        }
-      } catch (error) {
-        console.error("Unable to load assignment data", error);
-        if (!cancelled) {
-          setAssignmentError(
-            error.message || "Unable to load trip assignments."
-          );
-        }
-      }
-    }
-
-    loadWorkersAndAssignments();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAdminUser, trips]);
 
   useEffect(() => {
     const syncStaffTasks = () => {
@@ -230,47 +190,27 @@ export default function Admin() {
     handleCancelTitleEdit();
   }
 
-  function updateSelectedWorker(tripId, userId) {
-    setSelectedWorkerByTrip((prev) => ({
-      ...prev,
-      [tripId]: userId,
-    }));
-  }
-
-  async function handleAssignWorker(tripId) {
-    const userId = selectedWorkerByTrip[tripId];
-    if (!userId) return;
-
+  async function handleAssignWorker() {
     try {
-      await assignWorkerToTrip({ userId, tripId });
-      const nextAssignments = await listTripAssignments(tripId);
-      setAssignmentsByTrip((prev) => ({
-        ...prev,
-        [tripId]: nextAssignments,
-      }));
+      const result = await assignWorkerByEmailToTrip({
+        workerEmail,
+        tripId: selectedTripId,
+      });
+
+      if (result.status !== "assigned") {
+        setAssignmentError(result.message);
+        setAssignmentMessage("");
+        return;
+      }
+
       setAssignmentError("");
-      setSelectedWorkerByTrip((prev) => ({
-        ...prev,
-        [tripId]: "",
-      }));
+      setAssignmentMessage(result.message);
+      setWorkerEmail("");
+      setSelectedTripId("");
     } catch (error) {
       console.error("Unable to assign worker", error);
       setAssignmentError(error.message || "Unable to assign worker.");
-    }
-  }
-
-  async function handleRemoveAssignment(tripId, assignmentId) {
-    try {
-      await removeTripAssignment(assignmentId);
-      const nextAssignments = await listTripAssignments(tripId);
-      setAssignmentsByTrip((prev) => ({
-        ...prev,
-        [tripId]: nextAssignments,
-      }));
-      setAssignmentError("");
-    } catch (error) {
-      console.error("Unable to remove assignment", error);
-      setAssignmentError(error.message || "Unable to remove assignment.");
+      setAssignmentMessage("");
     }
   }
 
@@ -283,125 +223,76 @@ export default function Admin() {
 
       <div style={{ height: 14 }} />
 
+      <div className="card pad" style={{ marginBottom: 16 }}>
+        <div className="row" style={{ marginBottom: 10 }}>
+          <div>
+            <div style={{ fontWeight: 900 }}>Assign Worker to Trip</div>
+            <div className="small">
+              Staff and admin can assign workers using their email address.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: 12, maxWidth: 520 }}>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Worker Email</div>
+            <input
+              className="input"
+              value={workerEmail}
+              onChange={(event) => setWorkerEmail(event.target.value)}
+              placeholder="worker@org.org"
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Trip</div>
+            <select
+              className="input"
+              value={selectedTripId}
+              onChange={(event) => setSelectedTripId(event.target.value)}
+            >
+              <option value="">Select a trip</option>
+              {trips.map((trip) => (
+                <option key={trip.id} value={trip.id}>
+                  {trip.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {assignmentMessage && (
+            <div className="small" style={{ color: "var(--success)" }}>
+              {assignmentMessage}
+            </div>
+          )}
+          {assignmentError && (
+            <div className="small" style={{ color: "var(--danger)" }}>
+              {assignmentError}
+            </div>
+          )}
+          <div>
+            <button
+              className="btn btnPrimary"
+              type="button"
+              onClick={handleAssignWorker}
+            >
+              Assign
+            </button>
+          </div>
+        </div>
+      </div>
+
       {isAdminUser && (
         <div className="card pad" style={{ marginBottom: 16 }}>
           <div className="row" style={{ marginBottom: 10 }}>
             <div>
               <div style={{ fontWeight: 900 }}>Admin Controls</div>
               <div className="small">
-                Assign workers to trips and manage access.
+                Admin-only controls remain here.
               </div>
             </div>
           </div>
-
-          {assignmentError && (
-            <div className="small" style={{ color: "var(--danger)", marginBottom: 12 }}>
-              {assignmentError}
-            </div>
-          )}
-
-          {trips.length === 0 ? (
-            <div className="small">No trips available yet.</div>
-          ) : (
-            <div style={{ display: "grid", gap: 12 }}>
-              {trips.map((trip) => {
-                const assignments = assignmentsByTrip[trip.id] || [];
-
-                return (
-                  <div
-                    key={trip.id}
-                    className="card pad"
-                    style={{ boxShadow: "none", background: "rgba(255,255,255,.72)" }}
-                  >
-                    <div className="row" style={{ marginBottom: 10 }}>
-                      <div>
-                        <div style={{ fontWeight: 900 }}>{trip.name}</div>
-                        <div className="small">
-                          {trip.location || "Location TBD"}
-                          {trip.dates ? ` • ${trip.dates}` : ""}
-                        </div>
-                      </div>
-                      <div className="spacer" />
-                      <span className="badge">
-                        {assignments.length} worker{assignments.length === 1 ? "" : "s"}
-                      </span>
-                    </div>
-
-                    <div className="row" style={{ gap: 10, alignItems: "center", marginBottom: 10 }}>
-                      <select
-                        className="input"
-                        value={selectedWorkerByTrip[trip.id] || ""}
-                        onChange={(event) =>
-                          updateSelectedWorker(trip.id, event.target.value)
-                        }
-                        style={{ maxWidth: 320 }}
-                      >
-                        <option value="">Select a worker</option>
-                        {workers.map((worker) => (
-                          <option key={worker.id} value={worker.id}>
-                            {worker.email}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        className="btn btnPrimary"
-                        type="button"
-                        disabled={!selectedWorkerByTrip[trip.id]}
-                        onClick={() => handleAssignWorker(trip.id)}
-                      >
-                        Assign Worker
-                      </button>
-                    </div>
-
-                    {assignments.length === 0 ? (
-                      <div className="small">No workers assigned to this trip.</div>
-                    ) : (
-                      <table className="table">
-                        <thead>
-                          <tr>
-                            <th>Worker</th>
-                            <th>Role</th>
-                            <th>Assigned</th>
-                            <th />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {assignments.map((assignment) => (
-                            <tr key={assignment.id}>
-                              <td style={{ fontWeight: 700 }}>
-                                {assignment.user?.email || assignment.user_id}
-                              </td>
-                              <td>
-                                <span className="badge">
-                                  {assignment.user?.role || "worker"}
-                                </span>
-                              </td>
-                              <td>
-                                {assignment.created_at
-                                  ? new Date(assignment.created_at).toLocaleDateString()
-                                  : "—"}
-                              </td>
-                              <td>
-                                <button
-                                  className="btn"
-                                  type="button"
-                                  onClick={() =>
-                                    handleRemoveAssignment(trip.id, assignment.id)
-                                  }
-                                >
-                                  Remove
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <div className="small">
+            Only admins can delete trips. Staff can archive trips from the trips list.
+          </div>
         </div>
       )}
 

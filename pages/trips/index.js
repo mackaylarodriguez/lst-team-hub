@@ -4,11 +4,15 @@ import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import {
+  archiveTrip,
   createTripForCurrentUser,
+  deleteTrip,
+  isTripArchived,
   listTripsForCurrentUser,
   TRIPS_UPDATED_EVENT,
+  unarchiveTrip,
 } from "@/lib/trips";
-import { isManagerRole } from "@/lib/roles";
+import { isAdminRole, isManagerRole } from "@/lib/roles";
 
 function parseTripDates(dateLabel) {
   const sameMonthMatch = String(dateLabel).match(
@@ -108,32 +112,36 @@ export default function Trips() {
     };
   }, [router]);
 
-  const { activeTrips, finishedTrips } = useMemo(() => {
+  const { activeTrips, finishedTrips, archivedTrips } = useMemo(() => {
     const today = startOfToday();
     const grouped = trips.map((trip) => {
       const { start, end } = parseTripBounds(trip);
-      return { ...trip, start, end };
+      return { ...trip, start, end, isArchived: isTripArchived(trip.id) };
     });
 
     return {
       activeTrips: grouped
-        .filter((trip) => !trip.end || trip.end >= today)
+        .filter((trip) => !trip.isArchived && (!trip.end || trip.end >= today))
         .sort((a, b) => {
           if (!a.start) return 1;
           if (!b.start) return -1;
           return a.start - b.start;
         }),
       finishedTrips: grouped
-        .filter((trip) => trip.end && trip.end < today)
+        .filter((trip) => !trip.isArchived && trip.end && trip.end < today)
         .sort((a, b) => {
           if (!a.end) return 1;
           if (!b.end) return -1;
           return b.end - a.end;
         }),
+      archivedTrips: grouped
+        .filter((trip) => trip.isArchived)
+        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
     };
   }, [trips]);
 
   const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
+  const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
   function updateTripDraft(field, value) {
     setTripDraft((current) => ({ ...current, [field]: value }));
@@ -155,6 +163,18 @@ export default function Trips() {
       router.push(`/trips/${trip.id}`);
     } catch (error) {
       setSubmitError(error.message || "Unable to create trip.");
+    }
+  }
+
+  async function handleDeleteTrip(tripId) {
+    const confirmed = window.confirm("Delete this trip permanently?");
+    if (!confirmed) return;
+
+    try {
+      await deleteTrip(tripId);
+      setSubmitError("");
+    } catch (error) {
+      setSubmitError(error.message || "Unable to delete trip.");
     }
   }
 
@@ -257,9 +277,32 @@ export default function Trips() {
                   {getCountdownLabel(trip.start, trip.end)}
                 </div>
                 <div style={{ height: 12 }} />
-                <Link className="btn btnPrimary" href={`/trips/${trip.id}`}>View Trip</Link>
+                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <Link className="btn btnPrimary" href={`/trips/${trip.id}`}>View Trip</Link>
+                  {canManageTrips && (
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => archiveTrip(trip.id)}
+                    >
+                      Archive
+                    </button>
+                  )}
+                  {isAdminUser && (
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => handleDeleteTrip(trip.id)}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
+            {activeTrips.length === 0 && (
+              <div className="small">No active trips yet.</div>
+            )}
           </div>
         </div>
 
@@ -280,13 +323,77 @@ export default function Trips() {
                 <div className="small">{trip.dates}</div>
                 <div className="small" style={{ marginTop: 4 }}>Trip finished</div>
                 <div style={{ height: 12 }} />
-                <Link className="btn btnPrimary" href={`/trips/${trip.id}`}>View Trip</Link>
+                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <Link className="btn btnPrimary" href={`/trips/${trip.id}`}>View Trip</Link>
+                  {canManageTrips && (
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => archiveTrip(trip.id)}
+                    >
+                      Archive
+                    </button>
+                  )}
+                  {isAdminUser && (
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => handleDeleteTrip(trip.id)}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
               </div>
             )) : (
               <div className="small">No finished trips yet.</div>
             )}
           </div>
         </div>
+
+        {canManageTrips && (
+          <div>
+            <div style={{ fontWeight: 900, marginBottom: 12 }}>Archived</div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 280px))",
+                gap: 14,
+                justifyContent: "start",
+              }}
+            >
+              {archivedTrips.length > 0 ? archivedTrips.map((trip) => (
+                <div key={trip.id} className="card pad" style={{ minHeight: 0 }}>
+                  <div style={{ fontWeight: 900, fontSize: 16 }}>{trip.name}</div>
+                  <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
+                  <div className="small">{trip.dates}</div>
+                  <div style={{ height: 12 }} />
+                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                    <Link className="btn btnPrimary" href={`/trips/${trip.id}`}>View Trip</Link>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => unarchiveTrip(trip.id)}
+                    >
+                      Unarchive
+                    </button>
+                    {isAdminUser && (
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => handleDeleteTrip(trip.id)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )) : (
+                <div className="small">No archived trips.</div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </Shell>
   );
