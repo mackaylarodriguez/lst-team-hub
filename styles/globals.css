@@ -95,6 +95,62 @@ a:hover{text-decoration:underline}
   opacity:1;
   pointer-events:auto;
 }
+.staffTaskNotesCell{
+  position:relative;
+}
+.staffTaskNotesInput{
+  width:100%;
+  min-height:56px;
+  resize:vertical;
+  padding:8px 0;
+  border:0;
+  border-bottom:1px solid var(--border);
+  border-radius:0;
+  background:transparent;
+  font:inherit;
+  font-size:13px;
+  line-height:1.45;
+  color:var(--text);
+}
+.staffTaskNotesInput:focus{
+  outline:none;
+  border-bottom-color:rgba(60,170,225,.7);
+  box-shadow:0 2px 0 0 rgba(60,170,225,.18);
+}
+.staffTaskNotesTooltip{
+  position:absolute;
+  left:0;
+  top:calc(100% + 8px);
+  z-index:20;
+  display:none;
+  max-width:320px;
+  min-width:220px;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:#fff;
+  box-shadow:var(--shadow);
+  white-space:pre-wrap;
+  line-height:1.45;
+  color:var(--text);
+}
+.staffTaskNotesCell:hover .staffTaskNotesTooltip,
+.staffTaskNotesCell:focus-within .staffTaskNotesTooltip{
+  display:block;
+}
+.staffTaskDateButton{
+  border:0;
+  padding:0;
+  background:transparent;
+  color:var(--text);
+  font:inherit;
+  font-size:14px;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.staffTaskDateButton:hover{
+  color:var(--primary);
+}
 .adminTaskSummary{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));

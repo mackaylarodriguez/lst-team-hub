@@ -7,6 +7,7 @@ import { loadTaskState, saveTaskState, percentComplete } from "@/lib/tasks";
 import {
   loadStaffTasks,
   saveStaffTasks as persistStaffTasks,
+  sortStaffTasksByTemplate,
   staffTasksKey,
   STAFF_TASKS_UPDATED_EVENT,
 } from "@/lib/staffTasks";
@@ -19,15 +20,7 @@ const REQUIRED_TRIP_LINKS = [
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
-  "Project Formation": "Project Formation",
-  Fundraising: "Fundraising",
-  Training: "Training",
-  Travel: "Travel",
-  "Site Prep": "Travel",
-  Materials: "Materials",
   "Support During Project": "During Project",
-  "During Project": "During Project",
-  "Post Project": "Post Project",
 };
 
 function normalizeDocItem(doc, tripId, index = 0) {
@@ -111,6 +104,7 @@ export default function TripPage() {
   }, [tripId]);
   const [editableStaffTasks, setEditableStaffTasks] = useState([]);
   const [editingStaffTaskId, setEditingStaffTaskId] = useState(null);
+  const [editingDueDateTaskId, setEditingDueDateTaskId] = useState(null);
   const [staffTaskTitleDraft, setStaffTaskTitleDraft] = useState("");
 
   const staffList = [
@@ -172,8 +166,6 @@ export default function TripPage() {
     ...canvasTrainingModules,
     ...supplementalTrainingModules,
   ];
-
-  const [staffTaskSort, setStaffTaskSort] = useState("workArea");
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -491,9 +483,10 @@ export default function TripPage() {
   }
 
   function saveStaffTasks(nextTasks) {
-    setEditableStaffTasks(nextTasks);
+    const orderedTasks = sortStaffTasksByTemplate(nextTasks);
+    setEditableStaffTasks(orderedTasks);
     if (!trip) return;
-    persistStaffTasks(trip.id, nextTasks);
+    persistStaffTasks(trip.id, orderedTasks);
   }
 
   function updateStaffTask(taskId, field, value) {
@@ -512,6 +505,11 @@ export default function TripPage() {
   function handleCancelStaffTaskEdit() {
     setEditingStaffTaskId(null);
     setStaffTaskTitleDraft("");
+  }
+
+  function handleDueDateChange(taskId, value) {
+    updateStaffTask(taskId, "dueDate", value);
+    setEditingDueDateTaskId(null);
   }
 
   function handleSaveStaffTaskTitle(taskId) {
@@ -538,8 +536,22 @@ export default function TripPage() {
 
   function parseDateSafe(dateStr) {
     if (!dateStr) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [year, month, day] = dateStr.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    }
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? null : d;
+  }
+
+  function formatShortDate(dateStr) {
+    const date = parseDateSafe(dateStr);
+    if (!date) return "-";
+
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    }).format(date);
   }
 
   function formatMoney(value) {
@@ -565,59 +577,6 @@ export default function TripPage() {
     };
   }
 
-  function sortStaffTasks(tasks, mode = "workArea") {
-    const list = [...tasks];
-
-    if (mode === "dueDate") {
-      return list.sort((a, b) => {
-        const dateA = parseDateSafe(a.dueDate);
-        const dateB = parseDateSafe(b.dueDate);
-
-        if (dateA && dateB) return dateA - dateB;
-        if (dateA) return -1;
-        if (dateB) return 1;
-
-        return (a.taskName || a.title || "").localeCompare(b.taskName || b.title || "");
-      });
-    }
-
-    if (mode === "assignedTo") {
-      return list.sort((a, b) =>
-        (a.assignedTo || "").localeCompare(b.assignedTo || "")
-      );
-    }
-
-    if (mode === "progress") {
-      const rank = {
-        "Not started": 1,
-        "In progress": 2,
-        "Waiting": 3,
-        "Complete": 4,
-      };
-
-      return list.sort((a, b) => {
-        const rankA = rank[a.progress] || 999;
-        const rankB = rank[b.progress] || 999;
-        return rankA - rankB;
-      });
-    }
-
-    return list.sort((a, b) => {
-      const seqA = Number(a.sequence) || 999;
-      const seqB = Number(b.sequence) || 999;
-      if (seqA !== seqB) return seqA - seqB;
-
-      const dateA = parseDateSafe(a.dueDate);
-      const dateB = parseDateSafe(b.dueDate);
-
-      if (dateA && dateB) return dateA - dateB;
-      if (dateA) return -1;
-      if (dateB) return 1;
-
-      return (a.taskName || a.title || "").localeCompare(b.taskName || b.title || "");
-    });
-  }
-
   function groupTasksByWorkArea(tasks) {
     const groups = {};
 
@@ -631,20 +590,10 @@ export default function TripPage() {
       groups[area].push(task);
     });
 
-    // Move completed tasks to the bottom of each group
-    Object.keys(groups).forEach((area) => {
-      groups[area].sort((a, b) => {
-        const aDone = a.progress === "Complete" ? 1 : 0;
-        const bDone = b.progress === "Complete" ? 1 : 0;
-        return aDone - bDone;
-      });
-    });
-
     return groups;
   }
 
-  const sortedViewTasks = sortStaffTasks(editableStaffTasks || [], staffTaskSort);
-  const groupedViewTasks = groupTasksByWorkArea(sortedViewTasks);
+  const groupedViewTasks = groupTasksByWorkArea(editableStaffTasks || []);
 
   const completedCount = (editableStaffTasks || []).filter(
     (t) => t.progress === "Complete"
@@ -1626,22 +1575,6 @@ export default function TripPage() {
 
                   <div className="spacer" />
 
-                  <label className="small" htmlFor="staff-task-sort">
-                    Sort
-                  </label>
-                  <select
-                    id="staff-task-sort"
-                    className="input"
-                    value={staffTaskSort}
-                    onChange={(e) => setStaffTaskSort(e.target.value)}
-                    style={{ width: 180 }}
-                  >
-                    <option value="workArea">Work area</option>
-                    <option value="dueDate">Due date</option>
-                    <option value="assignedTo">Assigned to</option>
-                    <option value="progress">Progress</option>
-                  </select>
-
                   <span className="badge">{completionPct}% complete</span>
                 </div>
 
@@ -1658,20 +1591,15 @@ export default function TripPage() {
                   <thead>
                     <tr>
                       <th style={{ width: "36%" }}>Task</th>
-                      <th style={{ width: "16%" }}>Assigned To</th>
-                      <th style={{ width: "14%" }}>Progress</th>
-                      <th style={{ width: "14%" }}>Due Date</th>
-                      <th style={{ width: "20%" }}>Notes</th>
+                      <th style={{ width: "10%", textAlign: "center" }}>Assigned To</th>
+                      <th style={{ width: "14%", textAlign: "center" }}>Progress</th>
+                      <th style={{ width: "10%" }}>Due Date</th>
+                      <th style={{ width: "22%" }}>Notes</th>
                       <th style={{ width: "8%" }} />
                     </tr>
                   </thead>
 
                   {Object.entries(groupedViewTasks).map(([area, tasks]) => {
-                    const sortedTasks = [
-                      ...tasks.filter((t) => t.progress !== "Complete"),
-                      ...tasks.filter((t) => t.progress === "Complete"),
-                    ];
-
                     return (
                       <tbody key={area}>
                         <tr>
@@ -1684,7 +1612,7 @@ export default function TripPage() {
                           </td>
                         </tr>
 
-                        {sortedTasks.map((t) => {
+                        {tasks.map((t) => {
                           const isEditingTitle = editingStaffTaskId === t.id;
 
                           return (
@@ -1703,24 +1631,30 @@ export default function TripPage() {
                                 )}
                               </td>
 
-                              <td>
-                                <select
-                                  className="input"
-                                  value={t.assignedTo || ""}
-                                  onChange={(e) =>
-                                    updateStaffTask(t.id, "assignedTo", e.target.value)
-                                  }
-                                >
-                                  <option value="">Assign Staff</option>
-                                  {staffList.map((person) => (
-                                    <option key={person} value={person}>
-                                      {person}
-                                    </option>
-                                  ))}
-                                </select>
+                              <td style={{ textAlign: "center" }}>
+                                {isEditingTitle ? (
+                                  <select
+                                    className="input"
+                                    value={t.assignedTo || ""}
+                                    onChange={(e) =>
+                                      updateStaffTask(t.id, "assignedTo", e.target.value)
+                                    }
+                                  >
+                                    <option value="">Assign Staff</option>
+                                    {staffList.map((person) => (
+                                      <option key={person} value={person}>
+                                        {person}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span style={{ fontSize: "14px" }}>
+                                    {t.assignedTo || "-"}
+                                  </span>
+                                )}
                               </td>
 
-                              <td>
+                              <td style={{ textAlign: "center" }}>
                                 <select
                                   className="input"
                                   value={t.progress || "Not started"}
@@ -1736,24 +1670,44 @@ export default function TripPage() {
                               </td>
 
                               <td>
-                                <input
-                                  className="input"
-                                  type="date"
-                                  value={t.dueDate || ""}
-                                  onChange={(e) =>
-                                    updateStaffTask(t.id, "dueDate", e.target.value)
-                                  }
-                                />
+                                {editingDueDateTaskId === t.id ? (
+                                  <input
+                                    className="input"
+                                    type="date"
+                                    autoFocus
+                                    value={t.dueDate || ""}
+                                    onChange={(e) =>
+                                      handleDueDateChange(t.id, e.target.value)
+                                    }
+                                    onBlur={() => setEditingDueDateTaskId(null)}
+                                  />
+                                ) : (
+                                  <button
+                                    className="staffTaskDateButton"
+                                    type="button"
+                                    onClick={() => setEditingDueDateTaskId(t.id)}
+                                  >
+                                    {t.dueDate ? formatShortDate(t.dueDate) : "Add date"}
+                                  </button>
+                                )}
                               </td>
 
                               <td>
-                                <input
-                                  className="input"
-                                  value={t.notes || ""}
-                                  onChange={(e) =>
-                                    updateStaffTask(t.id, "notes", e.target.value)
-                                  }
-                                />
+                                <div className="staffTaskNotesCell">
+                                  <textarea
+                                    className="staffTaskNotesInput"
+                                    rows={2}
+                                    value={t.notes || ""}
+                                    onChange={(e) =>
+                                      updateStaffTask(t.id, "notes", e.target.value)
+                                    }
+                                  />
+                                  {t.notes ? (
+                                    <div className="staffTaskNotesTooltip" role="note">
+                                      {t.notes}
+                                    </div>
+                                  ) : null}
+                                </div>
                               </td>
 
                               <td>
