@@ -2,8 +2,13 @@ import Shell from "@/components/Shell";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
-import { getTripForCurrentUser } from "@/lib/trips";
+import { getTripForCurrentUser, listTripParticipants } from "@/lib/trips";
 import { isManagerRole } from "@/lib/roles";
+import {
+  listTrainingModules,
+  listTrainingProgress,
+  saveTrainingProgress,
+} from "@/lib/training";
 import {
   addLinkResource,
   addPdfResource,
@@ -34,7 +39,7 @@ export default function TripPage() {
   const [participantTaskStates, setParticipantTaskStates] = useState({});
   const [participantTrainingStates, setParticipantTrainingStates] = useState({});
   const [session, setSession] = useState(null);
-  const [trainingDone, setTrainingDone] = useState({});
+  const [trainingModules, setTrainingModules] = useState([]);
   const [docs, setDocs] = useState([]);
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkDraft, setLinkDraft] = useState({ title: "", link: "", workArea: "" });
@@ -88,28 +93,22 @@ export default function TripPage() {
     },
   ];
 
-  const canvasTrainingModules = [
-    { id: "m1", title: "Canvas Mod 1 (Welcome)" },
-    { id: "m2", title: "Canvas Mod 2 (Fundraising)" },
-    { id: "m3", title: "Canvas Mod 3 (Basic Training)" },
-    { id: "m4", title: "Canvas Mod 4 (Team Dynamics)" },
-    { id: "m5", title: "Canvas Mod 5 (Culture)" },
-    { id: "m6", title: "Canvas Mod 6 (LST Onsite)" },
-    { id: "m7", title: "Canvas Mod 7 (LST Onsite Tools)" },
-    { id: "m8", title: "Canvas Mod 8 (Gateway Training)" },
-    { id: "m9", title: "Canvas Mod 9 (Debriefing)" },
-  ];
-
-  const supplementalTrainingModules = [
-    { id: "bt", title: "Basic Training" },
-    { id: "gt", title: "Gateway Training" },
-    { id: "em", title: "EndMeeting" },
-  ];
-  const datedTrainingModuleIds = ["bt", "gt", "em"];
-  const allTrainingModules = [
-    ...canvasTrainingModules,
-    ...supplementalTrainingModules,
-  ];
+  const canvasTrainingModules = useMemo(
+    () => trainingModules.filter((module) => module.category === "canvas"),
+    [trainingModules]
+  );
+  const supplementalTrainingModules = useMemo(
+    () => trainingModules.filter((module) => module.category !== "canvas"),
+    [trainingModules]
+  );
+  const datedTrainingModuleIds = useMemo(
+    () =>
+      trainingModules
+        .filter((module) => module.requiresDate)
+        .map((module) => module.id),
+    [trainingModules]
+  );
+  const allTrainingModules = trainingModules;
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -177,19 +176,53 @@ export default function TripPage() {
   useEffect(() => {
     if (!trip) return;
 
-    const nextStates = {};
-    (trip.participants || []).forEach((participant) => {
-      const key = `training:${participant.email}:${trip.id}`;
-      nextStates[participant.email] = JSON.parse(localStorage.getItem(key) || "{}");
-    });
-    setParticipantTrainingStates(nextStates);
-  }, [trip]);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (!session || !trip) return;
-    const key = `training:${session.email}:${trip.id}`;
-    setTrainingDone(JSON.parse(localStorage.getItem(key) || "{}"));
-  }, [session, trip]);
+    async function loadTripData() {
+      try {
+        const [participants, modules, progress] = await Promise.all([
+          listTripParticipants(trip.id),
+          listTrainingModules(trip.id),
+          listTrainingProgress(trip.id),
+        ]);
+
+        if (cancelled) return;
+
+        setTrip((current) => (current ? { ...current, participants } : current));
+        setTrainingModules(modules);
+
+        const participantsById = new Map(
+          participants.map((participant) => [participant.id, participant])
+        );
+        const nextTrainingStates = {};
+
+        progress.forEach((row) => {
+          const participant = participantsById.get(row.userId);
+          if (!participant?.email) return;
+
+          if (!nextTrainingStates[participant.email]) {
+            nextTrainingStates[participant.email] = {};
+          }
+
+          nextTrainingStates[participant.email][row.moduleId] = !!row.completed;
+          if (row.completedAt) {
+            nextTrainingStates[participant.email][`${row.moduleId}Date`] =
+              String(row.completedAt).slice(0, 10);
+          }
+        });
+
+        setParticipantTrainingStates(nextTrainingStates);
+      } catch (error) {
+        console.error("Unable to load trip detail data", error);
+      }
+    }
+
+    loadTripData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.id]);
 
   useEffect(() => {
     if (!trip) return;
@@ -448,50 +481,63 @@ export default function TripPage() {
   function toggleTraining(id, ownerEmail = session?.email) {
     if (!trip || !ownerEmail) return;
 
-    const currentState =
-      participantTrainingStates[ownerEmail] ||
-      (ownerEmail === session?.email ? trainingDone : {});
+    const participant = (trip.participants || []).find(
+      (entry) => entry.email?.toLowerCase() === ownerEmail.toLowerCase()
+    );
+    if (!participant?.id) return;
+
+    const currentState = participantTrainingStates[ownerEmail] || {};
     const next = { ...currentState, [id]: !currentState[id] };
     const nextValue = !currentState[id];
-    const key = `training:${ownerEmail}:${trip.id}`;
 
     if (datedTrainingModuleIds.includes(id) && !nextValue) {
       next[`${id}Date`] = "";
     }
 
-    if (ownerEmail === session?.email) {
-      setTrainingDone(next);
-    }
-
-    localStorage.setItem(key, JSON.stringify(next));
     setParticipantTrainingStates((prev) => ({
       ...prev,
       [ownerEmail]: next,
     }));
+
+    void saveTrainingProgress({
+      tripId: trip.id,
+      userId: participant.id,
+      moduleId: id,
+      completed: nextValue,
+      completedAt: next[`${id}Date`] || null,
+    }).catch((error) => {
+      console.error("Unable to save training progress", error);
+    });
   }
 
   function updateTrainingDate(id, value, ownerEmail = session?.email) {
     if (!trip || !ownerEmail) return;
 
-    const currentState =
-      participantTrainingStates[ownerEmail] ||
-      (ownerEmail === session?.email ? trainingDone : {});
+    const participant = (trip.participants || []).find(
+      (entry) => entry.email?.toLowerCase() === ownerEmail.toLowerCase()
+    );
+    if (!participant?.id) return;
+
+    const currentState = participantTrainingStates[ownerEmail] || {};
     const next = {
       ...currentState,
       [`${id}Date`]: value,
       [id]: value ? true : currentState[id],
     };
-    const key = `training:${ownerEmail}:${trip.id}`;
-
-    if (ownerEmail === session?.email) {
-      setTrainingDone(next);
-    }
-
-    localStorage.setItem(key, JSON.stringify(next));
     setParticipantTrainingStates((prev) => ({
       ...prev,
       [ownerEmail]: next,
     }));
+
+    void saveTrainingProgress({
+      tripId: trip.id,
+      userId: participant.id,
+      moduleId: id,
+      completed: !!next[id],
+      completedAt: value || null,
+    }).catch((error) => {
+      console.error("Unable to save training date", error);
+    });
   }
 
   function saveStaffTasks(nextTasks) {
@@ -1350,7 +1396,7 @@ export default function TripPage() {
           </div>
 
           <div className="small">
-            Training progress is saved separately for each participant in this demo.
+            Training progress is loaded from Supabase for each assigned user.
           </div>
         </div>
       )}
