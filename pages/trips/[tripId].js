@@ -9,6 +9,7 @@ import {
   listTrainingProgress,
   saveTrainingProgress,
 } from "@/lib/training";
+import { saveFundraisingProfile } from "@/lib/fundraising";
 import {
   addLinkResource,
   addPdfResource,
@@ -48,6 +49,8 @@ export default function TripPage() {
   const [referenceEmails, setReferenceEmails] = useState({});
   const addDocumentInputRef = useRef(null);
   const [docsError, setDocsError] = useState("");
+  const [fundraisingDrafts, setFundraisingDrafts] = useState({});
+  const [fundraisingStatus, setFundraisingStatus] = useState({});
 
   const [trip, setTrip] = useState(null);
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
@@ -171,6 +174,20 @@ export default function TripPage() {
       nextStates[participant.email] = loadTaskState(participant.email, trip.id);
     });
     setParticipantTaskStates(nextStates);
+  }, [trip]);
+
+  useEffect(() => {
+    if (!trip) return;
+
+    const nextDrafts = {};
+    (trip.participants || []).forEach((participant) => {
+      nextDrafts[participant.id] = {
+        goalAmount: String(participant.fundraisingGoal || 0),
+        raisedAmount: String(participant.fundraisingRaised || 0),
+        fundraisingUrl: participant.fundraisingUrl || "",
+      };
+    });
+    setFundraisingDrafts(nextDrafts);
   }, [trip]);
 
   useEffect(() => {
@@ -407,6 +424,84 @@ export default function TripPage() {
       `referenceEmails:${trip.id}`,
       JSON.stringify(nextReferenceEmails)
     );
+  }
+
+  function updateFundraisingDraft(participantId, field, value) {
+    setFundraisingDrafts((current) => ({
+      ...current,
+      [participantId]: {
+        goalAmount: current[participantId]?.goalAmount || "0",
+        raisedAmount: current[participantId]?.raisedAmount || "0",
+        fundraisingUrl: current[participantId]?.fundraisingUrl || "",
+        [field]: value,
+      },
+    }));
+  }
+
+  async function handleSaveFundraising(participant) {
+    if (!trip || !participant?.id) return;
+
+    const draft = fundraisingDrafts[participant.id] || {
+      goalAmount: "0",
+      raisedAmount: "0",
+      fundraisingUrl: "",
+    };
+
+    try {
+      setFundraisingStatus((current) => ({
+        ...current,
+        [participant.id]: { type: "info", message: "Saving..." },
+      }));
+
+      const savedProfile = await saveFundraisingProfile({
+        tripId: trip.id,
+        userId: participant.id,
+        goalAmount: draft.goalAmount,
+        raisedAmount: draft.raisedAmount,
+        fundraisingUrl: draft.fundraisingUrl,
+      });
+
+      setTrip((current) => {
+        if (!current) return current;
+
+        return {
+          ...current,
+          participants: (current.participants || []).map((item) =>
+            item.id === participant.id
+              ? {
+                  ...item,
+                  fundraisingGoal: savedProfile.goalAmount,
+                  fundraisingRaised: savedProfile.raisedAmount,
+                  fundraisingUrl: savedProfile.fundraisingUrl,
+                }
+              : item
+          ),
+        };
+      });
+
+      setFundraisingDrafts((current) => ({
+        ...current,
+        [participant.id]: {
+          goalAmount: String(savedProfile.goalAmount || 0),
+          raisedAmount: String(savedProfile.raisedAmount || 0),
+          fundraisingUrl: savedProfile.fundraisingUrl || "",
+        },
+      }));
+
+      setFundraisingStatus((current) => ({
+        ...current,
+        [participant.id]: { type: "success", message: "Saved." },
+      }));
+    } catch (error) {
+      console.error("Unable to save fundraising profile", error);
+      setFundraisingStatus((current) => ({
+        ...current,
+        [participant.id]: {
+          type: "error",
+          message: error.message || "Unable to save fundraising.",
+        },
+      }));
+    }
   }
 
   function getReferenceStatus(email) {
@@ -1199,10 +1294,10 @@ export default function TripPage() {
                       )
                     : 0;
 
-                  return (
-                    <div key={participant.email} className="card pad" style={{ boxShadow: "none" }}>
-                      <div className="row" style={{ marginBottom: 8 }}>
-                        <div style={{ fontWeight: 900 }}>{participant.name}</div>
+                    return (
+                      <div key={participant.email} className="card pad" style={{ boxShadow: "none" }}>
+                        <div className="row" style={{ marginBottom: 8 }}>
+                          <div style={{ fontWeight: 900 }}>{participant.name}</div>
                         <div className="spacer" />
                         <span className="badge badgeSuccess">{individualPct}%</span>
                       </div>
@@ -1212,11 +1307,73 @@ export default function TripPage() {
                       <div className="small" style={{ marginTop: 8 }}>
                         {formatMoney(participant.fundraisingRaised || 0)} of {formatMoney(participant.fundraisingGoal || 0)} raised.
                       </div>
-                      <div style={{ height: 10 }} />
-                      <a className="btn btnPrimary" href={participant.fundraisingUrl} target="_blank" rel="noreferrer">
-                        Open Fundraising Page
-                      </a>
-                    </div>
+                        <div style={{ height: 10 }} />
+                        {participant.fundraisingUrl ? (
+                          <a className="btn btnPrimary" href={participant.fundraisingUrl} target="_blank" rel="noreferrer">
+                            Open Fundraising Page
+                          </a>
+                        ) : (
+                          <div className="small">No fundraising link added yet.</div>
+                        )}
+                        <div style={{ height: 12 }} />
+                        <div style={{ display: "grid", gap: 10 }}>
+                          <div>
+                            <div className="small" style={{ marginBottom: 6 }}>Goal Amount</div>
+                            <input
+                              className="input"
+                              type="number"
+                              min="0"
+                              value={fundraisingDrafts[participant.id]?.goalAmount || ""}
+                              onChange={(event) =>
+                                updateFundraisingDraft(participant.id, "goalAmount", event.target.value)
+                              }
+                            />
+                          </div>
+                          <div>
+                            <div className="small" style={{ marginBottom: 6 }}>Raised Amount</div>
+                            <input
+                              className="input"
+                              type="number"
+                              min="0"
+                              value={fundraisingDrafts[participant.id]?.raisedAmount || ""}
+                              onChange={(event) =>
+                                updateFundraisingDraft(participant.id, "raisedAmount", event.target.value)
+                              }
+                            />
+                          </div>
+                          <div>
+                            <div className="small" style={{ marginBottom: 6 }}>Fundraising Link</div>
+                            <input
+                              className="input"
+                              value={fundraisingDrafts[participant.id]?.fundraisingUrl || ""}
+                              onChange={(event) =>
+                                updateFundraisingDraft(participant.id, "fundraisingUrl", event.target.value)
+                              }
+                              placeholder="https://"
+                            />
+                          </div>
+                          {fundraisingStatus[participant.id]?.message && (
+                            <div
+                              className="small"
+                              style={{
+                                color:
+                                  fundraisingStatus[participant.id].type === "error"
+                                    ? "var(--danger)"
+                                    : "var(--muted)",
+                              }}
+                            >
+                              {fundraisingStatus[participant.id].message}
+                            </div>
+                          )}
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => handleSaveFundraising(participant)}
+                          >
+                            Save Fundraising
+                          </button>
+                        </div>
+                      </div>
                   );
                 })}
               </div>
