@@ -2,7 +2,7 @@ import Shell from "@/components/Shell";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
-import { getTrips, TRIPS_UPDATED_EVENT } from "@/lib/sampleData";
+import { listAssignedTrips, TRIPS_UPDATED_EVENT } from "@/lib/trips";
 import {
   isTaskAssignedToUser,
   loadStaffTasks,
@@ -47,9 +47,13 @@ export default function Admin() {
   }, [router]);
 
   useEffect(() => {
-    const syncTrips = () => {
-      setTrips(getTrips());
-    };
+    async function syncTrips() {
+      try {
+        setTrips(await listAssignedTrips());
+      } catch (error) {
+        console.error("Unable to load assigned trips", error);
+      }
+    }
 
     syncTrips();
 

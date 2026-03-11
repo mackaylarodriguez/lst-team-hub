@@ -2,7 +2,7 @@ import Shell from "@/components/Shell";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
-import { getTrip } from "@/lib/sampleData";
+import { getAssignedTrip } from "@/lib/trips";
 import {
   addLinkResource,
   addPdfResource,
@@ -43,9 +43,7 @@ export default function TripPage() {
   const addDocumentInputRef = useRef(null);
   const [docsError, setDocsError] = useState("");
 
-  const trip = useMemo(() => {
-    return tripId ? getTrip(tripId) : null;
-  }, [tripId]);
+  const [trip, setTrip] = useState(null);
   const [editableStaffTasks, setEditableStaffTasks] = useState([]);
   const [editingStaffTaskId, setEditingStaffTaskId] = useState(null);
   const [editingDueDateTaskId, setEditingDueDateTaskId] = useState(null);
@@ -131,6 +129,32 @@ export default function TripPage() {
   }, [router, router.isReady]);
 
   useEffect(() => {
+    if (!tripId) return;
+
+    let cancelled = false;
+
+    async function loadTrip() {
+      try {
+        const assignedTrip = await getAssignedTrip(tripId);
+        if (!cancelled) {
+          setTrip(assignedTrip);
+        }
+      } catch (error) {
+        console.error("Unable to load assigned trip", error);
+        if (!cancelled) {
+          setTrip(null);
+        }
+      }
+    }
+
+    loadTrip();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tripId]);
+
+  useEffect(() => {
     if (!session || !trip) return;
     setState(loadTaskState(session.email, trip.id));
   }, [session, trip]);
@@ -169,7 +193,7 @@ export default function TripPage() {
 
     async function loadDocs() {
       try {
-        const savedDocs = await listResources();
+        const savedDocs = await listResources(trip.id);
         if (!cancelled) {
           setDocs(savedDocs);
           setDocsError("");
@@ -235,6 +259,7 @@ export default function TripPage() {
         title: file.name,
         file,
         workArea: trip?.name || "",
+        tripId: trip?.id,
       });
       setDocs((current) => [created, ...current]);
       setDocsError("");
@@ -260,7 +285,11 @@ export default function TripPage() {
     if (!linkDraft.title.trim()) return;
 
     try {
-      const created = await addLinkResource(linkDraft);
+      const created = await addLinkResource({
+        ...linkDraft,
+        tripId: trip?.id,
+      });
+      if (!created) return;
       setDocs((current) => [created, ...current]);
       setDocsError("");
       handleCancelAddLink();
@@ -311,6 +340,7 @@ export default function TripPage() {
         title: docDraft.title || file.name,
         file,
         workArea: docDraft.workArea,
+        tripId: trip?.id,
       });
       const updated = await updateResource({
         id: docDraft.id,

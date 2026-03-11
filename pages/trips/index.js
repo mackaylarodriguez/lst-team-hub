@@ -3,7 +3,11 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
-import { addTrip, getTrips, TRIPS_UPDATED_EVENT } from "@/lib/sampleData";
+import {
+  createTripForCurrentUser,
+  listAssignedTrips,
+  TRIPS_UPDATED_EVENT,
+} from "@/lib/trips";
 
 function parseTripDates(dateLabel) {
   const sameMonthMatch = String(dateLabel).match(
@@ -32,6 +36,12 @@ function startOfToday() {
   return today;
 }
 
+function parseTripBounds(trip) {
+  const start = trip?.startDate ? new Date(`${trip.startDate}T00:00:00`) : null;
+  const end = trip?.endDate ? new Date(`${trip.endDate}T00:00:00`) : null;
+  return { start, end };
+}
+
 function getCountdownLabel(start, end) {
   const today = startOfToday();
 
@@ -52,7 +62,8 @@ export default function Trips() {
   const [tripDraft, setTripDraft] = useState({
     name: "",
     location: "",
-    dates: "",
+    startDate: "",
+    endDate: "",
   });
   const [submitError, setSubmitError] = useState("");
 
@@ -63,14 +74,26 @@ export default function Trips() {
       const session = await requireSession(router);
       if (cancelled || !session) return;
       setSession(session);
-      setTrips(getTrips());
+      try {
+        const assignedTrips = await listAssignedTrips();
+        if (!cancelled) {
+          setTrips(assignedTrips);
+        }
+      } catch (error) {
+        console.error("Unable to load assigned trips", error);
+      }
     }
 
     checkSession();
 
-    function syncTrips() {
-      if (!cancelled) {
-        setTrips(getTrips());
+    async function syncTrips() {
+      try {
+        const assignedTrips = await listAssignedTrips();
+        if (!cancelled) {
+          setTrips(assignedTrips);
+        }
+      } catch (error) {
+        console.error("Unable to sync assigned trips", error);
       }
     }
 
@@ -87,7 +110,7 @@ export default function Trips() {
   const { activeTrips, finishedTrips } = useMemo(() => {
     const today = startOfToday();
     const grouped = trips.map((trip) => {
-      const { start, end } = parseTripDates(trip.dates);
+      const { start, end } = parseTripBounds(trip);
       return { ...trip, start, end };
     });
 
@@ -117,20 +140,16 @@ export default function Trips() {
 
   function handleCancelTripForm() {
     setShowTripForm(false);
-    setTripDraft({ name: "", location: "", dates: "" });
+    setTripDraft({ name: "", location: "", startDate: "", endDate: "" });
     setSubmitError("");
   }
 
-  function handleCreateTrip(event) {
+  async function handleCreateTrip(event) {
     event.preventDefault();
     setSubmitError("");
 
     try {
-      const trip = addTrip({
-        ...tripDraft,
-        staffLead: session?.name || "",
-        staffEmail: session?.email || "",
-      });
+      const trip = await createTripForCurrentUser(tripDraft);
       handleCancelTripForm();
       router.push(`/trips/${trip.id}`);
     } catch (error) {
@@ -162,7 +181,7 @@ export default function Trips() {
         <div className="card pad" style={{ marginBottom: 24 }}>
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Create Trip</div>
           <div className="small" style={{ marginBottom: 16 }}>
-            This currently saves in the browser for the prototype. The next step is moving trips into Supabase so the whole team sees them.
+            Create a trip and assign it to your account.
           </div>
 
           <form onSubmit={handleCreateTrip} style={{ display: "grid", gap: 12 }}>
@@ -185,12 +204,21 @@ export default function Trips() {
               />
             </div>
             <div>
-              <div className="small" style={{ marginBottom: 6 }}>Dates</div>
+              <div className="small" style={{ marginBottom: 6 }}>Start Date</div>
               <input
                 className="input"
-                value={tripDraft.dates}
-                onChange={(event) => updateTripDraft("dates", event.target.value)}
-                placeholder="June 12-27, 2026"
+                type="date"
+                value={tripDraft.startDate}
+                onChange={(event) => updateTripDraft("startDate", event.target.value)}
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>End Date</div>
+              <input
+                className="input"
+                type="date"
+                value={tripDraft.endDate}
+                onChange={(event) => updateTripDraft("endDate", event.target.value)}
               />
             </div>
             {submitError && (
