@@ -114,7 +114,7 @@ export default function Trips() {
 
   const { activeTrips, finishedTrips, archivedTrips } = useMemo(() => {
     const today = startOfToday();
-    const grouped = trips.map((trip) => {
+      const grouped = trips.map((trip) => {
       const { start, end } = parseTripBounds(trip);
       return { ...trip, start, end, isArchived: isTripArchived(trip.id) };
     });
@@ -269,7 +269,7 @@ export default function Trips() {
             }}
           >
             {activeTrips.map((trip) => (
-              <div key={trip.id} className="card pad" style={{ minHeight: 0 }}>
+              <div key={trip.id || trip.name} className="card pad" style={{ minHeight: 0 }}>
                 <div style={{ fontWeight: 900, fontSize: 16 }}>{trip.name}</div>
                 <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
                 <div className="small">{trip.dates}</div>
@@ -278,7 +278,7 @@ export default function Trips() {
                 </div>
                 <div style={{ height: 12 }} />
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <Link className="btn btnPrimary" href={`/trips/${trip.id}`}>View Trip</Link>
+                  <Link className="btn btnPrimary" href={`/trips/${encodeURIComponent(trip.id)}`}>View Trip</Link>
                   {canManageTrips && (
                     <button
                       className="btn"
@@ -317,14 +317,14 @@ export default function Trips() {
             }}
           >
             {finishedTrips.length > 0 ? finishedTrips.map((trip) => (
-              <div key={trip.id} className="card pad" style={{ minHeight: 0 }}>
+              <div key={trip.id || trip.name} className="card pad" style={{ minHeight: 0 }}>
                 <div style={{ fontWeight: 900, fontSize: 16 }}>{trip.name}</div>
                 <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
                 <div className="small">{trip.dates}</div>
                 <div className="small" style={{ marginTop: 4 }}>Trip finished</div>
                 <div style={{ height: 12 }} />
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <Link className="btn btnPrimary" href={`/trips/${trip.id}`}>View Trip</Link>
+                  <Link className="btn btnPrimary" href={`/trips/${encodeURIComponent(trip.id)}`}>View Trip</Link>
                   {canManageTrips && (
                     <button
                       className="btn"
@@ -363,13 +363,13 @@ export default function Trips() {
               }}
             >
               {archivedTrips.length > 0 ? archivedTrips.map((trip) => (
-                <div key={trip.id} className="card pad" style={{ minHeight: 0 }}>
+                <div key={trip.id || trip.name} className="card pad" style={{ minHeight: 0 }}>
                   <div style={{ fontWeight: 900, fontSize: 16 }}>{trip.name}</div>
                   <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
                   <div className="small">{trip.dates}</div>
                   <div style={{ height: 12 }} />
                   <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                    <Link className="btn btnPrimary" href={`/trips/${trip.id}`}>View Trip</Link>
+                    <Link className="btn btnPrimary" href={`/trips/${encodeURIComponent(trip.id)}`}>View Trip</Link>
                     <button
                       className="btn"
                       type="button"
