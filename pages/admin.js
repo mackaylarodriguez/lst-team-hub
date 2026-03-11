@@ -10,7 +10,7 @@ import {
   removeTripAssignment,
   TRIPS_UPDATED_EVENT,
 } from "@/lib/trips";
-import { isManagerRole } from "@/lib/roles";
+import { isAdminRole, isManagerRole } from "@/lib/roles";
 import {
   isTaskAssignedToUser,
   loadStaffTasks,
@@ -37,6 +37,7 @@ export default function Admin() {
   const [selectedWorkerByTrip, setSelectedWorkerByTrip] = useState({});
   const [assignmentsByTrip, setAssignmentsByTrip] = useState({});
   const [assignmentError, setAssignmentError] = useState("");
+  const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +47,7 @@ export default function Admin() {
       if (cancelled || !nextSession) return;
 
       setSession(nextSession);
-      if (!isManagerRole(nextSession.role)) {
+      if (!isManagerRole(nextSession.permissionRole || nextSession.role)) {
         router.replace("/trips");
       }
     }
@@ -79,7 +80,7 @@ export default function Admin() {
   }, []);
 
   useEffect(() => {
-    if (!isManagerRole(session?.role)) return;
+    if (!isAdminUser) return;
 
     let cancelled = false;
 
@@ -113,7 +114,7 @@ export default function Admin() {
     return () => {
       cancelled = true;
     };
-  }, [session, trips]);
+  }, [isAdminUser, trips]);
 
   useEffect(() => {
     const syncStaffTasks = () => {
@@ -275,132 +276,134 @@ export default function Admin() {
 
   return (
     <Shell>
-      <h1 className="h1">Admin</h1>
+      <h1 className="h1">My Tasks</h1>
       <p className="p">
-        Manage worker assignments and your checklist across every trip.
+        Track your assigned tasks across every trip.
       </p>
 
       <div style={{ height: 14 }} />
 
-      <div className="card pad" style={{ marginBottom: 16 }}>
-        <div className="row" style={{ marginBottom: 10 }}>
-          <div>
-            <div style={{ fontWeight: 900 }}>Trip Assignments</div>
-            <div className="small">
-              Admin and staff can assign workers to trips.
+      {isAdminUser && (
+        <div className="card pad" style={{ marginBottom: 16 }}>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 900 }}>Admin Controls</div>
+              <div className="small">
+                Assign workers to trips and manage access.
+              </div>
             </div>
           </div>
-        </div>
 
-        {assignmentError && (
-          <div className="small" style={{ color: "var(--danger)", marginBottom: 12 }}>
-            {assignmentError}
-          </div>
-        )}
+          {assignmentError && (
+            <div className="small" style={{ color: "var(--danger)", marginBottom: 12 }}>
+              {assignmentError}
+            </div>
+          )}
 
-        {trips.length === 0 ? (
-          <div className="small">No trips available yet.</div>
-        ) : (
-          <div style={{ display: "grid", gap: 12 }}>
-            {trips.map((trip) => {
-              const assignments = assignmentsByTrip[trip.id] || [];
+          {trips.length === 0 ? (
+            <div className="small">No trips available yet.</div>
+          ) : (
+            <div style={{ display: "grid", gap: 12 }}>
+              {trips.map((trip) => {
+                const assignments = assignmentsByTrip[trip.id] || [];
 
-              return (
-                <div
-                  key={trip.id}
-                  className="card pad"
-                  style={{ boxShadow: "none", background: "rgba(255,255,255,.72)" }}
-                >
-                  <div className="row" style={{ marginBottom: 10 }}>
-                    <div>
-                      <div style={{ fontWeight: 900 }}>{trip.name}</div>
-                      <div className="small">
-                        {trip.location || "Location TBD"}
-                        {trip.dates ? ` • ${trip.dates}` : ""}
+                return (
+                  <div
+                    key={trip.id}
+                    className="card pad"
+                    style={{ boxShadow: "none", background: "rgba(255,255,255,.72)" }}
+                  >
+                    <div className="row" style={{ marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontWeight: 900 }}>{trip.name}</div>
+                        <div className="small">
+                          {trip.location || "Location TBD"}
+                          {trip.dates ? ` • ${trip.dates}` : ""}
+                        </div>
                       </div>
+                      <div className="spacer" />
+                      <span className="badge">
+                        {assignments.length} worker{assignments.length === 1 ? "" : "s"}
+                      </span>
                     </div>
-                    <div className="spacer" />
-                    <span className="badge">
-                      {assignments.length} worker{assignments.length === 1 ? "" : "s"}
-                    </span>
-                  </div>
 
-                  <div className="row" style={{ gap: 10, alignItems: "center", marginBottom: 10 }}>
-                    <select
-                      className="input"
-                      value={selectedWorkerByTrip[trip.id] || ""}
-                      onChange={(event) =>
-                        updateSelectedWorker(trip.id, event.target.value)
-                      }
-                      style={{ maxWidth: 320 }}
-                    >
-                      <option value="">Select a worker</option>
-                      {workers.map((worker) => (
-                        <option key={worker.id} value={worker.id}>
-                          {worker.email}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      className="btn btnPrimary"
-                      type="button"
-                      disabled={!selectedWorkerByTrip[trip.id]}
-                      onClick={() => handleAssignWorker(trip.id)}
-                    >
-                      Assign Worker
-                    </button>
-                  </div>
-
-                  {assignments.length === 0 ? (
-                    <div className="small">No workers assigned to this trip.</div>
-                  ) : (
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Worker</th>
-                          <th>Role</th>
-                          <th>Assigned</th>
-                          <th />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {assignments.map((assignment) => (
-                          <tr key={assignment.id}>
-                            <td style={{ fontWeight: 700 }}>
-                              {assignment.user?.email || assignment.user_id}
-                            </td>
-                            <td>
-                              <span className="badge">
-                                {assignment.user?.role || "worker"}
-                              </span>
-                            </td>
-                            <td>
-                              {assignment.created_at
-                                ? new Date(assignment.created_at).toLocaleDateString()
-                                : "—"}
-                            </td>
-                            <td>
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={() =>
-                                  handleRemoveAssignment(trip.id, assignment.id)
-                                }
-                              >
-                                Remove
-                              </button>
-                            </td>
-                          </tr>
+                    <div className="row" style={{ gap: 10, alignItems: "center", marginBottom: 10 }}>
+                      <select
+                        className="input"
+                        value={selectedWorkerByTrip[trip.id] || ""}
+                        onChange={(event) =>
+                          updateSelectedWorker(trip.id, event.target.value)
+                        }
+                        style={{ maxWidth: 320 }}
+                      >
+                        <option value="">Select a worker</option>
+                        {workers.map((worker) => (
+                          <option key={worker.id} value={worker.id}>
+                            {worker.email}
+                          </option>
                         ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                      </select>
+                      <button
+                        className="btn btnPrimary"
+                        type="button"
+                        disabled={!selectedWorkerByTrip[trip.id]}
+                        onClick={() => handleAssignWorker(trip.id)}
+                      >
+                        Assign Worker
+                      </button>
+                    </div>
+
+                    {assignments.length === 0 ? (
+                      <div className="small">No workers assigned to this trip.</div>
+                    ) : (
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Worker</th>
+                            <th>Role</th>
+                            <th>Assigned</th>
+                            <th />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {assignments.map((assignment) => (
+                            <tr key={assignment.id}>
+                              <td style={{ fontWeight: 700 }}>
+                                {assignment.user?.email || assignment.user_id}
+                              </td>
+                              <td>
+                                <span className="badge">
+                                  {assignment.user?.role || "worker"}
+                                </span>
+                              </td>
+                              <td>
+                                {assignment.created_at
+                                  ? new Date(assignment.created_at).toLocaleDateString()
+                                  : "—"}
+                              </td>
+                              <td>
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoveAssignment(trip.id, assignment.id)
+                                  }
+                                >
+                                  Remove
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="card pad" style={{ marginBottom: 16 }}>
         <div className="row" style={{ marginBottom: 10 }}>

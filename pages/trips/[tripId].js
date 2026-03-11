@@ -608,7 +608,7 @@ export default function TripPage() {
   ).length;
   const totalCount = (editableStaffTasks || []).length;
   const completionPct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
-  const canManageTrips = isManagerRole(session?.role);
+  const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
   const canViewAllParticipantData = canManageTrips;
 
   const currentParticipant = useMemo(() => {

@@ -1,12 +1,20 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { clearSession, getSession } from "@/lib/auth";
+import {
+  clearImpersonatedProfile,
+  clearSession,
+  getSession,
+  listProfilesForAdmin,
+  SESSION_UPDATED_EVENT,
+  setImpersonatedProfile,
+} from "@/lib/auth";
 import { useEffect, useState } from "react";
-import { isManagerRole } from "@/lib/roles";
+import { isManagerRole, ROLE_ADMIN } from "@/lib/roles";
 
 export default function Shell({ children }) {
   const router = useRouter();
   const [session, setSession] = useState(null);
+  const [profiles, setProfiles] = useState([]);
   const path = router.pathname;
 
   useEffect(() => {
@@ -21,12 +29,61 @@ export default function Shell({ children }) {
 
     loadSession();
 
+    function handleSessionUpdate() {
+      loadSession();
+    }
+
+    window.addEventListener(SESSION_UPDATED_EVENT, handleSessionUpdate);
+    window.addEventListener("storage", handleSessionUpdate);
+
     return () => {
       cancelled = true;
+      window.removeEventListener(SESSION_UPDATED_EVENT, handleSessionUpdate);
+      window.removeEventListener("storage", handleSessionUpdate);
     };
   }, []);
 
-  const canManageTrips = isManagerRole(session?.role);
+  const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
+  const isAdminUser = session?.actualRole === ROLE_ADMIN;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfiles() {
+      if (!isAdminUser) {
+        setProfiles([]);
+        return;
+      }
+
+      try {
+        const nextProfiles = await listProfilesForAdmin();
+        if (!cancelled) {
+          setProfiles(nextProfiles);
+        }
+      } catch (error) {
+        console.error("Unable to load profiles for switching", error);
+      }
+    }
+
+    loadProfiles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdminUser]);
+
+  async function handleProfileSwitch(event) {
+    const email = event.target.value;
+
+    if (!email) {
+      clearImpersonatedProfile();
+      return;
+    }
+
+    const profile = profiles.find((item) => item.email === email);
+    if (!profile) return;
+    setImpersonatedProfile(profile);
+  }
 
   return (
     <div className="shell">
@@ -48,7 +105,7 @@ export default function Shell({ children }) {
         <div style={{ height: 14 }} />
         <nav className="nav">
           <Link className={path.startsWith("/trips") ? "active" : ""} href="/trips">My Trips</Link>
-          {canManageTrips && <Link className={path === "/admin" ? "active" : ""} href="/admin">Admin</Link>}
+          {canManageTrips && <Link className={path === "/admin" ? "active" : ""} href="/admin">My Tasks</Link>}
           <Link className={path === "/profile" ? "active" : ""} href="/profile">Profile</Link>
           <a
             href="#"
@@ -68,7 +125,33 @@ export default function Shell({ children }) {
           <span className="badge" style={{ marginTop: 8 }}>
             {session?.role || "unknown"}
           </span>
+          {session?.isImpersonating && (
+            <div style={{ marginTop: 8 }}>
+              Viewing as <b>{session.email}</b>
+            </div>
+          )}
         </div>
+
+        {isAdminUser && (
+          <>
+            <div style={{ height: 14 }} />
+            <div className="card pad" style={{ boxShadow: "none", background: "rgba(255,255,255,.75)" }}>
+              <div className="small" style={{ marginBottom: 8 }}>Switch Profile</div>
+              <select
+                className="input"
+                value={session?.isImpersonating ? session.email : ""}
+                onChange={handleProfileSwitch}
+              >
+                <option value="">Admin view</option>
+                {profiles.map((profile) => (
+                  <option key={profile.id || profile.email} value={profile.email}>
+                    {profile.email} ({profile.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
       </aside>
 
       <main className="main">

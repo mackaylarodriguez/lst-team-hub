@@ -133,7 +133,7 @@ export default function Trips() {
     };
   }, [trips]);
 
-  const canManageTrips = isManagerRole(session?.role);
+  const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
 
   function updateTripDraft(field, value) {
     setTripDraft((current) => ({ ...current, [field]: value }));
