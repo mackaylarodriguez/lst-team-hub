@@ -3,7 +3,6 @@ import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import {
-  assignWorkerByEmailToTrip,
   listTripsForCurrentUser,
   TRIPS_UPDATED_EVENT,
 } from "@/lib/trips";
@@ -30,10 +29,6 @@ export default function Admin() {
   const [editingTaskKey, setEditingTaskKey] = useState(null);
   const [taskTitleDraft, setTaskTitleDraft] = useState("");
   const [trips, setTrips] = useState([]);
-  const [workerEmail, setWorkerEmail] = useState("");
-  const [selectedTripId, setSelectedTripId] = useState("");
-  const [assignmentError, setAssignmentError] = useState("");
-  const [assignmentMessage, setAssignmentMessage] = useState("");
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
   useEffect(() => {
@@ -190,30 +185,6 @@ export default function Admin() {
     handleCancelTitleEdit();
   }
 
-  async function handleAssignWorker() {
-    try {
-      const result = await assignWorkerByEmailToTrip({
-        workerEmail,
-        tripId: selectedTripId,
-      });
-
-      if (result.status !== "assigned") {
-        setAssignmentError(result.message);
-        setAssignmentMessage("");
-        return;
-      }
-
-      setAssignmentError("");
-      setAssignmentMessage(result.message);
-      setWorkerEmail("");
-      setSelectedTripId("");
-    } catch (error) {
-      console.error("Unable to assign worker", error);
-      setAssignmentError(error.message || "Unable to assign worker.");
-      setAssignmentMessage("");
-    }
-  }
-
   return (
     <Shell>
       <h1 className="h1">My Tasks</h1>
@@ -222,63 +193,6 @@ export default function Admin() {
       </p>
 
       <div style={{ height: 14 }} />
-
-      <div className="card pad" style={{ marginBottom: 16 }}>
-        <div className="row" style={{ marginBottom: 10 }}>
-          <div>
-            <div style={{ fontWeight: 900 }}>Assign Worker to Trip</div>
-            <div className="small">
-              Staff and admin can assign workers using their email address.
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: "grid", gap: 12, maxWidth: 520 }}>
-          <div>
-            <div className="small" style={{ marginBottom: 6 }}>Worker Email</div>
-            <input
-              className="input"
-              value={workerEmail}
-              onChange={(event) => setWorkerEmail(event.target.value)}
-              placeholder="worker@org.org"
-            />
-          </div>
-          <div>
-            <div className="small" style={{ marginBottom: 6 }}>Trip</div>
-            <select
-              className="input"
-              value={selectedTripId}
-              onChange={(event) => setSelectedTripId(event.target.value)}
-            >
-              <option value="">Select a trip</option>
-              {trips.map((trip) => (
-                <option key={trip.id} value={trip.id}>
-                  {trip.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {assignmentMessage && (
-            <div className="small" style={{ color: "var(--success)" }}>
-              {assignmentMessage}
-            </div>
-          )}
-          {assignmentError && (
-            <div className="small" style={{ color: "var(--danger)" }}>
-              {assignmentError}
-            </div>
-          )}
-          <div>
-            <button
-              className="btn btnPrimary"
-              type="button"
-              onClick={handleAssignWorker}
-            >
-              Assign
-            </button>
-          </div>
-        </div>
-      </div>
 
       {isAdminUser && (
         <div className="card pad" style={{ marginBottom: 16 }}>

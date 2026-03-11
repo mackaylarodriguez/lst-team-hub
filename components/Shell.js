@@ -9,7 +9,7 @@ import {
   setImpersonatedProfile,
 } from "@/lib/auth";
 import { useEffect, useState } from "react";
-import { isManagerRole, ROLE_ADMIN } from "@/lib/roles";
+import { isManagerRole, isStaffRole, ROLE_ADMIN } from "@/lib/roles";
 
 export default function Shell({ children }) {
   const router = useRouter();
@@ -45,6 +45,7 @@ export default function Shell({ children }) {
 
   const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
   const isAdminUser = session?.actualRole === ROLE_ADMIN;
+  const isStaffUser = isStaffRole(session?.role);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +107,7 @@ export default function Shell({ children }) {
         <nav className="nav">
           <Link className={path.startsWith("/trips") ? "active" : ""} href="/trips">My Trips</Link>
           {canManageTrips && <Link className={path === "/admin" ? "active" : ""} href="/admin">My Tasks</Link>}
+          {isStaffUser && <Link className={path === "/staff" ? "active" : ""} href="/staff">Assignments</Link>}
           <Link className={path === "/profile" ? "active" : ""} href="/profile">Profile</Link>
           <a
             href="#"
