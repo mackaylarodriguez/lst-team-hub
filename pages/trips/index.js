@@ -307,7 +307,7 @@ export default function Trips() {
         </div>
 
         <div>
-          <div style={{ fontWeight: 900, marginBottom: 12 }}>Finished</div>
+          <div style={{ fontWeight: 900, marginBottom: 12 }}>Past</div>
           <div
             style={{
               display: "grid",
