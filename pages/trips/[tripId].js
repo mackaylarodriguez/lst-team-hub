@@ -1288,7 +1288,7 @@ function parseDateSafe(dateStr) {
 
   function renderTripSetupCard() {
     return (
-      <div className="card pad">
+      <div className="card pad" style={{ gridColumn: "1 / -1" }}>
         <div className="row" style={{ marginBottom: 14 }}>
           <div style={{ fontWeight: 900 }}>Trip Setup</div>
           <div className="spacer" />
