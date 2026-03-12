@@ -1244,10 +1244,24 @@ function parseDateSafe(dateStr) {
         : "No personal Neon page added yet.";
   const fundraisingGoalAmount = Number(trip?.fundraisingGoalAmount || 0);
   const fundraisingFirstDeadlineAmount = Math.min(2000, fundraisingGoalAmount || 2000);
-  const fundraisingSecondDeadlineAmount = Math.max(
+  const fundraisingWorkerCount = Math.max(
+    (trip?.participants || []).filter((participant) =>
+      String(participant?.role || "").toLowerCase() === "worker"
+    ).length || (trip?.participants || []).length,
+    1
+  );
+  const fundraisingSecondDeadlineTotalAmount = Math.max(
     (fundraisingGoalAmount || 0) - fundraisingFirstDeadlineAmount,
     0
   );
+  const fundraisingSecondDeadlineAmount = fundraisingSecondDeadlineTotalAmount
+    ? Math.max(
+        250,
+        Math.round(
+          (fundraisingSecondDeadlineTotalAmount / fundraisingWorkerCount) / 250
+        ) * 250
+      )
+    : 0;
   const fundraisingFirstDeadlineDate = subtractDays(trip?.startDate, 90);
   const fundraisingSecondDeadlineDate = subtractDays(trip?.startDate, 30);
   const visibleTaskParticipants = canViewAllParticipantData
@@ -1762,7 +1776,10 @@ function parseDateSafe(dateStr) {
                   Due by {formatDeadlineDate(fundraisingSecondDeadlineDate)}
                 </div>
                 <div className="small" style={{ marginTop: 8 }}>
-                  Remaining amount due for the trip.
+                  Approximate target per worker for the remaining balance.
+                </div>
+                <div className="small" style={{ marginTop: 8 }}>
+                  Based on {fundraisingWorkerCount} worker{fundraisingWorkerCount === 1 ? "" : "s"} and {formatMoney(fundraisingSecondDeadlineTotalAmount)} still needed after the 90-day deadline.
                 </div>
               </div>
             </div>
