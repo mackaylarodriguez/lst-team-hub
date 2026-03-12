@@ -2623,12 +2623,6 @@ function parseDateSafe(dateStr) {
                                       updateStaffTask(t.id, "notes", e.target.value)
                                     }
                                   />
-                                  <div className="small">
-                                    {t.updatedByName || t.updatedByEmail
-                                      ? `Last updated by ${t.updatedByName || t.updatedByEmail}`
-                                      : "Last updated by staff"}
-                                    {t.updatedAt ? ` on ${formatTaskUpdatedAt(t.updatedAt)}` : ""}
-                                  </div>
                                   {t.notes ? (
                                     <div className="staffTaskNotesTooltip" role="note">
                                       {t.notes}
