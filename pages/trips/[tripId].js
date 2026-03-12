@@ -189,6 +189,7 @@ export default function TripPage() {
   const editableStaffTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
   const staffTaskRowTimeoutsRef = useRef({});
+  const staffTaskNoteSaveTimeoutsRef = useRef({});
 
   const staffList = [
     "Mackayla",
@@ -441,6 +442,9 @@ export default function TripPage() {
   useEffect(() => {
     return () => {
       Object.values(staffTaskRowTimeoutsRef.current || {}).forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
+      Object.values(staffTaskNoteSaveTimeoutsRef.current || {}).forEach((timeoutId) => {
         clearTimeout(timeoutId);
       });
     };
@@ -1230,10 +1234,7 @@ export default function TripPage() {
   }
 
   function updateStaffTask(taskId, field, value) {
-    const baseTasks = editableStaffTasksRef.current || [];
-    const nextTasks = baseTasks.map((task) =>
-      task.id === taskId ? { ...task, [field]: value } : task
-    );
+    const nextTasks = setLocalStaffTaskField(taskId, field, value);
     console.log("[tripPage] updateStaffTask", {
       tripId: trip?.id,
       taskId,
@@ -1251,6 +1252,46 @@ export default function TripPage() {
         setStaffTaskRowFeedback(taskId, "error", "Could not save task changes.");
         setStaffTaskStatus(error.message || "Could not save task changes.");
       });
+  }
+
+  function setLocalStaffTaskField(taskId, field, value) {
+    const baseTasks = editableStaffTasksRef.current || [];
+    const nextTasks = baseTasks.map((task) =>
+      task.id === taskId ? { ...task, [field]: value } : task
+    );
+
+    setEditableStaffTasks(nextTasks);
+    editableStaffTasksRef.current = nextTasks;
+    return nextTasks;
+  }
+
+  function clearPendingStaffTaskNoteSave(taskId) {
+    const existingTimeout = staffTaskNoteSaveTimeoutsRef.current[taskId];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      delete staffTaskNoteSaveTimeoutsRef.current[taskId];
+      return true;
+    }
+
+    return false;
+  }
+
+  function handleStaffTaskNotesChange(taskId, value) {
+    setLocalStaffTaskField(taskId, "notes", value);
+    setStaffTaskStatus("");
+    clearPendingStaffTaskNoteSave(taskId);
+
+    staffTaskNoteSaveTimeoutsRef.current[taskId] = setTimeout(() => {
+      delete staffTaskNoteSaveTimeoutsRef.current[taskId];
+      updateStaffTask(taskId, "notes", value);
+    }, 700);
+  }
+
+  function flushStaffTaskNotesSave(taskId, value) {
+    const hadPendingSave = clearPendingStaffTaskNoteSave(taskId);
+    if (hadPendingSave) {
+      updateStaffTask(taskId, "notes", value);
+    }
   }
 
   function handleEditStaffTask(task) {
@@ -4767,8 +4808,9 @@ function parseDateSafe(dateStr) {
                                     rows={2}
                                     value={t.notes || ""}
                                     onChange={(e) =>
-                                      updateStaffTask(t.id, "notes", e.target.value)
+                                      handleStaffTaskNotesChange(t.id, e.target.value)
                                     }
+                                    onBlur={(e) => flushStaffTaskNotesSave(t.id, e.target.value)}
                                   />
                                   {t.notes ? (
                                     <div className="staffTaskNotesTooltip" role="note">

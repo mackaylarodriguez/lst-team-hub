@@ -47,6 +47,7 @@ export default function Admin() {
   const staffTasksByTripRef = useRef({});
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
   const staffTaskRowTimeoutsRef = useRef({});
+  const staffTaskNoteSaveTimeoutsRef = useRef({});
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
   useEffect(() => {
@@ -127,6 +128,9 @@ export default function Admin() {
       Object.values(staffTaskRowTimeoutsRef.current || {}).forEach((timeoutId) => {
         clearTimeout(timeoutId);
       });
+      Object.values(staffTaskNoteSaveTimeoutsRef.current || {}).forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
     };
   }, []);
 
@@ -181,10 +185,7 @@ export default function Admin() {
   }, [myTasks, sortMode]);
 
   async function updateTask(tripId, taskId, field, value) {
-    const baseTasks = staffTasksByTripRef.current[tripId] || [];
-    const nextTripTasks = baseTasks.map((task) =>
-      task.id === taskId ? { ...task, [field]: value } : task
-    );
+    const nextTripTasks = setLocalTaskField(tripId, taskId, field, value);
     console.log("[adminPage] updateTask", {
       tripId,
       taskId,
@@ -195,14 +196,6 @@ export default function Admin() {
     const requestId = latestStaffTaskSaveRef.current + 1;
     latestStaffTaskSaveRef.current = requestId;
 
-    setStaffTasksByTrip((prev) => ({
-      ...prev,
-      [tripId]: nextTripTasks,
-    }));
-    staffTasksByTripRef.current = {
-      ...staffTasksByTripRef.current,
-      [tripId]: nextTripTasks,
-    };
     setStaffTaskRowFeedback(getTaskKey(tripId, taskId), "info", "Saving...");
     try {
       setStaffTaskStatus("Saving...");
@@ -229,6 +222,54 @@ export default function Admin() {
       if (latestStaffTaskSaveRef.current !== requestId) return;
       setStaffTaskStatus("Could not save task changes.");
       setStaffTaskRowFeedback(getTaskKey(tripId, taskId), "error", "Could not save task changes.");
+    }
+  }
+
+  function setLocalTaskField(tripId, taskId, field, value) {
+    const baseTasks = staffTasksByTripRef.current[tripId] || [];
+    const nextTripTasks = baseTasks.map((task) =>
+      task.id === taskId ? { ...task, [field]: value } : task
+    );
+
+    setStaffTasksByTrip((prev) => ({
+      ...prev,
+      [tripId]: nextTripTasks,
+    }));
+    staffTasksByTripRef.current = {
+      ...staffTasksByTripRef.current,
+      [tripId]: nextTripTasks,
+    };
+
+    return nextTripTasks;
+  }
+
+  function clearPendingTaskNoteSave(taskKey) {
+    const existingTimeout = staffTaskNoteSaveTimeoutsRef.current[taskKey];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      delete staffTaskNoteSaveTimeoutsRef.current[taskKey];
+      return true;
+    }
+
+    return false;
+  }
+
+  function handleTaskNotesChange(tripId, taskId, value) {
+    const taskKey = getTaskKey(tripId, taskId);
+    setLocalTaskField(tripId, taskId, "notes", value);
+    setStaffTaskStatus("");
+    clearPendingTaskNoteSave(taskKey);
+
+    staffTaskNoteSaveTimeoutsRef.current[taskKey] = setTimeout(() => {
+      delete staffTaskNoteSaveTimeoutsRef.current[taskKey];
+      void updateTask(tripId, taskId, "notes", value);
+    }, 700);
+  }
+
+  function flushTaskNotesSave(tripId, taskId, value) {
+    const hadPendingSave = clearPendingTaskNoteSave(getTaskKey(tripId, taskId));
+    if (hadPendingSave) {
+      void updateTask(tripId, taskId, "notes", value);
     }
   }
 
@@ -360,6 +401,8 @@ export default function Admin() {
         onCancelTitleEdit={handleCancelTitleEdit}
         onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
+        onTaskNotesChange={handleTaskNotesChange}
+        onTaskNotesBlur={flushTaskNotesSave}
         staffTaskRowStatus={staffTaskRowStatus}
       />
 
@@ -373,6 +416,8 @@ export default function Admin() {
         onCancelTitleEdit={handleCancelTitleEdit}
         onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
+        onTaskNotesChange={handleTaskNotesChange}
+        onTaskNotesBlur={flushTaskNotesSave}
         staffTaskRowStatus={staffTaskRowStatus}
       />
 
@@ -386,6 +431,8 @@ export default function Admin() {
         onCancelTitleEdit={handleCancelTitleEdit}
         onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
+        onTaskNotesChange={handleTaskNotesChange}
+        onTaskNotesBlur={flushTaskNotesSave}
         staffTaskRowStatus={staffTaskRowStatus}
       />
     </Shell>
@@ -402,6 +449,8 @@ function TaskSection({
   onCancelTitleEdit,
   onSaveTitle,
   onUpdateTask,
+  onTaskNotesChange,
+  onTaskNotesBlur,
   staffTaskRowStatus,
 }) {
   return (
@@ -478,9 +527,8 @@ function TaskSection({
                     <input
                       className="input"
                       value={task.notes || ""}
-                      onChange={(e) =>
-                        onUpdateTask(task.tripId, task.id, "notes", e.target.value)
-                      }
+                      onChange={(e) => onTaskNotesChange(task.tripId, task.id, e.target.value)}
+                      onBlur={(e) => onTaskNotesBlur(task.tripId, task.id, e.target.value)}
                     />
                   </td>
                   <td>
