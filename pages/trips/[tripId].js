@@ -67,7 +67,15 @@ export default function TripPage() {
   });
   const [taskStatusMessage, setTaskStatusMessage] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
-  const [overviewNote, setOverviewNote] = useState("");
+  const [overviewNote, setOverviewNote] = useState({
+    id: null,
+    note: "",
+    authorName: "",
+    authorEmail: "",
+    updatedAt: "",
+  });
+  const [overviewNoteDraft, setOverviewNoteDraft] = useState("");
+  const [isEditingOverviewNote, setIsEditingOverviewNote] = useState(false);
   const [overviewNoteStatus, setOverviewNoteStatus] = useState("");
   const [teamFundraisingDraft, setTeamFundraisingDraft] = useState({
     teamFundraisingUrl: "",
@@ -287,9 +295,21 @@ export default function TripPage() {
 
     async function loadOverviewNote() {
       try {
+        setOverviewNote({
+          id: null,
+          note: "",
+          authorName: "",
+          authorEmail: "",
+          updatedAt: "",
+        });
+        setOverviewNoteDraft("");
+        setIsEditingOverviewNote(false);
+        setOverviewNoteStatus("");
         const row = await getTripOverviewNote(trip.id);
         if (!cancelled) {
-          setOverviewNote(row.note || "");
+          setOverviewNote(row);
+          setOverviewNoteDraft(row.note || "");
+          setIsEditingOverviewNote(!row.note);
           setOverviewNoteStatus("");
         }
       } catch (error) {
@@ -966,21 +986,55 @@ function parseDateSafe(dateStr) {
     return fallback;
   }
 
+  function formatNoteTimestamp(value) {
+    if (!value) return "";
+
+    return new Date(value).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
   async function handleSaveOverviewNote() {
     if (!trip?.id) return;
+    const trimmedNote = String(overviewNoteDraft || "").trim();
+
+    if (!trimmedNote) {
+      setOverviewNoteStatus("Note cannot be empty.");
+      return;
+    }
 
     try {
       setOverviewNoteStatus("Saving...");
       const saved = await saveTripOverviewNote({
         tripId: trip.id,
-        note: overviewNote,
+        note: trimmedNote,
+        authorName: session?.name || session?.email || "Staff",
+        authorEmail: session?.email || "",
       });
-      setOverviewNote(saved.note || "");
+      setOverviewNote(saved);
+      setOverviewNoteDraft(saved.note || "");
+      setIsEditingOverviewNote(false);
       setOverviewNoteStatus("Saved.");
     } catch (error) {
       console.error("Unable to save trip overview note", error);
       setOverviewNoteStatus(error.message || "Unable to save note.");
     }
+  }
+
+  function handleStartOverviewNote() {
+    setOverviewNoteDraft(overviewNote.note || "");
+    setIsEditingOverviewNote(true);
+    setOverviewNoteStatus("");
+  }
+
+  function handleCancelOverviewNoteEdit() {
+    setOverviewNoteDraft(overviewNote.note || "");
+    setIsEditingOverviewNote(false);
+    setOverviewNoteStatus("");
   }
 
   const groupedViewTasks = groupTasksByWorkArea(editableStaffTasks || []);
@@ -1342,23 +1396,81 @@ function parseDateSafe(dateStr) {
                 <div className="small" style={{ marginBottom: 10 }}>
                   Put obvious context here, like why the trip was archived or major team changes.
                 </div>
-                <textarea
-                  className="input"
-                  rows={4}
-                  value={overviewNote}
-                  onChange={(event) => setOverviewNote(event.target.value)}
-                  placeholder="Example: Archived because multiple workers dropped from the team."
-                />
-                <div className="row" style={{ marginTop: 10 }}>
-                  <button className="btn btnPrimary" type="button" onClick={handleSaveOverviewNote}>
-                    Save Note
+                {!overviewNote.note && !isEditingOverviewNote ? (
+                  <button className="btn" type="button" onClick={handleStartOverviewNote}>
+                    Add Note
                   </button>
-                  {overviewNoteStatus ? (
-                    <div className="small" style={{ alignSelf: "center" }}>
-                      {overviewNoteStatus}
+                ) : null}
+                {isEditingOverviewNote ? (
+                  <>
+                    <textarea
+                      className="input"
+                      rows={4}
+                      value={overviewNoteDraft}
+                      onChange={(event) => setOverviewNoteDraft(event.target.value)}
+                      placeholder="Example: Archived because multiple workers dropped from the team."
+                    />
+                    <div className="row" style={{ marginTop: 10 }}>
+                      <button
+                        className="btn btnPrimary"
+                        type="button"
+                        onClick={handleSaveOverviewNote}
+                      >
+                        Save Note
+                      </button>
+                      {overviewNote.note ? (
+                        <button className="btn" type="button" onClick={handleCancelOverviewNoteEdit}>
+                          Cancel
+                        </button>
+                      ) : null}
+                      {overviewNoteStatus ? (
+                        <div className="small" style={{ alignSelf: "center" }}>
+                          {overviewNoteStatus}
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
-                </div>
+                  </>
+                ) : null}
+                {overviewNote.note && !isEditingOverviewNote ? (
+                  <>
+                    <div
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        lineHeight: 1.6,
+                        padding: "12px 14px",
+                        borderRadius: 14,
+                        background: "#f5f1ea",
+                        border: "1px solid rgba(18, 16, 12, 0.08)",
+                      }}
+                    >
+                      {overviewNote.note}
+                    </div>
+                    <div
+                      className="small"
+                      style={{ marginTop: 10, display: "flex", gap: 12, flexWrap: "wrap" }}
+                    >
+                      <span>
+                        <strong>By:</strong>{" "}
+                        {overviewNote.authorName || overviewNote.authorEmail || "Staff"}
+                      </span>
+                      {overviewNote.updatedAt ? (
+                        <span>
+                          <strong>Updated:</strong> {formatNoteTimestamp(overviewNote.updatedAt)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="row" style={{ marginTop: 10 }}>
+                      <button className="btn" type="button" onClick={handleStartOverviewNote}>
+                        Edit
+                      </button>
+                      {overviewNoteStatus ? (
+                        <div className="small" style={{ alignSelf: "center" }}>
+                          {overviewNoteStatus}
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                ) : null}
               </div>
             )}
 
@@ -1418,7 +1530,7 @@ function parseDateSafe(dateStr) {
             </table>
           </div>
 
-          {canManageTrips && (
+          {canViewAllParticipantData && (
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Reference Emails</div>
               <table className="table">
@@ -1533,10 +1645,6 @@ function parseDateSafe(dateStr) {
                   })}
                 </tbody>
               </table>
-
-              <div className="small" style={{ marginTop: 12 }}>
-                Reference email tracking is saved locally for this demo trip.
-              </div>
             </div>
           )}
         </div>
@@ -2079,7 +2187,7 @@ function parseDateSafe(dateStr) {
                 <div className="row" style={{ marginBottom: 10 }}>
                   <div style={{ fontWeight: 900 }}>Documents & Links</div>
                   <div className="spacer" />
-                  {canManageTrips && (
+                  {canViewAllParticipantData && (
                     <div className="row">
                       <button className="btn" type="button" onClick={handleAddLink}>
                         Add Link
@@ -2255,7 +2363,7 @@ function parseDateSafe(dateStr) {
                             </>
                           )}
 
-                          {canManageTrips && (
+                          {canViewAllParticipantData && (
                             <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
                               {!isEditing && (
                                 <div className="row">
