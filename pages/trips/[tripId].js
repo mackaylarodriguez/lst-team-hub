@@ -2530,7 +2530,7 @@ function parseDateSafe(dateStr) {
       : "My Fundraising Page";
     const links = [
       {
-        label: "Training Hub",
+        label: "Canvas",
         url: "https://canvas.instructure.com/courses/12611786",
         ready: true,
       },
@@ -2999,7 +2999,7 @@ function parseDateSafe(dateStr) {
             {canViewAllParticipantData ? renderTripSetupCard() : null}
 
             <div className="card pad">
-              <div style={{ fontWeight: 900, marginBottom: 10 }}>
+              <div className="cardSectionPill">
                 {canViewAllParticipantData ? "My Upcoming Staff Tasks" : "My Upcoming Tasks"}
               </div>
               {overviewUpcomingTasks.length > 0 ? (
@@ -3030,7 +3030,7 @@ function parseDateSafe(dateStr) {
             </div>
 
             <div className="card pad">
-              <div style={{ fontWeight: 900, marginBottom: 10 }}>Quick Links</div>
+              <div className="cardSectionPill">Quick Links</div>
               <div style={{ display: "grid", gap: 10 }}>
                 {quickLinks.map((link) => (
                   <div
@@ -3038,7 +3038,7 @@ function parseDateSafe(dateStr) {
                     className="row"
                     style={{ justifyContent: "space-between", alignItems: "center" }}
                   >
-                    <div style={{ fontWeight: 800 }}>{link.label}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{link.label}</div>
                     {link.ready ? (
                       <a className="btn btnPrimary" href={link.url} target="_blank" rel="noreferrer">
                         Open

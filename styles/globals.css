@@ -255,6 +255,20 @@ a:hover{text-decoration:underline}
   background:var(--skySoft);
   border-color:rgba(60,170,225,.24);
 }
+.cardSectionPill{
+  display:inline-flex;
+  align-items:center;
+  margin-bottom:12px;
+  padding:7px 12px;
+  border-radius:999px;
+  border:1px solid rgba(47,73,147,.16);
+  background:var(--primarySoft);
+  color:var(--primary);
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
 @media(max-width:980px){
   .staffTaskRowActions{
     opacity:1;
