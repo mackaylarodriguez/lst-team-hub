@@ -31,7 +31,7 @@ import {
   saveUserTaskProgress,
 } from "@/lib/tripTasks";
 import { listReferenceEmails, saveReferenceEmail } from "@/lib/referenceEmails";
-import { getTripOverviewNote, saveTripOverviewNote } from "@/lib/tripOverviewNotes";
+import { listTripOverviewNotes, saveTripOverviewNote } from "@/lib/tripOverviewNotes";
 import { saveTripFundraisingSettings } from "@/lib/tripFundraising";
 
 const STAFF_TASK_AREA_LABELS = {
@@ -67,13 +67,8 @@ export default function TripPage() {
   });
   const [taskStatusMessage, setTaskStatusMessage] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
-  const [overviewNote, setOverviewNote] = useState({
-    id: null,
-    note: "",
-    authorName: "",
-    authorEmail: "",
-    updatedAt: "",
-  });
+  const [overviewNotes, setOverviewNotes] = useState([]);
+  const [editingOverviewNoteId, setEditingOverviewNoteId] = useState("");
   const [overviewNoteDraft, setOverviewNoteDraft] = useState("");
   const [isEditingOverviewNote, setIsEditingOverviewNote] = useState(false);
   const [overviewNoteStatus, setOverviewNoteStatus] = useState("");
@@ -299,25 +294,18 @@ export default function TripPage() {
 
     async function loadOverviewNote() {
       try {
-        setOverviewNote({
-          id: null,
-          note: "",
-          authorName: "",
-          authorEmail: "",
-          updatedAt: "",
-        });
+        setOverviewNotes([]);
+        setEditingOverviewNoteId("");
         setOverviewNoteDraft("");
         setIsEditingOverviewNote(false);
         setOverviewNoteStatus("");
-        const row = await getTripOverviewNote(trip.id);
+        const rows = await listTripOverviewNotes(trip.id);
         if (!cancelled) {
-          setOverviewNote(row);
-          setOverviewNoteDraft(row.note || "");
-          setIsEditingOverviewNote(!row.note);
+          setOverviewNotes(rows);
           setOverviewNoteStatus("");
         }
       } catch (error) {
-        console.error("Unable to load trip overview note", error);
+        console.error("Unable to load trip overview notes", error);
       }
     }
 
@@ -1053,13 +1041,33 @@ function parseDateSafe(dateStr) {
     try {
       setOverviewNoteStatus("Saving...");
       const saved = await saveTripOverviewNote({
+        id: editingOverviewNoteId || null,
         tripId: trip.id,
         note: trimmedNote,
-        authorName: session?.name || session?.email || "Staff",
+        authorName:
+          session?.name ||
+          String(session?.email || "")
+            .split("@")[0]
+            .trim() ||
+          "Unknown user",
         authorEmail: session?.email || "",
       });
-      setOverviewNote(saved);
+      setOverviewNotes((current) => {
+        const existingIndex = current.findIndex((note) => note.id === saved.id);
+        if (existingIndex >= 0) {
+          const next = [...current];
+          next[existingIndex] = saved;
+          return next.sort((left, right) =>
+            String(right.updatedAt || "").localeCompare(String(left.updatedAt || ""))
+          );
+        }
+
+        return [saved, ...current].sort((left, right) =>
+          String(right.updatedAt || "").localeCompare(String(left.updatedAt || ""))
+        );
+      });
       setOverviewNoteDraft(saved.note || "");
+      setEditingOverviewNoteId("");
       setIsEditingOverviewNote(false);
       setOverviewNoteStatus("Saved.");
     } catch (error) {
@@ -1068,14 +1076,16 @@ function parseDateSafe(dateStr) {
     }
   }
 
-  function handleStartOverviewNote() {
-    setOverviewNoteDraft(overviewNote.note || "");
+  function handleStartOverviewNote(note = null) {
+    setEditingOverviewNoteId(note?.id || "");
+    setOverviewNoteDraft(note?.note || "");
     setIsEditingOverviewNote(true);
     setOverviewNoteStatus("");
   }
 
   function handleCancelOverviewNoteEdit() {
-    setOverviewNoteDraft(overviewNote.note || "");
+    setEditingOverviewNoteId("");
+    setOverviewNoteDraft("");
     setIsEditingOverviewNote(false);
     setOverviewNoteStatus("");
   }
@@ -1483,7 +1493,7 @@ function parseDateSafe(dateStr) {
                 <div className="small" style={{ marginBottom: 10 }}>
                   Put obvious context here, like why the trip was archived or major team changes.
                 </div>
-                {!overviewNote.note && !isEditingOverviewNote ? (
+                {!isEditingOverviewNote ? (
                   <button className="btn" type="button" onClick={handleStartOverviewNote}>
                     Add Note
                   </button>
@@ -1505,50 +1515,8 @@ function parseDateSafe(dateStr) {
                       >
                         Save Note
                       </button>
-                      {overviewNote.note ? (
-                        <button className="btn" type="button" onClick={handleCancelOverviewNoteEdit}>
-                          Cancel
-                        </button>
-                      ) : null}
-                      {overviewNoteStatus ? (
-                        <div className="small" style={{ alignSelf: "center" }}>
-                          {overviewNoteStatus}
-                        </div>
-                      ) : null}
-                    </div>
-                  </>
-                ) : null}
-                {overviewNote.note && !isEditingOverviewNote ? (
-                  <>
-                    <div
-                      style={{
-                        whiteSpace: "pre-wrap",
-                        lineHeight: 1.6,
-                        padding: "12px 14px",
-                        borderRadius: 14,
-                        background: "#f5f1ea",
-                        border: "1px solid rgba(18, 16, 12, 0.08)",
-                      }}
-                    >
-                      {overviewNote.note}
-                    </div>
-                    <div
-                      className="small"
-                      style={{ marginTop: 10, display: "flex", gap: 12, flexWrap: "wrap" }}
-                    >
-                      <span>
-                        <strong>By:</strong>{" "}
-                        {overviewNote.authorName || overviewNote.authorEmail || "Staff"}
-                      </span>
-                      {overviewNote.updatedAt ? (
-                        <span>
-                          <strong>Updated:</strong> {formatNoteTimestamp(overviewNote.updatedAt)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="row" style={{ marginTop: 10 }}>
-                      <button className="btn" type="button" onClick={handleStartOverviewNote}>
-                        Edit
+                      <button className="btn" type="button" onClick={handleCancelOverviewNoteEdit}>
+                        Cancel
                       </button>
                       {overviewNoteStatus ? (
                         <div className="small" style={{ alignSelf: "center" }}>
@@ -1558,6 +1526,47 @@ function parseDateSafe(dateStr) {
                     </div>
                   </>
                 ) : null}
+                <div style={{ display: "grid", gap: 12, marginTop: isEditingOverviewNote ? 14 : 12 }}>
+                  {overviewNotes.map((note) => (
+                    <div
+                      key={note.id}
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: 14,
+                        background: "#f5f1ea",
+                        border: "1px solid rgba(18, 16, 12, 0.08)",
+                      }}
+                    >
+                      <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{note.note}</div>
+                      <div
+                        className="small"
+                        style={{ marginTop: 10, display: "flex", gap: 12, flexWrap: "wrap" }}
+                      >
+                        <span>
+                          <strong>By:</strong>{" "}
+                          {note.authorName || note.authorEmail || "Unknown user"}
+                        </span>
+                        {note.updatedAt ? (
+                          <span>
+                            <strong>Updated:</strong> {formatNoteTimestamp(note.updatedAt)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="row" style={{ marginTop: 10 }}>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => handleStartOverviewNote(note)}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {!overviewNotes.length && !isEditingOverviewNote ? (
+                    <div className="small">No notes yet.</div>
+                  ) : null}
+                </div>
               </div>
             )}
 
