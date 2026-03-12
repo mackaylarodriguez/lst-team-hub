@@ -31,6 +31,7 @@ import {
   listUserTaskProgress,
   saveUserTaskProgress,
 } from "@/lib/tripTasks";
+import { listReferenceEmails, saveReferenceEmail } from "@/lib/referenceEmails";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -293,13 +294,6 @@ export default function TripPage() {
 
   useEffect(() => {
     if (!trip) return;
-    const key = `referenceEmails:${trip.id}`;
-    const saved = localStorage.getItem(key);
-    setReferenceEmails(saved ? JSON.parse(saved) : {});
-  }, [trip]);
-
-  useEffect(() => {
-    if (!trip) return;
     const syncStaffTasks = () => {
       setEditableStaffTasks(loadStaffTasks(trip));
     };
@@ -439,14 +433,42 @@ export default function TripPage() {
     }
   }
 
-  function saveReferenceEmails(nextReferenceEmails) {
-    setReferenceEmails(nextReferenceEmails);
+  useEffect(() => {
     if (!trip) return;
-    localStorage.setItem(
-      `referenceEmails:${trip.id}`,
-      JSON.stringify(nextReferenceEmails)
-    );
-  }
+
+    let cancelled = false;
+
+    async function loadReferenceEmails() {
+      try {
+        const rows = await listReferenceEmails(trip.id);
+        if (cancelled) return;
+
+        const next = {};
+        rows.forEach((row) => {
+          next[row.userId] = {
+            referenceName: row.referenceName,
+            referenceEmail: row.referenceEmail,
+            referencePhone: row.referencePhone,
+            sent: row.sent,
+            received: row.received,
+            sentDate: row.sentDate,
+          };
+        });
+        setReferenceEmails(next);
+      } catch (error) {
+        console.error("Unable to load reference emails", error);
+        if (!cancelled) {
+          setReferenceEmails({});
+        }
+      }
+    }
+
+    loadReferenceEmails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.id]);
 
   function updateFundraisingDraft(participantId, field, value) {
     setFundraisingDrafts((current) => ({
@@ -520,8 +542,8 @@ export default function TripPage() {
     }
   }
 
-  function getReferenceStatus(email) {
-    return referenceEmails[email] || {
+  function getReferenceStatus(userId) {
+    return referenceEmails[userId] || {
       referenceName: "",
       referenceEmail: "",
       referencePhone: "",
@@ -531,42 +553,82 @@ export default function TripPage() {
     };
   }
 
-  function toggleReferenceEmail(email, field) {
-    const current = getReferenceStatus(email);
+  async function saveReferenceStatus(userId, nextStatus) {
+    if (!trip || !userId) return;
+
+    try {
+      const saved = await saveReferenceEmail({
+        tripId: trip.id,
+        userId,
+        referenceName: nextStatus.referenceName,
+        referenceEmail: nextStatus.referenceEmail,
+        referencePhone: nextStatus.referencePhone,
+        sent: nextStatus.sent,
+        received: nextStatus.received,
+        sentDate: nextStatus.sentDate,
+      });
+
+      setReferenceEmails((current) => ({
+        ...current,
+        [userId]: {
+          referenceName: saved.referenceName,
+          referenceEmail: saved.referenceEmail,
+          referencePhone: saved.referencePhone,
+          sent: saved.sent,
+          received: saved.received,
+          sentDate: saved.sentDate,
+        },
+      }));
+    } catch (error) {
+      console.error("Unable to save reference email", error);
+    }
+  }
+
+  function toggleReferenceEmail(userId, field) {
+    const current = getReferenceStatus(userId);
     const nextValue = !current[field];
 
-    saveReferenceEmails({
-      ...referenceEmails,
-      [email]: {
-        ...current,
-        [field]: nextValue,
-        sentDate:
-          field === "sent" && !nextValue ? "" : current.sentDate || "",
-      },
-    });
+    const nextStatus = {
+      ...current,
+      [field]: nextValue,
+      sentDate:
+        field === "sent" && !nextValue ? "" : current.sentDate || "",
+    };
+
+    setReferenceEmails((prev) => ({
+      ...prev,
+      [userId]: nextStatus,
+    }));
+    void saveReferenceStatus(userId, nextStatus);
   }
 
-  function updateReferenceSentDate(email, value) {
-    const current = getReferenceStatus(email);
-    saveReferenceEmails({
-      ...referenceEmails,
-      [email]: {
-        ...current,
-        sent: value ? true : current.sent,
-        sentDate: value,
-      },
-    });
+  function updateReferenceSentDate(userId, value) {
+    const current = getReferenceStatus(userId);
+    const nextStatus = {
+      ...current,
+      sent: value ? true : current.sent,
+      sentDate: value,
+    };
+
+    setReferenceEmails((prev) => ({
+      ...prev,
+      [userId]: nextStatus,
+    }));
+    void saveReferenceStatus(userId, nextStatus);
   }
 
-  function updateReferenceField(email, field, value) {
-    const current = getReferenceStatus(email);
-    saveReferenceEmails({
-      ...referenceEmails,
-      [email]: {
-        ...current,
-        [field]: value,
-      },
-    });
+  function updateReferenceField(userId, field, value) {
+    const current = getReferenceStatus(userId);
+    const nextStatus = {
+      ...current,
+      [field]: value,
+    };
+
+    setReferenceEmails((prev) => ({
+      ...prev,
+      [userId]: nextStatus,
+    }));
+    void saveReferenceStatus(userId, nextStatus);
   }
 
   function toggleTask(taskId, ownerEmail = session?.email) {
@@ -1199,7 +1261,7 @@ function parseDateSafe(dateStr) {
                 </thead>
                 <tbody>
                   {trip.participants.map((participant) => {
-                    const referenceStatus = getReferenceStatus(participant.email);
+                    const referenceStatus = getReferenceStatus(participant.id);
 
                     return (
                       <tr key={`${participant.email}-reference`}>
@@ -1212,7 +1274,7 @@ function parseDateSafe(dateStr) {
                               placeholder="Reference name"
                               onChange={(e) =>
                                 updateReferenceField(
-                                  participant.email,
+                                  participant.id,
                                   "referenceName",
                                   e.target.value
                                 )
@@ -1225,7 +1287,7 @@ function parseDateSafe(dateStr) {
                               placeholder="Reference email"
                               onChange={(e) =>
                                 updateReferenceField(
-                                  participant.email,
+                                  participant.id,
                                   "referenceEmail",
                                   e.target.value
                                 )
@@ -1238,7 +1300,7 @@ function parseDateSafe(dateStr) {
                               placeholder="Reference phone"
                               onChange={(e) =>
                                 updateReferenceField(
-                                  participant.email,
+                                  participant.id,
                                   "referencePhone",
                                   e.target.value
                                 )
@@ -1255,7 +1317,7 @@ function parseDateSafe(dateStr) {
                               type="checkbox"
                               checked={!!referenceStatus.sent}
                               onChange={() =>
-                                toggleReferenceEmail(participant.email, "sent")
+                                toggleReferenceEmail(participant.id, "sent")
                               }
                             />
                             <span className={"badge " + (referenceStatus.sent ? "badgeSuccess" : "")}>
@@ -1269,7 +1331,7 @@ function parseDateSafe(dateStr) {
                             type="date"
                             value={referenceStatus.sentDate || ""}
                             onChange={(e) =>
-                              updateReferenceSentDate(participant.email, e.target.value)
+                              updateReferenceSentDate(participant.id, e.target.value)
                             }
                           />
                         </td>
@@ -1282,7 +1344,7 @@ function parseDateSafe(dateStr) {
                               type="checkbox"
                               checked={!!referenceStatus.received}
                               onChange={() =>
-                                toggleReferenceEmail(participant.email, "received")
+                                toggleReferenceEmail(participant.id, "received")
                               }
                             />
                             <span
