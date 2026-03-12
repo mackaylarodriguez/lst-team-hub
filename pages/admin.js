@@ -9,7 +9,7 @@ import {
 import { isAdminRole, isManagerRole } from "@/lib/roles";
 import {
   isTaskAssignedToUser,
-  loadStaffTasks,
+  listStaffTasksForTrip,
   saveStaffTasks,
   STAFF_TASKS_UPDATED_EVENT,
 } from "@/lib/staffTasks";
@@ -72,32 +72,31 @@ export default function Admin() {
   }, []);
 
   useEffect(() => {
-    const syncStaffTasks = () => {
+    let cancelled = false;
+
+    async function syncStaffTasks() {
       const next = {};
-      trips.forEach((trip) => {
-        next[trip.id] = loadStaffTasks(trip);
-      });
-      setStaffTasksByTrip(next);
-    };
-
-    syncStaffTasks();
-
-    function handleTaskUpdate() {
-      syncStaffTasks();
-    }
-
-    function handleStorage(event) {
-      if (!event.key || event.key.startsWith("staffTasks:")) {
-        syncStaffTasks();
+      await Promise.all(
+        trips.map(async (trip) => {
+          next[trip.id] = await listStaffTasksForTrip(trip.id);
+        })
+      );
+      if (!cancelled) {
+        setStaffTasksByTrip(next);
       }
     }
 
+    void syncStaffTasks();
+
+    function handleTaskUpdate() {
+      void syncStaffTasks();
+    }
+
     window.addEventListener(STAFF_TASKS_UPDATED_EVENT, handleTaskUpdate);
-    window.addEventListener("storage", handleStorage);
 
     return () => {
+      cancelled = true;
       window.removeEventListener(STAFF_TASKS_UPDATED_EVENT, handleTaskUpdate);
-      window.removeEventListener("storage", handleStorage);
     };
   }, [trips]);
 
@@ -152,8 +151,7 @@ export default function Admin() {
   }, [myTasks, sortMode]);
 
   function updateTask(tripId, taskId, field, value) {
-    const trip = trips.find((item) => item.id === tripId);
-    const baseTasks = staffTasksByTrip[tripId] || loadStaffTasks(trip) || [];
+    const baseTasks = staffTasksByTrip[tripId] || [];
     const nextTripTasks = baseTasks.map((task) =>
       task.id === taskId ? { ...task, [field]: value } : task
     );
@@ -162,7 +160,9 @@ export default function Admin() {
       ...prev,
       [tripId]: nextTripTasks,
     }));
-    saveStaffTasks(tripId, nextTripTasks);
+    void saveStaffTasks(tripId, nextTripTasks).catch((error) => {
+      console.error("Unable to save staff tasks", error);
+    });
   }
 
   function handleEditTitle(task) {

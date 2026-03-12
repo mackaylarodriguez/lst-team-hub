@@ -7,7 +7,6 @@ import {
   archiveTrip,
   createTripForCurrentUser,
   deleteTrip,
-  isTripArchived,
   listTripsForCurrentUser,
   TRIPS_UPDATED_EVENT,
   unarchiveTrip,
@@ -113,10 +112,10 @@ export default function Trips() {
   }, [router]);
 
   const { activeTrips, finishedTrips, archivedTrips } = useMemo(() => {
-    const today = startOfToday();
+      const today = startOfToday();
       const grouped = trips.map((trip) => {
       const { start, end } = parseTripBounds(trip);
-      return { ...trip, start, end, isArchived: isTripArchived(trip.id) };
+      return { ...trip, start, end, isArchived: trip.status === "archived" };
     });
 
     return {
@@ -283,7 +282,13 @@ export default function Trips() {
                     <button
                       className="btn"
                       type="button"
-                      onClick={() => archiveTrip(trip.id)}
+                      onClick={async () => {
+                        try {
+                          await archiveTrip(trip.id);
+                        } catch (error) {
+                          setSubmitError(error.message || "Unable to archive trip.");
+                        }
+                      }}
                     >
                       Archive
                     </button>
@@ -329,7 +334,13 @@ export default function Trips() {
                     <button
                       className="btn"
                       type="button"
-                      onClick={() => archiveTrip(trip.id)}
+                      onClick={async () => {
+                        try {
+                          await archiveTrip(trip.id);
+                        } catch (error) {
+                          setSubmitError(error.message || "Unable to archive trip.");
+                        }
+                      }}
                     >
                       Archive
                     </button>
@@ -373,7 +384,13 @@ export default function Trips() {
                     <button
                       className="btn"
                       type="button"
-                      onClick={() => unarchiveTrip(trip.id)}
+                      onClick={async () => {
+                        try {
+                          await unarchiveTrip(trip.id);
+                        } catch (error) {
+                          setSubmitError(error.message || "Unable to unarchive trip.");
+                        }
+                      }}
                     >
                       Unarchive
                     </button>

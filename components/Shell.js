@@ -34,12 +34,10 @@ export default function Shell({ children }) {
     }
 
     window.addEventListener(SESSION_UPDATED_EVENT, handleSessionUpdate);
-    window.addEventListener("storage", handleSessionUpdate);
 
     return () => {
       cancelled = true;
       window.removeEventListener(SESSION_UPDATED_EVENT, handleSessionUpdate);
-      window.removeEventListener("storage", handleSessionUpdate);
     };
   }, []);
 

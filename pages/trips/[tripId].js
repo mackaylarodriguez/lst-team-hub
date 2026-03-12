@@ -19,10 +19,9 @@ import {
 } from "@/lib/resources";
 import { percentComplete } from "@/lib/tasks";
 import {
-  loadStaffTasks,
+  listStaffTasksForTrip,
   saveStaffTasks as persistStaffTasks,
   sortStaffTasksByTemplate,
-  staffTasksKey,
   STAFF_TASKS_UPDATED_EVENT,
 } from "@/lib/staffTasks";
 import {
@@ -294,32 +293,35 @@ export default function TripPage() {
 
   useEffect(() => {
     if (!trip) return;
-    const syncStaffTasks = () => {
-      setEditableStaffTasks(loadStaffTasks(trip));
-    };
 
-    syncStaffTasks();
+    let cancelled = false;
 
-    function handleTaskUpdate(event) {
-      if (!event.detail?.tripId || event.detail.tripId === trip.id) {
-        syncStaffTasks();
+    async function syncStaffTasks() {
+      try {
+        const tasks = await listStaffTasksForTrip(trip.id);
+        if (!cancelled) {
+          setEditableStaffTasks(tasks);
+        }
+      } catch (error) {
+        console.error("Unable to load staff tasks", error);
       }
     }
 
-    function handleStorage(event) {
-      if (!event.key || event.key === staffTasksKey(trip.id)) {
-        syncStaffTasks();
+    void syncStaffTasks();
+
+    function handleTaskUpdate(event) {
+      if (!event.detail?.tripId || event.detail.tripId === trip.id) {
+        void syncStaffTasks();
       }
     }
 
     window.addEventListener(STAFF_TASKS_UPDATED_EVENT, handleTaskUpdate);
-    window.addEventListener("storage", handleStorage);
 
     return () => {
+      cancelled = true;
       window.removeEventListener(STAFF_TASKS_UPDATED_EVENT, handleTaskUpdate);
-      window.removeEventListener("storage", handleStorage);
     };
-  }, [trip]);
+  }, [trip?.id]);
 
   async function handleAddDocument(event) {
     const file = event.target.files?.[0];
@@ -754,7 +756,9 @@ export default function TripPage() {
     const orderedTasks = sortStaffTasksByTemplate(nextTasks);
     setEditableStaffTasks(orderedTasks);
     if (!trip) return;
-    persistStaffTasks(trip.id, orderedTasks);
+    void persistStaffTasks(trip.id, orderedTasks).catch((error) => {
+      console.error("Unable to save staff tasks", error);
+    });
   }
 
   function updateStaffTask(taskId, field, value) {
