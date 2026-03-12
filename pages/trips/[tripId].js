@@ -19,6 +19,10 @@ import {
   listResources,
   updateResource,
 } from "@/lib/resources";
+import {
+  DOCUMENT_CATEGORY_OPTIONS,
+  REQUIRED_TRIP_DOCUMENT_SLOTS,
+} from "@/lib/tripDocumentSlots";
 import { percentComplete } from "@/lib/tasks";
 import {
   listStaffTasksForTrip,
@@ -88,7 +92,13 @@ export default function TripPage() {
   const [trainingModules, setTrainingModules] = useState([]);
   const [docs, setDocs] = useState([]);
   const [isAddingLink, setIsAddingLink] = useState(false);
-  const [linkDraft, setLinkDraft] = useState({ title: "", link: "", workArea: "" });
+  const [linkDraft, setLinkDraft] = useState({
+    title: "",
+    link: "",
+    category: "Other",
+    workArea: "",
+    resourceKey: "",
+  });
   const [pendingPdfDraft, setPendingPdfDraft] = useState(null);
   const [editingDocId, setEditingDocId] = useState(null);
   const [docDraft, setDocDraft] = useState(null);
@@ -442,9 +452,32 @@ export default function TripPage() {
     setPendingPdfDraft({
       file,
       title: file.name.replace(/\.pdf$/i, ""),
+      category: "Other",
       workArea: trip?.name || "",
+      resourceKey: "",
     });
     event.target.value = "";
+  }
+
+  function handlePrepareRequiredPdf(slot) {
+    setPendingPdfDraft({
+      file: null,
+      title: slot.title,
+      category: slot.category,
+      workArea: trip?.name || "",
+      resourceKey: slot.key,
+    });
+  }
+
+  function handlePrepareRequiredLink(slot) {
+    setIsAddingLink(true);
+    setLinkDraft({
+      title: slot.title,
+      link: "",
+      category: slot.category,
+      workArea: trip?.name || "",
+      resourceKey: slot.key,
+    });
   }
 
   function handleCancelPendingPdf() {
@@ -458,7 +491,9 @@ export default function TripPage() {
       const created = await addPdfResource({
         title: pendingPdfDraft.title,
         file: pendingPdfDraft.file,
+        category: pendingPdfDraft.category,
         workArea: pendingPdfDraft.workArea,
+        resourceKey: pendingPdfDraft.resourceKey,
         tripId: trip?.id,
       });
       setDocs((current) => [created, ...current]);
@@ -472,12 +507,24 @@ export default function TripPage() {
 
   function handleAddLink() {
     setIsAddingLink(true);
-    setLinkDraft({ title: "", link: "", workArea: trip?.name || "" });
+    setLinkDraft({
+      title: "",
+      link: "",
+      category: "Other",
+      workArea: trip?.name || "",
+      resourceKey: "",
+    });
   }
 
   function handleCancelAddLink() {
     setIsAddingLink(false);
-    setLinkDraft({ title: "", link: "", workArea: trip?.name || "" });
+    setLinkDraft({
+      title: "",
+      link: "",
+      category: "Other",
+      workArea: trip?.name || "",
+      resourceKey: "",
+    });
   }
 
   async function handleSaveLink() {
@@ -503,6 +550,17 @@ export default function TripPage() {
     setDocDraft({ ...doc });
   }
 
+  async function handleDeleteDoc(docId) {
+    try {
+      await deleteResource(docId);
+      setDocs((current) => current.filter((doc) => doc.id !== docId));
+      setDocsError("");
+    } catch (error) {
+      console.error("Unable to delete resource", error);
+      setDocsError(error.message || "Unable to save resources.");
+    }
+  }
+
   function handleCancelEditDoc() {
     setEditingDocId(null);
     setDocDraft(null);
@@ -517,6 +575,8 @@ export default function TripPage() {
         title: docDraft.title,
         link: docDraft.link,
         pdfUrl: docDraft.pdfUrl,
+        category: docDraft.category,
+        resourceKey: docDraft.resourceKey,
         workArea: docDraft.workArea,
       });
       setDocs((current) =>
@@ -538,7 +598,9 @@ export default function TripPage() {
       const created = await addPdfResource({
         title: docDraft.title || file.name,
         file,
+        category: docDraft.category,
         workArea: docDraft.workArea,
+        resourceKey: docDraft.resourceKey,
         tripId: trip?.id,
       });
       const updated = await updateResource({
@@ -546,6 +608,8 @@ export default function TripPage() {
         title: created.title,
         link: null,
         pdfUrl: created.pdfUrl,
+        category: created.category,
+        resourceKey: created.resourceKey,
         workArea: created.workArea,
       });
       setDocs((current) =>
@@ -969,7 +1033,20 @@ export default function TripPage() {
       case "Waiting":
         return "badgeInfo";
       default:
-        return "badge";
+        return "badgeDanger";
+    }
+  }
+
+  function getProgressInputClass(progress) {
+    switch (progress) {
+      case "Complete":
+        return "statusComplete";
+      case "In progress":
+        return "statusInProgress";
+      case "Waiting":
+        return "statusWaiting";
+      default:
+        return "statusNotStarted";
     }
   }
 
@@ -1650,6 +1727,28 @@ function parseDateSafe(dateStr) {
       .sort((left, right) => left.localeCompare(right));
   }, [trip?.location]);
   const selectedSiteValue = isCustomSiteInput ? CUSTOM_SITE_OPTION : tripSetupDraft.location || "";
+  const requiredDocumentSlots = useMemo(
+    () =>
+      REQUIRED_TRIP_DOCUMENT_SLOTS.map((slot) => ({
+        ...slot,
+        resource: docs.find((doc) => doc.resourceKey === slot.key) || null,
+      })),
+    [docs]
+  );
+  const optionalDocsByCategory = useMemo(() => {
+    const grouped = new Map();
+
+    docs
+      .filter((doc) => !doc.resourceKey)
+      .forEach((doc) => {
+        const category = doc.category || "Other";
+        const existing = grouped.get(category) || [];
+        existing.push(doc);
+        grouped.set(category, existing);
+      });
+
+    return Array.from(grouped.entries()).sort((left, right) => left[0].localeCompare(right[0]));
+  }, [docs]);
 
   const currentParticipant = useMemo(() => {
     if (!trip) return null;
@@ -1867,8 +1966,40 @@ function parseDateSafe(dateStr) {
       : canViewAllParticipantData
         ? `${savedFundraisingLinksCount} participant links saved.`
         : currentParticipant?.fundraisingUrl
-          ? "Your personal Neon page is available."
-          : "No personal Neon page added yet.";
+        ? "Your personal Neon page is available."
+        : "No personal Neon page added yet.";
+  const smartsheetBudgetDoc = docs.find((doc) => doc.resourceKey === "smartsheet-budget");
+  const quickLinks = useMemo(() => {
+    const links = [
+      {
+        label: "Canvas",
+        url: "https://canvas.instructure.com/courses/12611786",
+      },
+    ];
+
+    if (canViewAllParticipantData && trip?.teamFundraisingUrl) {
+      links.push({ label: "Team Fundraising Page", url: trip.teamFundraisingUrl });
+    }
+
+    if (!canViewAllParticipantData && currentParticipant?.fundraisingUrl) {
+      links.push({ label: "My Fundraising Page", url: currentParticipant.fundraisingUrl });
+    }
+
+    if (smartsheetBudgetDoc?.link || smartsheetBudgetDoc?.pdfUrl) {
+      links.push({
+        label: "Smartsheet Budget",
+        url: smartsheetBudgetDoc.link || smartsheetBudgetDoc.pdfUrl,
+      });
+    }
+
+    return links;
+  }, [
+    canViewAllParticipantData,
+    currentParticipant?.fundraisingUrl,
+    smartsheetBudgetDoc?.link,
+    smartsheetBudgetDoc?.pdfUrl,
+    trip?.teamFundraisingUrl,
+  ]);
   const visibleTaskParticipants = canViewAllParticipantData
     ? participantTaskProgress
     : currentParticipantProgress
@@ -2130,7 +2261,7 @@ function parseDateSafe(dateStr) {
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Quick Links</div>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {trip.quickLinks.map(l => (
+                {quickLinks.map(l => (
                   <li key={l.label} style={{ marginBottom: 8 }}>
                     <a href={l.url} target="_blank" rel="noreferrer">{l.label}</a>
                   </li>
@@ -2138,7 +2269,7 @@ function parseDateSafe(dateStr) {
               </ul>
               <div style={{ height: 10 }} />
               <div className="small">
-                Later, this is where Neon + Canvas links can be automatically pulled per trip.
+                Canvas is fixed. Fundraising and budget links update from this trip's saved data.
               </div>
             </div>
           </div>
@@ -2993,249 +3124,413 @@ function parseDateSafe(dateStr) {
         </div>
       )}
 
-            {tab === "Documents" && (
-              <div className="card pad">
-                <div className="row" style={{ marginBottom: 10 }}>
-                  <div style={{ fontWeight: 900 }}>Documents & Links</div>
-                  <div className="spacer" />
-                  {canViewAllParticipantData && (
-                    <div className="row">
-                      <button className="btn" type="button" onClick={handleAddLink}>
-                        Add Link
-                      </button>
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={() => addDocumentInputRef.current?.click()}
-                      >
-                        Upload File
-                      </button>
-                      <input
-                        ref={addDocumentInputRef}
-                        type="file"
-                        hidden
-                        onChange={handleAddDocument}
-                      />
-                    </div>
-                  )}
+      {tab === "Documents" && (
+        <div style={{ display: "grid", gap: 16 }}>
+          <div className="card pad">
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div>
+                <div style={{ fontWeight: 900 }}>Documents & Links</div>
+                <div className="small">Required trip documents stay visible even before staff uploads them.</div>
+              </div>
+              <div className="spacer" />
+              {canViewAllParticipantData && (
+                <div className="row">
+                  <button className="btn" type="button" onClick={handleAddLink}>
+                    Add Link
+                  </button>
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => addDocumentInputRef.current?.click()}
+                  >
+                    Upload File
+                  </button>
+                  <input
+                    ref={addDocumentInputRef}
+                    type="file"
+                    hidden
+                    onChange={handleAddDocument}
+                  />
                 </div>
+              )}
+            </div>
 
-                {docsError && (
-                  <div className="small" style={{ color: "var(--danger)", marginBottom: 12 }}>
-                    {docsError}
-                  </div>
-                )}
+            {docsError && (
+              <div className="small" style={{ color: "var(--danger)", marginBottom: 12 }}>
+                {docsError}
+              </div>
+            )}
 
-                {isAddingLink && (
-                  <div
-                    className="card pad"
-                    style={{ boxShadow: "none", marginBottom: 14, background: "rgba(255,255,255,.7)" }}
+            {isAddingLink && (
+              <div
+                className="card pad"
+                style={{ boxShadow: "none", marginBottom: 14, background: "rgba(255,255,255,.7)" }}
+              >
+                <div style={{ fontWeight: 900, marginBottom: 10 }}>
+                  {linkDraft.resourceKey ? "Required Link" : "New Link"}
+                </div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <input
+                    className="input"
+                    value={linkDraft.title}
+                    onChange={(e) =>
+                      setLinkDraft((prev) => ({ ...prev, title: e.target.value }))
+                    }
+                    placeholder="Document title"
+                  />
+                  <input
+                    className="input"
+                    value={linkDraft.link}
+                    onChange={(e) =>
+                      setLinkDraft((prev) => ({ ...prev, link: e.target.value }))
+                    }
+                    placeholder="https://..."
+                  />
+                  <select
+                    className="input"
+                    value={linkDraft.category}
+                    onChange={(e) =>
+                      setLinkDraft((prev) => ({ ...prev, category: e.target.value }))
+                    }
                   >
-                    <div style={{ fontWeight: 900, marginBottom: 10 }}>New Link</div>
-                    <div style={{ display: "grid", gap: 10 }}>
-                      <input
-                        className="input"
-                        value={linkDraft.title}
-                        onChange={(e) =>
-                          setLinkDraft((prev) => ({ ...prev, title: e.target.value }))
-                        }
-                        placeholder="Training folder"
-                      />
-                      <input
-                        className="input"
-                        value={linkDraft.link}
-                        onChange={(e) =>
-                          setLinkDraft((prev) => ({ ...prev, link: e.target.value }))
-                        }
-                        placeholder="https://..."
-                      />
-                      <input
-                        className="input"
-                        value={linkDraft.workArea}
-                        onChange={(e) =>
-                          setLinkDraft((prev) => ({ ...prev, workArea: e.target.value }))
-                        }
-                        placeholder="Work area"
-                      />
-                      <div className="row">
-                        <button className="btn btnPrimary" type="button" onClick={handleSaveLink}>
-                          Save Link
-                        </button>
-                        <button className="btn" type="button" onClick={handleCancelAddLink}>
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
+                    {DOCUMENT_CATEGORY_OPTIONS.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="input"
+                    value={linkDraft.workArea}
+                    onChange={(e) =>
+                      setLinkDraft((prev) => ({ ...prev, workArea: e.target.value }))
+                    }
+                    placeholder="Notes / work area"
+                  />
+                  <div className="row">
+                    <button className="btn btnPrimary" type="button" onClick={handleSaveLink}>
+                      Save Link
+                    </button>
+                    <button className="btn" type="button" onClick={handleCancelAddLink}>
+                      Cancel
+                    </button>
                   </div>
-                )}
+                </div>
+              </div>
+            )}
 
-                {pendingPdfDraft && (
-                  <div
-                    className="card pad"
-                    style={{ boxShadow: "none", marginBottom: 14, background: "rgba(255,255,255,.7)" }}
+            {pendingPdfDraft && (
+              <div
+                className="card pad"
+                style={{ boxShadow: "none", marginBottom: 14, background: "rgba(255,255,255,.7)" }}
+              >
+                <div style={{ fontWeight: 900, marginBottom: 10 }}>
+                  {pendingPdfDraft.resourceKey ? "Required PDF" : "New PDF"}
+                </div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <input
+                    className="input"
+                    value={pendingPdfDraft.title}
+                    onChange={(e) =>
+                      setPendingPdfDraft((prev) => ({ ...prev, title: e.target.value }))
+                    }
+                    placeholder="Document title"
+                  />
+                  <select
+                    className="input"
+                    value={pendingPdfDraft.category}
+                    onChange={(e) =>
+                      setPendingPdfDraft((prev) => ({ ...prev, category: e.target.value }))
+                    }
                   >
-                    <div style={{ fontWeight: 900, marginBottom: 10 }}>New PDF</div>
-                    <div style={{ display: "grid", gap: 10 }}>
-                      <input
-                        className="input"
-                        value={pendingPdfDraft.title}
-                        onChange={(e) =>
-                          setPendingPdfDraft((prev) => ({ ...prev, title: e.target.value }))
-                        }
-                        placeholder="Document title"
-                      />
-                      <input
-                        className="input"
-                        value={pendingPdfDraft.workArea}
-                        onChange={(e) =>
-                          setPendingPdfDraft((prev) => ({ ...prev, workArea: e.target.value }))
-                        }
-                        placeholder="Work area"
-                      />
-                      <div className="small">File: {pendingPdfDraft.file?.name || "PDF selected"}</div>
-                      <div className="row">
-                        <button className="btn btnPrimary" type="button" onClick={handleSavePendingPdf}>
-                          Upload PDF
-                        </button>
-                        <button className="btn" type="button" onClick={handleCancelPendingPdf}>
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
+                    {DOCUMENT_CATEGORY_OPTIONS.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="input"
+                    value={pendingPdfDraft.workArea}
+                    onChange={(e) =>
+                      setPendingPdfDraft((prev) => ({ ...prev, workArea: e.target.value }))
+                    }
+                    placeholder="Notes / work area"
+                  />
+                  <input
+                    type="file"
+                    onChange={(e) =>
+                      setPendingPdfDraft((prev) => ({ ...prev, file: e.target.files?.[0] || null }))
+                    }
+                  />
+                  <div className="small">
+                    File: {pendingPdfDraft.file?.name || "Choose a file to upload"}
                   </div>
-                )}
+                  <div className="row">
+                    <button
+                      className="btn btnPrimary"
+                      type="button"
+                      onClick={handleSavePendingPdf}
+                      disabled={!pendingPdfDraft.file}
+                    >
+                      Upload PDF
+                    </button>
+                    <button className="btn" type="button" onClick={handleCancelPendingPdf}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
-                {docs.length === 0 ? (
-                  <div className="small">No documents yet.</div>
-                ) : (
-                  docs.map((d) => {
-                    const available = !!(d.pdfUrl || d.link);
-                    const isEditing = editingDocId === d.id;
-                    const isPdf = !!d.pdfUrl;
+            <div style={{ fontWeight: 900, marginBottom: 10 }}>Required Documents</div>
+            <div style={{ display: "grid", gap: 12 }}>
+              {requiredDocumentSlots.map((slot) => {
+                const doc = slot.resource;
+                const available = !!(doc?.pdfUrl || doc?.link);
+                const isEditing = editingDocId === doc?.id;
+                const isPdf = !!doc?.pdfUrl || slot.kind === "pdf";
 
-                    return (
-                      <div
-                        key={d.id}
-                        className="row"
-                        style={{
-                          padding: "10px 0",
-                          borderBottom: "1px solid var(--border)",
-                          alignItems: "flex-start",
-                        }}
-                      >
-                        <div style={{ flex: 1 }}>
-                          {isEditing ? (
-                            <div style={{ display: "grid", gap: 8 }}>
-                              <input
-                                className="input"
-                                value={docDraft?.title || ""}
-                                onChange={(e) =>
-                                  setDocDraft((prev) => ({ ...prev, title: e.target.value }))
-                                }
-                                placeholder="Title"
-                              />
-                              <input
-                                className="input"
-                                value={docDraft?.link || ""}
-                                onChange={(e) =>
-                                  setDocDraft((prev) => ({ ...prev, link: e.target.value }))
-                                }
-                                placeholder="https://..."
-                                disabled={!!docDraft?.pdfUrl}
-                              />
-                              <input
-                                className="input"
-                                value={docDraft?.workArea || ""}
-                                onChange={(e) =>
-                                  setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
-                                }
-                                placeholder="Work area"
-                              />
-                              {!!docDraft?.pdfUrl && (
-                                <input type="file" onChange={handleReplaceDocumentFile} />
-                              )}
-                              <div className="row">
-                                <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
-                                  Save
-                                </button>
-                                <button className="btn" type="button" onClick={handleCancelEditDoc}>
-                                  Cancel
-                                </button>
-                              </div>
+                return (
+                  <div
+                    key={slot.key}
+                    className="card pad"
+                    style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
+                  >
+                    <div className="row" style={{ alignItems: "flex-start" }}>
+                      <div style={{ flex: 1 }}>
+                        {doc && isEditing ? (
+                          <div style={{ display: "grid", gap: 8 }}>
+                            <input
+                              className="input"
+                              value={docDraft?.title || ""}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({ ...prev, title: e.target.value }))
+                              }
+                              placeholder="Title"
+                            />
+                            <input
+                              className="input"
+                              value={docDraft?.link || ""}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({ ...prev, link: e.target.value }))
+                              }
+                              placeholder="https://..."
+                              disabled={!!docDraft?.pdfUrl}
+                            />
+                            <select
+                              className="input"
+                              value={docDraft?.category || "Other"}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({ ...prev, category: e.target.value }))
+                              }
+                            >
+                              {DOCUMENT_CATEGORY_OPTIONS.map((category) => (
+                                <option key={category} value={category}>
+                                  {category}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              className="input"
+                              value={docDraft?.workArea || ""}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
+                              }
+                              placeholder="Notes / work area"
+                            />
+                            {!!docDraft?.pdfUrl && (
+                              <input type="file" onChange={handleReplaceDocumentFile} />
+                            )}
+                            <div className="row">
+                              <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
+                                Save
+                              </button>
+                              <button className="btn" type="button" onClick={handleCancelEditDoc}>
+                                Cancel
+                              </button>
                             </div>
-                          ) : (
-                            <>
-                              <div style={{ fontWeight: 900 }}>{d.title}</div>
-                              <div className="small">
-                                {isPdf ? "PDF" : "Link"}
-                                {d.workArea ? ` • ${d.workArea}` : ""}
-                                {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ fontWeight: 900 }}>{doc?.title || slot.title}</div>
+                            <div className="small" style={{ marginTop: 4 }}>
+                              {slot.category} • {slot.description}
+                            </div>
+                            {doc?.createdAt ? (
+                              <div className="small" style={{ marginTop: 4 }}>
+                                Updated {new Date(doc.createdAt).toLocaleDateString()}
                               </div>
-                            </>
-                          )}
+                            ) : (
+                              <div className="small" style={{ marginTop: 4 }}>Coming soon</div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
+                        {available ? (isPdf ? "PDF Ready" : "Link Ready") : "Coming Soon"}
+                      </span>
+                    </div>
+                    <div className="row" style={{ marginTop: 10 }}>
+                      {available ? (
+                        <a className="btn btnPrimary" href={doc.pdfUrl || doc.link} target="_blank" rel="noreferrer">
+                          Open
+                        </a>
+                      ) : (
+                        <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
+                          Coming soon
+                        </button>
+                      )}
+                      {canViewAllParticipantData && !isEditing && doc ? (
+                        <>
+                          <button className="btn" type="button" onClick={() => handleEditDoc(doc)}>
+                            Edit
+                          </button>
+                          <button className="btn" type="button" onClick={() => handleDeleteDoc(doc.id)}>
+                            Delete
+                          </button>
+                        </>
+                      ) : null}
+                      {canViewAllParticipantData && !doc ? (
+                        slot.kind === "pdf" ? (
+                          <button className="btn" type="button" onClick={() => handlePrepareRequiredPdf(slot)}>
+                            Upload PDF
+                          </button>
+                        ) : (
+                          <button className="btn" type="button" onClick={() => handlePrepareRequiredLink(slot)}>
+                            Add Link
+                          </button>
+                        )
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-                          {canViewAllParticipantData && (
-                            <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                              {!isEditing && (
-                                <div className="row">
+            <div style={{ fontWeight: 900, marginTop: 18, marginBottom: 10 }}>Other Documents</div>
+            {optionalDocsByCategory.length === 0 ? (
+              <div className="small">No extra documents yet.</div>
+            ) : (
+              <div style={{ display: "grid", gap: 16 }}>
+                {optionalDocsByCategory.map(([category, categoryDocs]) => (
+                  <div key={category}>
+                    <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>{category}</div>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {categoryDocs.map((d) => {
+                        const available = !!(d.pdfUrl || d.link);
+                        const isEditing = editingDocId === d.id;
+                        const isPdf = !!d.pdfUrl;
+
+                        return (
+                          <div
+                            key={d.id}
+                            className="row"
+                            style={{
+                              padding: "10px 0",
+                              borderBottom: "1px solid var(--border)",
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <div style={{ flex: 1 }}>
+                              {isEditing ? (
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  <input
+                                    className="input"
+                                    value={docDraft?.title || ""}
+                                    onChange={(e) =>
+                                      setDocDraft((prev) => ({ ...prev, title: e.target.value }))
+                                    }
+                                    placeholder="Title"
+                                  />
+                                  <input
+                                    className="input"
+                                    value={docDraft?.link || ""}
+                                    onChange={(e) =>
+                                      setDocDraft((prev) => ({ ...prev, link: e.target.value }))
+                                    }
+                                    placeholder="https://..."
+                                    disabled={!!docDraft?.pdfUrl}
+                                  />
+                                  <select
+                                    className="input"
+                                    value={docDraft?.category || "Other"}
+                                    onChange={(e) =>
+                                      setDocDraft((prev) => ({ ...prev, category: e.target.value }))
+                                    }
+                                  >
+                                    {DOCUMENT_CATEGORY_OPTIONS.map((option) => (
+                                      <option key={option} value={option}>
+                                        {option}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    className="input"
+                                    value={docDraft?.workArea || ""}
+                                    onChange={(e) =>
+                                      setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
+                                    }
+                                    placeholder="Notes / work area"
+                                  />
+                                  {!!docDraft?.pdfUrl && (
+                                    <input type="file" onChange={handleReplaceDocumentFile} />
+                                  )}
+                                  <div className="row">
+                                    <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
+                                      Save
+                                    </button>
+                                    <button className="btn" type="button" onClick={handleCancelEditDoc}>
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <div style={{ fontWeight: 900 }}>{d.title}</div>
+                                  <div className="small">
+                                    {isPdf ? "PDF" : "Link"}
+                                    {d.workArea ? ` • ${d.workArea}` : ""}
+                                    {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
+                                  </div>
+                                </>
+                              )}
+                              {canViewAllParticipantData && !isEditing ? (
+                                <div className="row" style={{ marginTop: 10 }}>
                                   <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
                                     Edit
                                   </button>
-                                  <button
-                                    className="btn"
-                                    type="button"
-                                    onClick={async () => {
-                                      try {
-                                        await deleteResource(d.id);
-                                        setDocs((current) =>
-                                          current.filter((doc) => doc.id !== d.id)
-                                        );
-                                        setDocsError("");
-                                      } catch (error) {
-                                        console.error("Unable to delete resource", error);
-                                        setDocsError(
-                                          error.message || "Unable to save resources."
-                                        );
-                                      }
-                                    }}
-                                  >
+                                  <button className="btn" type="button" onClick={() => handleDeleteDoc(d.id)}>
                                     Delete
                                   </button>
                                 </div>
-                              )}
+                              ) : null}
                             </div>
-                          )}
-                        </div>
 
-                        <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-                          {isPdf ? "PDF" : available ? "Link ready" : "Missing URL"}
-                        </span>
+                            <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
+                              {isPdf ? "PDF" : available ? "Link ready" : "Missing URL"}
+                            </span>
 
-                        {available ? (
-                          <a
-                            className="btn btnPrimary"
-                            href={d.pdfUrl || d.link}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Open
-                          </a>
-                        ) : (
-                          <button
-                            className="btn"
-                            type="button"
-                            disabled
-                            style={{ opacity: 0.6, cursor: "not-allowed" }}
-                          >
-                            Coming soon
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+                            {available ? (
+                              <a className="btn btnPrimary" href={d.pdfUrl || d.link} target="_blank" rel="noreferrer">
+                                Open
+                              </a>
+                            ) : (
+                              <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
+                                Coming soon
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
             {tab === "Staff Tasks" && canManageTrips && (
               <div className="card pad">
                 <div className="row" style={{ marginBottom: 10 }}>
@@ -3335,7 +3630,9 @@ function parseDateSafe(dateStr) {
 
                               <td style={{ textAlign: "center" }}>
                                 <select
-                                  className="input"
+                                  className={`input statusSelect ${getProgressInputClass(
+                                    t.progress || "Not started"
+                                  )}`}
                                   value={t.progress || "Not started"}
                                   onChange={(e) =>
                                     updateStaffTask(t.id, "progress", e.target.value)

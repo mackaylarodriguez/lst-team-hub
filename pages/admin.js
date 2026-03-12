@@ -21,6 +21,19 @@ const PROGRESS_OPTIONS = [
   "Complete",
 ];
 
+function getProgressInputClass(progress) {
+  switch (progress) {
+    case "Complete":
+      return "statusComplete";
+    case "In progress":
+      return "statusInProgress";
+    case "Waiting":
+      return "statusWaiting";
+    default:
+      return "statusNotStarted";
+  }
+}
+
 export default function Admin() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -382,7 +395,9 @@ function TaskSection({
                   </td>
                   <td>
                     <select
-                      className="input"
+                      className={`input statusSelect ${getProgressInputClass(
+                        task.progress || "Not started"
+                      )}`}
                       value={task.progress || "Not started"}
                       onChange={(e) =>
                         onUpdateTask(task.tripId, task.id, "progress", e.target.value)

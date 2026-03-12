@@ -36,10 +36,15 @@ a:hover{text-decoration:underline}
 .btnPrimary:hover{background:var(--primary2)}
 .input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:12px; font-size:14px}
 .input:focus{outline:none; border-color:rgba(60,170,225,.7); box-shadow:0 0 0 4px rgba(60,170,225,.12)}
+.statusSelect{font-weight:700}
+.statusNotStarted{border-color:rgba(239,68,68,.25); background:rgba(239,68,68,.08); color:#b42318}
+.statusInProgress{border-color:rgba(249,157,42,.28); background:var(--goldSoft); color:#b45309}
+.statusWaiting{border-color:rgba(47,73,147,.22); background:var(--primarySoft); color:var(--primary)}
+.statusComplete{border-color:rgba(60,170,225,.28); background:var(--skySoft); color:#0f6e91}
 .badge{display:inline-flex; align-items:center; font-size:12px; padding:5px 10px; border-radius:999px; border:1px solid var(--border); color:var(--muted); background:#fff}
 .badgeSuccess{border-color:rgba(60,170,225,.28); color:var(--success); background:var(--skySoft)}
 .badgeWarn{border-color:rgba(249,157,42,.28); color:var(--warn); background:var(--goldSoft)}
-.badgeDanger{border-color:rgba(239,68,68,.25); color:var(--danger)}
+.badgeDanger{border-color:rgba(239,68,68,.25); color:var(--danger); background:rgba(239,68,68,.08)}
 .shell{display:grid; grid-template-columns:260px 1fr; min-height:100vh}
 .sidebar{position:sticky; top:0; height:100vh; padding:18px; background:#fff; border-right:1px solid var(--border)}
 .brand{display:flex; gap:10px; align-items:center; margin-bottom:18px}
