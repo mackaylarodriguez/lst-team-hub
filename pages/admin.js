@@ -45,6 +45,8 @@ export default function Admin() {
   const [staffTaskStatus, setStaffTaskStatus] = useState("");
   const latestStaffTaskSaveRef = useRef(0);
   const staffTasksByTripRef = useRef({});
+  const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
+  const staffTaskRowTimeoutsRef = useRef({});
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
   useEffect(() => {
@@ -120,6 +122,14 @@ export default function Admin() {
     staffTasksByTripRef.current = staffTasksByTrip;
   }, [staffTasksByTrip]);
 
+  useEffect(() => {
+    return () => {
+      Object.values(staffTaskRowTimeoutsRef.current || {}).forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
+    };
+  }, []);
+
   const allTasks = useMemo(
     () =>
       trips.flatMap((trip) =>
@@ -193,6 +203,7 @@ export default function Admin() {
       ...staffTasksByTripRef.current,
       [tripId]: nextTripTasks,
     };
+    setStaffTaskRowFeedback(getTaskKey(tripId, taskId), "info", "Saving...");
     try {
       setStaffTaskStatus("Saving...");
       const tasksToPersist = nextTripTasks.map((task) => ({
@@ -212,10 +223,38 @@ export default function Admin() {
         [tripId]: savedTasks,
       };
       setStaffTaskStatus("Saved.");
+      setStaffTaskRowFeedback(getTaskKey(tripId, taskId), "success", "Saved");
     } catch (error) {
       console.error("Unable to save staff tasks", error);
       if (latestStaffTaskSaveRef.current !== requestId) return;
-      setStaffTaskStatus(error.message || "Unable to save staff tasks.");
+      setStaffTaskStatus("Could not save task changes.");
+      setStaffTaskRowFeedback(getTaskKey(tripId, taskId), "error", "Could not save task changes.");
+    }
+  }
+
+  function setStaffTaskRowFeedback(taskKey, type, message) {
+    if (!taskKey) return;
+
+    const existingTimeout = staffTaskRowTimeoutsRef.current[taskKey];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      delete staffTaskRowTimeoutsRef.current[taskKey];
+    }
+
+    setStaffTaskRowStatus((current) => ({
+      ...current,
+      [taskKey]: { type, message },
+    }));
+
+    if (type === "success") {
+      staffTaskRowTimeoutsRef.current[taskKey] = setTimeout(() => {
+        setStaffTaskRowStatus((current) => {
+          const next = { ...current };
+          delete next[taskKey];
+          return next;
+        });
+        delete staffTaskRowTimeoutsRef.current[taskKey];
+      }, 1800);
     }
   }
 
@@ -321,6 +360,7 @@ export default function Admin() {
         onCancelTitleEdit={handleCancelTitleEdit}
         onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
+        staffTaskRowStatus={staffTaskRowStatus}
       />
 
       <TaskSection
@@ -333,6 +373,7 @@ export default function Admin() {
         onCancelTitleEdit={handleCancelTitleEdit}
         onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
+        staffTaskRowStatus={staffTaskRowStatus}
       />
 
       <TaskSection
@@ -345,6 +386,7 @@ export default function Admin() {
         onCancelTitleEdit={handleCancelTitleEdit}
         onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
+        staffTaskRowStatus={staffTaskRowStatus}
       />
     </Shell>
   );
@@ -360,6 +402,7 @@ function TaskSection({
   onCancelTitleEdit,
   onSaveTitle,
   onUpdateTask,
+  staffTaskRowStatus,
 }) {
   return (
     <div className="card pad" style={{ marginBottom: 16 }}>
@@ -386,6 +429,7 @@ function TaskSection({
             {tasks.map((task) => {
               const taskKey = getTaskKey(task.tripId, task.id);
               const isEditingTitle = editingTaskKey === taskKey;
+              const rowStatus = staffTaskRowStatus[taskKey];
 
               return (
                 <tr key={taskKey} className="staffTaskRow">
@@ -440,7 +484,17 @@ function TaskSection({
                     />
                   </td>
                   <td>
-                    <div className="staffTaskRowActions">
+                    <div
+                      className="staffTaskRowActions"
+                      style={rowStatus ? { opacity: 1, pointerEvents: "auto" } : undefined}
+                    >
+                      {rowStatus ? (
+                        <span
+                          className={`staffTaskSaveStatus staffTaskSaveStatus${rowStatus.type === "error" ? "Error" : rowStatus.type === "success" ? "Success" : "Saving"}`}
+                        >
+                          {rowStatus.message}
+                        </span>
+                      ) : null}
                       {isEditingTitle ? (
                         <>
                           <button

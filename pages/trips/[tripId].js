@@ -175,6 +175,8 @@ export default function TripPage() {
   const [staffTaskTitleDraft, setStaffTaskTitleDraft] = useState("");
   const latestStaffTaskSaveRef = useRef(0);
   const editableStaffTasksRef = useRef([]);
+  const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
+  const staffTaskRowTimeoutsRef = useRef({});
 
   const staffList = [
     "Mackayla",
@@ -395,6 +397,14 @@ export default function TripPage() {
   useEffect(() => {
     editableStaffTasksRef.current = editableStaffTasks;
   }, [editableStaffTasks]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(staffTaskRowTimeoutsRef.current || {}).forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (!trip?.id) return;
@@ -1056,10 +1066,38 @@ export default function TripPage() {
       setEditableStaffTasks(savedTasks);
       editableStaffTasksRef.current = savedTasks;
       setStaffTaskStatus("Saved.");
+      return savedTasks;
     } catch (error) {
       console.error("Unable to save staff tasks", error);
       if (latestStaffTaskSaveRef.current !== requestId) return;
-      setStaffTaskStatus(error.message || "Unable to save staff tasks.");
+      setStaffTaskStatus("Could not save task changes.");
+      throw error;
+    }
+  }
+
+  function setStaffTaskRowFeedback(taskId, type, message) {
+    if (!taskId) return;
+
+    const existingTimeout = staffTaskRowTimeoutsRef.current[taskId];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      delete staffTaskRowTimeoutsRef.current[taskId];
+    }
+
+    setStaffTaskRowStatus((current) => ({
+      ...current,
+      [taskId]: { type, message },
+    }));
+
+    if (type === "success") {
+      staffTaskRowTimeoutsRef.current[taskId] = setTimeout(() => {
+        setStaffTaskRowStatus((current) => {
+          const next = { ...current };
+          delete next[taskId];
+          return next;
+        });
+        delete staffTaskRowTimeoutsRef.current[taskId];
+      }, 1800);
     }
   }
 
@@ -1075,7 +1113,16 @@ export default function TripPage() {
       value,
       matchedTask: nextTasks.find((task) => task.id === taskId) || null,
     });
-    void saveStaffTasks(nextTasks);
+    setStaffTaskRowFeedback(taskId, "info", "Saving...");
+    void saveStaffTasks(nextTasks)
+      .then(() => {
+        setStaffTaskRowFeedback(taskId, "success", "Saved");
+        setStaffTaskStatus("");
+      })
+      .catch((error) => {
+        setStaffTaskRowFeedback(taskId, "error", "Could not save task changes.");
+        setStaffTaskStatus(error.message || "Could not save task changes.");
+      });
   }
 
   function handleEditStaffTask(task) {
@@ -2222,72 +2269,6 @@ function parseDateSafe(dateStr) {
     };
   }, [trip, canViewAllParticipantData, currentParticipant, referenceEmails]);
 
-  const missingItems = useMemo(() => {
-    if (!trip || !canViewAllParticipantData) return [];
-
-    const items = [];
-    const missingRequiredDocs = requiredDocumentSlots.filter((slot) => !slot.resource);
-    if (missingRequiredDocs.length > 0) {
-      items.push({
-        label: "Required documents",
-        detail: missingRequiredDocs.map((slot) => slot.label).join(", "),
-      });
-    }
-
-    const participantsMissingReferences = (trip.participants || []).filter(
-      (participant) => !getReferenceStatus(participant.id).received
-    );
-    if (participantsMissingReferences.length > 0) {
-      items.push({
-        label: "References",
-        detail: `${participantsMissingReferences.length} team member${
-          participantsMissingReferences.length === 1 ? "" : "s"
-        } still missing a received reference.`,
-      });
-    }
-
-    if (!trip.teamFundraisingUrl) {
-      const participantsMissingFundraising = (trip.participants || []).filter(
-        (participant) => !participant.fundraisingUrl
-      );
-
-      if (participantsMissingFundraising.length > 0) {
-        items.push({
-          label: "Fundraising links",
-          detail: `${participantsMissingFundraising.length} personal Neon link${
-            participantsMissingFundraising.length === 1 ? "" : "s"
-          } still missing.`,
-        });
-      }
-    }
-
-    if ((trip.teamMembers || []).length === 0) {
-      items.push({
-        label: "Team roster",
-        detail: "No roster members have been added yet.",
-      });
-    } else {
-      const rosterMissingEmail = (trip.teamMembers || []).filter((member) => !member.email);
-      if (rosterMissingEmail.length > 0) {
-        items.push({
-          label: "Roster details",
-          detail: `${rosterMissingEmail.length} roster entr${
-            rosterMissingEmail.length === 1 ? "y is" : "ies are"
-          } missing an email address.`,
-        });
-      }
-    }
-
-    if (!trip.teamStatus) {
-      items.push({
-        label: "Team status",
-        detail: "Set the team status in Trip Setup.",
-      });
-    }
-
-    return items;
-  }, [trip, canViewAllParticipantData, requiredDocumentSlots, referenceEmails]);
-
   const overviewTaskLabel = canViewAllParticipantData ? "Participant Tasks" : "My Tasks";
   const overviewTaskPct = canViewAllParticipantData
     ? participantTaskPct
@@ -2681,38 +2662,6 @@ function parseDateSafe(dateStr) {
               </div>
             </div>
           </div>
-
-          {canViewAllParticipantData ? (
-            <div className="card pad">
-              <div className="row" style={{ marginBottom: 10, alignItems: "center" }}>
-                <div style={{ fontWeight: 900 }}>Missing Items</div>
-                <div className="spacer" />
-                <span className={"badge " + (missingItems.length > 0 ? "badgeWarn" : "badgeSuccess")}>
-                  {missingItems.length > 0 ? `${missingItems.length} to review` : "All set"}
-                </span>
-              </div>
-              {missingItems.length > 0 ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {missingItems.map((item) => (
-                    <div
-                      key={item.label}
-                      style={{
-                        padding: "12px 14px",
-                        borderRadius: 14,
-                        border: "1px solid rgba(249,157,42,.24)",
-                        background: "var(--goldSoft)",
-                      }}
-                    >
-                      <div style={{ fontWeight: 800, marginBottom: 4 }}>{item.label}</div>
-                      <div className="small" style={{ color: "var(--text)" }}>{item.detail}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="small">No obvious gaps right now.</div>
-              )}
-            </div>
-          ) : null}
 
           <div
             style={{
@@ -4198,6 +4147,7 @@ function parseDateSafe(dateStr) {
 
                         {tasks.map((t) => {
                           const isEditingTitle = editingStaffTaskId === t.id;
+                          const rowStatus = staffTaskRowStatus[t.id];
 
                           return (
                             <tr key={t.id} className="staffTaskRow">
@@ -4297,7 +4247,17 @@ function parseDateSafe(dateStr) {
                               </td>
 
                               <td>
-                                <div className="staffTaskRowActions">
+                                <div
+                                  className="staffTaskRowActions"
+                                  style={rowStatus ? { opacity: 1, pointerEvents: "auto" } : undefined}
+                                >
+                                  {rowStatus ? (
+                                    <span
+                                      className={`staffTaskSaveStatus staffTaskSaveStatus${rowStatus.type === "error" ? "Error" : rowStatus.type === "success" ? "Success" : "Saving"}`}
+                                    >
+                                      {rowStatus.message}
+                                    </span>
+                                  ) : null}
                                   {isEditingTitle ? (
                                     <>
                                       <button

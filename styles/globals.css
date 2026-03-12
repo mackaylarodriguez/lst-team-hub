@@ -100,6 +100,27 @@ a:hover{text-decoration:underline}
   opacity:1;
   pointer-events:auto;
 }
+.staffTaskSaveStatus{
+  display:inline-flex;
+  align-items:center;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.staffTaskSaveStatusSaving{
+  background:var(--primarySoft);
+  color:var(--primary);
+}
+.staffTaskSaveStatusSuccess{
+  background:var(--skySoft);
+  color:#0f6e91;
+}
+.staffTaskSaveStatusError{
+  background:rgba(239,68,68,.08);
+  color:#b42318;
+}
 .staffTaskNotesCell{
   position:relative;
 }
