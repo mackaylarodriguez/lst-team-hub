@@ -1,6 +1,6 @@
 import Shell from "@/components/Shell";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import {
   listTripsForCurrentUser,
@@ -30,6 +30,7 @@ export default function Admin() {
   const [taskTitleDraft, setTaskTitleDraft] = useState("");
   const [trips, setTrips] = useState([]);
   const [staffTaskStatus, setStaffTaskStatus] = useState("");
+  const latestStaffTaskSaveRef = useRef(0);
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
   useEffect(() => {
@@ -156,6 +157,8 @@ export default function Admin() {
     const nextTripTasks = baseTasks.map((task) =>
       task.id === taskId ? { ...task, [field]: value } : task
     );
+    const requestId = Date.now();
+    latestStaffTaskSaveRef.current = requestId;
 
     setStaffTasksByTrip((prev) => ({
       ...prev,
@@ -163,7 +166,14 @@ export default function Admin() {
     }));
     try {
       setStaffTaskStatus("Saving...");
-      const savedTasks = await saveStaffTasks(tripId, nextTripTasks);
+      const tasksToPersist = nextTripTasks.map((task) => ({
+        ...task,
+        updatedByName: session?.name || session?.email || "Staff",
+        updatedByEmail: session?.email || "",
+        updatedAt: new Date().toISOString(),
+      }));
+      const savedTasks = await saveStaffTasks(tripId, tasksToPersist);
+      if (latestStaffTaskSaveRef.current !== requestId) return;
       setStaffTasksByTrip((prev) => ({
         ...prev,
         [tripId]: savedTasks,
@@ -171,6 +181,7 @@ export default function Admin() {
       setStaffTaskStatus("Saved.");
     } catch (error) {
       console.error("Unable to save staff tasks", error);
+      if (latestStaffTaskSaveRef.current !== requestId) return;
       setStaffTaskStatus(error.message || "Unable to save staff tasks.");
     }
   }
@@ -385,13 +396,21 @@ function TaskSection({
                     </select>
                   </td>
                   <td>
-                    <input
-                      className="input"
-                      value={task.notes || ""}
-                      onChange={(e) =>
-                        onUpdateTask(task.tripId, task.id, "notes", e.target.value)
-                      }
-                    />
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <input
+                        className="input"
+                        value={task.notes || ""}
+                        onChange={(e) =>
+                          onUpdateTask(task.tripId, task.id, "notes", e.target.value)
+                        }
+                      />
+                      <div className="small">
+                        {task.updatedByName || task.updatedByEmail
+                          ? `Last updated by ${task.updatedByName || task.updatedByEmail}`
+                          : "Last updated by staff"}
+                        {task.updatedAt ? ` on ${formatTaskUpdatedAt(task.updatedAt)}` : ""}
+                      </div>
+                    </div>
                   </td>
                   <td>
                     <div className="staffTaskRowActions">
@@ -431,6 +450,18 @@ function TaskSection({
       )}
     </div>
   );
+}
+
+function formatTaskUpdatedAt(value) {
+  if (!value) return "";
+
+  return new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function parseDateSafe(dateStr) {

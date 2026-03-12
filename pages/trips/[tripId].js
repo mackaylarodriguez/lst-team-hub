@@ -91,6 +91,7 @@ export default function TripPage() {
   const [editingStaffTaskId, setEditingStaffTaskId] = useState(null);
   const [editingDueDateTaskId, setEditingDueDateTaskId] = useState(null);
   const [staffTaskTitleDraft, setStaffTaskTitleDraft] = useState("");
+  const latestStaffTaskSaveRef = useRef(0);
 
   const staffList = [
     "Mackayla",
@@ -862,13 +863,23 @@ export default function TripPage() {
     const orderedTasks = sortStaffTasksByTemplate(nextTasks);
     setEditableStaffTasks(orderedTasks);
     if (!trip) return;
+    const requestId = Date.now();
+    latestStaffTaskSaveRef.current = requestId;
     try {
       setStaffTaskStatus("Saving...");
-      const savedTasks = await persistStaffTasks(trip.id, orderedTasks);
+      const tasksToPersist = orderedTasks.map((task) => ({
+        ...task,
+        updatedByName: session?.name || session?.email || "Staff",
+        updatedByEmail: session?.email || "",
+        updatedAt: new Date().toISOString(),
+      }));
+      const savedTasks = await persistStaffTasks(trip.id, tasksToPersist);
+      if (latestStaffTaskSaveRef.current !== requestId) return;
       setEditableStaffTasks(savedTasks);
       setStaffTaskStatus("Saved.");
     } catch (error) {
       console.error("Unable to save staff tasks", error);
+      if (latestStaffTaskSaveRef.current !== requestId) return;
       setStaffTaskStatus(error.message || "Unable to save staff tasks.");
     }
   }
@@ -987,6 +998,18 @@ function parseDateSafe(dateStr) {
   }
 
   function formatNoteTimestamp(value) {
+    if (!value) return "";
+
+    return new Date(value).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  function formatTaskUpdatedAt(value) {
     if (!value) return "";
 
     return new Date(value).toLocaleString([], {
@@ -2570,6 +2593,12 @@ function parseDateSafe(dateStr) {
                                       updateStaffTask(t.id, "notes", e.target.value)
                                     }
                                   />
+                                  <div className="small">
+                                    {t.updatedByName || t.updatedByEmail
+                                      ? `Last updated by ${t.updatedByName || t.updatedByEmail}`
+                                      : "Last updated by staff"}
+                                    {t.updatedAt ? ` on ${formatTaskUpdatedAt(t.updatedAt)}` : ""}
+                                  </div>
                                   {t.notes ? (
                                     <div className="staffTaskNotesTooltip" role="note">
                                       {t.notes}

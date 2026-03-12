@@ -8,6 +8,9 @@ create table if not exists public.trip_staff_tasks (
   progress text not null default 'Not started',
   due_date date,
   notes text,
+  updated_by_name text,
+  updated_by_email text,
+  updated_at timestamp with time zone default now(),
   created_at timestamp with time zone default now()
 );
 
