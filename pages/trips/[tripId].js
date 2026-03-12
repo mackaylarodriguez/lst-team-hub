@@ -2377,20 +2377,26 @@ function parseDateSafe(dateStr) {
                               </td>
 
                               <td style={{ textAlign: "center" }}>
-                                <select
-                                  className="input"
-                                  value={t.assignedTo || ""}
-                                  onChange={(e) =>
-                                    updateStaffTask(t.id, "assignedTo", e.target.value)
-                                  }
-                                >
-                                  <option value="">Assign Staff</option>
-                                  {staffList.map((person) => (
-                                    <option key={person} value={person}>
-                                      {person}
-                                    </option>
-                                  ))}
-                                </select>
+                                {isEditingTitle ? (
+                                  <select
+                                    className="input"
+                                    value={t.assignedTo || ""}
+                                    onChange={(e) =>
+                                      updateStaffTask(t.id, "assignedTo", e.target.value)
+                                    }
+                                  >
+                                    <option value="">Assign Staff</option>
+                                    {staffList.map((person) => (
+                                      <option key={person} value={person}>
+                                        {person}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span style={{ fontSize: "14px" }}>
+                                    {t.assignedTo || "-"}
+                                  </span>
+                                )}
                               </td>
 
                               <td style={{ textAlign: "center" }}>
