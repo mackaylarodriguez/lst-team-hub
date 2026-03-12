@@ -74,6 +74,7 @@ export default function TripPage() {
     teamNeonAccountId: "",
   });
   const [teamFundraisingStatus, setTeamFundraisingStatus] = useState("");
+  const [staffTaskStatus, setStaffTaskStatus] = useState("");
   const [previewParticipantId, setPreviewParticipantId] = useState("");
 
   const [trip, setTrip] = useState(null);
@@ -837,17 +838,23 @@ export default function TripPage() {
     });
   }
 
-  function saveStaffTasks(nextTasks) {
+  async function saveStaffTasks(nextTasks) {
     const orderedTasks = sortStaffTasksByTemplate(nextTasks);
     setEditableStaffTasks(orderedTasks);
     if (!trip) return;
-    void persistStaffTasks(trip.id, orderedTasks).catch((error) => {
+    try {
+      setStaffTaskStatus("Saving...");
+      const savedTasks = await persistStaffTasks(trip.id, orderedTasks);
+      setEditableStaffTasks(savedTasks);
+      setStaffTaskStatus("Saved.");
+    } catch (error) {
       console.error("Unable to save staff tasks", error);
-    });
+      setStaffTaskStatus(error.message || "Unable to save staff tasks.");
+    }
   }
 
   function updateStaffTask(taskId, field, value) {
-    saveStaffTasks(
+    void saveStaffTasks(
       editableStaffTasks.map((task) =>
         task.id === taskId ? { ...task, [field]: value } : task
       )
@@ -1008,6 +1015,8 @@ function parseDateSafe(dateStr) {
     );
   }, [trip, session, canViewAllParticipantData, isPreviewingParticipant, previewParticipantId]);
 
+  const activeParticipantEmail = currentParticipant?.email?.toLowerCase() || "";
+
   const participantTaskProgress = useMemo(() => {
     if (!trip) return [];
 
@@ -1026,15 +1035,15 @@ function parseDateSafe(dateStr) {
   }, [trip, participantTaskStates]);
 
   const currentParticipantProgress = useMemo(() => {
-    if (!session) return null;
+    if (!activeParticipantEmail) return null;
 
     return (
       participantTaskProgress.find(
         (participant) =>
-          participant.email.toLowerCase() === session.email.toLowerCase()
+          participant.email.toLowerCase() === activeParticipantEmail
       ) || null
     );
-  }, [participantTaskProgress, session]);
+  }, [participantTaskProgress, activeParticipantEmail]);
 
   const participantTaskPct = useMemo(() => {
     const totalPossible = participantTaskProgress.reduce(
@@ -1070,15 +1079,15 @@ function parseDateSafe(dateStr) {
   }, [trip, participantTrainingStates, allTrainingModules]);
 
   const currentTrainingProgress = useMemo(() => {
-    if (!session) return null;
+    if (!activeParticipantEmail) return null;
 
     return (
       trainingProgress.find(
         (participant) =>
-          participant.email.toLowerCase() === session.email.toLowerCase()
+          participant.email.toLowerCase() === activeParticipantEmail
       ) || null
     );
-  }, [trainingProgress, session]);
+  }, [trainingProgress, activeParticipantEmail]);
 
   const trainingPct = useMemo(() => {
     const totalPossible = trainingProgress.reduce(
@@ -1169,7 +1178,7 @@ function parseDateSafe(dateStr) {
 
   const tabs = 
     canManageTrips
-      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", "Staff Tasks"]
+      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", ...(isPreviewingParticipant ? [] : ["Staff Tasks"])]
       : ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents"];
 
   if (!router.isReady || !tripId) {
@@ -2331,6 +2340,12 @@ function parseDateSafe(dateStr) {
                     <div style={{ width: `${completionPct}%` }} />
                   </div>
                 </div>
+
+                {staffTaskStatus ? (
+                  <div className="small" style={{ marginBottom: 12 }}>
+                    {staffTaskStatus}
+                  </div>
+                ) : null}
 
                 <table className="table">
                   <thead>

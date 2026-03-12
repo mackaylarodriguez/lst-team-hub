@@ -29,6 +29,7 @@ export default function Admin() {
   const [editingTaskKey, setEditingTaskKey] = useState(null);
   const [taskTitleDraft, setTaskTitleDraft] = useState("");
   const [trips, setTrips] = useState([]);
+  const [staffTaskStatus, setStaffTaskStatus] = useState("");
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
   useEffect(() => {
@@ -150,7 +151,7 @@ export default function Admin() {
     };
   }, [myTasks, sortMode]);
 
-  function updateTask(tripId, taskId, field, value) {
+  async function updateTask(tripId, taskId, field, value) {
     const baseTasks = staffTasksByTrip[tripId] || [];
     const nextTripTasks = baseTasks.map((task) =>
       task.id === taskId ? { ...task, [field]: value } : task
@@ -160,9 +161,18 @@ export default function Admin() {
       ...prev,
       [tripId]: nextTripTasks,
     }));
-    void saveStaffTasks(tripId, nextTripTasks).catch((error) => {
+    try {
+      setStaffTaskStatus("Saving...");
+      const savedTasks = await saveStaffTasks(tripId, nextTripTasks);
+      setStaffTasksByTrip((prev) => ({
+        ...prev,
+        [tripId]: savedTasks,
+      }));
+      setStaffTaskStatus("Saved.");
+    } catch (error) {
       console.error("Unable to save staff tasks", error);
-    });
+      setStaffTaskStatus(error.message || "Unable to save staff tasks.");
+    }
   }
 
   function handleEditTitle(task) {
@@ -218,6 +228,11 @@ export default function Admin() {
               {myTasks.length} assigned task{myTasks.length === 1 ? "" : "s"}
             </div>
           </div>
+          {staffTaskStatus ? (
+            <div className="small" style={{ alignSelf: "center" }}>
+              {staffTaskStatus}
+            </div>
+          ) : null}
           <div className="spacer" />
           <label className="small" htmlFor="admin-task-sort">
             Sort
