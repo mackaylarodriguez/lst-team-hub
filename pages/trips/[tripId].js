@@ -74,6 +74,7 @@ export default function TripPage() {
     teamNeonAccountId: "",
   });
   const [teamFundraisingStatus, setTeamFundraisingStatus] = useState("");
+  const [previewParticipantId, setPreviewParticipantId] = useState("");
 
   const [trip, setTrip] = useState(null);
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
@@ -983,10 +984,21 @@ function parseDateSafe(dateStr) {
   const totalCount = (editableStaffTasks || []).length;
   const completionPct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
   const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
-  const canViewAllParticipantData = canManageTrips;
+  const isPreviewingParticipant = canManageTrips && !!previewParticipantId;
+  const canViewAllParticipantData = canManageTrips && !isPreviewingParticipant;
 
   const currentParticipant = useMemo(() => {
-    if (!trip || !session || canViewAllParticipantData) return null;
+    if (!trip) return null;
+
+    if (isPreviewingParticipant) {
+      return (
+        trip.participants.find(
+          (participant) => String(participant.id) === String(previewParticipantId)
+        ) || null
+      );
+    }
+
+    if (!session || canViewAllParticipantData) return null;
 
     return (
       trip.participants.find(
@@ -994,7 +1006,7 @@ function parseDateSafe(dateStr) {
           participant.email.toLowerCase() === session.email.toLowerCase()
       ) || null
     );
-  }, [trip, session, canViewAllParticipantData]);
+  }, [trip, session, canViewAllParticipantData, isPreviewingParticipant, previewParticipantId]);
 
   const participantTaskProgress = useMemo(() => {
     if (!trip) return [];
@@ -1109,7 +1121,7 @@ function parseDateSafe(dateStr) {
     if (canViewAllParticipantData) {
       const total = trip.participants.length;
       const completed = trip.participants.filter(
-        (participant) => !!getReferenceStatus(participant.email).received
+        (participant) => !!getReferenceStatus(participant.id).received
       ).length;
 
       return {
@@ -1121,7 +1133,7 @@ function parseDateSafe(dateStr) {
     }
 
     const received = currentParticipant
-      ? !!getReferenceStatus(currentParticipant.email).received
+      ? !!getReferenceStatus(currentParticipant.id).received
       : false;
 
     return {
@@ -1193,6 +1205,26 @@ function parseDateSafe(dateStr) {
           <div className="small">{trip.location} • {trip.dates}</div>
         </div>
         <div className="spacer" />
+        {canManageTrips && (
+          <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <select
+              className="input"
+              value={previewParticipantId}
+              onChange={(event) => setPreviewParticipantId(event.target.value)}
+              style={{ minWidth: 220 }}
+            >
+              <option value="">Staff view</option>
+              {(trip.participants || []).map((participant) => (
+                <option key={participant.id} value={participant.id}>
+                  View as {participant.name}
+                </option>
+              ))}
+            </select>
+            {isPreviewingParticipant && (
+              <span className="badge">Previewing participant view</span>
+            )}
+          </div>
+        )}
         <div className="badge">{trip.participants.length} participants</div>
       </div>
 
