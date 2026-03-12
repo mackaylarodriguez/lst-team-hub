@@ -183,6 +183,14 @@ export default function Trips() {
     }
   }
 
+  function updateLocalTripStatus(tripId, status) {
+    setTrips((current) =>
+      current.map((trip) =>
+        String(trip.id) === String(tripId) ? { ...trip, status } : trip
+      )
+    );
+  }
+
   return (
     <Shell>
       <div className="row" style={{ marginBottom: 14 }}>
@@ -291,6 +299,8 @@ export default function Trips() {
                       onClick={async () => {
                         try {
                           await archiveTrip(trip.id);
+                          updateLocalTripStatus(trip.id, "archived");
+                          setSubmitError("");
                         } catch (error) {
                           setSubmitError(error.message || "Unable to archive trip.");
                         }
@@ -343,6 +353,8 @@ export default function Trips() {
                       onClick={async () => {
                         try {
                           await archiveTrip(trip.id);
+                          updateLocalTripStatus(trip.id, "archived");
+                          setSubmitError("");
                         } catch (error) {
                           setSubmitError(error.message || "Unable to archive trip.");
                         }
@@ -393,6 +405,8 @@ export default function Trips() {
                       onClick={async () => {
                         try {
                           await unarchiveTrip(trip.id);
+                          updateLocalTripStatus(trip.id, "active");
+                          setSubmitError("");
                         } catch (error) {
                           setSubmitError(error.message || "Unable to unarchive trip.");
                         }

@@ -396,21 +396,13 @@ function TaskSection({
                     </select>
                   </td>
                   <td>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      <input
-                        className="input"
-                        value={task.notes || ""}
-                        onChange={(e) =>
-                          onUpdateTask(task.tripId, task.id, "notes", e.target.value)
-                        }
-                      />
-                      <div className="small">
-                        {task.updatedByName || task.updatedByEmail
-                          ? `Last updated by ${task.updatedByName || task.updatedByEmail}`
-                          : "Last updated by staff"}
-                        {task.updatedAt ? ` on ${formatTaskUpdatedAt(task.updatedAt)}` : ""}
-                      </div>
-                    </div>
+                    <input
+                      className="input"
+                      value={task.notes || ""}
+                      onChange={(e) =>
+                        onUpdateTask(task.tripId, task.id, "notes", e.target.value)
+                      }
+                    />
                   </td>
                   <td>
                     <div className="staffTaskRowActions">
@@ -450,18 +442,6 @@ function TaskSection({
       )}
     </div>
   );
-}
-
-function formatTaskUpdatedAt(value) {
-  if (!value) return "";
-
-  return new Date(value).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function parseDateSafe(dateStr) {
