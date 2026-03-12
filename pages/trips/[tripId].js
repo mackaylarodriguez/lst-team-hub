@@ -63,6 +63,7 @@ export default function TripPage() {
     description: "",
   });
   const [taskStatusMessage, setTaskStatusMessage] = useState("");
+  const [isAddingTask, setIsAddingTask] = useState(false);
 
   const [trip, setTrip] = useState(null);
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
@@ -1603,52 +1604,65 @@ function parseDateSafe(dateStr) {
         <div style={{ display: "grid", gap: 16 }}>
           {canManageTrips && (
             <div className="card pad">
-              <div style={{ fontWeight: 900, marginBottom: 8 }}>Add Task</div>
-              <div style={{ display: "grid", gap: 10 }}>
-                <input
-                  className="input"
-                  value={taskDraft.title}
-                  onChange={(event) =>
-                    setTaskDraft((current) => ({ ...current, title: event.target.value }))
-                  }
-                  placeholder="Task title"
-                />
-                <input
-                  className="input"
-                  type="date"
-                  value={taskDraft.dueDate}
-                  onChange={(event) =>
-                    setTaskDraft((current) => ({ ...current, dueDate: event.target.value }))
-                  }
-                />
-                <input
-                  className="input"
-                  value={taskDraft.category}
-                  onChange={(event) =>
-                    setTaskDraft((current) => ({ ...current, category: event.target.value }))
-                  }
-                  placeholder="Category"
-                />
-                <textarea
-                  className="input"
-                  value={taskDraft.description}
-                  onChange={(event) =>
-                    setTaskDraft((current) => ({ ...current, description: event.target.value }))
-                  }
-                  placeholder="Description"
-                  rows={3}
-                />
-                {taskStatusMessage && (
-                  <div className="small" style={{ color: "var(--danger)" }}>
-                    {taskStatusMessage}
-                  </div>
-                )}
-                <div className="row">
-                  <button className="btn btnPrimary" type="button" onClick={handleCreateTask}>
-                    Save Task
-                  </button>
-                </div>
+              <div className="row">
+                <div style={{ fontWeight: 900 }}>Worker Tasks</div>
+                <div className="spacer" />
+                <button
+                  className="btn btnPrimary"
+                  type="button"
+                  onClick={() => setIsAddingTask((current) => !current)}
+                >
+                  {isAddingTask ? "Close" : "Add Task"}
+                </button>
               </div>
+
+              {isAddingTask && (
+                <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+                  <input
+                    className="input"
+                    value={taskDraft.title}
+                    onChange={(event) =>
+                      setTaskDraft((current) => ({ ...current, title: event.target.value }))
+                    }
+                    placeholder="Task title"
+                  />
+                  <input
+                    className="input"
+                    type="date"
+                    value={taskDraft.dueDate}
+                    onChange={(event) =>
+                      setTaskDraft((current) => ({ ...current, dueDate: event.target.value }))
+                    }
+                  />
+                  <input
+                    className="input"
+                    value={taskDraft.category}
+                    onChange={(event) =>
+                      setTaskDraft((current) => ({ ...current, category: event.target.value }))
+                    }
+                    placeholder="Category"
+                  />
+                  <textarea
+                    className="input"
+                    value={taskDraft.description}
+                    onChange={(event) =>
+                      setTaskDraft((current) => ({ ...current, description: event.target.value }))
+                    }
+                    placeholder="Description"
+                    rows={3}
+                  />
+                  {taskStatusMessage && (
+                    <div className="small" style={{ color: "var(--danger)" }}>
+                      {taskStatusMessage}
+                    </div>
+                  )}
+                  <div className="row">
+                    <button className="btn btnPrimary" type="button" onClick={handleCreateTask}>
+                      Save Task
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
