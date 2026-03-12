@@ -1,4 +1,5 @@
 import Shell from "@/components/Shell";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
@@ -26,6 +27,7 @@ import {
 import { percentComplete } from "@/lib/tasks";
 import {
   listStaffTasksForTrip,
+  isTaskAssignedToUser,
   saveStaffTasks as persistStaffTasks,
   sortStaffTasksByTemplate,
   STAFF_TASKS_UPDATED_EVENT,
@@ -48,6 +50,12 @@ import {
   saveTripAnnouncement,
 } from "@/lib/tripAnnouncements";
 import { saveTripFundraisingSettings } from "@/lib/tripFundraising";
+import { USER_DOCUMENT_TYPES, getUserDocumentTypeLabel } from "@/lib/userDocumentTypes";
+import {
+  deleteUserDocument,
+  listTripUserDocuments,
+  saveUserDocumentUpload,
+} from "@/lib/userDocuments";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -117,6 +125,10 @@ export default function TripPage() {
   const [session, setSession] = useState(null);
   const [trainingModules, setTrainingModules] = useState([]);
   const [docs, setDocs] = useState([]);
+  const [participantDocuments, setParticipantDocuments] = useState([]);
+  const [participantDocumentsError, setParticipantDocumentsError] = useState("");
+  const [participantDocumentStatus, setParticipantDocumentStatus] = useState({});
+  const participantDocumentInputRefs = useRef({});
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkDraft, setLinkDraft] = useState({
     title: "",
@@ -303,6 +315,34 @@ export default function TripPage() {
     setIsEditingRoster(false);
     setRosterStatus("");
   }, [trip]);
+
+  useEffect(() => {
+    if (!trip?.id) return;
+
+    let cancelled = false;
+
+    async function loadParticipantDocuments() {
+      try {
+        const rows = await listTripUserDocuments(trip.id);
+        if (!cancelled) {
+          setParticipantDocuments(rows);
+          setParticipantDocumentsError("");
+        }
+      } catch (error) {
+        console.error("Unable to load participant documents", error);
+        if (!cancelled) {
+          setParticipantDocuments([]);
+          setParticipantDocumentsError(error.message || "Unable to load participant documents.");
+        }
+      }
+    }
+
+    void loadParticipantDocuments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.id]);
 
   useEffect(() => {
     if (!trip) return;
@@ -1075,6 +1115,94 @@ export default function TripPage() {
     }
   }
 
+  async function handleUploadParticipantDocument(userId, documentType, file) {
+    if (!trip?.id || !userId || !file) return;
+
+    const statusKey = `${userId}:${documentType}`;
+
+    try {
+      setParticipantDocumentStatus((current) => ({
+        ...current,
+        [statusKey]: { type: "info", message: "Uploading..." },
+      }));
+
+      const saved = await saveUserDocumentUpload({
+        userId,
+        tripId: trip.id,
+        documentType,
+        title: `${getUserDocumentTypeLabel(documentType)} - ${trip.name}`,
+        file,
+        uploadedByUserId: session?.profileId || session?.id || userId,
+      });
+
+      setParticipantDocuments((current) => {
+        const next = current.filter(
+          (document) =>
+            !(
+              String(document.userId) === String(userId) &&
+              String(document.tripId) === String(trip.id) &&
+              String(document.documentType) === String(documentType)
+            )
+        );
+
+        return [
+          {
+            ...saved,
+            user:
+              trip.participants.find((participant) => String(participant.id) === String(userId)) || null,
+            trip: {
+              id: trip.id,
+              name: trip.name,
+              location: trip.location,
+            },
+          },
+          ...next,
+        ];
+      });
+
+      setParticipantDocumentsError("");
+      setParticipantDocumentStatus((current) => ({
+        ...current,
+        [statusKey]: { type: "success", message: "Uploaded." },
+      }));
+    } catch (error) {
+      console.error("Unable to upload participant document", error);
+      setParticipantDocumentsError(error.message || "Unable to upload document.");
+      setParticipantDocumentStatus((current) => ({
+        ...current,
+        [statusKey]: { type: "error", message: error.message || "Upload failed." },
+      }));
+    }
+  }
+
+  async function handleDeleteParticipantDocument(document) {
+    if (!document?.id) return;
+
+    const confirmed = window.confirm("Delete this uploaded document?");
+    if (!confirmed) return;
+
+    const statusKey = `${document.userId}:${document.documentType}`;
+
+    try {
+      setParticipantDocumentStatus((current) => ({
+        ...current,
+        [statusKey]: { type: "info", message: "Deleting..." },
+      }));
+      await deleteUserDocument(document.id);
+      setParticipantDocuments((current) => current.filter((item) => item.id !== document.id));
+      setParticipantDocumentStatus((current) => ({
+        ...current,
+        [statusKey]: { type: "success", message: "Deleted." },
+      }));
+    } catch (error) {
+      console.error("Unable to delete participant document", error);
+      setParticipantDocumentStatus((current) => ({
+        ...current,
+        [statusKey]: { type: "error", message: error.message || "Delete failed." },
+      }));
+    }
+  }
+
   function setStaffTaskRowFeedback(taskId, type, message) {
     if (!taskId) return;
 
@@ -1209,6 +1337,45 @@ function parseDateSafe(dateStr) {
     });
 
     return groups;
+  }
+
+  function getWorkerTaskSection(task) {
+    const category = String(task?.category || "").trim();
+    if (category && category !== "worker_default") {
+      return category;
+    }
+
+    const title = String(task?.title || "").toLowerCase();
+
+    if (title.includes("fundraising")) return "Fundraising";
+    if (
+      title.includes("passport") ||
+      title.includes("visa") ||
+      title.includes("travel") ||
+      title.includes("ticket") ||
+      title.includes("step")
+    ) {
+      return "Travel";
+    }
+    if (title.includes("training")) return "Training";
+    if (title.includes("waiver") || title.includes("checklist") || title.includes("host")) {
+      return "Preparation";
+    }
+
+    return "General";
+  }
+
+  function groupWorkerTasks(tasks) {
+    const groups = new Map();
+
+    (tasks || []).forEach((task) => {
+      const section = getWorkerTaskSection(task);
+      const existing = groups.get(section) || [];
+      existing.push(task);
+      groups.set(section, existing);
+    });
+
+    return Array.from(groups.entries());
   }
 
   function getSettledValue(result, fallback, label) {
@@ -2093,6 +2260,23 @@ function parseDateSafe(dateStr) {
   }, [trip, session, canViewAllParticipantData, isPreviewingParticipant, previewParticipantId]);
 
   const activeParticipantEmail = currentParticipant?.email?.toLowerCase() || "";
+  const canUploadOwnParticipantDocuments =
+    !!currentParticipant &&
+    String(currentParticipant.id || "") === String(session?.profileId || session?.id || "");
+  const participantDocumentsByUserId = useMemo(() => {
+    const grouped = new Map();
+
+    (participantDocuments || []).forEach((document) => {
+      const key = String(document.userId || "");
+      if (!key) return;
+
+      const existing = grouped.get(key) || {};
+      existing[document.documentType] = document;
+      grouped.set(key, existing);
+    });
+
+    return grouped;
+  }, [participantDocuments]);
 
   const participantTaskProgress = useMemo(() => {
     if (!trip) return [];
@@ -2157,6 +2341,7 @@ function parseDateSafe(dateStr) {
         startDate: existing?.startDate || trip.startDate || "",
         endDate: existing?.endDate || trip.endDate || "",
         connected: true,
+        profileId: participant.id || existing?.profileId || "",
       });
     });
 
@@ -2345,7 +2530,7 @@ function parseDateSafe(dateStr) {
       : "My Fundraising Page";
     const links = [
       {
-        label: "Canvas",
+        label: "Training Hub",
         url: "https://canvas.instructure.com/courses/12611786",
         ready: true,
       },
@@ -2354,25 +2539,25 @@ function parseDateSafe(dateStr) {
     links.push(
       canViewAllParticipantData
         ? {
-            label: "Team Fundraising Page",
+            label: "Fundraising",
             url: trip?.teamFundraisingUrl || "",
             ready: !!trip?.teamFundraisingUrl,
           }
         : {
-            label: workerFundraisingLabel,
+            label: trip?.teamFundraisingUrl ? "Fundraising" : "My Fundraising",
             url: workerFundraisingUrl,
             ready: !!workerFundraisingUrl,
           }
     );
 
     links.push({
-      label: "Smartsheet Budget",
+      label: "Budget",
       url: smartsheetBudgetDoc?.link || smartsheetBudgetDoc?.pdfUrl || "",
       ready: !!(smartsheetBudgetDoc?.link || smartsheetBudgetDoc?.pdfUrl),
     });
 
     links.push({
-      label: "Site Info Link",
+      label: "Site Info",
       url: siteInfoDoc?.link || siteInfoDoc?.pdfUrl || "",
       ready: !!(siteInfoDoc?.link || siteInfoDoc?.pdfUrl),
     });
@@ -2392,16 +2577,69 @@ function parseDateSafe(dateStr) {
     : currentParticipantProgress
       ? [currentParticipantProgress]
       : [];
+  const groupedWorkerTasks = useMemo(
+    () => groupWorkerTasks(trip?.tasks || []),
+    [trip?.tasks]
+  );
   const visibleTrainingParticipants = canViewAllParticipantData
     ? trainingProgress
     : currentTrainingProgress
       ? [currentTrainingProgress]
       : [];
+  const overviewUpcomingTasks = useMemo(() => {
+    if (!trip) return [];
+
+    if (canViewAllParticipantData) {
+      return (editableStaffTasks || [])
+        .filter(
+          (task) =>
+            task.progress !== "Complete" &&
+            isTaskAssignedToUser(task.assignedTo, session?.name || session?.email || "")
+        )
+        .sort((left, right) => {
+          const leftDate = parseDateSafe(left.dueDate)?.getTime() || Number.MAX_SAFE_INTEGER;
+          const rightDate = parseDateSafe(right.dueDate)?.getTime() || Number.MAX_SAFE_INTEGER;
+          return leftDate - rightDate;
+        })
+        .slice(0, 5)
+        .map((task) => ({
+          id: task.id,
+          title: task.taskName,
+          dueDate: task.dueDate,
+          detail: task.workArea,
+        }));
+    }
+
+    const taskState = currentParticipantProgress?.taskState || {};
+
+    return (trip.tasks || [])
+      .filter((task) => !taskState[task.id])
+      .sort((left, right) => {
+        const leftDate = parseDateSafe(left.due)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const rightDate = parseDateSafe(right.due)?.getTime() || Number.MAX_SAFE_INTEGER;
+        return leftDate - rightDate;
+      })
+      .slice(0, 5)
+      .map((task) => ({
+        id: task.id,
+        title: task.title,
+        dueDate: task.due,
+        detail: getWorkerTaskSection(task),
+      }));
+  }, [canViewAllParticipantData, currentParticipantProgress?.taskState, editableStaffTasks, session?.email, session?.name, trip]);
+
+  const participantDocumentsTabLabel = canViewAllParticipantData ? "Participant Docs" : "My Documents";
 
   const tabs = 
     canManageTrips
-      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", ...(isPreviewingParticipant ? [] : ["Staff Tasks"])]
-      : ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents"];
+      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", participantDocumentsTabLabel, ...(isPreviewingParticipant ? [] : ["Staff Tasks"])]
+      : ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", participantDocumentsTabLabel];
+
+  useEffect(() => {
+    if (!tabs.includes(tab)) {
+      setTab("Overview");
+    }
+  }, [tab, tabs]);
 
   if (!router.isReady || !tripId) {
     return <p>Loading...</p>;
@@ -2761,6 +2999,37 @@ function parseDateSafe(dateStr) {
             {canViewAllParticipantData ? renderTripSetupCard() : null}
 
             <div className="card pad">
+              <div style={{ fontWeight: 900, marginBottom: 10 }}>
+                {canViewAllParticipantData ? "My Upcoming Staff Tasks" : "My Upcoming Tasks"}
+              </div>
+              {overviewUpcomingTasks.length > 0 ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {overviewUpcomingTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      style={{
+                        paddingBottom: 10,
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      <div style={{ fontWeight: 800 }}>{task.title}</div>
+                      <div className="small">
+                        {task.detail ? `${task.detail} • ` : ""}
+                        Due {task.dueDate ? formatSingleDate(task.dueDate) : "when ready"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="small">
+                  {canViewAllParticipantData
+                    ? "No upcoming staff tasks assigned to you right now."
+                    : "No upcoming worker tasks right now."}
+                </div>
+              )}
+            </div>
+
+            <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Quick Links</div>
               <div style={{ display: "grid", gap: 10 }}>
                 {quickLinks.map((link) => (
@@ -2893,7 +3162,15 @@ function parseDateSafe(dateStr) {
                   {teamTabMembers.length > 0 ? (
                     teamTabMembers.map((member) => (
                       <tr key={member.key}>
-                        <td style={{ fontWeight: 800 }}>{member.name}</td>
+                        <td style={{ fontWeight: 800 }}>
+                          {canViewAllParticipantData && member.profileId ? (
+                            <Link href={`/profile?participantId=${encodeURIComponent(member.profileId)}`}>
+                              {member.name}
+                            </Link>
+                          ) : (
+                            member.name
+                          )}
+                        </td>
                         <td>
                           {member.role ? (
                             <span className={"badge " + (member.role === "Leader" ? "badgeWarn" : "")}>
@@ -3645,30 +3922,41 @@ function parseDateSafe(dateStr) {
                   </div>
 
                   {trip.tasks.length > 0 ? (
-                    trip.tasks.map((task) => {
-                      const done = !!taskState[task.id];
-
-                      return (
-                        <div
-                          key={`${participant.email}-${task.id}`}
-                          className="row"
-                          style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={done}
-                            onChange={() => toggleTask(task.id, participant.email)}
-                          />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 900 }}>{task.title}</div>
-                            <div className="small">Due: {task.due}</div>
+                    <div style={{ display: "grid", gap: 14 }}>
+                      {groupedWorkerTasks.map(([section, sectionTasks]) => (
+                        <div key={`${participant.email}-${section}`}>
+                          <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
+                            {section}
                           </div>
-                          <span className={"badge " + (done ? "badgeSuccess" : "badgeDanger")}>
-                            {done ? "Complete" : "Not started"}
-                          </span>
+                          <div style={{ display: "grid", gap: 0 }}>
+                            {sectionTasks.map((task) => {
+                              const done = !!taskState[task.id];
+
+                              return (
+                                <div
+                                  key={`${participant.email}-${task.id}`}
+                                  className="row"
+                                  style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={done}
+                                    onChange={() => toggleTask(task.id, participant.email)}
+                                  />
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: 900 }}>{task.title}</div>
+                                    <div className="small">Due: {task.due || "Not set"}</div>
+                                  </div>
+                                  <span className={"badge " + (done ? "badgeSuccess" : "badgeDanger")}>
+                                    {done ? "Complete" : "Not started"}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      );
-                    })
+                      ))}
+                    </div>
                   ) : (
                     <div className="small">No tasks for this trip yet.</div>
                   )}
@@ -4087,6 +4375,168 @@ function parseDateSafe(dateStr) {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {tab === participantDocumentsTabLabel && (
+        <div style={{ display: "grid", gap: 16 }}>
+          <div className="card pad">
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div>
+                <div style={{ fontWeight: 900 }}>
+                  {canViewAllParticipantData ? "Participant Uploads" : "My Documents"}
+                </div>
+                <div className="small">
+                  {canViewAllParticipantData
+                    ? "Passport and visa uploads for each participant on this trip."
+                    : "Upload your passport and visa here. Staff can review them from your profile later too."}
+                </div>
+              </div>
+            </div>
+
+            {participantDocumentsError ? (
+              <div className="small" style={{ color: "var(--danger)", marginBottom: 12 }}>
+                {participantDocumentsError}
+              </div>
+            ) : null}
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: canViewAllParticipantData
+                  ? "repeat(auto-fit, minmax(280px, 1fr))"
+                  : "1fr",
+                gap: 16,
+              }}
+            >
+              {(canViewAllParticipantData
+                ? trip.participants || []
+                : currentParticipant
+                  ? [currentParticipant]
+                  : []
+              ).map((participant) => {
+                const documentSlots = participantDocumentsByUserId.get(String(participant.id)) || {};
+
+                return (
+                  <div key={participant.id} className="card pad" style={{ boxShadow: "none" }}>
+                    <div className="row" style={{ marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontWeight: 900 }}>
+                          {canViewAllParticipantData ? (
+                            <Link href={`/profile?participantId=${encodeURIComponent(participant.id)}`}>
+                              {participant.name}
+                            </Link>
+                          ) : (
+                            "My Uploads"
+                          )}
+                        </div>
+                        <div className="small">{participant.email}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gap: 12 }}>
+                      {USER_DOCUMENT_TYPES.map((documentType) => {
+                        const document = documentSlots[documentType.key] || null;
+                        const statusKey = `${participant.id}:${documentType.key}`;
+                        const slotStatus = participantDocumentStatus[statusKey];
+
+                        return (
+                          <div
+                            key={`${participant.id}-${documentType.key}`}
+                            style={{
+                              padding: 14,
+                              borderRadius: 14,
+                              border: "1px solid rgba(15, 23, 42, 0.08)",
+                              background: "rgba(255,255,255,.78)",
+                            }}
+                          >
+                            <div className="row" style={{ alignItems: "flex-start" }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 900 }}>{documentType.label}</div>
+                                <div className="small" style={{ marginTop: 4 }}>
+                                  {document
+                                    ? `Uploaded ${formatNoteTimestamp(document.updatedAt || document.createdAt)}`
+                                    : documentType.description}
+                                </div>
+                              </div>
+                              <span className={"badge " + (document ? "badgeSuccess" : "badgeWarn")}>
+                                {document ? "Uploaded" : "Missing"}
+                              </span>
+                            </div>
+
+                            <div className="row" style={{ marginTop: 10, gap: 8, flexWrap: "wrap" }}>
+                              {document ? (
+                                <a className="btn btnPrimary" href={document.fileUrl} target="_blank" rel="noreferrer">
+                                  Open
+                                </a>
+                              ) : (
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  disabled
+                                  style={{ opacity: 0.6, cursor: "not-allowed" }}
+                                >
+                                  Coming soon
+                                </button>
+                              )}
+
+                              {canUploadOwnParticipantDocuments && String(participant.id) === String(currentParticipant?.id) ? (
+                                <>
+                                  <button
+                                    className="btn"
+                                    type="button"
+                                    onClick={() => participantDocumentInputRefs.current[statusKey]?.click()}
+                                  >
+                                    {document ? "Replace" : "Upload"}
+                                  </button>
+                                  <input
+                                    ref={(element) => {
+                                      participantDocumentInputRefs.current[statusKey] = element;
+                                    }}
+                                    type="file"
+                                    hidden
+                                    onChange={(event) => {
+                                      const file = event.target.files?.[0];
+                                      void handleUploadParticipantDocument(participant.id, documentType.key, file);
+                                      event.target.value = "";
+                                    }}
+                                  />
+                                </>
+                              ) : null}
+
+                              {canViewAllParticipantData && document ? (
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  onClick={() => handleDeleteParticipantDocument(document)}
+                                >
+                                  Delete
+                                </button>
+                              ) : null}
+
+                              {slotStatus?.message ? (
+                                <div
+                                  className="small"
+                                  style={{
+                                    alignSelf: "center",
+                                    color:
+                                      slotStatus.type === "error"
+                                        ? "var(--danger)"
+                                        : "var(--muted)",
+                                  }}
+                                >
+                                  {slotStatus.message}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

@@ -13,6 +13,7 @@ import {
 } from "@/lib/trips";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
+import { listStaffTripMetrics } from "@/lib/staffOverview";
 
 const CUSTOM_SITE_OPTION = "__custom__";
 
@@ -102,18 +103,26 @@ export default function Trips() {
   const [isCustomSiteInput, setIsCustomSiteInput] = useState(false);
   const [tripDraft, setTripDraft] = useState(createInitialTripDraft);
   const [submitError, setSubmitError] = useState("");
+  const [tripMetricsById, setTripMetricsById] = useState({});
 
   useEffect(() => {
     let cancelled = false;
+    let activeSession = null;
 
     async function checkSession() {
       const session = await requireSession(router);
       if (cancelled || !session) return;
+      activeSession = session;
       setSession(session);
       try {
         const assignedTrips = await listTripsForCurrentUser();
         if (!cancelled) {
           setTrips(assignedTrips);
+          if (isManagerRole(session.permissionRole || session.role)) {
+            setTripMetricsById(await listStaffTripMetrics());
+          } else {
+            setTripMetricsById({});
+          }
         }
       } catch (error) {
         console.error("Unable to load assigned trips", error);
@@ -127,6 +136,11 @@ export default function Trips() {
         const assignedTrips = await listTripsForCurrentUser();
         if (!cancelled) {
           setTrips(assignedTrips);
+          if (isManagerRole(activeSession?.permissionRole || activeSession?.role)) {
+            setTripMetricsById(await listStaffTripMetrics());
+          } else {
+            setTripMetricsById({});
+          }
         }
       } catch (error) {
         console.error("Unable to sync assigned trips", error);
@@ -638,6 +652,29 @@ export default function Trips() {
                 <div className="small" style={{ marginTop: 4 }}>
                   {getCountdownLabel(trip.start, trip.end)}
                 </div>
+                {canManageTrips ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                      gap: 8,
+                      marginTop: 12,
+                    }}
+                  >
+                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(47,73,147,.08)" }}>
+                      <div className="small">Workers</div>
+                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.workerCount || 0}</div>
+                    </div>
+                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(60,170,225,.10)" }}>
+                      <div className="small">Training</div>
+                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.trainingPercent || 0}%</div>
+                    </div>
+                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(249,157,42,.10)" }}>
+                      <div className="small">Tasks</div>
+                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.taskPercent || 0}%</div>
+                    </div>
+                  </div>
+                ) : null}
                 <div style={{ height: 12 }} />
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                   <Link className="btn btnPrimary" href={`/trips/${encodeURIComponent(trip.id)}`}>View Trip</Link>
@@ -692,6 +729,29 @@ export default function Trips() {
                 <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
                 <div className="small">{trip.dates}</div>
                 <div className="small" style={{ marginTop: 4 }}>Trip finished</div>
+                {canManageTrips ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                      gap: 8,
+                      marginTop: 12,
+                    }}
+                  >
+                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(47,73,147,.08)" }}>
+                      <div className="small">Workers</div>
+                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.workerCount || 0}</div>
+                    </div>
+                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(60,170,225,.10)" }}>
+                      <div className="small">Training</div>
+                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.trainingPercent || 0}%</div>
+                    </div>
+                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(249,157,42,.10)" }}>
+                      <div className="small">Tasks</div>
+                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.taskPercent || 0}%</div>
+                    </div>
+                  </div>
+                ) : null}
                 <div style={{ height: 12 }} />
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                   <Link className="btn btnPrimary" href={`/trips/${encodeURIComponent(trip.id)}`}>View Trip</Link>
@@ -745,6 +805,29 @@ export default function Trips() {
                   <div style={{ fontWeight: 900, fontSize: 16 }}>{trip.name}</div>
                   <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
                   <div className="small">{trip.dates}</div>
+                  {canManageTrips ? (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                        gap: 8,
+                        marginTop: 12,
+                      }}
+                    >
+                      <div style={{ padding: 8, borderRadius: 12, background: "rgba(47,73,147,.08)" }}>
+                        <div className="small">Workers</div>
+                        <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.workerCount || 0}</div>
+                      </div>
+                      <div style={{ padding: 8, borderRadius: 12, background: "rgba(60,170,225,.10)" }}>
+                        <div className="small">Training</div>
+                        <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.trainingPercent || 0}%</div>
+                      </div>
+                      <div style={{ padding: 8, borderRadius: 12, background: "rgba(249,157,42,.10)" }}>
+                        <div className="small">Tasks</div>
+                        <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.taskPercent || 0}%</div>
+                      </div>
+                    </div>
+                  ) : null}
                   <div style={{ height: 12 }} />
                   <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                     <Link className="btn btnPrimary" href={`/trips/${encodeURIComponent(trip.id)}`}>View Trip</Link>

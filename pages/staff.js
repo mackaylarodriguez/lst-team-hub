@@ -1,4 +1,5 @@
 import Shell from "@/components/Shell";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
@@ -9,12 +10,14 @@ import {
   TRIPS_UPDATED_EVENT,
 } from "@/lib/trips";
 import { isStaffRole } from "@/lib/roles";
+import { listStaffParticipantOverview } from "@/lib/staffOverview";
 
 export default function StaffAssignments() {
   const router = useRouter();
   const [session, setSession] = useState(null);
   const [trips, setTrips] = useState([]);
   const [workers, setWorkers] = useState([]);
+  const [participantOverview, setParticipantOverview] = useState([]);
   const [selectedTripByWorker, setSelectedTripByWorker] = useState({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -44,13 +47,15 @@ export default function StaffAssignments() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [nextTrips, nextWorkers] = await Promise.all([
+        const [nextTrips, nextWorkers, nextOverview] = await Promise.all([
           listTripsForCurrentUser(),
           listWorkerAssignmentSummary(),
+          listStaffParticipantOverview(),
         ]);
 
         setTrips(nextTrips);
         setWorkers(nextWorkers);
+        setParticipantOverview(nextOverview);
       } catch (loadError) {
         console.error("Unable to load staff assignments", loadError);
         setError(loadError.message || "Unable to load worker assignments.");
@@ -103,7 +108,12 @@ export default function StaffAssignments() {
         [workerId]: "",
       }));
 
-      setWorkers(await listWorkerAssignmentSummary());
+      const [nextWorkers, nextOverview] = await Promise.all([
+        listWorkerAssignmentSummary(),
+        listStaffParticipantOverview(),
+      ]);
+      setWorkers(nextWorkers);
+      setParticipantOverview(nextOverview);
     } catch (assignError) {
       console.error("Unable to assign worker", assignError);
       setError(assignError.message || "Unable to assign worker.");
@@ -113,9 +123,9 @@ export default function StaffAssignments() {
 
   return (
     <Shell>
-      <h1 className="h1">Assignments</h1>
+      <h1 className="h1">Participants</h1>
       <p className="p">
-        Review worker assignments and prioritize unassigned workers first.
+        Review participant health across trips, then manage assignments underneath.
       </p>
 
       <div style={{ height: 14 }} />
@@ -131,6 +141,83 @@ export default function StaffAssignments() {
           {error}
         </div>
       )}
+
+      <div className="card pad" style={{ marginBottom: 16 }}>
+        <div className="row" style={{ marginBottom: 10 }}>
+          <div>
+            <div style={{ fontWeight: 900 }}>Participant Health</div>
+            <div className="small">
+              Track trip coverage, training, tasks, fundraising milestones, and who needs follow-up.
+            </div>
+          </div>
+          <div className="spacer" />
+          <span className="badge">{participantOverview.length}</span>
+        </div>
+
+        {participantOverview.length === 0 ? (
+          <div className="small">No assigned participants yet.</div>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Participant</th>
+                <th>Trips</th>
+                <th>Training</th>
+                <th>Tasks</th>
+                <th>Fundraising</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {participantOverview.map((participant) => (
+                <tr key={participant.id}>
+                  <td>
+                    <div style={{ fontWeight: 800 }}>
+                      <Link href={`/profile?participantId=${encodeURIComponent(participant.id)}`}>
+                        {participant.name}
+                      </Link>
+                    </div>
+                    <div className="small">{participant.email}</div>
+                  </td>
+                  <td>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {participant.trips.map((assignment) => (
+                        <Link
+                          key={`${participant.id}-${assignment.tripId}`}
+                          href={`/trips/${encodeURIComponent(assignment.tripId)}`}
+                        >
+                          {assignment.tripName}
+                        </Link>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="badge">{participant.trainingPercent}%</span>
+                  </td>
+                  <td>
+                    <span className="badge">{participant.taskPercent}%</span>
+                  </td>
+                  <td>{participant.fundraisingSummary}</td>
+                  <td>
+                    <span
+                      className={
+                        "badge " +
+                        (participant.readiness === "Behind"
+                          ? "badgeDanger"
+                          : participant.readiness === "Ready"
+                            ? "badgeSuccess"
+                            : "badgeWarn")
+                      }
+                    >
+                      {participant.readiness}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       <WorkerSection
         title="Unassigned"

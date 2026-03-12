@@ -105,7 +105,7 @@ export default function Shell({ children }) {
         <nav className="nav">
           <Link className={path.startsWith("/trips") ? "active" : ""} href="/trips">My Trips</Link>
           {canManageTrips && <Link className={path === "/admin" ? "active" : ""} href="/admin">My Tasks</Link>}
-          {isStaffUser && <Link className={path === "/staff" ? "active" : ""} href="/staff">Assignments</Link>}
+          {isStaffUser && <Link className={path === "/staff" ? "active" : ""} href="/staff">Participants</Link>}
           <Link className={path === "/profile" ? "active" : ""} href="/profile">Profile</Link>
           <a
             href="#"
