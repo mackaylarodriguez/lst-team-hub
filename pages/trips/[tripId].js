@@ -2680,11 +2680,12 @@ function parseDateSafe(dateStr) {
   }, [canViewAllParticipantData, currentParticipantProgress?.taskState, editableStaffTasks, session?.email, session?.name, trip]);
 
   const participantDocumentsTabLabel = canViewAllParticipantData ? "Participant Docs" : "My Documents";
+  const tripDocumentsTabLabel = "Trip Documents";
 
   const tabs = 
     canManageTrips
-      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", participantDocumentsTabLabel, ...(isPreviewingParticipant ? [] : ["Staff Tasks"])]
-      : ["Overview", "Team", "Fundraising", "Training", "Tasks", "Documents", participantDocumentsTabLabel];
+      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel, ...(isPreviewingParticipant ? [] : ["Staff Tasks"])]
+      : ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel];
 
   useEffect(() => {
     if (!tabs.includes(tab)) {
@@ -4129,7 +4130,7 @@ function parseDateSafe(dateStr) {
         </div>
       )}
 
-      {tab === "Documents" && (
+      {tab === tripDocumentsTabLabel && (
         <div style={{ display: "grid", gap: 16 }}>
           <div className="card pad">
             <div className="row" style={{ marginBottom: 10 }}>
