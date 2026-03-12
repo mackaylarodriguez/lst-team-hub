@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { getTripForCurrentUser, listTripParticipants, updateTripForCurrentUser } from "@/lib/trips";
 import { isManagerRole } from "@/lib/roles";
-import { listTripTeamMembers } from "@/lib/tripTeamMembers";
+import { listTripTeamMembers, saveTripTeamMembers } from "@/lib/tripTeamMembers";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import {
   listTrainingModules,
@@ -42,6 +42,11 @@ import {
   listTripOverviewNotes,
   saveTripOverviewNote,
 } from "@/lib/tripOverviewNotes";
+import {
+  deleteTripAnnouncement,
+  listTripAnnouncements,
+  saveTripAnnouncement,
+} from "@/lib/tripAnnouncements";
 import { saveTripFundraisingSettings } from "@/lib/tripFundraising";
 
 const STAFF_TASK_AREA_LABELS = {
@@ -50,6 +55,15 @@ const STAFF_TASK_AREA_LABELS = {
 };
 
 const CUSTOM_SITE_OPTION = "__custom__";
+const TEAM_STATUS_OPTIONS = [
+  "Forming",
+  "Confirmed",
+  "Support Raising",
+  "Ready to Go",
+  "On Field",
+  "Complete",
+  "On Hold",
+];
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -65,6 +79,7 @@ function buildTripSetupDraft(trip) {
     location: trip?.location || "",
     host: trip?.host || "",
     siteType: trip?.siteType || "",
+    teamStatus: trip?.teamStatus || "",
     projectType: trip?.projectType || "",
     projectLengthSummary: trip?.projectLengthSummary || "",
     extraTravelStatus: trip?.extraTravelStatus || "no",
@@ -78,6 +93,17 @@ function buildTripSetupDraft(trip) {
     domesticProjectFeeAmount: formatDraftAmount(trip?.domesticProjectFeeAmount),
     domesticFeeAmount: formatDraftAmount(trip?.domesticFeeAmount),
     domesticMaterialsFeeAmount: formatDraftAmount(trip?.domesticMaterialsFeeAmount),
+  };
+}
+
+function createEmptyRosterMember() {
+  return {
+    id: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    startDate: "",
+    endDate: "",
   };
 }
 
@@ -120,6 +146,11 @@ export default function TripPage() {
   const [overviewNoteDraft, setOverviewNoteDraft] = useState("");
   const [isEditingOverviewNote, setIsEditingOverviewNote] = useState(false);
   const [overviewNoteStatus, setOverviewNoteStatus] = useState("");
+  const [announcements, setAnnouncements] = useState([]);
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState("");
+  const [announcementDraft, setAnnouncementDraft] = useState("");
+  const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false);
+  const [announcementStatus, setAnnouncementStatus] = useState("");
   const [teamFundraisingDraft, setTeamFundraisingDraft] = useState({
     teamFundraisingUrl: "",
   });
@@ -132,6 +163,9 @@ export default function TripPage() {
   const [tripSetupDraft, setTripSetupDraft] = useState(() => buildTripSetupDraft(null));
   const [tripSetupStatus, setTripSetupStatus] = useState("");
   const [isCustomSiteInput, setIsCustomSiteInput] = useState(false);
+  const [isEditingRoster, setIsEditingRoster] = useState(false);
+  const [rosterDraft, setRosterDraft] = useState([]);
+  const [rosterStatus, setRosterStatus] = useState("");
 
   const [trip, setTrip] = useState(null);
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
@@ -263,6 +297,9 @@ export default function TripPage() {
     setIsEditingTripSetup(false);
     setTripSetupStatus("");
     setIsCustomSiteInput(false);
+    setRosterDraft(trip.teamMembers || []);
+    setIsEditingRoster(false);
+    setRosterStatus("");
   }, [trip]);
 
   useEffect(() => {
@@ -382,6 +419,35 @@ export default function TripPage() {
     }
 
     void loadOverviewNote();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.id]);
+
+  useEffect(() => {
+    if (!trip?.id) return;
+
+    let cancelled = false;
+
+    async function loadAnnouncements() {
+      try {
+        setAnnouncements([]);
+        setEditingAnnouncementId("");
+        setAnnouncementDraft("");
+        setIsEditingAnnouncement(false);
+        setAnnouncementStatus("");
+        const rows = await listTripAnnouncements(trip.id);
+        if (!cancelled) {
+          setAnnouncements(rows);
+          setAnnouncementStatus("");
+        }
+      } catch (error) {
+        console.error("Unable to load trip announcements", error);
+      }
+    }
+
+    void loadAnnouncements();
 
     return () => {
       cancelled = true;
@@ -1151,6 +1217,46 @@ function parseDateSafe(dateStr) {
     return formatSingleDate(startDate || endDate);
   }
 
+  function getCountdownSummary(startDate) {
+    if (!startDate) {
+      return {
+        label: "Dates to be confirmed",
+        detail: "Trip start date has not been set yet.",
+      };
+    }
+
+    const tripStart = new Date(`${startDate}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.ceil((tripStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 1) {
+      return {
+        label: `${diffDays} days until takeoff`,
+        detail: `Trip starts ${formatSingleDate(startDate)}.`,
+      };
+    }
+
+    if (diffDays === 1) {
+      return {
+        label: "1 day until takeoff",
+        detail: `Trip starts ${formatSingleDate(startDate)}.`,
+      };
+    }
+
+    if (diffDays === 0) {
+      return {
+        label: "Trip starts today",
+        detail: `Today is ${formatSingleDate(startDate)}.`,
+      };
+    }
+
+    return {
+      label: "Trip is underway or complete",
+      detail: `Trip started ${formatSingleDate(startDate)}.`,
+    };
+  }
+
   function formatMoney(value) {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -1303,6 +1409,82 @@ function parseDateSafe(dateStr) {
     setOverviewNoteStatus("");
   }
 
+  async function handleSaveAnnouncement() {
+    if (!trip?.id) return;
+
+    const trimmedMessage = String(announcementDraft || "").trim();
+    if (!trimmedMessage) {
+      setAnnouncementStatus("Announcement cannot be empty.");
+      return;
+    }
+
+    try {
+      setAnnouncementStatus("Saving...");
+      const saved = await saveTripAnnouncement({
+        id: editingAnnouncementId || null,
+        tripId: trip.id,
+        message: trimmedMessage,
+        authorName: session?.name || session?.email || "Staff",
+        authorEmail: session?.email || "",
+      });
+
+      setAnnouncements((current) => {
+        const existingIndex = current.findIndex((item) => item.id === saved.id);
+        if (existingIndex >= 0) {
+          const next = [...current];
+          next[existingIndex] = saved;
+          return next.sort((left, right) => String(right.updatedAt || "").localeCompare(String(left.updatedAt || "")));
+        }
+
+        return [saved, ...current].sort((left, right) =>
+          String(right.updatedAt || "").localeCompare(String(left.updatedAt || ""))
+        );
+      });
+      setAnnouncementDraft(saved.message || "");
+      setEditingAnnouncementId("");
+      setIsEditingAnnouncement(false);
+      setAnnouncementStatus("Saved.");
+    } catch (error) {
+      console.error("Unable to save trip announcement", error);
+      setAnnouncementStatus(error.message || "Unable to save announcement.");
+    }
+  }
+
+  async function handleDeleteAnnouncement() {
+    if (!editingAnnouncementId) return;
+
+    if (typeof window !== "undefined" && !window.confirm("Delete this announcement?")) {
+      return;
+    }
+
+    try {
+      setAnnouncementStatus("Deleting...");
+      await deleteTripAnnouncement(editingAnnouncementId);
+      setAnnouncements((current) => current.filter((item) => item.id !== editingAnnouncementId));
+      setEditingAnnouncementId("");
+      setAnnouncementDraft("");
+      setIsEditingAnnouncement(false);
+      setAnnouncementStatus("Deleted.");
+    } catch (error) {
+      console.error("Unable to delete trip announcement", error);
+      setAnnouncementStatus(error.message || "Unable to delete announcement.");
+    }
+  }
+
+  function handleStartAnnouncement(announcement = null) {
+    setEditingAnnouncementId(announcement?.id || "");
+    setAnnouncementDraft(announcement?.message || "");
+    setIsEditingAnnouncement(true);
+    setAnnouncementStatus("");
+  }
+
+  function handleCancelAnnouncementEdit() {
+    setEditingAnnouncementId("");
+    setAnnouncementDraft("");
+    setIsEditingAnnouncement(false);
+    setAnnouncementStatus("");
+  }
+
   function updateTripSetupDraft(field, value) {
     setTripSetupDraft((current) => ({
       ...current,
@@ -1365,6 +1547,50 @@ function parseDateSafe(dateStr) {
     } catch (error) {
       console.error("Unable to save trip details", error);
       setTripSetupStatus(error.message || "Unable to save trip details.");
+    }
+  }
+
+  function updateRosterDraftMember(index, field, value) {
+    setRosterDraft((current) =>
+      current.map((member, memberIndex) =>
+        memberIndex === index ? { ...member, [field]: value } : member
+      )
+    );
+  }
+
+  function handleStartRosterEdit() {
+    setRosterDraft((trip?.teamMembers || []).length > 0 ? trip.teamMembers : [createEmptyRosterMember()]);
+    setRosterStatus("");
+    setIsEditingRoster(true);
+  }
+
+  function handleCancelRosterEdit() {
+    setRosterDraft(trip?.teamMembers || []);
+    setRosterStatus("");
+    setIsEditingRoster(false);
+  }
+
+  function handleAddRosterMember() {
+    setRosterDraft((current) => [...current, createEmptyRosterMember()]);
+  }
+
+  function handleRemoveRosterMember(index) {
+    setRosterDraft((current) => current.filter((_, memberIndex) => memberIndex !== index));
+  }
+
+  async function handleSaveRoster() {
+    if (!trip?.id) return;
+
+    try {
+      setRosterStatus("Saving...");
+      const savedMembers = await saveTripTeamMembers(trip.id, rosterDraft);
+      setTrip((current) => (current ? { ...current, teamMembers: savedMembers } : current));
+      setRosterDraft(savedMembers);
+      setIsEditingRoster(false);
+      setRosterStatus("Saved.");
+    } catch (error) {
+      console.error("Unable to save team roster", error);
+      setRosterStatus(error.message || "Unable to save team roster.");
     }
   }
 
@@ -1464,6 +1690,21 @@ function parseDateSafe(dateStr) {
                     placeholder="6 weeks, with a 3-week subgroup"
                   />
                 </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Team Status</div>
+                  <select
+                    className="input"
+                    value={tripSetupDraft.teamStatus}
+                    onChange={(event) => updateTripSetupDraft("teamStatus", event.target.value)}
+                  >
+                    <option value="">Select team status</option>
+                    {TEAM_STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             ) : canViewAllParticipantData ? (
               <>
@@ -1485,6 +1726,9 @@ function parseDateSafe(dateStr) {
                     getWeeksInCountry(trip.startDate, trip.endDate) ||
                     "Dates to be confirmed"}
                 </div>
+                <div style={{ height: 12 }} />
+                <div className="small">Team Status</div>
+                <div style={{ fontWeight: 800 }}>{trip.teamStatus || "Not set"}</div>
               </>
             ) : (
               <div className="tripSetupInfoGrid">
@@ -1971,6 +2215,72 @@ function parseDateSafe(dateStr) {
     };
   }, [trip, canViewAllParticipantData, currentParticipant, referenceEmails]);
 
+  const missingItems = useMemo(() => {
+    if (!trip || !canViewAllParticipantData) return [];
+
+    const items = [];
+    const missingRequiredDocs = requiredDocumentSlots.filter((slot) => !slot.resource);
+    if (missingRequiredDocs.length > 0) {
+      items.push({
+        label: "Required documents",
+        detail: missingRequiredDocs.map((slot) => slot.label).join(", "),
+      });
+    }
+
+    const participantsMissingReferences = (trip.participants || []).filter(
+      (participant) => !getReferenceStatus(participant.id).received
+    );
+    if (participantsMissingReferences.length > 0) {
+      items.push({
+        label: "References",
+        detail: `${participantsMissingReferences.length} team member${
+          participantsMissingReferences.length === 1 ? "" : "s"
+        } still missing a received reference.`,
+      });
+    }
+
+    if (!trip.teamFundraisingUrl) {
+      const participantsMissingFundraising = (trip.participants || []).filter(
+        (participant) => !participant.fundraisingUrl
+      );
+
+      if (participantsMissingFundraising.length > 0) {
+        items.push({
+          label: "Fundraising links",
+          detail: `${participantsMissingFundraising.length} personal Neon link${
+            participantsMissingFundraising.length === 1 ? "" : "s"
+          } still missing.`,
+        });
+      }
+    }
+
+    if ((trip.teamMembers || []).length === 0) {
+      items.push({
+        label: "Team roster",
+        detail: "No roster members have been added yet.",
+      });
+    } else {
+      const rosterMissingEmail = (trip.teamMembers || []).filter((member) => !member.email);
+      if (rosterMissingEmail.length > 0) {
+        items.push({
+          label: "Roster details",
+          detail: `${rosterMissingEmail.length} roster entr${
+            rosterMissingEmail.length === 1 ? "y is" : "ies are"
+          } missing an email address.`,
+        });
+      }
+    }
+
+    if (!trip.teamStatus) {
+      items.push({
+        label: "Team status",
+        detail: "Set the team status in Trip Setup.",
+      });
+    }
+
+    return items;
+  }, [trip, canViewAllParticipantData, requiredDocumentSlots, referenceEmails]);
+
   const overviewTaskLabel = canViewAllParticipantData ? "Participant Tasks" : "My Tasks";
   const overviewTaskPct = canViewAllParticipantData
     ? participantTaskPct
@@ -2129,6 +2439,7 @@ function parseDateSafe(dateStr) {
   const pct = canViewAllParticipantData
     ? participantTaskPct
     : currentParticipantProgress?.percent || 0;
+  const countdownSummary = getCountdownSummary(trip?.startDate);
 
   return (
     <Shell>
@@ -2167,6 +2478,97 @@ function parseDateSafe(dateStr) {
           <div className="progress"><div style={{ width: `${pct}%` }} /></div>
           <div className="small" style={{ marginTop: 6 }}>{pct}% complete</div>
         </div>
+      </div>
+
+      <div
+        className="card pad"
+        style={{
+          marginBottom: 14,
+          background: "linear-gradient(135deg, #fdf2cc 0%, #fff8e6 55%, #eef8fe 100%)",
+          borderColor: "rgba(249,157,42,.3)",
+        }}
+      >
+        <div className="small" style={{ marginBottom: 8, fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", color: "#9a6700" }}>
+          Countdown
+        </div>
+        <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: "-.03em" }}>{countdownSummary.label}</div>
+        <div className="small" style={{ marginTop: 6, color: "var(--text)" }}>{countdownSummary.detail}</div>
+      </div>
+
+      <div className="card pad" style={{ marginBottom: 14 }}>
+        <div className="row" style={{ marginBottom: 10 }}>
+          <div style={{ fontWeight: 900 }}>Announcements</div>
+          <div className="spacer" />
+          {canViewAllParticipantData && !isEditingAnnouncement ? (
+            <button className="btn" type="button" onClick={handleStartAnnouncement}>
+              Add Announcement
+            </button>
+          ) : null}
+        </div>
+        {isEditingAnnouncement ? (
+          <>
+            <textarea
+              className="input"
+              rows={3}
+              value={announcementDraft}
+              onChange={(event) => setAnnouncementDraft(event.target.value)}
+              placeholder="Share an update the team should see."
+            />
+            <div className="row" style={{ marginTop: 10 }}>
+              <button className="btn btnPrimary" type="button" onClick={handleSaveAnnouncement}>
+                Save Announcement
+              </button>
+              <button className="btn" type="button" onClick={handleCancelAnnouncementEdit}>
+                Cancel
+              </button>
+              {editingAnnouncementId ? (
+                <button className="btn" type="button" onClick={handleDeleteAnnouncement}>
+                  Delete
+                </button>
+              ) : null}
+              {announcementStatus ? (
+                <div className="small" style={{ alignSelf: "center" }}>
+                  {announcementStatus}
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : announcements.length > 0 ? (
+          <div style={{ display: "grid", gap: 12 }}>
+            {announcements.map((announcement) => (
+              <div
+                key={announcement.id}
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 14,
+                  background: "#f7f8fa",
+                  border: "1px solid rgba(15, 23, 42, 0.08)",
+                }}
+              >
+                <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{announcement.message}</div>
+                <div className="small" style={{ marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <span>
+                    <strong>By:</strong> {announcement.authorName || announcement.authorEmail || "Unknown user"}
+                  </span>
+                  {announcement.updatedAt ? (
+                    <span>
+                      <strong>Updated:</strong> {formatNoteTimestamp(announcement.updatedAt)}
+                    </span>
+                  ) : null}
+                </div>
+                {canViewAllParticipantData ? (
+                  <div className="row" style={{ marginTop: 10 }}>
+                    <button className="btn" type="button" onClick={() => handleStartAnnouncement(announcement)}>
+                      Edit
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="small">No announcements yet.</div>
+        )}
       </div>
 
       <div className="tabs" style={{ marginBottom: 14 }}>
@@ -2249,6 +2651,38 @@ function parseDateSafe(dateStr) {
               </div>
             </div>
           </div>
+
+          {canViewAllParticipantData ? (
+            <div className="card pad">
+              <div className="row" style={{ marginBottom: 10, alignItems: "center" }}>
+                <div style={{ fontWeight: 900 }}>Missing Items</div>
+                <div className="spacer" />
+                <span className={"badge " + (missingItems.length > 0 ? "badgeWarn" : "badgeSuccess")}>
+                  {missingItems.length > 0 ? `${missingItems.length} to review` : "All set"}
+                </span>
+              </div>
+              {missingItems.length > 0 ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {missingItems.map((item) => (
+                    <div
+                      key={item.label}
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: 14,
+                        border: "1px solid rgba(249,157,42,.24)",
+                        background: "var(--goldSoft)",
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, marginBottom: 4 }}>{item.label}</div>
+                      <div className="small" style={{ color: "var(--text)" }}>{item.detail}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="small">No obvious gaps right now.</div>
+              )}
+            </div>
+          ) : null}
 
           <div
             style={{
@@ -2386,55 +2820,135 @@ function parseDateSafe(dateStr) {
       {tab === "Team" && (
         <div style={{ display: "grid", gap: 16 }}>
           <div className="card pad">
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Team Members</div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Role</th>
-                  <th>Email</th>
-                  <th>Project Dates</th>
-                  {canViewAllParticipantData && <th>Fundraising</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {teamTabMembers.length > 0 ? (
-                  teamTabMembers.map((member) => (
-                    <tr key={member.key}>
-                      <td style={{ fontWeight: 800 }}>{member.name}</td>
-                      <td>
-                        {member.role ? (
-                          <span className={"badge " + (member.role === "Leader" ? "badgeWarn" : "")}>
-                            {member.role}
-                          </span>
-                        ) : (
-                          <span className="small">Team Member</span>
-                        )}
-                      </td>
-                      <td>{member.email || "Not set"}</td>
-                      <td>{formatTripDateRange(member.startDate, member.endDate)}</td>
-                      {canViewAllParticipantData && (
+            <div className="row" style={{ marginBottom: 10, alignItems: "center" }}>
+              <div style={{ fontWeight: 900 }}>Team Members</div>
+              <div className="spacer" />
+              {rosterStatus ? (
+                <div className="small" style={{ alignSelf: "center", marginRight: 8 }}>
+                  {rosterStatus}
+                </div>
+              ) : null}
+              {canViewAllParticipantData && !isEditingRoster ? (
+                <button className="btn" type="button" onClick={handleStartRosterEdit}>
+                  Edit Roster
+                </button>
+              ) : null}
+            </div>
+
+            {canViewAllParticipantData && isEditingRoster ? (
+              <div style={{ display: "grid", gap: 12 }}>
+                {rosterDraft.map((member, index) => (
+                  <div
+                    key={member.id || `draft-${index}`}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                      gap: 10,
+                      padding: 12,
+                      borderRadius: 14,
+                      border: "1px solid var(--border)",
+                      background: "#fff",
+                    }}
+                  >
+                    <input
+                      className="input"
+                      value={member.firstName || ""}
+                      placeholder="First name"
+                      onChange={(event) => updateRosterDraftMember(index, "firstName", event.target.value)}
+                    />
+                    <input
+                      className="input"
+                      value={member.lastName || ""}
+                      placeholder="Last name"
+                      onChange={(event) => updateRosterDraftMember(index, "lastName", event.target.value)}
+                    />
+                    <input
+                      className="input"
+                      type="email"
+                      value={member.email || ""}
+                      placeholder="Email"
+                      onChange={(event) => updateRosterDraftMember(index, "email", event.target.value)}
+                    />
+                    <input
+                      className="input"
+                      type="date"
+                      value={member.startDate || ""}
+                      onChange={(event) => updateRosterDraftMember(index, "startDate", event.target.value)}
+                    />
+                    <input
+                      className="input"
+                      type="date"
+                      value={member.endDate || ""}
+                      onChange={(event) => updateRosterDraftMember(index, "endDate", event.target.value)}
+                    />
+                    <button className="btn" type="button" onClick={() => handleRemoveRosterMember(index)}>
+                      Remove
+                    </button>
+                  </div>
+                ))}
+
+                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <button className="btn" type="button" onClick={handleAddRosterMember}>
+                    Add Member
+                  </button>
+                  <button className="btn btnPrimary" type="button" onClick={handleSaveRoster}>
+                    Save Roster
+                  </button>
+                  <button className="btn" type="button" onClick={handleCancelRosterEdit}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Email</th>
+                    <th>Project Dates</th>
+                    {canViewAllParticipantData && <th>Fundraising</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamTabMembers.length > 0 ? (
+                    teamTabMembers.map((member) => (
+                      <tr key={member.key}>
+                        <td style={{ fontWeight: 800 }}>{member.name}</td>
                         <td>
-                          {member.fundraisingUrl ? (
-                            <a href={member.fundraisingUrl} target="_blank" rel="noreferrer">
-                              Open
-                            </a>
+                          {member.role ? (
+                            <span className={"badge " + (member.role === "Leader" ? "badgeWarn" : "")}>
+                              {member.role}
+                            </span>
                           ) : (
-                            <span className="small">Not added</span>
+                            <span className="small">Team Member</span>
                           )}
                         </td>
-                      )}
+                        <td>{member.email || "Not set"}</td>
+                        <td>{formatTripDateRange(member.startDate, member.endDate)}</td>
+                        {canViewAllParticipantData && (
+                          <td>
+                            {member.fundraisingUrl ? (
+                              <a href={member.fundraisingUrl} target="_blank" rel="noreferrer">
+                                Open
+                              </a>
+                            ) : (
+                              <span className="small">Not added</span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={canViewAllParticipantData ? 5 : 4} className="small">
+                        No team members added yet.
+                      </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={canViewAllParticipantData ? 5 : 4} className="small">
-                      No team members added yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {canViewAllParticipantData && (
