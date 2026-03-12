@@ -1413,7 +1413,7 @@ function parseDateSafe(dateStr) {
               gap: 16,
             }}
           >
-            {canManageTrips && (
+            {canViewAllParticipantData && (
               <div className="card pad" style={{ gridColumn: "1 / -1" }}>
                 <div style={{ fontWeight: 900, marginBottom: 8 }}>Trip Notes</div>
                 <div className="small" style={{ marginBottom: 10 }}>
