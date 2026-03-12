@@ -1347,20 +1347,22 @@ function parseDateSafe(dateStr) {
 
     const title = String(task?.title || "").toLowerCase();
 
-    if (title.includes("fundraising")) return "Fundraising";
+    if (
+      title.includes("$2,000 raised") ||
+      title.includes("all raised") ||
+      title.includes("donor")
+    ) {
+      return "Fundraising";
+    }
     if (
       title.includes("passport") ||
       title.includes("visa") ||
-      title.includes("travel") ||
       title.includes("ticket") ||
       title.includes("step")
     ) {
       return "Travel";
     }
     if (title.includes("training")) return "Training";
-    if (title.includes("waiver") || title.includes("checklist") || title.includes("host")) {
-      return "Preparation";
-    }
 
     return "General";
   }
@@ -1375,7 +1377,17 @@ function parseDateSafe(dateStr) {
       groups.set(section, existing);
     });
 
-    return Array.from(groups.entries());
+    const sectionOrder = ["General", "Fundraising", "Travel", "Training"];
+
+    return Array.from(groups.entries()).sort((left, right) => {
+      const leftIndex = sectionOrder.indexOf(left[0]);
+      const rightIndex = sectionOrder.indexOf(right[0]);
+
+      return (
+        (leftIndex === -1 ? sectionOrder.length : leftIndex) -
+        (rightIndex === -1 ? sectionOrder.length : rightIndex)
+      );
+    });
   }
 
   function getSettledValue(result, fallback, label) {
