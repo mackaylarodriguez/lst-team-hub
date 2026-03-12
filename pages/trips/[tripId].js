@@ -979,6 +979,10 @@ function parseDateSafe(dateStr) {
     }).format(Number(value || 0));
   }
 
+  function formatOptionalMoney(value) {
+    return value === null || value === undefined || value === "" ? "Not set" : formatMoney(value);
+  }
+
   function subtractDays(dateValue, days) {
     if (!dateValue) return null;
     const date = new Date(`${dateValue}T00:00:00`);
@@ -1583,6 +1587,48 @@ function parseDateSafe(dateStr) {
                 {getWeeksInCountry(trip.startDate, trip.endDate) || "Dates to be confirmed"}
               </div>
             </div>
+
+            {canViewAllParticipantData && (
+              <div className="card pad">
+                <div style={{ fontWeight: 900, marginBottom: 10 }}>Site Setup & Fees</div>
+                <div className="small">Host</div>
+                <div style={{ fontWeight: 800 }}>{trip.host || "Not set"}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Site Type</div>
+                <div style={{ fontWeight: 800 }}>
+                  {trip.siteType
+                    ? trip.siteType.charAt(0).toUpperCase() + trip.siteType.slice(1)
+                    : "Not set"}
+                </div>
+                <div style={{ height: 12 }} />
+                <div className="small">Extra Travel</div>
+                <div style={{ fontWeight: 800 }}>{trip.hasExtraTravel ? "Yes" : "No"}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Fundraising Goal</div>
+                <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.fundraisingGoalAmount)}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Fee</div>
+                <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.tripFeeAmount)}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Materials Fee</div>
+                <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.materialsFeeAmount)}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Deferred Worker</div>
+                <div style={{ fontWeight: 800 }}>{trip.hasDeferredWorker ? "Yes" : "No"}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Hannover Housing Fee</div>
+                <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.hannoverHousingFeeAmount)}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Domestic Project</div>
+                <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.domesticProjectFeeAmount)}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Domestic Fee</div>
+                <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.domesticFeeAmount)}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Domestic Materials Fee</div>
+                <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.domesticMaterialsFeeAmount)}</div>
+              </div>
+            )}
 
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Quick Links</div>

@@ -66,8 +66,19 @@ export default function Trips() {
   const [tripDraft, setTripDraft] = useState({
     name: "",
     location: "",
+    host: "",
+    siteType: "",
+    hasExtraTravel: "no",
     startDate: "",
     endDate: "",
+    fundraisingGoalAmount: "",
+    tripFeeAmount: "",
+    materialsFeeAmount: "",
+    hasDeferredWorker: "no",
+    hannoverHousingFeeAmount: "",
+    domesticProjectFeeAmount: "",
+    domesticFeeAmount: "",
+    domesticMaterialsFeeAmount: "",
   });
   const [submitError, setSubmitError] = useState("");
 
@@ -154,7 +165,23 @@ export default function Trips() {
 
   function handleCancelTripForm() {
     setShowTripForm(false);
-    setTripDraft({ name: "", location: "", startDate: "", endDate: "" });
+    setTripDraft({
+      name: "",
+      location: "",
+      host: "",
+      siteType: "",
+      hasExtraTravel: "no",
+      startDate: "",
+      endDate: "",
+      fundraisingGoalAmount: "",
+      tripFeeAmount: "",
+      materialsFeeAmount: "",
+      hasDeferredWorker: "no",
+      hannoverHousingFeeAmount: "",
+      domesticProjectFeeAmount: "",
+      domesticFeeAmount: "",
+      domesticMaterialsFeeAmount: "",
+    });
     setSubmitError("");
   }
 
@@ -215,18 +242,51 @@ export default function Trips() {
         <div className="card pad" style={{ marginBottom: 24 }}>
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Create Trip</div>
           <div className="small" style={{ marginBottom: 16 }}>
-            Create a trip and assign it to your account. The trip name follows the location/site.
+            Create a trip and assign it to your account. The trip name follows the site.
           </div>
 
           <form onSubmit={handleCreateTrip} style={{ display: "grid", gap: 12 }}>
             <div>
-              <div className="small" style={{ marginBottom: 6 }}>Location</div>
+              <div className="small" style={{ marginBottom: 6 }}>Site</div>
               <input
                 className="input"
                 value={tripDraft.location}
                 onChange={(event) => updateTripDraft("location", event.target.value)}
                 placeholder="Florianopolis, Brazil"
               />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Host</div>
+              <input
+                className="input"
+                value={tripDraft.host}
+                onChange={(event) => updateTripDraft("host", event.target.value)}
+                placeholder="Host name"
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Site Type</div>
+              <select
+                className="input"
+                value={tripDraft.siteType}
+                onChange={(event) => updateTripDraft("siteType", event.target.value)}
+              >
+                <option value="">Select site type</option>
+                <option value="partner">Partner</option>
+                <option value="managed">Managed</option>
+                <option value="seasonal">Seasonal</option>
+              </select>
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Extra Travel</div>
+              <select
+                className="input"
+                value={tripDraft.hasExtraTravel}
+                onChange={(event) => updateTripDraft("hasExtraTravel", event.target.value)}
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
             </div>
             <div>
               <div className="small" style={{ marginBottom: 6 }}>Trip Name</div>
@@ -253,6 +313,102 @@ export default function Trips() {
                 type="date"
                 value={tripDraft.endDate}
                 onChange={(event) => updateTripDraft("endDate", event.target.value)}
+              />
+            </div>
+            <div style={{ fontWeight: 900, marginTop: 4 }}>Funding & Fees</div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Fundraising Goal</div>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="1"
+                value={tripDraft.fundraisingGoalAmount}
+                onChange={(event) => updateTripDraft("fundraisingGoalAmount", event.target.value)}
+                placeholder="Leave blank if not needed"
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Fee</div>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="1"
+                value={tripDraft.tripFeeAmount}
+                onChange={(event) => updateTripDraft("tripFeeAmount", event.target.value)}
+                placeholder="Leave blank if not needed"
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Materials Fee</div>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="1"
+                value={tripDraft.materialsFeeAmount}
+                onChange={(event) => updateTripDraft("materialsFeeAmount", event.target.value)}
+                placeholder="Leave blank if not needed"
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Deferred Worker</div>
+              <select
+                className="input"
+                value={tripDraft.hasDeferredWorker}
+                onChange={(event) => updateTripDraft("hasDeferredWorker", event.target.value)}
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Hannover Housing Fee</div>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="1"
+                value={tripDraft.hannoverHousingFeeAmount}
+                onChange={(event) => updateTripDraft("hannoverHousingFeeAmount", event.target.value)}
+                placeholder="600"
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Domestic Project</div>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="1"
+                value={tripDraft.domesticProjectFeeAmount}
+                onChange={(event) => updateTripDraft("domesticProjectFeeAmount", event.target.value)}
+                placeholder="575"
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Domestic Fee</div>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="1"
+                value={tripDraft.domesticFeeAmount}
+                onChange={(event) => updateTripDraft("domesticFeeAmount", event.target.value)}
+                placeholder="300"
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Domestic Materials Fee</div>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="1"
+                value={tripDraft.domesticMaterialsFeeAmount}
+                onChange={(event) => updateTripDraft("domesticMaterialsFeeAmount", event.target.value)}
+                placeholder="225"
               />
             </div>
             {submitError && (
