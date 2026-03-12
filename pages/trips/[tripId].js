@@ -1286,6 +1286,346 @@ function parseDateSafe(dateStr) {
     }
   }
 
+  function renderTripSetupCard() {
+    return (
+      <div className="card pad">
+        <div className="row" style={{ marginBottom: 14 }}>
+          <div style={{ fontWeight: 900 }}>Trip Setup</div>
+          <div className="spacer" />
+          {tripSetupStatus ? (
+            <div className="small" style={{ alignSelf: "center" }}>
+              {tripSetupStatus}
+            </div>
+          ) : null}
+          {canViewAllParticipantData && !isEditingTripSetup ? (
+            <button className="btn" type="button" onClick={handleStartTripSetupEdit}>
+              Edit Details
+            </button>
+          ) : null}
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 18,
+            alignItems: "start",
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 900, marginBottom: 10 }}>Trip Details</div>
+            {isEditingTripSetup ? (
+              <div style={{ display: "grid", gap: 12 }}>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
+                  <input
+                    className="input"
+                    value={tripSetupDraft.name}
+                    onChange={(event) => updateTripSetupDraft("name", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Site</div>
+                  <select
+                    className="input"
+                    value={selectedSiteValue}
+                    onChange={(event) => {
+                      if (event.target.value === CUSTOM_SITE_OPTION) {
+                        setIsCustomSiteInput(true);
+                        updateTripSetupDraft(
+                          "location",
+                          siteOptions.includes(tripSetupDraft.location) ? "" : tripSetupDraft.location
+                        );
+                        return;
+                      }
+
+                      setIsCustomSiteInput(false);
+                      updateTripSetupDraft("location", event.target.value);
+                    }}
+                  >
+                    <option value="">Select site</option>
+                    {siteOptions.map((site) => (
+                      <option key={site} value={site}>
+                        {site}
+                      </option>
+                    ))}
+                    <option value={CUSTOM_SITE_OPTION}>Other site</option>
+                  </select>
+                  {selectedSiteValue === CUSTOM_SITE_OPTION ? (
+                    <input
+                      className="input"
+                      style={{ marginTop: 10 }}
+                      value={tripSetupDraft.location}
+                      onChange={(event) => updateTripSetupDraft("location", event.target.value)}
+                      placeholder="Enter site"
+                    />
+                  ) : null}
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Project Leave Date</div>
+                  <input
+                    className="input"
+                    type="date"
+                    value={tripSetupDraft.startDate}
+                    onChange={(event) => updateTripSetupDraft("startDate", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Project Return Date</div>
+                  <input
+                    className="input"
+                    type="date"
+                    value={tripSetupDraft.endDate}
+                    onChange={(event) => updateTripSetupDraft("endDate", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Length of Projects</div>
+                  <input
+                    className="input"
+                    value={tripSetupDraft.projectLengthSummary}
+                    onChange={(event) => updateTripSetupDraft("projectLengthSummary", event.target.value)}
+                    placeholder="6 weeks, with a 3-week subgroup"
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="small">Team Name</div>
+                <div style={{ fontWeight: 800 }}>{trip.name}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Site</div>
+                <div style={{ fontWeight: 800 }}>{trip.location || "Not set"}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Project Leave Date</div>
+                <div style={{ fontWeight: 800 }}>{formatSingleDate(trip.startDate)}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Project Return Date</div>
+                <div style={{ fontWeight: 800 }}>{formatSingleDate(trip.endDate)}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Length of Projects</div>
+                <div style={{ fontWeight: 800 }}>
+                  {trip.projectLengthSummary ||
+                    getWeeksInCountry(trip.startDate, trip.endDate) ||
+                    "Dates to be confirmed"}
+                </div>
+              </>
+            )}
+          </div>
+
+          {canViewAllParticipantData ? (
+            <div>
+              <div style={{ fontWeight: 900, marginBottom: 10 }}>Site Setup</div>
+              {isEditingTripSetup ? (
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Host Name</div>
+                    <input
+                      className="input"
+                      value={tripSetupDraft.host}
+                      onChange={(event) => updateTripSetupDraft("host", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Site Type</div>
+                    <select
+                      className="input"
+                      value={tripSetupDraft.siteType}
+                      onChange={(event) => updateTripSetupDraft("siteType", event.target.value)}
+                    >
+                      <option value="">Select site type</option>
+                      <option value="partner">Partner</option>
+                      <option value="managed">Managed</option>
+                      <option value="seasonal">Seasonal</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Type of Project</div>
+                    <select
+                      className="input"
+                      value={tripSetupDraft.projectType}
+                      onChange={(event) => updateTripSetupDraft("projectType", event.target.value)}
+                    >
+                      <option value="">Select project type</option>
+                      <option value="LST">LST</option>
+                      <option value="YF">YF</option>
+                      <option value="TP">TP</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Extra Travel</div>
+                    <select
+                      className="input"
+                      value={tripSetupDraft.extraTravelStatus}
+                      onChange={(event) => updateTripSetupDraft("extraTravelStatus", event.target.value)}
+                    >
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                      <option value="maybe">Maybe</option>
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="small">Host Name</div>
+                  <div style={{ fontWeight: 800 }}>{trip.host || "Not set"}</div>
+                  <div style={{ height: 12 }} />
+                  <div className="small">Site Type</div>
+                  <div style={{ fontWeight: 800 }}>
+                    {trip.siteType
+                      ? trip.siteType.charAt(0).toUpperCase() + trip.siteType.slice(1)
+                      : "Not set"}
+                  </div>
+                  <div style={{ height: 12 }} />
+                  <div className="small">Type of Project</div>
+                  <div style={{ fontWeight: 800 }}>{trip.projectType || "Not set"}</div>
+                  <div style={{ height: 12 }} />
+                  <div className="small">Extra Travel</div>
+                  <div style={{ fontWeight: 800 }}>
+                    {trip.extraTravelStatus
+                      ? trip.extraTravelStatus.charAt(0).toUpperCase() + trip.extraTravelStatus.slice(1)
+                      : "No"}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : null}
+
+          {canViewAllParticipantData ? (
+            <div>
+              <div style={{ fontWeight: 900, marginBottom: 10 }}>Fees</div>
+              {isEditingTripSetup ? (
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Fundraising Goal</div>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={tripSetupDraft.fundraisingGoalAmount}
+                      onChange={(event) => updateTripSetupDraft("fundraisingGoalAmount", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Fee</div>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={tripSetupDraft.tripFeeAmount}
+                      onChange={(event) => updateTripSetupDraft("tripFeeAmount", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Materials Fee</div>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={tripSetupDraft.materialsFeeAmount}
+                      onChange={(event) => updateTripSetupDraft("materialsFeeAmount", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Deferred Worker</div>
+                    <select
+                      className="input"
+                      value={tripSetupDraft.hasDeferredWorker}
+                      onChange={(event) => updateTripSetupDraft("hasDeferredWorker", event.target.value)}
+                    >
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Hannover Housing Fee</div>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={tripSetupDraft.hannoverHousingFeeAmount}
+                      onChange={(event) => updateTripSetupDraft("hannoverHousingFeeAmount", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Domestic Project</div>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={tripSetupDraft.domesticProjectFeeAmount}
+                      onChange={(event) => updateTripSetupDraft("domesticProjectFeeAmount", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Domestic Fee</div>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={tripSetupDraft.domesticFeeAmount}
+                      onChange={(event) => updateTripSetupDraft("domesticFeeAmount", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Domestic Materials Fee</div>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={tripSetupDraft.domesticMaterialsFeeAmount}
+                      onChange={(event) => updateTripSetupDraft("domesticMaterialsFeeAmount", event.target.value)}
+                    />
+                  </div>
+                  <div className="row" style={{ marginTop: 4 }}>
+                    <button className="btn btnPrimary" type="button" onClick={handleSaveTripSetup}>
+                      Save Details
+                    </button>
+                    <button className="btn" type="button" onClick={handleCancelTripSetupEdit}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="small">Fundraising Goal</div>
+                  <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.fundraisingGoalAmount)}</div>
+                  <div style={{ height: 12 }} />
+                  <div className="small">Fee</div>
+                  <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.tripFeeAmount)}</div>
+                  <div style={{ height: 12 }} />
+                  <div className="small">Materials Fee</div>
+                  <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.materialsFeeAmount)}</div>
+                  <div style={{ height: 12 }} />
+                  <div className="small">Deferred Worker</div>
+                  <div style={{ fontWeight: 800 }}>{trip.hasDeferredWorker ? "Yes" : "No"}</div>
+                  <div style={{ height: 12 }} />
+                  <div className="small">Hannover Housing Fee</div>
+                  <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.hannoverHousingFeeAmount)}</div>
+                  <div style={{ height: 12 }} />
+                  <div className="small">Domestic Project</div>
+                  <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.domesticProjectFeeAmount)}</div>
+                  <div style={{ height: 12 }} />
+                  <div className="small">Domestic Fee</div>
+                  <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.domesticFeeAmount)}</div>
+                  <div style={{ height: 12 }} />
+                  <div className="small">Domestic Materials Fee</div>
+                  <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.domesticMaterialsFeeAmount)}</div>
+                </>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   const groupedViewTasks = groupTasksByWorkArea(editableStaffTasks || []);
 
   const completedCount = (editableStaffTasks || []).filter(
@@ -1785,334 +2125,7 @@ function parseDateSafe(dateStr) {
               </div>
             )}
 
-            <div className="card pad">
-              <div className="row" style={{ marginBottom: 10 }}>
-                <div style={{ fontWeight: 900 }}>Trip Details</div>
-                <div className="spacer" />
-                {tripSetupStatus ? (
-                  <div className="small" style={{ alignSelf: "center" }}>
-                    {tripSetupStatus}
-                  </div>
-                ) : null}
-                {canViewAllParticipantData && !isEditingTripSetup ? (
-                  <button className="btn" type="button" onClick={handleStartTripSetupEdit}>
-                    Edit Details
-                  </button>
-                ) : null}
-              </div>
-              {isEditingTripSetup ? (
-                <div style={{ display: "grid", gap: 12 }}>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
-                    <input
-                      className="input"
-                      value={tripSetupDraft.name}
-                      onChange={(event) => updateTripSetupDraft("name", event.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Site</div>
-                    <select
-                      className="input"
-                      value={selectedSiteValue}
-                      onChange={(event) => {
-                        if (event.target.value === CUSTOM_SITE_OPTION) {
-                          setIsCustomSiteInput(true);
-                          updateTripSetupDraft(
-                            "location",
-                            siteOptions.includes(tripSetupDraft.location) ? "" : tripSetupDraft.location
-                          );
-                          return;
-                        }
-
-                        setIsCustomSiteInput(false);
-                        updateTripSetupDraft("location", event.target.value);
-                      }}
-                    >
-                      <option value="">Select site</option>
-                      {siteOptions.map((site) => (
-                        <option key={site} value={site}>
-                          {site}
-                        </option>
-                      ))}
-                      <option value={CUSTOM_SITE_OPTION}>Other site</option>
-                    </select>
-                    {selectedSiteValue === CUSTOM_SITE_OPTION ? (
-                      <input
-                        className="input"
-                        style={{ marginTop: 10 }}
-                        value={tripSetupDraft.location}
-                        onChange={(event) => updateTripSetupDraft("location", event.target.value)}
-                        placeholder="Enter site"
-                      />
-                    ) : null}
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Project Leave Date</div>
-                    <input
-                      className="input"
-                      type="date"
-                      value={tripSetupDraft.startDate}
-                      onChange={(event) => updateTripSetupDraft("startDate", event.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Project Return Date</div>
-                    <input
-                      className="input"
-                      type="date"
-                      value={tripSetupDraft.endDate}
-                      onChange={(event) => updateTripSetupDraft("endDate", event.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Length of Projects</div>
-                    <input
-                      className="input"
-                      value={tripSetupDraft.projectLengthSummary}
-                      onChange={(event) => updateTripSetupDraft("projectLengthSummary", event.target.value)}
-                      placeholder="6 weeks, with a 3-week subgroup"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="small">Team Name</div>
-                  <div style={{ fontWeight: 800 }}>{trip.name}</div>
-                  <div style={{ height: 12 }} />
-                  <div className="small">Site</div>
-                  <div style={{ fontWeight: 800 }}>{trip.location || "Not set"}</div>
-                  <div style={{ height: 12 }} />
-                  <div className="small">Project Leave Date</div>
-                  <div style={{ fontWeight: 800 }}>{formatSingleDate(trip.startDate)}</div>
-                  <div style={{ height: 12 }} />
-                  <div className="small">Project Return Date</div>
-                  <div style={{ fontWeight: 800 }}>{formatSingleDate(trip.endDate)}</div>
-                  <div style={{ height: 12 }} />
-                  <div className="small">Length of Projects</div>
-                  <div style={{ fontWeight: 800 }}>
-                    {trip.projectLengthSummary ||
-                      getWeeksInCountry(trip.startDate, trip.endDate) ||
-                      "Dates to be confirmed"}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {canViewAllParticipantData && (
-              <div className="card pad">
-                <div style={{ fontWeight: 900, marginBottom: 10 }}>Site Setup</div>
-                {isEditingTripSetup ? (
-                  <div style={{ display: "grid", gap: 12 }}>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Host Name</div>
-                      <input
-                        className="input"
-                        value={tripSetupDraft.host}
-                        onChange={(event) => updateTripSetupDraft("host", event.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Site Type</div>
-                      <select
-                        className="input"
-                        value={tripSetupDraft.siteType}
-                        onChange={(event) => updateTripSetupDraft("siteType", event.target.value)}
-                      >
-                        <option value="">Select site type</option>
-                        <option value="partner">Partner</option>
-                        <option value="managed">Managed</option>
-                        <option value="seasonal">Seasonal</option>
-                      </select>
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Type of Project</div>
-                      <select
-                        className="input"
-                        value={tripSetupDraft.projectType}
-                        onChange={(event) => updateTripSetupDraft("projectType", event.target.value)}
-                      >
-                        <option value="">Select project type</option>
-                        <option value="LST">LST</option>
-                        <option value="YF">YF</option>
-                        <option value="TP">TP</option>
-                      </select>
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Extra Travel</div>
-                      <select
-                        className="input"
-                        value={tripSetupDraft.extraTravelStatus}
-                        onChange={(event) => updateTripSetupDraft("extraTravelStatus", event.target.value)}
-                      >
-                        <option value="no">No</option>
-                        <option value="yes">Yes</option>
-                        <option value="maybe">Maybe</option>
-                      </select>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="small">Host Name</div>
-                    <div style={{ fontWeight: 800 }}>{trip.host || "Not set"}</div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Site Type</div>
-                    <div style={{ fontWeight: 800 }}>
-                      {trip.siteType
-                        ? trip.siteType.charAt(0).toUpperCase() + trip.siteType.slice(1)
-                        : "Not set"}
-                    </div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Type of Project</div>
-                    <div style={{ fontWeight: 800 }}>{trip.projectType || "Not set"}</div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Extra Travel</div>
-                    <div style={{ fontWeight: 800 }}>
-                      {trip.extraTravelStatus
-                        ? trip.extraTravelStatus.charAt(0).toUpperCase() + trip.extraTravelStatus.slice(1)
-                        : "No"}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {canViewAllParticipantData && (
-              <div className="card pad">
-                <div style={{ fontWeight: 900, marginBottom: 10 }}>Fees</div>
-                {isEditingTripSetup ? (
-                  <div style={{ display: "grid", gap: 12 }}>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Fundraising Goal</div>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={tripSetupDraft.fundraisingGoalAmount}
-                        onChange={(event) => updateTripSetupDraft("fundraisingGoalAmount", event.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Fee</div>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={tripSetupDraft.tripFeeAmount}
-                        onChange={(event) => updateTripSetupDraft("tripFeeAmount", event.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Materials Fee</div>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={tripSetupDraft.materialsFeeAmount}
-                        onChange={(event) => updateTripSetupDraft("materialsFeeAmount", event.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Deferred Worker</div>
-                      <select
-                        className="input"
-                        value={tripSetupDraft.hasDeferredWorker}
-                        onChange={(event) => updateTripSetupDraft("hasDeferredWorker", event.target.value)}
-                      >
-                        <option value="no">No</option>
-                        <option value="yes">Yes</option>
-                      </select>
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Hannover Housing Fee</div>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={tripSetupDraft.hannoverHousingFeeAmount}
-                        onChange={(event) => updateTripSetupDraft("hannoverHousingFeeAmount", event.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Domestic Project</div>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={tripSetupDraft.domesticProjectFeeAmount}
-                        onChange={(event) => updateTripSetupDraft("domesticProjectFeeAmount", event.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Domestic Fee</div>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={tripSetupDraft.domesticFeeAmount}
-                        onChange={(event) => updateTripSetupDraft("domesticFeeAmount", event.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Domestic Materials Fee</div>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={tripSetupDraft.domesticMaterialsFeeAmount}
-                        onChange={(event) => updateTripSetupDraft("domesticMaterialsFeeAmount", event.target.value)}
-                      />
-                    </div>
-                    <div className="row" style={{ marginTop: 4 }}>
-                      <button className="btn btnPrimary" type="button" onClick={handleSaveTripSetup}>
-                        Save Details
-                      </button>
-                      <button className="btn" type="button" onClick={handleCancelTripSetupEdit}>
-                        Cancel
-                      </button>
-                      {tripSetupStatus ? (
-                        <div className="small" style={{ alignSelf: "center" }}>
-                          {tripSetupStatus}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="small">Fundraising Goal</div>
-                    <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.fundraisingGoalAmount)}</div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Fee</div>
-                    <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.tripFeeAmount)}</div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Materials Fee</div>
-                    <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.materialsFeeAmount)}</div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Deferred Worker</div>
-                    <div style={{ fontWeight: 800 }}>{trip.hasDeferredWorker ? "Yes" : "No"}</div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Hannover Housing Fee</div>
-                    <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.hannoverHousingFeeAmount)}</div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Domestic Project</div>
-                    <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.domesticProjectFeeAmount)}</div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Domestic Fee</div>
-                    <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.domesticFeeAmount)}</div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Domestic Materials Fee</div>
-                    <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.domesticMaterialsFeeAmount)}</div>
-                  </>
-                )}
-              </div>
-            )}
+            {renderTripSetupCard()}
 
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Quick Links</div>
