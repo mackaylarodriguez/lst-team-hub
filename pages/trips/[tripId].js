@@ -1022,9 +1022,8 @@ function parseDateSafe(dateStr) {
     const weeks = days / 7;
 
     if (weeks >= 1) {
-      return `${weeks % 1 === 0 ? weeks.toFixed(0) : weeks.toFixed(1)} week${
-        weeks === 1 ? "" : "s"
-      }`;
+      const roundedWeeks = Math.round(weeks);
+      return `${roundedWeeks} week${roundedWeeks === 1 ? "" : "s"}`;
     }
 
     return `${days} day${days === 1 ? "" : "s"}`;
@@ -1252,25 +1251,21 @@ function parseDateSafe(dateStr) {
     ? trainingPct
     : currentTrainingProgress?.percent || 0;
   const fundraisingGoalAmount = Number(trip?.fundraisingGoalAmount || 0);
-  const fundraisingFirstDeadlineAmount = Math.min(2000, fundraisingGoalAmount || 2000);
   const fundraisingWorkerCount = Math.max(
     (trip?.participants || []).filter((participant) =>
       String(participant?.role || "").toLowerCase() === "worker"
     ).length || (trip?.participants || []).length,
     1
   );
+  const fundraisingFirstDeadlineAmount = Math.min(
+    2000 * fundraisingWorkerCount,
+    fundraisingGoalAmount || 2000 * fundraisingWorkerCount
+  );
   const fundraisingSecondDeadlineTotalAmount = Math.max(
     (fundraisingGoalAmount || 0) - fundraisingFirstDeadlineAmount,
     0
   );
-  const fundraisingSecondDeadlineAmount = fundraisingSecondDeadlineTotalAmount
-    ? Math.max(
-        250,
-        Math.round(
-          (fundraisingSecondDeadlineTotalAmount / fundraisingWorkerCount) / 250
-        ) * 250
-      )
-    : 0;
+  const fundraisingSecondDeadlineAmount = fundraisingSecondDeadlineTotalAmount;
   const fundraisingFirstDeadlineDate = subtractDays(trip?.startDate, 90);
   const fundraisingSecondDeadlineDate = subtractDays(trip?.startDate, 30);
   const savedFundraisingLinksCount = (trip?.participants || []).filter(
@@ -1857,7 +1852,7 @@ function parseDateSafe(dateStr) {
                   Due by {formatDeadlineDate(fundraisingFirstDeadlineDate)}
                 </div>
                 <div className="small" style={{ marginTop: 8 }}>
-                  Initial fundraising target.
+                  {formatMoney(2000)} per worker for {fundraisingWorkerCount} worker{fundraisingWorkerCount === 1 ? "" : "s"}.
                 </div>
               </div>
               <div className="card pad" style={{ boxShadow: "none" }}>
@@ -1867,10 +1862,7 @@ function parseDateSafe(dateStr) {
                   Due by {formatDeadlineDate(fundraisingSecondDeadlineDate)}
                 </div>
                 <div className="small" style={{ marginTop: 8 }}>
-                  Approximate target per worker for the remaining balance.
-                </div>
-                <div className="small" style={{ marginTop: 8 }}>
-                  Based on {fundraisingWorkerCount} worker{fundraisingWorkerCount === 1 ? "" : "s"} and {formatMoney(fundraisingSecondDeadlineTotalAmount)} still needed after the 90-day deadline.
+                  Remaining total amount due after the 90-day deadline.
                 </div>
               </div>
             </div>
