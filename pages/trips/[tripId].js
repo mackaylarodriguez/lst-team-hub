@@ -122,7 +122,6 @@ export default function TripPage() {
   const [overviewNoteStatus, setOverviewNoteStatus] = useState("");
   const [teamFundraisingDraft, setTeamFundraisingDraft] = useState({
     teamFundraisingUrl: "",
-    fundraisingGoalAmount: "",
   });
   const [teamFundraisingStatus, setTeamFundraisingStatus] = useState("");
   const [isEditingTeamFundraising, setIsEditingTeamFundraising] = useState(false);
@@ -257,7 +256,6 @@ export default function TripPage() {
     setFundraisingDrafts(nextDrafts);
     setTeamFundraisingDraft({
       teamFundraisingUrl: trip.teamFundraisingUrl || "",
-      fundraisingGoalAmount: trip.fundraisingGoalAmount ? String(trip.fundraisingGoalAmount) : "",
     });
     setIsEditingTeamFundraising(false);
     setEditingParticipantFundraisingId("");
@@ -744,7 +742,7 @@ export default function TripPage() {
       const savedTrip = await saveTripFundraisingSettings({
         tripId: trip.id,
         teamFundraisingUrl: teamFundraisingDraft.teamFundraisingUrl,
-        fundraisingGoalAmount: teamFundraisingDraft.fundraisingGoalAmount,
+        fundraisingGoalAmount: trip.fundraisingGoalAmount,
       });
 
       setTrip((current) =>
@@ -1826,6 +1824,53 @@ function parseDateSafe(dateStr) {
     );
   }, [participantTaskProgress, activeParticipantEmail]);
 
+  const teamTabMembers = useMemo(() => {
+    if (!trip) return [];
+
+    const membersByKey = new Map();
+
+    (trip.teamMembers || []).forEach((member, index) => {
+      const email = member.email || "";
+      const key = normalizeEmail(email) || `roster-${member.id || member.name || index}`;
+
+      membersByKey.set(key, {
+        key,
+        name: member.name || "Unnamed member",
+        role: "",
+        email,
+        fundraisingUrl: "",
+        startDate: member.startDate || trip.startDate || "",
+        endDate: member.endDate || trip.endDate || "",
+        connected: false,
+      });
+    });
+
+    (trip.participants || []).forEach((participant, index) => {
+      const email = participant.email || "";
+      const key = normalizeEmail(email) || `participant-${participant.id || participant.name || index}`;
+      const existing = membersByKey.get(key);
+
+      membersByKey.set(key, {
+        key,
+        name: participant.name || existing?.name || "Unnamed member",
+        role: participant.role || existing?.role || "",
+        email: participant.email || existing?.email || "",
+        fundraisingUrl: participant.fundraisingUrl || existing?.fundraisingUrl || "",
+        startDate: existing?.startDate || trip.startDate || "",
+        endDate: existing?.endDate || trip.endDate || "",
+        connected: true,
+      });
+    });
+
+    return Array.from(membersByKey.values()).sort((left, right) => {
+      if (left.connected !== right.connected) {
+        return left.connected ? -1 : 1;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }, [trip]);
+
   const participantTaskPct = useMemo(() => {
     const totalPossible = participantTaskProgress.reduce(
       (sum, participant) => sum + participant.total,
@@ -2341,72 +2386,50 @@ function parseDateSafe(dateStr) {
       {tab === "Team" && (
         <div style={{ display: "grid", gap: 16 }}>
           <div className="card pad">
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Planned Team Roster</div>
+            <div style={{ fontWeight: 900, marginBottom: 10 }}>Team Members</div>
             <table className="table">
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Role</th>
                   <th>Email</th>
                   <th>Project Dates</th>
-                  <th>Connected</th>
+                  {canViewAllParticipantData && <th>Fundraising</th>}
                 </tr>
               </thead>
               <tbody>
-                {(trip.teamMembers || []).length > 0 ? (
-                  trip.teamMembers.map((member) => {
-                    const isConnected = (trip.participants || []).some(
-                      (participant) => normalizeEmail(participant.email) === normalizeEmail(member.email)
-                    );
-
-                    return (
-                      <tr key={member.id || member.email}>
-                        <td style={{ fontWeight: 800 }}>{member.name}</td>
-                        <td>{member.email || "Not set"}</td>
+                {teamTabMembers.length > 0 ? (
+                  teamTabMembers.map((member) => (
+                    <tr key={member.key}>
+                      <td style={{ fontWeight: 800 }}>{member.name}</td>
+                      <td>
+                        {member.role ? (
+                          <span className={"badge " + (member.role === "Leader" ? "badgeWarn" : "")}>
+                            {member.role}
+                          </span>
+                        ) : (
+                          <span className="small">Team Member</span>
+                        )}
+                      </td>
+                      <td>{member.email || "Not set"}</td>
+                      <td>{formatTripDateRange(member.startDate, member.endDate)}</td>
+                      {canViewAllParticipantData && (
                         <td>
-                          {formatTripDateRange(
-                            member.startDate || trip.startDate,
-                            member.endDate || trip.endDate
+                          {member.fundraisingUrl ? (
+                            <a href={member.fundraisingUrl} target="_blank" rel="noreferrer">
+                              Open
+                            </a>
+                          ) : (
+                            <span className="small">Not added</span>
                           )}
                         </td>
-                        <td>
-                          <span className={"badge " + (isConnected ? "" : "badgeWarn")}>
-                            {isConnected ? "Connected" : "Roster Only"}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
+                      )}
+                    </tr>
+                  ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="small">No roster added yet.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="card pad">
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Connected Accounts</div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Name</th><th>Role</th><th>Email</th>{canViewAllParticipantData && <th>Fundraising</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {trip.participants.length > 0 ? trip.participants.map(p => (
-                  <tr key={p.email}>
-                    <td style={{ fontWeight: 800 }}>{p.name}</td>
-                    <td><span className={"badge " + (p.role === "Leader" ? "badgeWarn" : "")}>{p.role}</span></td>
-                    <td>{p.email}</td>
-                    {canViewAllParticipantData && (
-                      <td><a href={p.fundraisingUrl} target="_blank" rel="noreferrer">Open</a></td>
-                    )}
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={canViewAllParticipantData ? 4 : 3} className="small">
-                      No connected accounts yet.
+                    <td colSpan={canViewAllParticipantData ? 5 : 4} className="small">
+                      No team members added yet.
                     </td>
                   </tr>
                 )}
@@ -2540,9 +2563,7 @@ function parseDateSafe(dateStr) {
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
               <div className="small" style={{ marginBottom: 10 }}>
-                Use this when the whole team shares one Neon fundraising page. You can also set the
-                total amount needed for the trip and the page will auto-build the 90-day and 30-day
-                fundraising deadlines.
+                Use this when the whole team shares one Neon fundraising page.
               </div>
               {!isEditingTeamFundraising ? (
                 <div style={{ display: "grid", gap: 10 }}>
@@ -2584,23 +2605,9 @@ function parseDateSafe(dateStr) {
                     }
                     placeholder="Shared team Neon link"
                   />
-                  <input
-                    className="input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={teamFundraisingDraft.fundraisingGoalAmount}
-                    onChange={(event) =>
-                      setTeamFundraisingDraft((current) => ({
-                        ...current,
-                        fundraisingGoalAmount: event.target.value,
-                      }))
-                    }
-                    placeholder="Total fundraising needed for this trip"
-                  />
                   <div className="row">
                     <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
-                      Save Team Fundraising
+                      Save Link
                     </button>
                     <button
                       className="btn"
@@ -2610,9 +2617,6 @@ function parseDateSafe(dateStr) {
                         setTeamFundraisingStatus("");
                         setTeamFundraisingDraft({
                           teamFundraisingUrl: trip.teamFundraisingUrl || "",
-                          fundraisingGoalAmount: trip.fundraisingGoalAmount
-                            ? String(trip.fundraisingGoalAmount)
-                            : "",
                         });
                       }}
                     >
