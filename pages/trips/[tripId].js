@@ -1901,7 +1901,7 @@ function parseDateSafe(dateStr) {
 
             {canViewAllParticipantData && (
               <div className="card pad">
-                <div style={{ fontWeight: 900, marginBottom: 10 }}>Site Setup & Fees</div>
+                <div style={{ fontWeight: 900, marginBottom: 10 }}>Site Setup</div>
                 {isEditingTripSetup ? (
                   <div style={{ display: "grid", gap: 12 }}>
                     <div>
@@ -1950,6 +1950,38 @@ function parseDateSafe(dateStr) {
                         <option value="maybe">Maybe</option>
                       </select>
                     </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="small">Host Name</div>
+                    <div style={{ fontWeight: 800 }}>{trip.host || "Not set"}</div>
+                    <div style={{ height: 12 }} />
+                    <div className="small">Site Type</div>
+                    <div style={{ fontWeight: 800 }}>
+                      {trip.siteType
+                        ? trip.siteType.charAt(0).toUpperCase() + trip.siteType.slice(1)
+                        : "Not set"}
+                    </div>
+                    <div style={{ height: 12 }} />
+                    <div className="small">Type of Project</div>
+                    <div style={{ fontWeight: 800 }}>{trip.projectType || "Not set"}</div>
+                    <div style={{ height: 12 }} />
+                    <div className="small">Extra Travel</div>
+                    <div style={{ fontWeight: 800 }}>
+                      {trip.extraTravelStatus
+                        ? trip.extraTravelStatus.charAt(0).toUpperCase() + trip.extraTravelStatus.slice(1)
+                        : "No"}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {canViewAllParticipantData && (
+              <div className="card pad">
+                <div style={{ fontWeight: 900, marginBottom: 10 }}>Fees</div>
+                {isEditingTripSetup ? (
+                  <div style={{ display: "grid", gap: 12 }}>
                     <div>
                       <div className="small" style={{ marginBottom: 6 }}>Fundraising Goal</div>
                       <input
@@ -2054,26 +2086,6 @@ function parseDateSafe(dateStr) {
                   </div>
                 ) : (
                   <>
-                    <div className="small">Host Name</div>
-                    <div style={{ fontWeight: 800 }}>{trip.host || "Not set"}</div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Site Type</div>
-                    <div style={{ fontWeight: 800 }}>
-                      {trip.siteType
-                        ? trip.siteType.charAt(0).toUpperCase() + trip.siteType.slice(1)
-                        : "Not set"}
-                    </div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Type of Project</div>
-                    <div style={{ fontWeight: 800 }}>{trip.projectType || "Not set"}</div>
-                    <div style={{ height: 12 }} />
-                    <div className="small">Extra Travel</div>
-                    <div style={{ fontWeight: 800 }}>
-                      {trip.extraTravelStatus
-                        ? trip.extraTravelStatus.charAt(0).toUpperCase() + trip.extraTravelStatus.slice(1)
-                        : "No"}
-                    </div>
-                    <div style={{ height: 12 }} />
                     <div className="small">Fundraising Goal</div>
                     <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.fundraisingGoalAmount)}</div>
                     <div style={{ height: 12 }} />
