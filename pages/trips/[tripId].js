@@ -1996,6 +1996,10 @@ function parseDateSafe(dateStr) {
   const smartsheetBudgetDoc = docs.find((doc) => doc.resourceKey === "smartsheet-budget");
   const siteInfoDoc = docs.find((doc) => doc.resourceKey === "site-info-link");
   const quickLinks = useMemo(() => {
+    const workerFundraisingUrl = trip?.teamFundraisingUrl || currentParticipant?.fundraisingUrl || "";
+    const workerFundraisingLabel = trip?.teamFundraisingUrl
+      ? "Team Fundraising Page"
+      : "My Fundraising Page";
     const links = [
       {
         label: "Canvas",
@@ -2012,9 +2016,9 @@ function parseDateSafe(dateStr) {
             ready: !!trip?.teamFundraisingUrl,
           }
         : {
-            label: "My Fundraising Page",
-            url: currentParticipant?.fundraisingUrl || "",
-            ready: !!currentParticipant?.fundraisingUrl,
+            label: workerFundraisingLabel,
+            url: workerFundraisingUrl,
+            ready: !!workerFundraisingUrl,
           }
     );
 
