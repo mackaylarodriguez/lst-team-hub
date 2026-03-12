@@ -17,7 +17,7 @@ import {
   listResources,
   updateResource,
 } from "@/lib/resources";
-import { loadTaskState, saveTaskState, percentComplete } from "@/lib/tasks";
+import { percentComplete } from "@/lib/tasks";
 import {
   loadStaffTasks,
   saveStaffTasks as persistStaffTasks,
@@ -25,6 +25,12 @@ import {
   staffTasksKey,
   STAFF_TASKS_UPDATED_EVENT,
 } from "@/lib/staffTasks";
+import {
+  createTripTask,
+  listTripTasks,
+  listUserTaskProgress,
+  saveUserTaskProgress,
+} from "@/lib/tripTasks";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -36,7 +42,6 @@ export default function TripPage() {
   const { tripId } = router.query;
 
   const [tab, setTab] = useState("Overview");
-  const [state, setState] = useState({});
   const [participantTaskStates, setParticipantTaskStates] = useState({});
   const [participantTrainingStates, setParticipantTrainingStates] = useState({});
   const [session, setSession] = useState(null);
@@ -51,6 +56,13 @@ export default function TripPage() {
   const [docsError, setDocsError] = useState("");
   const [fundraisingDrafts, setFundraisingDrafts] = useState({});
   const [fundraisingStatus, setFundraisingStatus] = useState({});
+  const [taskDraft, setTaskDraft] = useState({
+    title: "",
+    dueDate: "",
+    category: "",
+    description: "",
+  });
+  const [taskStatusMessage, setTaskStatusMessage] = useState("");
 
   const [trip, setTrip] = useState(null);
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
@@ -162,21 +174,6 @@ export default function TripPage() {
   }, [tripId]);
 
   useEffect(() => {
-    if (!session || !trip) return;
-    setState(loadTaskState(session.email, trip.id));
-  }, [session, trip]);
-
-  useEffect(() => {
-    if (!trip) return;
-
-    const nextStates = {};
-    (trip.participants || []).forEach((participant) => {
-      nextStates[participant.email] = loadTaskState(participant.email, trip.id);
-    });
-    setParticipantTaskStates(nextStates);
-  }, [trip]);
-
-  useEffect(() => {
     if (!trip) return;
 
     const nextDrafts = {};
@@ -196,42 +193,68 @@ export default function TripPage() {
     let cancelled = false;
 
     async function loadTripData() {
-      try {
-        const [participants, modules, progress] = await Promise.all([
+      const [participantsResult, modulesResult, progressResult, tasksResult, taskProgressResult] =
+        await Promise.allSettled([
           listTripParticipants(trip.id),
           listTrainingModules(trip.id),
           listTrainingProgress(trip.id),
+          listTripTasks(trip.id),
+          listUserTaskProgress(trip.id),
         ]);
 
-        if (cancelled) return;
+      if (cancelled) return;
 
-        setTrip((current) => (current ? { ...current, participants } : current));
-        setTrainingModules(modules);
+      const participants = getSettledValue(
+        participantsResult,
+        [],
+        "trip participants"
+      );
+      const modules = getSettledValue(modulesResult, [], "training modules");
+      const progress = getSettledValue(progressResult, [], "training progress");
+      const tasks = getSettledValue(tasksResult, [], "trip tasks");
+      const taskProgress = getSettledValue(
+        taskProgressResult,
+        [],
+        "task progress"
+      );
 
-        const participantsById = new Map(
-          participants.map((participant) => [participant.id, participant])
-        );
-        const nextTrainingStates = {};
+      setTrip((current) => (current ? { ...current, participants, tasks } : current));
+      setTrainingModules(modules);
 
-        progress.forEach((row) => {
-          const participant = participantsById.get(row.userId);
-          if (!participant?.email) return;
+      const participantsById = new Map(
+        participants.map((participant) => [participant.id, participant])
+      );
+      const nextTrainingStates = {};
+      const nextTaskStates = {};
 
-          if (!nextTrainingStates[participant.email]) {
-            nextTrainingStates[participant.email] = {};
-          }
+      progress.forEach((row) => {
+        const participant = participantsById.get(row.userId);
+        if (!participant?.email) return;
 
-          nextTrainingStates[participant.email][row.moduleId] = !!row.completed;
-          if (row.completedAt) {
-            nextTrainingStates[participant.email][`${row.moduleId}Date`] =
-              String(row.completedAt).slice(0, 10);
-          }
-        });
+        if (!nextTrainingStates[participant.email]) {
+          nextTrainingStates[participant.email] = {};
+        }
 
-        setParticipantTrainingStates(nextTrainingStates);
-      } catch (error) {
-        console.error("Unable to load trip detail data", error);
-      }
+        nextTrainingStates[participant.email][row.moduleId] = !!row.completed;
+        if (row.completedAt) {
+          nextTrainingStates[participant.email][`${row.moduleId}Date`] =
+            String(row.completedAt).slice(0, 10);
+        }
+      });
+
+      taskProgress.forEach((row) => {
+        const participant = participantsById.get(row.userId);
+        if (!participant?.email) return;
+
+        if (!nextTaskStates[participant.email]) {
+          nextTaskStates[participant.email] = {};
+        }
+
+        nextTaskStates[participant.email][row.taskName] = !!row.completed;
+      });
+
+      setParticipantTrainingStates(nextTrainingStates);
+      setParticipantTaskStates(nextTaskStates);
     }
 
     loadTripData();
@@ -556,21 +579,58 @@ export default function TripPage() {
   function toggleTask(taskId, ownerEmail = session?.email) {
     if (!trip || !ownerEmail) return;
 
-    const currentState =
-      participantTaskStates[ownerEmail] ||
-      (ownerEmail === session?.email ? state : {});
-    const next = { ...currentState, [taskId]: !currentState[taskId] };
+    const participant = (trip.participants || []).find(
+      (entry) => entry.email?.toLowerCase() === ownerEmail.toLowerCase()
+    );
+    if (!participant?.id) return;
 
-    if (ownerEmail === session?.email) {
-      setState(next);
-    }
+    const currentState = participantTaskStates[ownerEmail] || {};
+    const next = { ...currentState, [taskId]: !currentState[taskId] };
 
     setParticipantTaskStates((prev) => ({
       ...prev,
       [ownerEmail]: next,
     }));
 
-    saveTaskState(ownerEmail, trip.id, next);
+    const task = (trip.tasks || []).find((item) => item.id === taskId);
+
+    void saveUserTaskProgress({
+      tripId: trip.id,
+      userId: participant.id,
+      taskName: taskId,
+      completed: next[taskId],
+      dueDate: task?.due || null,
+    }).catch((error) => {
+      console.error("Unable to save user task progress", error);
+    });
+  }
+
+  async function handleCreateTask() {
+    if (!trip || !taskDraft.title.trim()) return;
+
+    try {
+      const createdTask = await createTripTask({
+        tripId: trip.id,
+        title: taskDraft.title,
+        dueDate: taskDraft.dueDate,
+        category: taskDraft.category,
+        description: taskDraft.description,
+      });
+
+      setTrip((current) =>
+        current
+          ? {
+              ...current,
+              tasks: [...(current.tasks || []), createdTask],
+            }
+          : current
+      );
+      setTaskDraft({ title: "", dueDate: "", category: "", description: "" });
+      setTaskStatusMessage("");
+    } catch (error) {
+      console.error("Unable to create trip task", error);
+      setTaskStatusMessage(error.message || "Unable to create task.");
+    }
   }
 
   function toggleTraining(id, ownerEmail = session?.email) {
@@ -687,7 +747,7 @@ export default function TripPage() {
     }
   }
 
-  function parseDateSafe(dateStr) {
+function parseDateSafe(dateStr) {
     if (!dateStr) return null;
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       const [year, month, day] = dateStr.split("-").map(Number);
@@ -744,6 +804,15 @@ export default function TripPage() {
     });
 
     return groups;
+  }
+
+  function getSettledValue(result, fallback, label) {
+    if (result.status === "fulfilled") {
+      return result.value;
+    }
+
+    console.error(`Unable to load ${label}`, result.reason);
+    return fallback;
   }
 
   const groupedViewTasks = groupTasksByWorkArea(editableStaffTasks || []);
@@ -1560,6 +1629,57 @@ export default function TripPage() {
 
       {tab === "Tasks" && (
         <div style={{ display: "grid", gap: 16 }}>
+          {canManageTrips && (
+            <div className="card pad">
+              <div style={{ fontWeight: 900, marginBottom: 8 }}>Add Task</div>
+              <div style={{ display: "grid", gap: 10 }}>
+                <input
+                  className="input"
+                  value={taskDraft.title}
+                  onChange={(event) =>
+                    setTaskDraft((current) => ({ ...current, title: event.target.value }))
+                  }
+                  placeholder="Task title"
+                />
+                <input
+                  className="input"
+                  type="date"
+                  value={taskDraft.dueDate}
+                  onChange={(event) =>
+                    setTaskDraft((current) => ({ ...current, dueDate: event.target.value }))
+                  }
+                />
+                <input
+                  className="input"
+                  value={taskDraft.category}
+                  onChange={(event) =>
+                    setTaskDraft((current) => ({ ...current, category: event.target.value }))
+                  }
+                  placeholder="Category"
+                />
+                <textarea
+                  className="input"
+                  value={taskDraft.description}
+                  onChange={(event) =>
+                    setTaskDraft((current) => ({ ...current, description: event.target.value }))
+                  }
+                  placeholder="Description"
+                  rows={3}
+                />
+                {taskStatusMessage && (
+                  <div className="small" style={{ color: "var(--danger)" }}>
+                    {taskStatusMessage}
+                  </div>
+                )}
+                <div className="row">
+                  <button className="btn btnPrimary" type="button" onClick={handleCreateTask}>
+                    Save Task
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="card pad">
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>Task Progress</div>
@@ -1670,7 +1790,7 @@ export default function TripPage() {
           </div>
 
           <div className="small">
-            Task progress is saved separately for each participant in this demo.
+            Task progress is loaded from Supabase for each assigned user.
           </div>
         </div>
       )}
