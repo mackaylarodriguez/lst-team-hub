@@ -143,7 +143,13 @@ export default function Trips() {
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
   function updateTripDraft(field, value) {
-    setTripDraft((current) => ({ ...current, [field]: value }));
+    setTripDraft((current) => {
+      if (field === "location") {
+        return { ...current, location: value, name: value };
+      }
+
+      return { ...current, [field]: value };
+    });
   }
 
   function handleCancelTripForm() {
@@ -201,19 +207,10 @@ export default function Trips() {
         <div className="card pad" style={{ marginBottom: 24 }}>
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Create Trip</div>
           <div className="small" style={{ marginBottom: 16 }}>
-            Create a trip and assign it to your account.
+            Create a trip and assign it to your account. The trip name follows the location/site.
           </div>
 
           <form onSubmit={handleCreateTrip} style={{ display: "grid", gap: 12 }}>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Trip Name</div>
-              <input
-                className="input"
-                value={tripDraft.name}
-                onChange={(event) => updateTripDraft("name", event.target.value)}
-                placeholder="UT Austin - Brazil"
-              />
-            </div>
             <div>
               <div className="small" style={{ marginBottom: 6 }}>Location</div>
               <input
@@ -221,6 +218,15 @@ export default function Trips() {
                 value={tripDraft.location}
                 onChange={(event) => updateTripDraft("location", event.target.value)}
                 placeholder="Florianopolis, Brazil"
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Trip Name</div>
+              <input
+                className="input"
+                value={tripDraft.name}
+                readOnly
+                placeholder="Trip name follows the location"
               />
             </div>
             <div>

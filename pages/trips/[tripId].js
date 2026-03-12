@@ -31,6 +31,7 @@ import {
   saveUserTaskProgress,
 } from "@/lib/tripTasks";
 import { listReferenceEmails, saveReferenceEmail } from "@/lib/referenceEmails";
+import { getTripOverviewNote, saveTripOverviewNote } from "@/lib/tripOverviewNotes";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -49,6 +50,7 @@ export default function TripPage() {
   const [docs, setDocs] = useState([]);
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkDraft, setLinkDraft] = useState({ title: "", link: "", workArea: "" });
+  const [pendingPdfDraft, setPendingPdfDraft] = useState(null);
   const [editingDocId, setEditingDocId] = useState(null);
   const [docDraft, setDocDraft] = useState(null);
   const [referenceEmails, setReferenceEmails] = useState({});
@@ -64,6 +66,8 @@ export default function TripPage() {
   });
   const [taskStatusMessage, setTaskStatusMessage] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [overviewNote, setOverviewNote] = useState("");
+  const [overviewNoteStatus, setOverviewNoteStatus] = useState("");
 
   const [trip, setTrip] = useState(null);
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
@@ -264,6 +268,30 @@ export default function TripPage() {
   }, [trip?.id]);
 
   useEffect(() => {
+    if (!trip?.id) return;
+
+    let cancelled = false;
+
+    async function loadOverviewNote() {
+      try {
+        const row = await getTripOverviewNote(trip.id);
+        if (!cancelled) {
+          setOverviewNote(row.note || "");
+          setOverviewNoteStatus("");
+        }
+      } catch (error) {
+        console.error("Unable to load trip overview note", error);
+      }
+    }
+
+    void loadOverviewNote();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.id]);
+
+  useEffect(() => {
     if (!trip) return;
 
     let cancelled = false;
@@ -327,20 +355,34 @@ export default function TripPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setPendingPdfDraft({
+      file,
+      title: file.name.replace(/\.pdf$/i, ""),
+      workArea: trip?.name || "",
+    });
+    event.target.value = "";
+  }
+
+  function handleCancelPendingPdf() {
+    setPendingPdfDraft(null);
+  }
+
+  async function handleSavePendingPdf() {
+    if (!pendingPdfDraft?.file) return;
+
     try {
       const created = await addPdfResource({
-        title: file.name,
-        file,
-        workArea: trip?.name || "",
+        title: pendingPdfDraft.title,
+        file: pendingPdfDraft.file,
+        workArea: pendingPdfDraft.workArea,
         tripId: trip?.id,
       });
       setDocs((current) => [created, ...current]);
       setDocsError("");
+      setPendingPdfDraft(null);
     } catch (error) {
       console.error("Unable to add PDF resource", error);
       setDocsError(error.message || "Unable to save resources.");
-    } finally {
-      event.target.value = "";
     }
   }
 
@@ -874,6 +916,23 @@ function parseDateSafe(dateStr) {
     return fallback;
   }
 
+  async function handleSaveOverviewNote() {
+    if (!trip?.id) return;
+
+    try {
+      setOverviewNoteStatus("Saving...");
+      const saved = await saveTripOverviewNote({
+        tripId: trip.id,
+        note: overviewNote,
+      });
+      setOverviewNote(saved.note || "");
+      setOverviewNoteStatus("Saved.");
+    } catch (error) {
+      console.error("Unable to save trip overview note", error);
+      setOverviewNoteStatus(error.message || "Unable to save note.");
+    }
+  }
+
   const groupedViewTasks = groupTasksByWorkArea(editableStaffTasks || []);
 
   const completedCount = (editableStaffTasks || []).filter(
@@ -1194,6 +1253,32 @@ function parseDateSafe(dateStr) {
               gap: 16,
             }}
           >
+            {canManageTrips && (
+              <div className="card pad" style={{ gridColumn: "1 / -1" }}>
+                <div style={{ fontWeight: 900, marginBottom: 8 }}>Trip Notes</div>
+                <div className="small" style={{ marginBottom: 10 }}>
+                  Put obvious context here, like why the trip was archived or major team changes.
+                </div>
+                <textarea
+                  className="input"
+                  rows={4}
+                  value={overviewNote}
+                  onChange={(event) => setOverviewNote(event.target.value)}
+                  placeholder="Example: Archived because multiple workers dropped from the team."
+                />
+                <div className="row" style={{ marginTop: 10 }}>
+                  <button className="btn btnPrimary" type="button" onClick={handleSaveOverviewNote}>
+                    Save Note
+                  </button>
+                  {overviewNoteStatus ? (
+                    <div className="small" style={{ alignSelf: "center" }}>
+                      {overviewNoteStatus}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Trip Details</div>
               <div className="small">Staff lead</div>
@@ -1923,6 +2008,42 @@ function parseDateSafe(dateStr) {
                   </div>
                 )}
 
+                {pendingPdfDraft && (
+                  <div
+                    className="card pad"
+                    style={{ boxShadow: "none", marginBottom: 14, background: "rgba(255,255,255,.7)" }}
+                  >
+                    <div style={{ fontWeight: 900, marginBottom: 10 }}>New PDF</div>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      <input
+                        className="input"
+                        value={pendingPdfDraft.title}
+                        onChange={(e) =>
+                          setPendingPdfDraft((prev) => ({ ...prev, title: e.target.value }))
+                        }
+                        placeholder="Document title"
+                      />
+                      <input
+                        className="input"
+                        value={pendingPdfDraft.workArea}
+                        onChange={(e) =>
+                          setPendingPdfDraft((prev) => ({ ...prev, workArea: e.target.value }))
+                        }
+                        placeholder="Work area"
+                      />
+                      <div className="small">File: {pendingPdfDraft.file?.name || "PDF selected"}</div>
+                      <div className="row">
+                        <button className="btn btnPrimary" type="button" onClick={handleSavePendingPdf}>
+                          Upload PDF
+                        </button>
+                        <button className="btn" type="button" onClick={handleCancelPendingPdf}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {docs.length === 0 ? (
                   <div className="small">No documents yet.</div>
                 ) : (
@@ -2123,26 +2244,20 @@ function parseDateSafe(dateStr) {
                               </td>
 
                               <td style={{ textAlign: "center" }}>
-                                {isEditingTitle ? (
-                                  <select
-                                    className="input"
-                                    value={t.assignedTo || ""}
-                                    onChange={(e) =>
-                                      updateStaffTask(t.id, "assignedTo", e.target.value)
-                                    }
-                                  >
-                                    <option value="">Assign Staff</option>
-                                    {staffList.map((person) => (
-                                      <option key={person} value={person}>
-                                        {person}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <span style={{ fontSize: "14px" }}>
-                                    {t.assignedTo || "-"}
-                                  </span>
-                                )}
+                                <select
+                                  className="input"
+                                  value={t.assignedTo || ""}
+                                  onChange={(e) =>
+                                    updateStaffTask(t.id, "assignedTo", e.target.value)
+                                  }
+                                >
+                                  <option value="">Assign Staff</option>
+                                  {staffList.map((person) => (
+                                    <option key={person} value={person}>
+                                      {person}
+                                    </option>
+                                  ))}
+                                </select>
                               </td>
 
                               <td style={{ textAlign: "center" }}>
