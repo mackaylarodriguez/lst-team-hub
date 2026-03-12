@@ -32,6 +32,7 @@ import {
 } from "@/lib/tripTasks";
 import { listReferenceEmails, saveReferenceEmail } from "@/lib/referenceEmails";
 import { getTripOverviewNote, saveTripOverviewNote } from "@/lib/tripOverviewNotes";
+import { saveTripFundraisingSettings } from "@/lib/tripFundraising";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -68,6 +69,11 @@ export default function TripPage() {
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [overviewNote, setOverviewNote] = useState("");
   const [overviewNoteStatus, setOverviewNoteStatus] = useState("");
+  const [teamFundraisingDraft, setTeamFundraisingDraft] = useState({
+    teamFundraisingUrl: "",
+    teamNeonAccountId: "",
+  });
+  const [teamFundraisingStatus, setTeamFundraisingStatus] = useState("");
 
   const [trip, setTrip] = useState(null);
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
@@ -185,9 +191,14 @@ export default function TripPage() {
     (trip.participants || []).forEach((participant) => {
       nextDrafts[participant.id] = {
         fundraisingUrl: participant.fundraisingUrl || "",
+        neonUserAccountId: participant.neonUserAccountId || "",
       };
     });
     setFundraisingDrafts(nextDrafts);
+    setTeamFundraisingDraft({
+      teamFundraisingUrl: trip.teamFundraisingUrl || "",
+      teamNeonAccountId: trip.teamNeonAccountId || "",
+    });
   }, [trip]);
 
   useEffect(() => {
@@ -529,6 +540,7 @@ export default function TripPage() {
 
     const draft = fundraisingDrafts[participant.id] || {
       fundraisingUrl: "",
+      neonUserAccountId: "",
     };
 
     try {
@@ -543,6 +555,7 @@ export default function TripPage() {
         goalAmount: participant.fundraisingGoal || 0,
         raisedAmount: participant.fundraisingRaised || 0,
         fundraisingUrl: draft.fundraisingUrl,
+        neonUserAccountId: draft.neonUserAccountId,
       });
 
       setTrip((current) => {
@@ -557,6 +570,7 @@ export default function TripPage() {
                   fundraisingGoal: savedProfile.goalAmount,
                   fundraisingRaised: savedProfile.raisedAmount,
                   fundraisingUrl: savedProfile.fundraisingUrl,
+                  neonUserAccountId: savedProfile.neonUserAccountId || "",
                 }
               : item
           ),
@@ -567,6 +581,7 @@ export default function TripPage() {
         ...current,
         [participant.id]: {
           fundraisingUrl: savedProfile.fundraisingUrl || "",
+          neonUserAccountId: savedProfile.neonUserAccountId || "",
         },
       }));
 
@@ -583,6 +598,33 @@ export default function TripPage() {
           message: error.message || "Unable to save fundraising.",
         },
       }));
+    }
+  }
+
+  async function handleSaveTeamFundraising() {
+    if (!trip?.id) return;
+
+    try {
+      setTeamFundraisingStatus("Saving...");
+      const savedTrip = await saveTripFundraisingSettings({
+        tripId: trip.id,
+        teamFundraisingUrl: teamFundraisingDraft.teamFundraisingUrl,
+        teamNeonAccountId: teamFundraisingDraft.teamNeonAccountId,
+      });
+
+      setTrip((current) =>
+        current
+          ? {
+              ...current,
+              teamFundraisingUrl: savedTrip.team_fundraising_url || "",
+              teamNeonAccountId: savedTrip.team_neon_account_id || "",
+            }
+          : current
+      );
+      setTeamFundraisingStatus("Saved.");
+    } catch (error) {
+      console.error("Unable to save team fundraising settings", error);
+      setTeamFundraisingStatus(error.message || "Unable to save team fundraising.");
     }
   }
 
@@ -1463,6 +1505,54 @@ function parseDateSafe(dateStr) {
         <div style={{ display: "grid", gap: 16 }}>
           {canViewAllParticipantData && (
             <div className="card pad">
+              <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
+              <div className="small" style={{ marginBottom: 10 }}>
+                Use this when the whole team shares one Neon fundraising page.
+              </div>
+              <div style={{ display: "grid", gap: 10 }}>
+                <input
+                  className="input"
+                  value={teamFundraisingDraft.teamFundraisingUrl}
+                  onChange={(event) =>
+                    setTeamFundraisingDraft((current) => ({
+                      ...current,
+                      teamFundraisingUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="Shared team Neon link"
+                />
+                <input
+                  className="input"
+                  value={teamFundraisingDraft.teamNeonAccountId}
+                  onChange={(event) =>
+                    setTeamFundraisingDraft((current) => ({
+                      ...current,
+                      teamNeonAccountId: event.target.value,
+                    }))
+                  }
+                  placeholder="Shared team Neon account/campaign ID"
+                />
+                <div className="row">
+                  <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
+                    Save Team Fundraising
+                  </button>
+                  {teamFundraisingStatus ? (
+                    <div className="small" style={{ alignSelf: "center" }}>
+                      {teamFundraisingStatus}
+                    </div>
+                  ) : null}
+                </div>
+                {trip.teamFundraisingUrl ? (
+                  <a className="btn" href={trip.teamFundraisingUrl} target="_blank" rel="noreferrer">
+                    Open Team Neon Page
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          )}
+
+          {canViewAllParticipantData && (
+            <div className="card pad">
               <div className="row" style={{ marginBottom: 8 }}>
                 <div style={{ fontWeight: 900 }}>Team Fundraising Overview</div>
                 <div className="spacer" />
@@ -1541,6 +1631,17 @@ function parseDateSafe(dateStr) {
                                 updateFundraisingDraft(participant.id, "fundraisingUrl", event.target.value)
                               }
                               placeholder="https://"
+                            />
+                          </div>
+                          <div>
+                            <div className="small" style={{ marginBottom: 6 }}>Neon Account ID</div>
+                            <input
+                              className="input"
+                              value={fundraisingDrafts[participant.id]?.neonUserAccountId || ""}
+                              onChange={(event) =>
+                                updateFundraisingDraft(participant.id, "neonUserAccountId", event.target.value)
+                              }
+                              placeholder="Neon user account ID"
                             />
                           </div>
                           {fundraisingStatus[participant.id]?.message && (
