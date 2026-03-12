@@ -175,6 +175,13 @@ export default function Admin() {
     const nextTripTasks = baseTasks.map((task) =>
       task.id === taskId ? { ...task, [field]: value } : task
     );
+    console.log("[adminPage] updateTask", {
+      tripId,
+      taskId,
+      field,
+      value,
+      matchedTask: nextTripTasks.find((task) => task.id === taskId) || null,
+    });
     const requestId = latestStaffTaskSaveRef.current + 1;
     latestStaffTaskSaveRef.current = requestId;
 

@@ -1068,6 +1068,13 @@ export default function TripPage() {
     const nextTasks = baseTasks.map((task) =>
       task.id === taskId ? { ...task, [field]: value } : task
     );
+    console.log("[tripPage] updateStaffTask", {
+      tripId: trip?.id,
+      taskId,
+      field,
+      value,
+      matchedTask: nextTasks.find((task) => task.id === taskId) || null,
+    });
     void saveStaffTasks(nextTasks);
   }
 
