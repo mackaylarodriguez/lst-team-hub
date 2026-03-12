@@ -12,6 +12,42 @@ import {
   unarchiveTrip,
 } from "@/lib/trips";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
+import { SITE_OPTIONS } from "@/lib/siteOptions";
+
+const CUSTOM_SITE_OPTION = "__custom__";
+
+function createEmptyTeamMember() {
+  return {
+    firstName: "",
+    lastName: "",
+    email: "",
+    startDate: "",
+    endDate: "",
+  };
+}
+
+function createInitialTripDraft() {
+  return {
+    name: "",
+    location: "",
+    host: "",
+    siteType: "",
+    projectType: "",
+    projectLengthSummary: "",
+    extraTravelStatus: "no",
+    startDate: "",
+    endDate: "",
+    fundraisingGoalAmount: "",
+    tripFeeAmount: "600",
+    materialsFeeAmount: "250",
+    hasDeferredWorker: "no",
+    hannoverHousingFeeAmount: "600",
+    domesticProjectFeeAmount: "",
+    domesticFeeAmount: "",
+    domesticMaterialsFeeAmount: "",
+    teamMembers: [createEmptyTeamMember()],
+  };
+}
 
 function parseTripDates(dateLabel) {
   const sameMonthMatch = String(dateLabel).match(
@@ -63,23 +99,8 @@ export default function Trips() {
   const [session, setSession] = useState(null);
   const [trips, setTrips] = useState([]);
   const [showTripForm, setShowTripForm] = useState(false);
-  const [tripDraft, setTripDraft] = useState({
-    name: "",
-    location: "",
-    host: "",
-    siteType: "",
-    hasExtraTravel: "no",
-    startDate: "",
-    endDate: "",
-    fundraisingGoalAmount: "",
-    tripFeeAmount: "",
-    materialsFeeAmount: "",
-    hasDeferredWorker: "no",
-    hannoverHousingFeeAmount: "",
-    domesticProjectFeeAmount: "",
-    domesticFeeAmount: "",
-    domesticMaterialsFeeAmount: "",
-  });
+  const [isCustomSiteInput, setIsCustomSiteInput] = useState(false);
+  const [tripDraft, setTripDraft] = useState(createInitialTripDraft);
   const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
@@ -152,42 +173,76 @@ export default function Trips() {
 
   const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
+  const siteOptions = useMemo(() => {
+    const seen = new Set();
+    const configured = (SITE_OPTIONS || [])
+      .map((site) => String(site || "").trim())
+      .filter(Boolean);
+    const fromTrips = (trips || [])
+      .map((trip) => String(trip.location || "").trim())
+      .filter(Boolean);
+
+    return [...configured, ...fromTrips]
+      .filter((site) => {
+        const key = site.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((left, right) => left.localeCompare(right));
+  }, [trips]);
+  const selectedSiteValue = isCustomSiteInput ? CUSTOM_SITE_OPTION : tripDraft.location || "";
 
   function updateTripDraft(field, value) {
-    setTripDraft((current) => {
-      if (field === "location") {
-        return { ...current, location: value, name: value };
-      }
+    setTripDraft((current) => ({ ...current, [field]: value }));
+  }
 
-      return { ...current, [field]: value };
-    });
+  function updateTeamMember(index, field, value) {
+    setTripDraft((current) => ({
+      ...current,
+      teamMembers: current.teamMembers.map((member, memberIndex) =>
+        memberIndex === index ? { ...member, [field]: value } : member
+      ),
+    }));
+  }
+
+  function addTeamMemberRow() {
+    setTripDraft((current) => ({
+      ...current,
+      teamMembers: [...current.teamMembers, createEmptyTeamMember()],
+    }));
+  }
+
+  function removeTeamMemberRow(index) {
+    setTripDraft((current) => ({
+      ...current,
+      teamMembers:
+        current.teamMembers.length === 1
+          ? [createEmptyTeamMember()]
+          : current.teamMembers.filter((_, memberIndex) => memberIndex !== index),
+    }));
   }
 
   function handleCancelTripForm() {
     setShowTripForm(false);
-    setTripDraft({
-      name: "",
-      location: "",
-      host: "",
-      siteType: "",
-      hasExtraTravel: "no",
-      startDate: "",
-      endDate: "",
-      fundraisingGoalAmount: "",
-      tripFeeAmount: "",
-      materialsFeeAmount: "",
-      hasDeferredWorker: "no",
-      hannoverHousingFeeAmount: "",
-      domesticProjectFeeAmount: "",
-      domesticFeeAmount: "",
-      domesticMaterialsFeeAmount: "",
-    });
+    setIsCustomSiteInput(false);
+    setTripDraft(createInitialTripDraft());
     setSubmitError("");
   }
 
   async function handleCreateTrip(event) {
     event.preventDefault();
     setSubmitError("");
+
+    if (!String(tripDraft.name || "").trim()) {
+      setSubmitError("Team name is required.");
+      return;
+    }
+
+    if (!String(tripDraft.location || "").trim()) {
+      setSubmitError("Site is required.");
+      return;
+    }
 
     try {
       const trip = await createTripForCurrentUser(tripDraft);
@@ -230,7 +285,14 @@ export default function Trips() {
           <button
             className="btn btnPrimary"
             type="button"
-            onClick={() => setShowTripForm((current) => !current)}
+            onClick={() => {
+              if (showTripForm) {
+                handleCancelTripForm();
+                return;
+              }
+
+              setShowTripForm(true);
+            }}
           >
             {showTripForm ? "Close" : "Add Trip"}
           </button>
@@ -242,21 +304,156 @@ export default function Trips() {
         <div className="card pad" style={{ marginBottom: 24 }}>
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Create Trip</div>
           <div className="small" style={{ marginBottom: 16 }}>
-            Create a trip and assign it to your account. The trip name follows the site.
+            Create a team, save the roster, and assign the trip to your account.
           </div>
 
           <form onSubmit={handleCreateTrip} style={{ display: "grid", gap: 12 }}>
             <div>
-              <div className="small" style={{ marginBottom: 6 }}>Site</div>
+              <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
               <input
                 className="input"
-                value={tripDraft.location}
-                onChange={(event) => updateTripDraft("location", event.target.value)}
-                placeholder="Florianopolis, Brazil"
+                value={tripDraft.name}
+                onChange={(event) => updateTripDraft("name", event.target.value)}
+                placeholder="2026 Brazil Team"
               />
             </div>
             <div>
-              <div className="small" style={{ marginBottom: 6 }}>Host</div>
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Team Members</div>
+              <div className="small" style={{ marginBottom: 10 }}>
+                Add first name, last name, and email now. Per-person dates let shorter subteams stay under the same trip.
+              </div>
+              <div className="small" style={{ marginBottom: 10 }}>
+                This saves the roster. It does not create Supabase login accounts by itself.
+              </div>
+              <div style={{ display: "grid", gap: 10 }}>
+                {tripDraft.teamMembers.map((member, index) => (
+                  <div
+                    key={`team-member-${index}`}
+                    style={{
+                      border: "1px solid rgba(18, 16, 12, 0.08)",
+                      borderRadius: 14,
+                      padding: 12,
+                      background: "rgba(255,255,255,.72)",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: 10 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                        <input
+                          className="input"
+                          value={member.firstName}
+                          onChange={(event) => updateTeamMember(index, "firstName", event.target.value)}
+                          placeholder="First name"
+                        />
+                        <input
+                          className="input"
+                          value={member.lastName}
+                          onChange={(event) => updateTeamMember(index, "lastName", event.target.value)}
+                          placeholder="Last name"
+                        />
+                        <input
+                          className="input"
+                          type="email"
+                          value={member.email}
+                          onChange={(event) => updateTeamMember(index, "email", event.target.value)}
+                          placeholder="Email"
+                        />
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Leave Date</div>
+                          <input
+                            className="input"
+                            type="date"
+                            value={member.startDate}
+                            onChange={(event) => updateTeamMember(index, "startDate", event.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Return Date</div>
+                          <input
+                            className="input"
+                            type="date"
+                            value={member.endDate}
+                            onChange={(event) => updateTeamMember(index, "endDate", event.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="row">
+                        <div className="small" style={{ alignSelf: "center" }}>
+                          Leave member dates blank to use the main project dates.
+                        </div>
+                        <div className="spacer" />
+                        <button className="btn" type="button" onClick={() => removeTeamMemberRow(index)}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="row" style={{ marginTop: 10 }}>
+                <button className="btn" type="button" onClick={addTeamMemberRow}>
+                  Add Team Member
+                </button>
+              </div>
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Project Leave Date</div>
+              <input
+                className="input"
+                type="date"
+                value={tripDraft.startDate}
+                onChange={(event) => updateTripDraft("startDate", event.target.value)}
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Project Return Date</div>
+              <input
+                className="input"
+                type="date"
+                value={tripDraft.endDate}
+                onChange={(event) => updateTripDraft("endDate", event.target.value)}
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Site</div>
+              <select
+                className="input"
+                value={selectedSiteValue}
+                onChange={(event) => {
+                  if (event.target.value === CUSTOM_SITE_OPTION) {
+                    setIsCustomSiteInput(true);
+                    updateTripDraft(
+                      "location",
+                      siteOptions.includes(tripDraft.location) ? "" : tripDraft.location
+                    );
+                    return;
+                  }
+
+                  setIsCustomSiteInput(false);
+                  updateTripDraft("location", event.target.value);
+                }}
+              >
+                <option value="">Select site</option>
+                {siteOptions.map((site) => (
+                  <option key={site} value={site}>
+                    {site}
+                  </option>
+                ))}
+                <option value={CUSTOM_SITE_OPTION}>Other site</option>
+              </select>
+              {selectedSiteValue === CUSTOM_SITE_OPTION ? (
+                <input
+                  className="input"
+                  style={{ marginTop: 10 }}
+                  value={tripDraft.location}
+                  onChange={(event) => updateTripDraft("location", event.target.value)}
+                  placeholder="Enter site"
+                />
+              ) : null}
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Host Name</div>
               <input
                 className="input"
                 value={tripDraft.host}
@@ -278,42 +475,38 @@ export default function Trips() {
               </select>
             </div>
             <div>
-              <div className="small" style={{ marginBottom: 6 }}>Extra Travel</div>
+              <div className="small" style={{ marginBottom: 6 }}>Length of Projects</div>
+              <input
+                className="input"
+                value={tripDraft.projectLengthSummary}
+                onChange={(event) => updateTripDraft("projectLengthSummary", event.target.value)}
+                placeholder="6 weeks, with a 3-week subgroup"
+              />
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Type of Project</div>
               <select
                 className="input"
-                value={tripDraft.hasExtraTravel}
-                onChange={(event) => updateTripDraft("hasExtraTravel", event.target.value)}
+                value={tripDraft.projectType}
+                onChange={(event) => updateTripDraft("projectType", event.target.value)}
               >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
+                <option value="">Select project type</option>
+                <option value="LST">LST</option>
+                <option value="YF">YF</option>
+                <option value="TP">TP</option>
               </select>
             </div>
             <div>
-              <div className="small" style={{ marginBottom: 6 }}>Trip Name</div>
-              <input
+              <div className="small" style={{ marginBottom: 6 }}>Extra Travel</div>
+              <select
                 className="input"
-                value={tripDraft.name}
-                readOnly
-                placeholder="Trip name follows the location"
-              />
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Start Date</div>
-              <input
-                className="input"
-                type="date"
-                value={tripDraft.startDate}
-                onChange={(event) => updateTripDraft("startDate", event.target.value)}
-              />
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>End Date</div>
-              <input
-                className="input"
-                type="date"
-                value={tripDraft.endDate}
-                onChange={(event) => updateTripDraft("endDate", event.target.value)}
-              />
+                value={tripDraft.extraTravelStatus}
+                onChange={(event) => updateTripDraft("extraTravelStatus", event.target.value)}
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+                <option value="maybe">Maybe</option>
+              </select>
             </div>
             <div style={{ fontWeight: 900, marginTop: 4 }}>Funding & Fees</div>
             <div>
@@ -337,7 +530,7 @@ export default function Trips() {
                 step="1"
                 value={tripDraft.tripFeeAmount}
                 onChange={(event) => updateTripDraft("tripFeeAmount", event.target.value)}
-                placeholder="Leave blank if not needed"
+                placeholder="600"
               />
             </div>
             <div>
@@ -349,7 +542,7 @@ export default function Trips() {
                 step="1"
                 value={tripDraft.materialsFeeAmount}
                 onChange={(event) => updateTripDraft("materialsFeeAmount", event.target.value)}
-                placeholder="Leave blank if not needed"
+                placeholder="250"
               />
             </div>
             <div>

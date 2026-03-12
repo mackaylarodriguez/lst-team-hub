@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { getTripForCurrentUser, listTripParticipants } from "@/lib/trips";
 import { isManagerRole } from "@/lib/roles";
+import { listTripTeamMembers } from "@/lib/tripTeamMembers";
 import {
   listTrainingModules,
   listTrainingProgress,
@@ -31,13 +32,21 @@ import {
   saveUserTaskProgress,
 } from "@/lib/tripTasks";
 import { listReferenceEmails, saveReferenceEmail } from "@/lib/referenceEmails";
-import { listTripOverviewNotes, saveTripOverviewNote } from "@/lib/tripOverviewNotes";
+import {
+  deleteTripOverviewNote,
+  listTripOverviewNotes,
+  saveTripOverviewNote,
+} from "@/lib/tripOverviewNotes";
 import { saveTripFundraisingSettings } from "@/lib/tripFundraising";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
   "Support During Project": "During Project",
 };
+
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
 
 export default function TripPage() {
   const router = useRouter();
@@ -216,9 +225,17 @@ export default function TripPage() {
     let cancelled = false;
 
     async function loadTripData() {
-      const [participantsResult, modulesResult, progressResult, tasksResult, taskProgressResult] =
+      const [
+        participantsResult,
+        teamMembersResult,
+        modulesResult,
+        progressResult,
+        tasksResult,
+        taskProgressResult,
+      ] =
         await Promise.allSettled([
           listTripParticipants(trip.id),
+          listTripTeamMembers(trip.id),
           listTrainingModules(trip.id),
           listTrainingProgress(trip.id),
           listTripTasks(trip.id),
@@ -232,6 +249,11 @@ export default function TripPage() {
         [],
         "trip participants"
       );
+      const teamMembers = getSettledValue(
+        teamMembersResult,
+        [],
+        "trip team members"
+      );
       const modules = getSettledValue(modulesResult, [], "training modules");
       const progress = getSettledValue(progressResult, [], "training progress");
       const tasks = getSettledValue(tasksResult, [], "trip tasks");
@@ -241,7 +263,7 @@ export default function TripPage() {
         "task progress"
       );
 
-      setTrip((current) => (current ? { ...current, participants, tasks } : current));
+      setTrip((current) => (current ? { ...current, participants, teamMembers, tasks } : current));
       setTrainingModules(modules);
 
       const participantsById = new Map(
@@ -971,6 +993,45 @@ function parseDateSafe(dateStr) {
     });
   }
 
+  function formatSingleDate(value) {
+    if (!value) return "Not set";
+
+    return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  function formatTripDateRange(startDate, endDate) {
+    if (!startDate && !endDate) return "Dates to be confirmed";
+
+    if (startDate && endDate) {
+      const start = new Date(`${startDate}T00:00:00`);
+      const end = new Date(`${endDate}T00:00:00`);
+      const sameMonth =
+        start.toLocaleString("en-US", { month: "long" }) ===
+          end.toLocaleString("en-US", { month: "long" }) &&
+        start.getFullYear() === end.getFullYear();
+
+      if (sameMonth) {
+        return `${start.toLocaleString("en-US", { month: "long" })} ${start.getDate()}-${end.getDate()}, ${end.getFullYear()}`;
+      }
+
+      return `${start.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })} - ${end.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })}`;
+    }
+
+    return formatSingleDate(startDate || endDate);
+  }
+
   function formatMoney(value) {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -1077,6 +1138,35 @@ function parseDateSafe(dateStr) {
     } catch (error) {
       console.error("Unable to save trip overview note", error);
       setOverviewNoteStatus(error.message || "Unable to save note.");
+    }
+  }
+
+  async function handleDeleteOverviewNote() {
+    if (!editingOverviewNoteId) return;
+
+    const existingNote = overviewNotes.find((note) => note.id === editingOverviewNoteId);
+    const notePreview = String(existingNote?.note || "")
+      .trim()
+      .slice(0, 120);
+    const confirmMessage = notePreview
+      ? `Delete this note?\n\n"${notePreview}${notePreview.length >= 120 ? "..." : ""}"`
+      : "Delete this note?";
+
+    if (typeof window !== "undefined" && !window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setOverviewNoteStatus("Deleting...");
+      await deleteTripOverviewNote(editingOverviewNoteId);
+      setOverviewNotes((current) => current.filter((note) => note.id !== editingOverviewNoteId));
+      setEditingOverviewNoteId("");
+      setOverviewNoteDraft("");
+      setIsEditingOverviewNote(false);
+      setOverviewNoteStatus("Deleted.");
+    } catch (error) {
+      console.error("Unable to delete trip overview note", error);
+      setOverviewNoteStatus(error.message || "Unable to delete note.");
     }
   }
 
@@ -1522,6 +1612,11 @@ function parseDateSafe(dateStr) {
                       <button className="btn" type="button" onClick={handleCancelOverviewNoteEdit}>
                         Cancel
                       </button>
+                      {editingOverviewNoteId ? (
+                        <button className="btn" type="button" onClick={handleDeleteOverviewNote}>
+                          Delete
+                        </button>
+                      ) : null}
                       {overviewNoteStatus ? (
                         <div className="small" style={{ alignSelf: "center" }}>
                           {overviewNoteStatus}
@@ -1576,22 +1671,30 @@ function parseDateSafe(dateStr) {
 
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Trip Details</div>
-              <div className="small">Location</div>
-              <div style={{ fontWeight: 800 }}>{trip.location}</div>
+              <div className="small">Team Name</div>
+              <div style={{ fontWeight: 800 }}>{trip.name}</div>
               <div style={{ height: 12 }} />
-              <div className="small">Dates</div>
-              <div style={{ fontWeight: 800 }}>{trip.dates}</div>
+              <div className="small">Site</div>
+              <div style={{ fontWeight: 800 }}>{trip.location || "Not set"}</div>
               <div style={{ height: 12 }} />
-              <div className="small">Weeks in Country</div>
+              <div className="small">Project Leave Date</div>
+              <div style={{ fontWeight: 800 }}>{formatSingleDate(trip.startDate)}</div>
+              <div style={{ height: 12 }} />
+              <div className="small">Project Return Date</div>
+              <div style={{ fontWeight: 800 }}>{formatSingleDate(trip.endDate)}</div>
+              <div style={{ height: 12 }} />
+              <div className="small">Length of Projects</div>
               <div style={{ fontWeight: 800 }}>
-                {getWeeksInCountry(trip.startDate, trip.endDate) || "Dates to be confirmed"}
+                {trip.projectLengthSummary ||
+                  getWeeksInCountry(trip.startDate, trip.endDate) ||
+                  "Dates to be confirmed"}
               </div>
             </div>
 
             {canViewAllParticipantData && (
               <div className="card pad">
                 <div style={{ fontWeight: 900, marginBottom: 10 }}>Site Setup & Fees</div>
-                <div className="small">Host</div>
+                <div className="small">Host Name</div>
                 <div style={{ fontWeight: 800 }}>{trip.host || "Not set"}</div>
                 <div style={{ height: 12 }} />
                 <div className="small">Site Type</div>
@@ -1601,8 +1704,15 @@ function parseDateSafe(dateStr) {
                     : "Not set"}
                 </div>
                 <div style={{ height: 12 }} />
+                <div className="small">Type of Project</div>
+                <div style={{ fontWeight: 800 }}>{trip.projectType || "Not set"}</div>
+                <div style={{ height: 12 }} />
                 <div className="small">Extra Travel</div>
-                <div style={{ fontWeight: 800 }}>{trip.hasExtraTravel ? "Yes" : "No"}</div>
+                <div style={{ fontWeight: 800 }}>
+                  {trip.extraTravelStatus
+                    ? trip.extraTravelStatus.charAt(0).toUpperCase() + trip.extraTravelStatus.slice(1)
+                    : "No"}
+                </div>
                 <div style={{ height: 12 }} />
                 <div className="small">Fundraising Goal</div>
                 <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.fundraisingGoalAmount)}</div>
@@ -1651,7 +1761,52 @@ function parseDateSafe(dateStr) {
       {tab === "Team" && (
         <div style={{ display: "grid", gap: 16 }}>
           <div className="card pad">
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Team Roster</div>
+            <div style={{ fontWeight: 900, marginBottom: 10 }}>Planned Team Roster</div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Project Dates</th>
+                  <th>Connected</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(trip.teamMembers || []).length > 0 ? (
+                  trip.teamMembers.map((member) => {
+                    const isConnected = (trip.participants || []).some(
+                      (participant) => normalizeEmail(participant.email) === normalizeEmail(member.email)
+                    );
+
+                    return (
+                      <tr key={member.id || member.email}>
+                        <td style={{ fontWeight: 800 }}>{member.name}</td>
+                        <td>{member.email || "Not set"}</td>
+                        <td>
+                          {formatTripDateRange(
+                            member.startDate || trip.startDate,
+                            member.endDate || trip.endDate
+                          )}
+                        </td>
+                        <td>
+                          <span className={"badge " + (isConnected ? "" : "badgeWarn")}>
+                            {isConnected ? "Connected" : "Roster Only"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="small">No roster added yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="card pad">
+            <div style={{ fontWeight: 900, marginBottom: 10 }}>Connected Accounts</div>
             <table className="table">
               <thead>
                 <tr>
@@ -1659,7 +1814,7 @@ function parseDateSafe(dateStr) {
                 </tr>
               </thead>
               <tbody>
-                {trip.participants.map(p => (
+                {trip.participants.length > 0 ? trip.participants.map(p => (
                   <tr key={p.email}>
                     <td style={{ fontWeight: 800 }}>{p.name}</td>
                     <td><span className={"badge " + (p.role === "Leader" ? "badgeWarn" : "")}>{p.role}</span></td>
@@ -1668,7 +1823,13 @@ function parseDateSafe(dateStr) {
                       <td><a href={p.fundraisingUrl} target="_blank" rel="noreferrer">Open</a></td>
                     )}
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={canViewAllParticipantData ? 4 : 3} className="small">
+                      No connected accounts yet.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
