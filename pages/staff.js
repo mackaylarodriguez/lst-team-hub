@@ -18,6 +18,7 @@ export default function StaffAssignments() {
   const [trips, setTrips] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [participantOverview, setParticipantOverview] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedTripByWorker, setSelectedTripByWorker] = useState({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -81,6 +82,52 @@ export default function StaffAssignments() {
     };
   }, [workers]);
 
+  const normalizedSearchQuery = String(searchQuery || "").trim().toLowerCase();
+
+  const filteredParticipantOverview = useMemo(() => {
+    if (!normalizedSearchQuery) return participantOverview;
+
+    return participantOverview.filter((participant) => {
+      const tripNames = (participant.trips || [])
+        .map((trip) => `${trip.tripName || ""} ${trip.tripLocation || ""}`.toLowerCase())
+        .join(" ");
+
+      return (
+        String(participant.name || "").toLowerCase().includes(normalizedSearchQuery) ||
+        String(participant.email || "").toLowerCase().includes(normalizedSearchQuery) ||
+        tripNames.includes(normalizedSearchQuery)
+      );
+    });
+  }, [normalizedSearchQuery, participantOverview]);
+
+  const filteredUnassignedWorkers = useMemo(() => {
+    if (!normalizedSearchQuery) return unassignedWorkers;
+
+    return unassignedWorkers.filter((worker) => {
+      return (
+        String(worker.name || "").toLowerCase().includes(normalizedSearchQuery) ||
+        String(worker.email || "").toLowerCase().includes(normalizedSearchQuery)
+      );
+    });
+  }, [normalizedSearchQuery, unassignedWorkers]);
+
+  const filteredAssignedWorkers = useMemo(() => {
+    if (!normalizedSearchQuery) return assignedWorkers;
+
+    return assignedWorkers.filter((worker) => {
+      const tripNames = (worker.assignments || [])
+        .map((assignment) => assignment.trip?.name || "")
+        .join(" ")
+        .toLowerCase();
+
+      return (
+        String(worker.name || "").toLowerCase().includes(normalizedSearchQuery) ||
+        String(worker.email || "").toLowerCase().includes(normalizedSearchQuery) ||
+        tripNames.includes(normalizedSearchQuery)
+      );
+    });
+  }, [assignedWorkers, normalizedSearchQuery]);
+
   function updateSelectedTrip(workerId, tripId) {
     setSelectedTripByWorker((prev) => ({
       ...prev,
@@ -123,9 +170,9 @@ export default function StaffAssignments() {
 
   return (
     <Shell>
-      <h1 className="h1">Participants</h1>
+      <h1 className="h1">Workers</h1>
       <p className="p">
-        Review participant health across trips, then manage assignments underneath.
+        Review worker progress across trips, then manage assignments underneath.
       </p>
 
       <div style={{ height: 14 }} />
@@ -143,24 +190,39 @@ export default function StaffAssignments() {
       )}
 
       <div className="card pad" style={{ marginBottom: 16 }}>
+        <div style={{ fontWeight: 900, marginBottom: 6 }}>Search Workers</div>
+        <div className="small" style={{ marginBottom: 10 }}>
+          Search by worker name, email, or trip.
+        </div>
+        <input
+          className="input"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Search workers or trips"
+        />
+      </div>
+
+      <div className="card pad" style={{ marginBottom: 16 }}>
         <div className="row" style={{ marginBottom: 10 }}>
           <div>
-            <div style={{ fontWeight: 900 }}>Participant Health</div>
+            <div style={{ fontWeight: 900 }}>Worker Progress</div>
             <div className="small">
               Track trip coverage, training, tasks, fundraising milestones, and who needs follow-up.
             </div>
           </div>
           <div className="spacer" />
-          <span className="badge">{participantOverview.length}</span>
+          <span className="badge">{filteredParticipantOverview.length}</span>
         </div>
 
-        {participantOverview.length === 0 ? (
-          <div className="small">No assigned participants yet.</div>
+        {filteredParticipantOverview.length === 0 ? (
+          <div className="small">
+            {normalizedSearchQuery ? "No workers match that search." : "No assigned workers yet."}
+          </div>
         ) : (
           <table className="table">
             <thead>
               <tr>
-                <th>Participant</th>
+                <th>Worker</th>
                 <th>Trips</th>
                 <th>Training</th>
                 <th>Tasks</th>
@@ -169,7 +231,7 @@ export default function StaffAssignments() {
               </tr>
             </thead>
             <tbody>
-              {participantOverview.map((participant) => (
+              {filteredParticipantOverview.map((participant) => (
                 <tr key={participant.id}>
                   <td>
                     <div style={{ fontWeight: 800 }}>
@@ -222,7 +284,7 @@ export default function StaffAssignments() {
       <WorkerSection
         title="Unassigned"
         description="These workers do not have any trips yet."
-        workers={unassignedWorkers}
+        workers={filteredUnassignedWorkers}
         trips={trips}
         selectedTripByWorker={selectedTripByWorker}
         onSelectTrip={updateSelectedTrip}
@@ -232,7 +294,7 @@ export default function StaffAssignments() {
       <WorkerSection
         title="Assigned"
         description="Workers with one or more trip assignments."
-        workers={assignedWorkers}
+        workers={filteredAssignedWorkers}
         trips={trips}
         selectedTripByWorker={selectedTripByWorker}
         onSelectTrip={updateSelectedTrip}

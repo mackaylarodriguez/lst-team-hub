@@ -3329,82 +3329,8 @@ function parseDateSafe(dateStr) {
 
       {tab === "Fundraising" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {canViewAllParticipantData && (
-            <div className="card pad">
-              <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
-              <div className="small" style={{ marginBottom: 10 }}>
-                Use this when the whole team shares one Neon fundraising page.
-              </div>
-              {!isEditingTeamFundraising ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {trip.teamFundraisingUrl ? (
-                    <a className="btn" href={trip.teamFundraisingUrl} target="_blank" rel="noreferrer">
-                      Open Team Neon Page
-                    </a>
-                  ) : (
-                    <div className="small">No shared team Neon link added yet.</div>
-                  )}
-                  <div className="row">
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                        setIsEditingTeamFundraising(true);
-                        setTeamFundraisingStatus("");
-                      }}
-                    >
-                      {trip.teamFundraisingUrl ? "Edit Link" : "Add Link"}
-                    </button>
-                    {teamFundraisingStatus ? (
-                      <div className="small" style={{ alignSelf: "center" }}>
-                        {teamFundraisingStatus}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: "grid", gap: 10 }}>
-                  <input
-                    className="input"
-                    value={teamFundraisingDraft.teamFundraisingUrl}
-                    onChange={(event) =>
-                      setTeamFundraisingDraft((current) => ({
-                        ...current,
-                        teamFundraisingUrl: event.target.value,
-                      }))
-                    }
-                    placeholder="Shared team Neon link"
-                  />
-                  <div className="row">
-                    <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
-                      Save Link
-                    </button>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                        setIsEditingTeamFundraising(false);
-                        setTeamFundraisingStatus("");
-                        setTeamFundraisingDraft({
-                          teamFundraisingUrl: trip.teamFundraisingUrl || "",
-                        });
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    {teamFundraisingStatus ? (
-                      <div className="small" style={{ alignSelf: "center" }}>
-                        {teamFundraisingStatus}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="card pad">
-            <div style={{ fontWeight: 900, marginBottom: 8 }}>Fundraising Deadlines</div>
+            <div className="cardSectionPill" style={{ marginBottom: 14 }}>Fundraising Deadlines</div>
             <div className="small" style={{ marginBottom: 12 }}>
               These dates are automatically based on the trip start date.
             </div>
@@ -3415,21 +3341,57 @@ function parseDateSafe(dateStr) {
                 gap: 16,
               }}
             >
-              <div className="card pad" style={{ boxShadow: "none" }}>
+              <div
+                className="card pad"
+                style={{
+                  boxShadow: "none",
+                  background: "linear-gradient(180deg, rgba(255,244,223,.95), #ffffff 72%)",
+                  borderColor: "rgba(249,157,42,.22)",
+                }}
+              >
                 <div className="small" style={{ marginBottom: 6 }}>90 Days Before Trip</div>
-                <div style={{ fontWeight: 900, fontSize: 22 }}>{formatMoney(fundraisingFirstDeadlineAmount)}</div>
+                <div style={{ fontWeight: 900, fontSize: 24, letterSpacing: "-.03em" }}>
+                  {formatMoney(fundraisingFirstDeadlineAmount)}
+                </div>
                 <div className="small" style={{ marginTop: 8 }}>
-                  Due by {formatDeadlineDate(fundraisingFirstDeadlineDate)}
+                  <span
+                    style={{
+                      display: "inline-block",
+                      fontSize: 17,
+                      fontWeight: 800,
+                      color: "var(--text)",
+                    }}
+                  >
+                    Due by {formatDeadlineDate(fundraisingFirstDeadlineDate)}
+                  </span>
                 </div>
                 <div className="small" style={{ marginTop: 8 }}>
                   {formatMoney(2000)} per worker for {fundraisingWorkerCount} worker{fundraisingWorkerCount === 1 ? "" : "s"}.
                 </div>
               </div>
-              <div className="card pad" style={{ boxShadow: "none" }}>
+              <div
+                className="card pad"
+                style={{
+                  boxShadow: "none",
+                  background: "linear-gradient(180deg, rgba(234,242,255,.95), #ffffff 72%)",
+                  borderColor: "rgba(47,73,147,.18)",
+                }}
+              >
                 <div className="small" style={{ marginBottom: 6 }}>30 Days Before Trip</div>
-                <div style={{ fontWeight: 900, fontSize: 22 }}>{formatMoney(fundraisingSecondDeadlineAmount)}</div>
+                <div style={{ fontWeight: 900, fontSize: 24, letterSpacing: "-.03em" }}>
+                  {formatMoney(fundraisingSecondDeadlineAmount)}
+                </div>
                 <div className="small" style={{ marginTop: 8 }}>
-                  Due by {formatDeadlineDate(fundraisingSecondDeadlineDate)}
+                  <span
+                    style={{
+                      display: "inline-block",
+                      fontSize: 17,
+                      fontWeight: 800,
+                      color: "var(--text)",
+                    }}
+                  >
+                    Due by {formatDeadlineDate(fundraisingSecondDeadlineDate)}
+                  </span>
                 </div>
                 <div className="small" style={{ marginTop: 8 }}>
                   Remaining total amount due after the 90-day deadline.
@@ -3448,7 +3410,7 @@ function parseDateSafe(dateStr) {
           </div>
 
           <div className="card pad">
-            <div style={{ fontWeight: 900, marginBottom: 8 }}>
+            <div className="cardSectionPill" style={{ marginBottom: 14 }}>
               {canViewAllParticipantData ? "Fundraising Pages" : "My Fundraising"}
             </div>
             <p className="small">
@@ -3480,7 +3442,7 @@ function parseDateSafe(dateStr) {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                   gap: 16,
                 }}
               >
@@ -3488,21 +3450,55 @@ function parseDateSafe(dateStr) {
                   const isEditingParticipantLink =
                     editingParticipantFundraisingId === participant.id;
                   return (
-                    <div key={participant.email} className="card pad" style={{ boxShadow: "none" }}>
-                      <div style={{ fontWeight: 900, marginBottom: 8 }}>{participant.name}</div>
-                      <div className="small" style={{ marginBottom: 10 }}>
-                        {participant.fundraisingUrl
-                          ? "Personal Neon fundraising page saved."
-                          : "No personal Neon link added yet."}
+                    <div
+                      key={participant.email}
+                      className="card pad"
+                      style={{
+                        boxShadow: "none",
+                        minHeight: 220,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        background: "linear-gradient(180deg, rgba(234,242,255,.65), #ffffff 40%)",
+                        borderColor: "rgba(47,73,147,.14)",
+                        position: "relative",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: "0 auto auto 0",
+                          width: "100%",
+                          height: 5,
+                          background: "linear-gradient(90deg, var(--primary), var(--primary2))",
+                        }}
+                      />
+                      <div>
+                        <div className="row" style={{ alignItems: "flex-start", marginBottom: 10 }}>
+                          <div style={{ fontWeight: 900, fontSize: 18, lineHeight: 1.2 }}>
+                            {participant.name}
+                          </div>
+                          <div className="spacer" />
+                          <span className={"badge " + (participant.fundraisingUrl ? "badgeSuccess" : "badgeWarn")}>
+                            {participant.fundraisingUrl ? "Ready" : "Missing"}
+                          </span>
+                        </div>
+                        <div className="small" style={{ marginBottom: 12 }}>
+                          {participant.fundraisingUrl
+                            ? "Personal Neon fundraising page saved."
+                            : "No personal Neon link added yet."}
+                        </div>
                       </div>
-                      <div style={{ height: 10 }} />
-                      {participant.fundraisingUrl ? (
-                        <a className="btn btnPrimary" href={participant.fundraisingUrl} target="_blank" rel="noreferrer">
-                          Open Neon Page
-                        </a>
-                      ) : (
-                        <div className="small">No Neon link added yet.</div>
-                      )}
+                      <div>
+                        {participant.fundraisingUrl ? (
+                          <a className="btn btnPrimary" href={participant.fundraisingUrl} target="_blank" rel="noreferrer">
+                            Open Neon Page
+                          </a>
+                        ) : (
+                          <div className="small">No Neon link added yet.</div>
+                        )}
+                      </div>
                       {canViewAllParticipantData && (
                         <>
                           <div style={{ height: 12 }} />
@@ -3600,6 +3596,80 @@ function parseDateSafe(dateStr) {
               </div>
             )}
           </div>
+
+          {canViewAllParticipantData && (
+            <div className="card pad">
+              <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
+              <div className="small" style={{ marginBottom: 10 }}>
+                Use this when the whole team shares one Neon fundraising page.
+              </div>
+              {!isEditingTeamFundraising ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {trip.teamFundraisingUrl ? (
+                    <a className="btn" href={trip.teamFundraisingUrl} target="_blank" rel="noreferrer">
+                      Open Team Neon Page
+                    </a>
+                  ) : (
+                    <div className="small">No shared team Neon link added yet.</div>
+                  )}
+                  <div className="row">
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => {
+                        setIsEditingTeamFundraising(true);
+                        setTeamFundraisingStatus("");
+                      }}
+                    >
+                      {trip.teamFundraisingUrl ? "Edit Link" : "Add Link"}
+                    </button>
+                    {teamFundraisingStatus ? (
+                      <div className="small" style={{ alignSelf: "center" }}>
+                        {teamFundraisingStatus}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  <input
+                    className="input"
+                    value={teamFundraisingDraft.teamFundraisingUrl}
+                    onChange={(event) =>
+                      setTeamFundraisingDraft((current) => ({
+                        ...current,
+                        teamFundraisingUrl: event.target.value,
+                      }))
+                    }
+                    placeholder="Shared team Neon link"
+                  />
+                  <div className="row">
+                    <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
+                      Save Link
+                    </button>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => {
+                        setIsEditingTeamFundraising(false);
+                        setTeamFundraisingStatus("");
+                        setTeamFundraisingDraft({
+                          teamFundraisingUrl: trip.teamFundraisingUrl || "",
+                        });
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    {teamFundraisingStatus ? (
+                      <div className="small" style={{ alignSelf: "center" }}>
+                        {teamFundraisingStatus}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
