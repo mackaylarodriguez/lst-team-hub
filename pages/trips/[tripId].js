@@ -1387,7 +1387,9 @@ function parseDateSafe(dateStr) {
             </button>
           ) : null}
         </div>
-        <div className="tripSetupColumns">
+        <div
+          className={`tripSetupColumns${canViewAllParticipantData ? "" : " tripSetupColumnsSingle"}`}
+        >
           <div className="tripSetupSection tripSetupSectionTrip">
             <div className="tripSetupSectionHeader">Trip Details</div>
             {isEditingTripSetup ? (
@@ -1465,7 +1467,7 @@ function parseDateSafe(dateStr) {
                   />
                 </div>
               </div>
-            ) : (
+            ) : canViewAllParticipantData ? (
               <>
                 <div className="small">Team Name</div>
                 <div style={{ fontWeight: 800 }}>{trip.name}</div>
@@ -1486,6 +1488,29 @@ function parseDateSafe(dateStr) {
                     "Dates to be confirmed"}
                 </div>
               </>
+            ) : (
+              <div className="tripSetupInfoGrid">
+                <div className="tripSetupInfoItem">
+                  <div className="small">Site</div>
+                  <div style={{ fontWeight: 800 }}>{trip.location || "Not set"}</div>
+                </div>
+                <div className="tripSetupInfoItem">
+                  <div className="small">Project Leave Date</div>
+                  <div style={{ fontWeight: 800 }}>{formatSingleDate(trip.startDate)}</div>
+                </div>
+                <div className="tripSetupInfoItem">
+                  <div className="small">Project Return Date</div>
+                  <div style={{ fontWeight: 800 }}>{formatSingleDate(trip.endDate)}</div>
+                </div>
+                <div className="tripSetupInfoItem">
+                  <div className="small">Length of Projects</div>
+                  <div style={{ fontWeight: 800 }}>
+                    {trip.projectLengthSummary ||
+                      getWeeksInCountry(trip.startDate, trip.endDate) ||
+                      "Dates to be confirmed"}
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
@@ -2271,7 +2296,7 @@ function parseDateSafe(dateStr) {
               </div>
             )}
 
-            {renderTripSetupCard()}
+            {canViewAllParticipantData ? renderTripSetupCard() : null}
 
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Quick Links</div>
