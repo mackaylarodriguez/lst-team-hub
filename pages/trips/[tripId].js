@@ -79,7 +79,7 @@ export default function TripPage() {
   const [overviewNoteStatus, setOverviewNoteStatus] = useState("");
   const [teamFundraisingDraft, setTeamFundraisingDraft] = useState({
     teamFundraisingUrl: "",
-    teamNeonAccountId: "",
+    fundraisingGoalAmount: "",
   });
   const [teamFundraisingStatus, setTeamFundraisingStatus] = useState("");
   const [staffTaskStatus, setStaffTaskStatus] = useState("");
@@ -202,13 +202,12 @@ export default function TripPage() {
     (trip.participants || []).forEach((participant) => {
       nextDrafts[participant.id] = {
         fundraisingUrl: participant.fundraisingUrl || "",
-        neonUserAccountId: participant.neonUserAccountId || "",
       };
     });
     setFundraisingDrafts(nextDrafts);
     setTeamFundraisingDraft({
       teamFundraisingUrl: trip.teamFundraisingUrl || "",
-      teamNeonAccountId: trip.teamNeonAccountId || "",
+      fundraisingGoalAmount: trip.fundraisingGoalAmount ? String(trip.fundraisingGoalAmount) : "",
     });
   }, [trip]);
 
@@ -563,7 +562,6 @@ export default function TripPage() {
 
     const draft = fundraisingDrafts[participant.id] || {
       fundraisingUrl: "",
-      neonUserAccountId: "",
     };
 
     try {
@@ -575,10 +573,7 @@ export default function TripPage() {
       const savedProfile = await saveFundraisingProfile({
         tripId: trip.id,
         userId: participant.id,
-        goalAmount: participant.fundraisingGoal || 0,
-        raisedAmount: participant.fundraisingRaised || 0,
         fundraisingUrl: draft.fundraisingUrl,
-        neonUserAccountId: draft.neonUserAccountId,
       });
 
       setTrip((current) => {
@@ -590,10 +585,7 @@ export default function TripPage() {
             item.id === participant.id
               ? {
                   ...item,
-                  fundraisingGoal: savedProfile.goalAmount,
-                  fundraisingRaised: savedProfile.raisedAmount,
                   fundraisingUrl: savedProfile.fundraisingUrl,
-                  neonUserAccountId: savedProfile.neonUserAccountId || "",
                 }
               : item
           ),
@@ -604,7 +596,6 @@ export default function TripPage() {
         ...current,
         [participant.id]: {
           fundraisingUrl: savedProfile.fundraisingUrl || "",
-          neonUserAccountId: savedProfile.neonUserAccountId || "",
         },
       }));
 
@@ -632,7 +623,7 @@ export default function TripPage() {
       const savedTrip = await saveTripFundraisingSettings({
         tripId: trip.id,
         teamFundraisingUrl: teamFundraisingDraft.teamFundraisingUrl,
-        teamNeonAccountId: teamFundraisingDraft.teamNeonAccountId,
+        fundraisingGoalAmount: teamFundraisingDraft.fundraisingGoalAmount,
       });
 
       setTrip((current) =>
@@ -640,7 +631,7 @@ export default function TripPage() {
           ? {
               ...current,
               teamFundraisingUrl: savedTrip.team_fundraising_url || "",
-              teamNeonAccountId: savedTrip.team_neon_account_id || "",
+              fundraisingGoalAmount: Number(savedTrip.fundraising_goal_amount || 0),
             }
           : current
       );
@@ -949,29 +940,6 @@ function parseDateSafe(dateStr) {
     }).format(date);
   }
 
-  function formatMoney(value) {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(value || 0);
-  }
-
-  function getFundraisingTotals(participants = []) {
-    const totals = participants.reduce(
-      (sum, participant) => ({
-        raised: sum.raised + Number(participant.fundraisingRaised || 0),
-        goal: sum.goal + Number(participant.fundraisingGoal || 0),
-      }),
-      { raised: 0, goal: 0 }
-    );
-
-    return {
-      ...totals,
-      percent: totals.goal ? Math.round((totals.raised / totals.goal) * 100) : 0,
-    };
-  }
-
   function groupTasksByWorkArea(tasks) {
     const groups = {};
 
@@ -1006,6 +974,31 @@ function parseDateSafe(dateStr) {
       year: "numeric",
       hour: "numeric",
       minute: "2-digit",
+    });
+  }
+
+  function formatMoney(value) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(Number(value || 0));
+  }
+
+  function subtractDays(dateValue, days) {
+    if (!dateValue) return null;
+    const date = new Date(`${dateValue}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setDate(date.getDate() - days);
+    return date;
+  }
+
+  function formatDeadlineDate(date) {
+    if (!date) return "Date unavailable";
+    return date.toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   }
 
@@ -1179,20 +1172,12 @@ function parseDateSafe(dateStr) {
     return totalPossible ? Math.round((completed / totalPossible) * 100) : 0;
   }, [trainingProgress]);
 
-  const teamFundraisingTotals = useMemo(() => {
-    if (!trip) return { raised: 0, goal: 0, percent: 0 };
-    return getFundraisingTotals(trip.participants || []);
-  }, [trip]);
-
   const visibleFundraisingParticipants = useMemo(() => {
     if (!trip) return [];
     if (canViewAllParticipantData) return trip.participants || [];
+    if (trip.teamFundraisingUrl) return [];
     return currentParticipant ? [currentParticipant] : [];
   }, [trip, canViewAllParticipantData, currentParticipant]);
-
-  const visibleFundraisingTotals = useMemo(() => {
-    return getFundraisingTotals(visibleFundraisingParticipants);
-  }, [visibleFundraisingParticipants]);
 
   const referenceReceivedProgress = useMemo(() => {
     if (!trip) {
@@ -1238,10 +1223,33 @@ function parseDateSafe(dateStr) {
   const overviewTrainingPct = canViewAllParticipantData
     ? trainingPct
     : currentTrainingProgress?.percent || 0;
-  const overviewFundraisingLabel = canViewAllParticipantData ? "Team Fundraising" : "My Fundraising";
-  const overviewFundraisingTotals = canViewAllParticipantData
-    ? teamFundraisingTotals
-    : visibleFundraisingTotals;
+  const overviewFundraisingLabel = trip?.teamFundraisingUrl
+    ? "Team Fundraising Page"
+    : canViewAllParticipantData
+      ? "Fundraising Links"
+      : "My Fundraising Page";
+  const overviewFundraisingValue = trip?.teamFundraisingUrl
+    ? "Shared"
+    : canViewAllParticipantData
+      ? `${(trip?.participants || []).filter((participant) => !!participant.fundraisingUrl).length}`
+      : currentParticipant?.fundraisingUrl
+        ? "Ready"
+        : "Missing";
+  const overviewFundraisingDetail = trip?.teamFundraisingUrl
+    ? "Everyone sees the same team link."
+    : canViewAllParticipantData
+      ? `${(trip?.participants || []).filter((participant) => !!participant.fundraisingUrl).length} participant links saved.`
+      : currentParticipant?.fundraisingUrl
+        ? "Your personal Neon page is available."
+        : "No personal Neon page added yet.";
+  const fundraisingGoalAmount = Number(trip?.fundraisingGoalAmount || 0);
+  const fundraisingFirstDeadlineAmount = Math.min(2000, fundraisingGoalAmount || 2000);
+  const fundraisingSecondDeadlineAmount = Math.max(
+    (fundraisingGoalAmount || 0) - fundraisingFirstDeadlineAmount,
+    0
+  );
+  const fundraisingFirstDeadlineDate = subtractDays(trip?.startDate, 90);
+  const fundraisingSecondDeadlineDate = subtractDays(trip?.startDate, 30);
   const visibleTaskParticipants = canViewAllParticipantData
     ? participantTaskProgress
     : currentParticipantProgress
@@ -1385,12 +1393,9 @@ function parseDateSafe(dateStr) {
 
             <div className="card pad">
               <div className="small" style={{ marginBottom: 8 }}>{overviewFundraisingLabel}</div>
-              <div style={{ fontSize: 28, fontWeight: 900 }}>{overviewFundraisingTotals.percent}%</div>
-              <div className="progress" style={{ marginTop: 10 }}>
-                <div style={{ width: `${Math.min(overviewFundraisingTotals.percent, 100)}%` }} />
-              </div>
+              <div style={{ fontSize: 28, fontWeight: 900 }}>{overviewFundraisingValue}</div>
               <div className="small" style={{ marginTop: 8 }}>
-                {formatMoney(overviewFundraisingTotals.raised)} of {formatMoney(overviewFundraisingTotals.goal)} raised.
+                {overviewFundraisingDetail}
               </div>
             </div>
 
@@ -1679,7 +1684,9 @@ function parseDateSafe(dateStr) {
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
               <div className="small" style={{ marginBottom: 10 }}>
-                Use this when the whole team shares one Neon fundraising page.
+                Use this when the whole team shares one Neon fundraising page. You can also set the
+                total amount needed for the trip and the page will auto-build the 90-day and 30-day
+                fundraising deadlines.
               </div>
               <div style={{ display: "grid", gap: 10 }}>
                 <input
@@ -1695,14 +1702,17 @@ function parseDateSafe(dateStr) {
                 />
                 <input
                   className="input"
-                  value={teamFundraisingDraft.teamNeonAccountId}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={teamFundraisingDraft.fundraisingGoalAmount}
                   onChange={(event) =>
                     setTeamFundraisingDraft((current) => ({
                       ...current,
-                      teamNeonAccountId: event.target.value,
+                      fundraisingGoalAmount: event.target.value,
                     }))
                   }
-                  placeholder="Shared team Neon account/campaign ID"
+                  placeholder="Total fundraising needed for this trip"
                 />
                 <div className="row">
                   <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
@@ -1723,21 +1733,49 @@ function parseDateSafe(dateStr) {
             </div>
           )}
 
-          {canViewAllParticipantData && (
-            <div className="card pad">
-              <div className="row" style={{ marginBottom: 8 }}>
-                <div style={{ fontWeight: 900 }}>Team Fundraising Overview</div>
-                <div className="spacer" />
-                <span className="badge badgeSuccess">{teamFundraisingTotals.percent}%</span>
+          <div className="card pad">
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>Fundraising Deadlines</div>
+            <div className="small" style={{ marginBottom: 12 }}>
+              These dates are automatically based on the trip start date.
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: 16,
+              }}
+            >
+              <div className="card pad" style={{ boxShadow: "none" }}>
+                <div className="small" style={{ marginBottom: 6 }}>90 Days Before Trip</div>
+                <div style={{ fontWeight: 900, fontSize: 22 }}>{formatMoney(fundraisingFirstDeadlineAmount)}</div>
+                <div className="small" style={{ marginTop: 8 }}>
+                  Due by {formatDeadlineDate(fundraisingFirstDeadlineDate)}
+                </div>
+                <div className="small" style={{ marginTop: 8 }}>
+                  Initial fundraising target.
+                </div>
               </div>
-              <div className="progress">
-                <div style={{ width: `${Math.min(teamFundraisingTotals.percent, 100)}%` }} />
-              </div>
-              <div className="small" style={{ marginTop: 8 }}>
-                {formatMoney(teamFundraisingTotals.raised)} raised of {formatMoney(teamFundraisingTotals.goal)} total goal.
+              <div className="card pad" style={{ boxShadow: "none" }}>
+                <div className="small" style={{ marginBottom: 6 }}>30 Days Before Trip</div>
+                <div style={{ fontWeight: 900, fontSize: 22 }}>{formatMoney(fundraisingSecondDeadlineAmount)}</div>
+                <div className="small" style={{ marginTop: 8 }}>
+                  Due by {formatDeadlineDate(fundraisingSecondDeadlineDate)}
+                </div>
+                <div className="small" style={{ marginTop: 8 }}>
+                  Remaining amount due for the trip.
+                </div>
               </div>
             </div>
-          )}
+            {fundraisingGoalAmount > 0 ? (
+              <div className="small" style={{ marginTop: 12 }}>
+                Total needed for this trip: {formatMoney(fundraisingGoalAmount)}
+              </div>
+            ) : (
+              <div className="small" style={{ marginTop: 12 }}>
+                Staff can set the total fundraising amount above.
+              </div>
+            )}
+          </div>
 
           <div className="card pad">
             <div style={{ fontWeight: 900, marginBottom: 8 }}>
@@ -1745,13 +1783,29 @@ function parseDateSafe(dateStr) {
             </div>
             <p className="small">
               {canViewAllParticipantData
-                ? "Admin and staff can view every participant's fundraising progress."
-                : "This page only shows your own fundraising progress."}
+                ? "Save a shared team page or personal Neon links for each participant."
+                : trip?.teamFundraisingUrl
+                  ? "Your trip uses one shared Neon fundraising page."
+                  : "This page only shows your own fundraising page."}
             </p>
             <div style={{ height: 10 }} />
 
+            {!canViewAllParticipantData && trip?.teamFundraisingUrl ? (
+              <div className="card pad" style={{ boxShadow: "none" }}>
+                <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
+                <div className="small" style={{ marginBottom: 10 }}>
+                  Your whole team uses this one Neon page.
+                </div>
+                <a className="btn btnPrimary" href={trip.teamFundraisingUrl} target="_blank" rel="noreferrer">
+                  Open Team Neon Page
+                </a>
+              </div>
+            ) : null}
+
             {visibleFundraisingParticipants.length === 0 ? (
-              <div className="small">No fundraising record found for this login.</div>
+              !canViewAllParticipantData && trip?.teamFundraisingUrl ? null : (
+                <div className="small">No fundraising record found for this login.</div>
+              )
             ) : (
               <div
                 style={{
@@ -1761,26 +1815,13 @@ function parseDateSafe(dateStr) {
                 }}
               >
                 {visibleFundraisingParticipants.map((participant) => {
-                  const individualPct = participant.fundraisingGoal
-                    ? Math.round(
-                        (Number(participant.fundraisingRaised || 0) /
-                          Number(participant.fundraisingGoal)) *
-                          100
-                      )
-                    : 0;
-
-                    return (
+                  return (
                     <div key={participant.email} className="card pad" style={{ boxShadow: "none" }}>
-                      <div className="row" style={{ marginBottom: 8 }}>
-                        <div style={{ fontWeight: 900 }}>{participant.name}</div>
-                        <div className="spacer" />
-                        <span className="badge badgeSuccess">{individualPct}%</span>
-                      </div>
-                      <div className="progress">
-                        <div style={{ width: `${Math.min(individualPct, 100)}%` }} />
-                      </div>
-                      <div className="small" style={{ marginTop: 8 }}>
-                      {formatMoney(participant.fundraisingRaised || 0)} of {formatMoney(participant.fundraisingGoal || 0)} raised.
+                      <div style={{ fontWeight: 900, marginBottom: 8 }}>{participant.name}</div>
+                      <div className="small" style={{ marginBottom: 10 }}>
+                        {participant.fundraisingUrl
+                          ? "Personal Neon fundraising page saved."
+                          : "No personal Neon link added yet."}
                       </div>
                       <div style={{ height: 10 }} />
                       {participant.fundraisingUrl ? (
@@ -1803,17 +1844,6 @@ function parseDateSafe(dateStr) {
                                 updateFundraisingDraft(participant.id, "fundraisingUrl", event.target.value)
                               }
                               placeholder="https://"
-                            />
-                          </div>
-                          <div>
-                            <div className="small" style={{ marginBottom: 6 }}>Neon Account ID</div>
-                            <input
-                              className="input"
-                              value={fundraisingDrafts[participant.id]?.neonUserAccountId || ""}
-                              onChange={(event) =>
-                                updateFundraisingDraft(participant.id, "neonUserAccountId", event.target.value)
-                              }
-                              placeholder="Neon user account ID"
                             />
                           </div>
                           {fundraisingStatus[participant.id]?.message && (
