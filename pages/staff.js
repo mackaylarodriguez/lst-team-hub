@@ -190,7 +190,10 @@ function WorkerSection({
           <tbody>
             {workers.map((worker) => (
               <tr key={worker.id}>
-                <td style={{ fontWeight: 700 }}>{worker.email}</td>
+                <td>
+                  <div style={{ fontWeight: 700 }}>{worker.name || worker.email}</div>
+                  <div className="small">{worker.email}</div>
+                </td>
                 <td>
                   {worker.assignments.length === 0
                     ? "None"

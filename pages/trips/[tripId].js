@@ -179,8 +179,6 @@ export default function TripPage() {
     const nextDrafts = {};
     (trip.participants || []).forEach((participant) => {
       nextDrafts[participant.id] = {
-        goalAmount: String(participant.fundraisingGoal || 0),
-        raisedAmount: String(participant.fundraisingRaised || 0),
         fundraisingUrl: participant.fundraisingUrl || "",
       };
     });
@@ -453,8 +451,6 @@ export default function TripPage() {
     setFundraisingDrafts((current) => ({
       ...current,
       [participantId]: {
-        goalAmount: current[participantId]?.goalAmount || "0",
-        raisedAmount: current[participantId]?.raisedAmount || "0",
         fundraisingUrl: current[participantId]?.fundraisingUrl || "",
         [field]: value,
       },
@@ -465,8 +461,6 @@ export default function TripPage() {
     if (!trip || !participant?.id) return;
 
     const draft = fundraisingDrafts[participant.id] || {
-      goalAmount: "0",
-      raisedAmount: "0",
       fundraisingUrl: "",
     };
 
@@ -479,8 +473,8 @@ export default function TripPage() {
       const savedProfile = await saveFundraisingProfile({
         tripId: trip.id,
         userId: participant.id,
-        goalAmount: draft.goalAmount,
-        raisedAmount: draft.raisedAmount,
+        goalAmount: participant.fundraisingGoal || 0,
+        raisedAmount: participant.fundraisingRaised || 0,
         fundraisingUrl: draft.fundraisingUrl,
       });
 
@@ -505,8 +499,6 @@ export default function TripPage() {
       setFundraisingDrafts((current) => ({
         ...current,
         [participant.id]: {
-          goalAmount: String(savedProfile.goalAmount || 0),
-          raisedAmount: String(savedProfile.raisedAmount || 0),
           fundraisingUrl: savedProfile.fundraisingUrl || "",
         },
       }));
@@ -1364,9 +1356,9 @@ function parseDateSafe(dateStr) {
                     : 0;
 
                     return (
-                      <div key={participant.email} className="card pad" style={{ boxShadow: "none" }}>
-                        <div className="row" style={{ marginBottom: 8 }}>
-                          <div style={{ fontWeight: 900 }}>{participant.name}</div>
+                    <div key={participant.email} className="card pad" style={{ boxShadow: "none" }}>
+                      <div className="row" style={{ marginBottom: 8 }}>
+                        <div style={{ fontWeight: 900 }}>{participant.name}</div>
                         <div className="spacer" />
                         <span className="badge badgeSuccess">{individualPct}%</span>
                       </div>
@@ -1374,44 +1366,22 @@ function parseDateSafe(dateStr) {
                         <div style={{ width: `${Math.min(individualPct, 100)}%` }} />
                       </div>
                       <div className="small" style={{ marginTop: 8 }}>
-                        {formatMoney(participant.fundraisingRaised || 0)} of {formatMoney(participant.fundraisingGoal || 0)} raised.
+                      {formatMoney(participant.fundraisingRaised || 0)} of {formatMoney(participant.fundraisingGoal || 0)} raised.
                       </div>
-                        <div style={{ height: 10 }} />
-                        {participant.fundraisingUrl ? (
-                          <a className="btn btnPrimary" href={participant.fundraisingUrl} target="_blank" rel="noreferrer">
-                            Open Fundraising Page
-                          </a>
-                        ) : (
-                          <div className="small">No fundraising link added yet.</div>
-                        )}
-                        <div style={{ height: 12 }} />
-                        <div style={{ display: "grid", gap: 10 }}>
+                      <div style={{ height: 10 }} />
+                      {participant.fundraisingUrl ? (
+                        <a className="btn btnPrimary" href={participant.fundraisingUrl} target="_blank" rel="noreferrer">
+                          Open Neon Page
+                        </a>
+                      ) : (
+                        <div className="small">No Neon link added yet.</div>
+                      )}
+                      {canViewAllParticipantData && (
+                        <>
+                          <div style={{ height: 12 }} />
+                          <div style={{ display: "grid", gap: 10 }}>
                           <div>
-                            <div className="small" style={{ marginBottom: 6 }}>Goal Amount</div>
-                            <input
-                              className="input"
-                              type="number"
-                              min="0"
-                              value={fundraisingDrafts[participant.id]?.goalAmount || ""}
-                              onChange={(event) =>
-                                updateFundraisingDraft(participant.id, "goalAmount", event.target.value)
-                              }
-                            />
-                          </div>
-                          <div>
-                            <div className="small" style={{ marginBottom: 6 }}>Raised Amount</div>
-                            <input
-                              className="input"
-                              type="number"
-                              min="0"
-                              value={fundraisingDrafts[participant.id]?.raisedAmount || ""}
-                              onChange={(event) =>
-                                updateFundraisingDraft(participant.id, "raisedAmount", event.target.value)
-                              }
-                            />
-                          </div>
-                          <div>
-                            <div className="small" style={{ marginBottom: 6 }}>Fundraising Link</div>
+                            <div className="small" style={{ marginBottom: 6 }}>Neon Fundraising Link</div>
                             <input
                               className="input"
                               value={fundraisingDrafts[participant.id]?.fundraisingUrl || ""}
@@ -1439,10 +1409,12 @@ function parseDateSafe(dateStr) {
                             type="button"
                             onClick={() => handleSaveFundraising(participant)}
                           >
-                            Save Fundraising
+                            Save Neon Link
                           </button>
-                        </div>
-                      </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   );
                 })}
               </div>
