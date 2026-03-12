@@ -174,12 +174,55 @@ a:hover{text-decoration:underline}
   margin-top:4px;
   color:var(--primary);
 }
+.tripSetupColumns{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:18px;
+  align-items:start;
+}
+.tripSetupSection{
+  min-height:100%;
+  padding:16px;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,251,255,.95));
+}
+.tripSetupSectionHeader{
+  display:inline-flex;
+  align-items:center;
+  margin-bottom:14px;
+  padding:7px 12px;
+  border-radius:999px;
+  border:1px solid transparent;
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.tripSetupSectionTrip .tripSetupSectionHeader{
+  color:var(--primary);
+  background:var(--primarySoft);
+  border-color:rgba(47,73,147,.18);
+}
+.tripSetupSectionSite .tripSetupSectionHeader{
+  color:#9a6700;
+  background:var(--goldSoft);
+  border-color:rgba(249,157,42,.24);
+}
+.tripSetupSectionFees .tripSetupSectionHeader{
+  color:#0f6e91;
+  background:var(--skySoft);
+  border-color:rgba(60,170,225,.24);
+}
 @media(max-width:980px){
   .staffTaskRowActions{
     opacity:1;
     pointer-events:auto;
   }
   .adminTaskSummary{
+    grid-template-columns:1fr;
+  }
+  .tripSetupColumns{
     grid-template-columns:1fr;
   }
 }

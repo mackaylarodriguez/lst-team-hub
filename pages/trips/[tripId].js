@@ -141,6 +141,7 @@ export default function TripPage() {
   const [editingDueDateTaskId, setEditingDueDateTaskId] = useState(null);
   const [staffTaskTitleDraft, setStaffTaskTitleDraft] = useState("");
   const latestStaffTaskSaveRef = useRef(0);
+  const editableStaffTasksRef = useRef([]);
 
   const staffList = [
     "Mackayla",
@@ -355,6 +356,10 @@ export default function TripPage() {
       cancelled = true;
     };
   }, [trip?.id]);
+
+  useEffect(() => {
+    editableStaffTasksRef.current = editableStaffTasks;
+  }, [editableStaffTasks]);
 
   useEffect(() => {
     if (!trip?.id) return;
@@ -970,8 +975,9 @@ export default function TripPage() {
   async function saveStaffTasks(nextTasks) {
     const orderedTasks = sortStaffTasksByTemplate(nextTasks);
     setEditableStaffTasks(orderedTasks);
+    editableStaffTasksRef.current = orderedTasks;
     if (!trip) return;
-    const requestId = Date.now();
+    const requestId = latestStaffTaskSaveRef.current + 1;
     latestStaffTaskSaveRef.current = requestId;
     try {
       setStaffTaskStatus("Saving...");
@@ -984,6 +990,7 @@ export default function TripPage() {
       const savedTasks = await persistStaffTasks(trip.id, tasksToPersist);
       if (latestStaffTaskSaveRef.current !== requestId) return;
       setEditableStaffTasks(savedTasks);
+      editableStaffTasksRef.current = savedTasks;
       setStaffTaskStatus("Saved.");
     } catch (error) {
       console.error("Unable to save staff tasks", error);
@@ -993,11 +1000,11 @@ export default function TripPage() {
   }
 
   function updateStaffTask(taskId, field, value) {
-    void saveStaffTasks(
-      editableStaffTasks.map((task) =>
-        task.id === taskId ? { ...task, [field]: value } : task
-      )
+    const baseTasks = editableStaffTasksRef.current || [];
+    const nextTasks = baseTasks.map((task) =>
+      task.id === taskId ? { ...task, [field]: value } : task
     );
+    void saveStaffTasks(nextTasks);
   }
 
   function handleEditStaffTask(task) {
@@ -1380,16 +1387,9 @@ function parseDateSafe(dateStr) {
             </button>
           ) : null}
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 18,
-            alignItems: "start",
-          }}
-        >
-          <div>
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Trip Details</div>
+        <div className="tripSetupColumns">
+          <div className="tripSetupSection tripSetupSectionTrip">
+            <div className="tripSetupSectionHeader">Trip Details</div>
             {isEditingTripSetup ? (
               <div style={{ display: "grid", gap: 12 }}>
                 <div>
@@ -1490,8 +1490,8 @@ function parseDateSafe(dateStr) {
           </div>
 
           {canViewAllParticipantData ? (
-            <div>
-              <div style={{ fontWeight: 900, marginBottom: 10 }}>Site Setup</div>
+            <div className="tripSetupSection tripSetupSectionSite">
+              <div className="tripSetupSectionHeader">Site Setup</div>
               {isEditingTripSetup ? (
                 <div style={{ display: "grid", gap: 12 }}>
                   <div>
@@ -1568,8 +1568,8 @@ function parseDateSafe(dateStr) {
           ) : null}
 
           {canViewAllParticipantData ? (
-            <div>
-              <div style={{ fontWeight: 900, marginBottom: 10 }}>Fees</div>
+            <div className="tripSetupSection tripSetupSectionFees">
+              <div className="tripSetupSectionHeader">Fees</div>
               {isEditingTripSetup ? (
                 <div style={{ display: "grid", gap: 12 }}>
                   <div>
@@ -1969,33 +1969,48 @@ function parseDateSafe(dateStr) {
         ? "Your personal Neon page is available."
         : "No personal Neon page added yet.";
   const smartsheetBudgetDoc = docs.find((doc) => doc.resourceKey === "smartsheet-budget");
+  const siteInfoDoc = docs.find((doc) => doc.resourceKey === "site-info-link");
   const quickLinks = useMemo(() => {
     const links = [
       {
         label: "Canvas",
         url: "https://canvas.instructure.com/courses/12611786",
+        ready: true,
       },
     ];
 
-    if (canViewAllParticipantData && trip?.teamFundraisingUrl) {
-      links.push({ label: "Team Fundraising Page", url: trip.teamFundraisingUrl });
-    }
+    links.push(
+      canViewAllParticipantData
+        ? {
+            label: "Team Fundraising Page",
+            url: trip?.teamFundraisingUrl || "",
+            ready: !!trip?.teamFundraisingUrl,
+          }
+        : {
+            label: "My Fundraising Page",
+            url: currentParticipant?.fundraisingUrl || "",
+            ready: !!currentParticipant?.fundraisingUrl,
+          }
+    );
 
-    if (!canViewAllParticipantData && currentParticipant?.fundraisingUrl) {
-      links.push({ label: "My Fundraising Page", url: currentParticipant.fundraisingUrl });
-    }
+    links.push({
+      label: "Smartsheet Budget",
+      url: smartsheetBudgetDoc?.link || smartsheetBudgetDoc?.pdfUrl || "",
+      ready: !!(smartsheetBudgetDoc?.link || smartsheetBudgetDoc?.pdfUrl),
+    });
 
-    if (smartsheetBudgetDoc?.link || smartsheetBudgetDoc?.pdfUrl) {
-      links.push({
-        label: "Smartsheet Budget",
-        url: smartsheetBudgetDoc.link || smartsheetBudgetDoc.pdfUrl,
-      });
-    }
+    links.push({
+      label: "Site Info Link",
+      url: siteInfoDoc?.link || siteInfoDoc?.pdfUrl || "",
+      ready: !!(siteInfoDoc?.link || siteInfoDoc?.pdfUrl),
+    });
 
     return links;
   }, [
     canViewAllParticipantData,
     currentParticipant?.fundraisingUrl,
+    siteInfoDoc?.link,
+    siteInfoDoc?.pdfUrl,
     smartsheetBudgetDoc?.link,
     smartsheetBudgetDoc?.pdfUrl,
     trip?.teamFundraisingUrl,
@@ -2260,16 +2275,34 @@ function parseDateSafe(dateStr) {
 
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Quick Links</div>
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {quickLinks.map(l => (
-                  <li key={l.label} style={{ marginBottom: 8 }}>
-                    <a href={l.url} target="_blank" rel="noreferrer">{l.label}</a>
-                  </li>
+              <div style={{ display: "grid", gap: 10 }}>
+                {quickLinks.map((link) => (
+                  <div
+                    key={link.label}
+                    className="row"
+                    style={{ justifyContent: "space-between", alignItems: "center" }}
+                  >
+                    <div style={{ fontWeight: 800 }}>{link.label}</div>
+                    {link.ready ? (
+                      <a className="btn btnPrimary" href={link.url} target="_blank" rel="noreferrer">
+                        Open
+                      </a>
+                    ) : (
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled
+                        style={{ opacity: 0.6, cursor: "not-allowed" }}
+                      >
+                        Coming soon
+                      </button>
+                    )}
+                  </div>
                 ))}
-              </ul>
+              </div>
               <div style={{ height: 10 }} />
               <div className="small">
-                Canvas is fixed. Fundraising and budget links update from this trip's saved data.
+                Canvas is fixed. Fundraising, budget, and site info links come from this trip's saved data.
               </div>
             </div>
           </div>

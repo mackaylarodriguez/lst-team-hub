@@ -44,6 +44,7 @@ export default function Admin() {
   const [trips, setTrips] = useState([]);
   const [staffTaskStatus, setStaffTaskStatus] = useState("");
   const latestStaffTaskSaveRef = useRef(0);
+  const staffTasksByTripRef = useRef({});
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
   useEffect(() => {
@@ -115,6 +116,10 @@ export default function Admin() {
     };
   }, [trips]);
 
+  useEffect(() => {
+    staffTasksByTripRef.current = staffTasksByTrip;
+  }, [staffTasksByTrip]);
+
   const allTasks = useMemo(
     () =>
       trips.flatMap((trip) =>
@@ -166,17 +171,21 @@ export default function Admin() {
   }, [myTasks, sortMode]);
 
   async function updateTask(tripId, taskId, field, value) {
-    const baseTasks = staffTasksByTrip[tripId] || [];
+    const baseTasks = staffTasksByTripRef.current[tripId] || [];
     const nextTripTasks = baseTasks.map((task) =>
       task.id === taskId ? { ...task, [field]: value } : task
     );
-    const requestId = Date.now();
+    const requestId = latestStaffTaskSaveRef.current + 1;
     latestStaffTaskSaveRef.current = requestId;
 
     setStaffTasksByTrip((prev) => ({
       ...prev,
       [tripId]: nextTripTasks,
     }));
+    staffTasksByTripRef.current = {
+      ...staffTasksByTripRef.current,
+      [tripId]: nextTripTasks,
+    };
     try {
       setStaffTaskStatus("Saving...");
       const tasksToPersist = nextTripTasks.map((task) => ({
@@ -191,6 +200,10 @@ export default function Admin() {
         ...prev,
         [tripId]: savedTasks,
       }));
+      staffTasksByTripRef.current = {
+        ...staffTasksByTripRef.current,
+        [tripId]: savedTasks,
+      };
       setStaffTaskStatus("Saved.");
     } catch (error) {
       console.error("Unable to save staff tasks", error);
