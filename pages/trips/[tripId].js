@@ -221,7 +221,7 @@ export default function TripPage() {
     {
       id: "gateway",
       title: "Gateway Training",
-      description: "Gateway content and EndMeeting follow-through.",
+      description: "Gateway Training plus the EndMeeting link and follow-through.",
       url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=136&",
       icon: "GT",
       accent: "#f99d2a",
@@ -2466,10 +2466,8 @@ function parseDateSafe(dateStr) {
 
   const visibleFundraisingParticipants = useMemo(() => {
     if (!trip) return [];
-    if (canViewAllParticipantData) return trip.participants || [];
-    if (trip.teamFundraisingUrl) return [];
-    return currentParticipant ? [currentParticipant] : [];
-  }, [trip, canViewAllParticipantData, currentParticipant]);
+    return trip.participants || [];
+  }, [trip]);
 
   const referenceReceivedProgress = useMemo(() => {
     if (!trip) {
@@ -3470,8 +3468,8 @@ function parseDateSafe(dateStr) {
               {canViewAllParticipantData
                 ? "Save a shared team page or personal Neon links for each participant."
                 : trip?.teamFundraisingUrl
-                  ? "Your trip uses one shared Neon fundraising page."
-                  : "This page only shows your own fundraising page."}
+                  ? "Your team uses one shared Neon fundraising page, and you can also see each team member's page below."
+                  : "This page shows your team's fundraising pages."}
             </p>
             <div style={{ height: 10 }} />
 
@@ -3855,37 +3853,74 @@ function parseDateSafe(dateStr) {
                   </div>
 
                   <div style={{ marginTop: 12 }}>
-                    <div style={{ display: "grid", gap: 10 }}>
+                    <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
+                      Basic / Gateway / EndMeeting
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 8,
+                        padding: "10px 12px",
+                        borderRadius: 14,
+                        border: "1px solid rgba(15, 23, 42, 0.08)",
+                        background: "rgba(255,255,255,.78)",
+                      }}
+                    >
                       {supplementalTrainingModules.map((module) => (
                         <div
                           key={`${participant.email}-${module.id}`}
-                          className="card pad"
-                          style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "18px minmax(0, 1fr)",
+                            gap: 10,
+                            alignItems: "start",
+                            paddingBottom: 8,
+                            borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
+                          }}
                         >
-                          <div className="row" style={{ alignItems: "flex-start" }}>
-                            <input
-                              type="checkbox"
-                              checked={!!trainingState[module.id]}
-                              onChange={() => toggleTraining(module.id, participant.email)}
-                              style={{ marginTop: 3 }}
-                            />
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 900 }}>{module.title}</div>
-                              <div style={{ marginTop: 8 }}>
-                                <div className="small" style={{ marginBottom: 6 }}>Date Attended</div>
-                                <input
-                                  className="input"
-                                  type="date"
-                                  value={trainingState[`${module.id}Date`] || ""}
-                                  onChange={(e) =>
-                                    updateTrainingDate(module.id, e.target.value, participant.email)
-                                  }
-                                />
-                              </div>
+                          <input
+                            type="checkbox"
+                            checked={!!trainingState[module.id]}
+                            onChange={() => toggleTraining(module.id, participant.email)}
+                            style={{ marginTop: 2 }}
+                          />
+                          <div>
+                            <div
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                lineHeight: 1.35,
+                                marginBottom: 6,
+                              }}
+                            >
+                              {module.title}
                             </div>
-                            <span className={"badge " + (!!trainingState[module.id] ? "badgeSuccess" : "badgeDanger")}>
-                              {!!trainingState[module.id] ? "Complete" : "Not started"}
-                            </span>
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "minmax(0, 1fr) auto",
+                                gap: 8,
+                                alignItems: "center",
+                              }}
+                            >
+                              <input
+                                className="input"
+                                type="date"
+                                value={trainingState[`${module.id}Date`] || ""}
+                                onChange={(e) =>
+                                  updateTrainingDate(module.id, e.target.value, participant.email)
+                                }
+                                style={{ padding: "8px 10px", fontSize: 13 }}
+                              />
+                              <span
+                                className={
+                                  "badge " +
+                                  (!!trainingState[module.id] ? "badgeSuccess" : "badgeDanger")
+                                }
+                              >
+                                {!!trainingState[module.id] ? "Done" : "Open"}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       ))}
