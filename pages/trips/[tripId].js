@@ -82,6 +82,8 @@ export default function TripPage() {
     fundraisingGoalAmount: "",
   });
   const [teamFundraisingStatus, setTeamFundraisingStatus] = useState("");
+  const [isEditingTeamFundraising, setIsEditingTeamFundraising] = useState(false);
+  const [editingParticipantFundraisingId, setEditingParticipantFundraisingId] = useState("");
   const [staffTaskStatus, setStaffTaskStatus] = useState("");
   const [previewParticipantId, setPreviewParticipantId] = useState("");
 
@@ -209,6 +211,8 @@ export default function TripPage() {
       teamFundraisingUrl: trip.teamFundraisingUrl || "",
       fundraisingGoalAmount: trip.fundraisingGoalAmount ? String(trip.fundraisingGoalAmount) : "",
     });
+    setIsEditingTeamFundraising(false);
+    setEditingParticipantFundraisingId("");
   }, [trip]);
 
   useEffect(() => {
@@ -603,6 +607,7 @@ export default function TripPage() {
         ...current,
         [participant.id]: { type: "success", message: "Saved." },
       }));
+      setEditingParticipantFundraisingId("");
     } catch (error) {
       console.error("Unable to save fundraising profile", error);
       setFundraisingStatus((current) => ({
@@ -635,6 +640,7 @@ export default function TripPage() {
             }
           : current
       );
+      setIsEditingTeamFundraising(false);
       setTeamFundraisingStatus("Saved.");
     } catch (error) {
       console.error("Unable to save team fundraising settings", error);
@@ -1002,6 +1008,28 @@ function parseDateSafe(dateStr) {
     });
   }
 
+  function getWeeksInCountry(startDate, endDate) {
+    if (!startDate || !endDate) return "";
+
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "";
+
+    const days = Math.max(
+      Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1,
+      1
+    );
+    const weeks = days / 7;
+
+    if (weeks >= 1) {
+      return `${weeks % 1 === 0 ? weeks.toFixed(0) : weeks.toFixed(1)} week${
+        weeks === 1 ? "" : "s"
+      }`;
+    }
+
+    return `${days} day${days === 1 ? "" : "s"}`;
+  }
+
   function formatTaskUpdatedAt(value) {
     if (!value) return "";
 
@@ -1223,25 +1251,6 @@ function parseDateSafe(dateStr) {
   const overviewTrainingPct = canViewAllParticipantData
     ? trainingPct
     : currentTrainingProgress?.percent || 0;
-  const overviewFundraisingLabel = trip?.teamFundraisingUrl
-    ? "Team Fundraising Page"
-    : canViewAllParticipantData
-      ? "Fundraising Links"
-      : "My Fundraising Page";
-  const overviewFundraisingValue = trip?.teamFundraisingUrl
-    ? "Shared"
-    : canViewAllParticipantData
-      ? `${(trip?.participants || []).filter((participant) => !!participant.fundraisingUrl).length}`
-      : currentParticipant?.fundraisingUrl
-        ? "Ready"
-        : "Missing";
-  const overviewFundraisingDetail = trip?.teamFundraisingUrl
-    ? "Everyone sees the same team link."
-    : canViewAllParticipantData
-      ? `${(trip?.participants || []).filter((participant) => !!participant.fundraisingUrl).length} participant links saved.`
-      : currentParticipant?.fundraisingUrl
-        ? "Your personal Neon page is available."
-        : "No personal Neon page added yet.";
   const fundraisingGoalAmount = Number(trip?.fundraisingGoalAmount || 0);
   const fundraisingFirstDeadlineAmount = Math.min(2000, fundraisingGoalAmount || 2000);
   const fundraisingWorkerCount = Math.max(
@@ -1264,6 +1273,47 @@ function parseDateSafe(dateStr) {
     : 0;
   const fundraisingFirstDeadlineDate = subtractDays(trip?.startDate, 90);
   const fundraisingSecondDeadlineDate = subtractDays(trip?.startDate, 30);
+  const savedFundraisingLinksCount = (trip?.participants || []).filter(
+    (participant) => !!participant.fundraisingUrl
+  ).length;
+  const nextFundraisingDeadline = fundraisingFirstDeadlineDate
+    ? {
+        amount: fundraisingFirstDeadlineAmount,
+        date: fundraisingFirstDeadlineDate,
+        label: "90-day deadline",
+      }
+    : fundraisingSecondDeadlineDate
+      ? {
+          amount: fundraisingSecondDeadlineAmount,
+          date: fundraisingSecondDeadlineDate,
+          label: "30-day deadline",
+        }
+      : null;
+  const overviewFundraisingLabel = trip?.teamFundraisingUrl
+    ? "Team Fundraising"
+    : canViewAllParticipantData
+      ? "Fundraising Links"
+      : "My Fundraising";
+  const overviewFundraisingValue = fundraisingGoalAmount
+    ? formatMoney(fundraisingGoalAmount)
+    : trip?.teamFundraisingUrl
+      ? "Page Ready"
+      : canViewAllParticipantData
+        ? `${savedFundraisingLinksCount} Links`
+        : currentParticipant?.fundraisingUrl
+          ? "Page Ready"
+          : "No Link";
+  const overviewFundraisingDetail = fundraisingGoalAmount && nextFundraisingDeadline
+    ? `${nextFundraisingDeadline.label}: ${formatMoney(
+        nextFundraisingDeadline.amount
+      )} by ${formatDeadlineDate(nextFundraisingDeadline.date)}.`
+    : trip?.teamFundraisingUrl
+      ? "Shared Neon page is ready for the full team."
+      : canViewAllParticipantData
+        ? `${savedFundraisingLinksCount} participant links saved.`
+        : currentParticipant?.fundraisingUrl
+          ? "Your personal Neon page is available."
+          : "No personal Neon page added yet.";
   const visibleTaskParticipants = canViewAllParticipantData
     ? participantTaskProgress
     : currentParticipantProgress
@@ -1518,15 +1568,16 @@ function parseDateSafe(dateStr) {
 
             <div className="card pad">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Trip Details</div>
-              <div className="small">Staff lead</div>
-              <div style={{ fontWeight: 800 }}>{trip.staffLead}</div>
-              <div className="small">{trip.staffEmail}</div>
-              <div style={{ height: 12 }} />
               <div className="small">Location</div>
               <div style={{ fontWeight: 800 }}>{trip.location}</div>
               <div style={{ height: 12 }} />
               <div className="small">Dates</div>
               <div style={{ fontWeight: 800 }}>{trip.dates}</div>
+              <div style={{ height: 12 }} />
+              <div className="small">Weeks in Country</div>
+              <div style={{ fontWeight: 800 }}>
+                {getWeeksInCountry(trip.startDate, trip.endDate) || "Dates to be confirmed"}
+              </div>
             </div>
 
             <div className="card pad">
@@ -1702,48 +1753,88 @@ function parseDateSafe(dateStr) {
                 total amount needed for the trip and the page will auto-build the 90-day and 30-day
                 fundraising deadlines.
               </div>
-              <div style={{ display: "grid", gap: 10 }}>
-                <input
-                  className="input"
-                  value={teamFundraisingDraft.teamFundraisingUrl}
-                  onChange={(event) =>
-                    setTeamFundraisingDraft((current) => ({
-                      ...current,
-                      teamFundraisingUrl: event.target.value,
-                    }))
-                  }
-                  placeholder="Shared team Neon link"
-                />
-                <input
-                  className="input"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={teamFundraisingDraft.fundraisingGoalAmount}
-                  onChange={(event) =>
-                    setTeamFundraisingDraft((current) => ({
-                      ...current,
-                      fundraisingGoalAmount: event.target.value,
-                    }))
-                  }
-                  placeholder="Total fundraising needed for this trip"
-                />
-                <div className="row">
-                  <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
-                    Save Team Fundraising
-                  </button>
-                  {teamFundraisingStatus ? (
-                    <div className="small" style={{ alignSelf: "center" }}>
-                      {teamFundraisingStatus}
-                    </div>
-                  ) : null}
+              {!isEditingTeamFundraising ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {trip.teamFundraisingUrl ? (
+                    <a className="btn" href={trip.teamFundraisingUrl} target="_blank" rel="noreferrer">
+                      Open Team Neon Page
+                    </a>
+                  ) : (
+                    <div className="small">No shared team Neon link added yet.</div>
+                  )}
+                  <div className="row">
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => {
+                        setIsEditingTeamFundraising(true);
+                        setTeamFundraisingStatus("");
+                      }}
+                    >
+                      {trip.teamFundraisingUrl ? "Edit Link" : "Add Link"}
+                    </button>
+                    {teamFundraisingStatus ? (
+                      <div className="small" style={{ alignSelf: "center" }}>
+                        {teamFundraisingStatus}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-                {trip.teamFundraisingUrl ? (
-                  <a className="btn" href={trip.teamFundraisingUrl} target="_blank" rel="noreferrer">
-                    Open Team Neon Page
-                  </a>
-                ) : null}
-              </div>
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  <input
+                    className="input"
+                    value={teamFundraisingDraft.teamFundraisingUrl}
+                    onChange={(event) =>
+                      setTeamFundraisingDraft((current) => ({
+                        ...current,
+                        teamFundraisingUrl: event.target.value,
+                      }))
+                    }
+                    placeholder="Shared team Neon link"
+                  />
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={teamFundraisingDraft.fundraisingGoalAmount}
+                    onChange={(event) =>
+                      setTeamFundraisingDraft((current) => ({
+                        ...current,
+                        fundraisingGoalAmount: event.target.value,
+                      }))
+                    }
+                    placeholder="Total fundraising needed for this trip"
+                  />
+                  <div className="row">
+                    <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
+                      Save Team Fundraising
+                    </button>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => {
+                        setIsEditingTeamFundraising(false);
+                        setTeamFundraisingStatus("");
+                        setTeamFundraisingDraft({
+                          teamFundraisingUrl: trip.teamFundraisingUrl || "",
+                          fundraisingGoalAmount: trip.fundraisingGoalAmount
+                            ? String(trip.fundraisingGoalAmount)
+                            : "",
+                        });
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    {teamFundraisingStatus ? (
+                      <div className="small" style={{ alignSelf: "center" }}>
+                        {teamFundraisingStatus}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1832,6 +1923,8 @@ function parseDateSafe(dateStr) {
                 }}
               >
                 {visibleFundraisingParticipants.map((participant) => {
+                  const isEditingParticipantLink =
+                    editingParticipantFundraisingId === participant.id;
                   return (
                     <div key={participant.email} className="card pad" style={{ boxShadow: "none" }}>
                       <div style={{ fontWeight: 900, marginBottom: 8 }}>{participant.name}</div>
@@ -1851,39 +1944,92 @@ function parseDateSafe(dateStr) {
                       {canViewAllParticipantData && (
                         <>
                           <div style={{ height: 12 }} />
-                          <div style={{ display: "grid", gap: 10 }}>
-                          <div>
-                            <div className="small" style={{ marginBottom: 6 }}>Neon Fundraising Link</div>
-                            <input
-                              className="input"
-                              value={fundraisingDrafts[participant.id]?.fundraisingUrl || ""}
-                              onChange={(event) =>
-                                updateFundraisingDraft(participant.id, "fundraisingUrl", event.target.value)
-                              }
-                              placeholder="https://"
-                            />
-                          </div>
-                          {fundraisingStatus[participant.id]?.message && (
-                            <div
-                              className="small"
-                              style={{
-                                color:
-                                  fundraisingStatus[participant.id].type === "error"
-                                    ? "var(--danger)"
-                                    : "var(--muted)",
-                              }}
-                            >
-                              {fundraisingStatus[participant.id].message}
+                          {!isEditingParticipantLink ? (
+                            <div className="row">
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={() => {
+                                  setEditingParticipantFundraisingId(participant.id);
+                                  setFundraisingStatus((current) => ({
+                                    ...current,
+                                    [participant.id]: undefined,
+                                  }));
+                                }}
+                              >
+                                {participant.fundraisingUrl ? "Edit Link" : "Add Link"}
+                              </button>
+                              {fundraisingStatus[participant.id]?.message ? (
+                                <div
+                                  className="small"
+                                  style={{
+                                    alignSelf: "center",
+                                    color:
+                                      fundraisingStatus[participant.id].type === "error"
+                                        ? "var(--danger)"
+                                        : "var(--muted)",
+                                  }}
+                                >
+                                  {fundraisingStatus[participant.id].message}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <div style={{ display: "grid", gap: 10 }}>
+                              <div>
+                                <div className="small" style={{ marginBottom: 6 }}>Neon Fundraising Link</div>
+                                <input
+                                  className="input"
+                                  value={fundraisingDrafts[participant.id]?.fundraisingUrl || ""}
+                                  onChange={(event) =>
+                                    updateFundraisingDraft(participant.id, "fundraisingUrl", event.target.value)
+                                  }
+                                  placeholder="https://"
+                                />
+                              </div>
+                              {fundraisingStatus[participant.id]?.message && (
+                                <div
+                                  className="small"
+                                  style={{
+                                    color:
+                                      fundraisingStatus[participant.id].type === "error"
+                                        ? "var(--danger)"
+                                        : "var(--muted)",
+                                  }}
+                                >
+                                  {fundraisingStatus[participant.id].message}
+                                </div>
+                              )}
+                              <div className="row">
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  onClick={() => handleSaveFundraising(participant)}
+                                >
+                                  Save Neon Link
+                                </button>
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingParticipantFundraisingId("");
+                                    setFundraisingStatus((current) => ({
+                                      ...current,
+                                      [participant.id]: undefined,
+                                    }));
+                                    setFundraisingDrafts((current) => ({
+                                      ...current,
+                                      [participant.id]: {
+                                        fundraisingUrl: participant.fundraisingUrl || "",
+                                      },
+                                    }));
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
                             </div>
                           )}
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => handleSaveFundraising(participant)}
-                          >
-                            Save Neon Link
-                          </button>
-                          </div>
                         </>
                       )}
                     </div>
