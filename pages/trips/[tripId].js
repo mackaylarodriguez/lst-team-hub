@@ -3598,7 +3598,7 @@ function parseDateSafe(dateStr) {
             <div style={{ height: 10 }} />
 
             {!canViewAllParticipantData && trip?.teamFundraisingUrl ? (
-              <div className="card pad" style={{ boxShadow: "none" }}>
+              <div className="card pad" style={{ boxShadow: "none", marginBottom: 14 }}>
                 <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
                 <div className="small" style={{ marginBottom: 10 }}>
                   Your whole team uses this one Neon page.
@@ -3617,8 +3617,10 @@ function parseDateSafe(dateStr) {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: 16,
+                  gridTemplateColumns: canViewAllParticipantData
+                    ? "repeat(auto-fit, minmax(220px, 1fr))"
+                    : "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: canViewAllParticipantData ? 16 : 12,
                 }}
               >
                 {visibleFundraisingParticipants.map((participant) => {
@@ -3630,7 +3632,7 @@ function parseDateSafe(dateStr) {
                       className="card pad"
                       style={{
                         boxShadow: "none",
-                        minHeight: 220,
+                        minHeight: canViewAllParticipantData ? 220 : 136,
                         display: "flex",
                         flexDirection: "column",
                         justifyContent: "space-between",
@@ -3651,7 +3653,13 @@ function parseDateSafe(dateStr) {
                       />
                       <div>
                         <div className="row" style={{ alignItems: "flex-start", marginBottom: 10 }}>
-                          <div style={{ fontWeight: 900, fontSize: 18, lineHeight: 1.2 }}>
+                          <div
+                            style={{
+                              fontWeight: 900,
+                              fontSize: canViewAllParticipantData ? 18 : 15,
+                              lineHeight: 1.2,
+                            }}
+                          >
                             {participant.name}
                           </div>
                           <div className="spacer" />
@@ -3670,9 +3678,7 @@ function parseDateSafe(dateStr) {
                           <a className="btn btnPrimary" href={participant.fundraisingUrl} target="_blank" rel="noreferrer">
                             Open Neon Page
                           </a>
-                        ) : (
-                          <div className="small">No Neon link added yet.</div>
-                        )}
+                        ) : null}
                       </div>
                       {canViewAllParticipantData && (
                         <>
