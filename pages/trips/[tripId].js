@@ -4094,7 +4094,7 @@ function parseDateSafe(dateStr) {
                             </div>
                             {module.deadlineDate ? (
                               <div className="small" style={{ marginTop: 4 }}>
-                                {formatSingleDate(module.deadlineDate)}
+                                {`Due: ${formatShortDate(module.deadlineDate)}`}
                               </div>
                             ) : null}
                           </div>
@@ -4148,7 +4148,7 @@ function parseDateSafe(dateStr) {
                             </div>
                             {module.deadlineDate ? (
                               <div className="small" style={{ marginBottom: 6 }}>
-                                {formatSingleDate(module.deadlineDate)}
+                                {`Due: ${formatShortDate(module.deadlineDate)}`}
                               </div>
                             ) : null}
                             <div
@@ -4366,7 +4366,7 @@ function parseDateSafe(dateStr) {
                                   <div
                                       style={{
                                         fontSize: 13,
-                                        fontWeight: 600,
+                                        fontWeight: 400,
                                         lineHeight: 1.35,
                                         marginBottom: 4,
                                       }}
@@ -4396,7 +4396,9 @@ function parseDateSafe(dateStr) {
                                         </button>
                                       )
                                     ) : (
-                                      <div className="small">Due: {task.due || "Not set"}</div>
+                                      <div className="small">
+                                        {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
+                                      </div>
                                     )}
                                   </div>
                                   <span className={"badge " + (done ? "badgeSuccess" : "badgeDanger")}>
