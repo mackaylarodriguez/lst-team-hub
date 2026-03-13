@@ -2561,8 +2561,7 @@ function parseDateSafe(dateStr) {
 
   const activeParticipantEmail = currentParticipant?.email?.toLowerCase() || "";
   const canUploadOwnParticipantDocuments =
-    !!currentParticipant &&
-    String(currentParticipant.id || "") === String(session?.profileId || session?.id || "");
+    !canViewAllParticipantData && !!currentParticipant;
   const participantDocumentsByUserId = useMemo(() => {
     const grouped = new Map();
 
