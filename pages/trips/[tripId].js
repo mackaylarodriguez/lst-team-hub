@@ -3191,11 +3191,6 @@ function parseDateSafe(dateStr) {
                         {task.detail ? `${task.detail} • ` : ""}
                         Due {task.dueDate ? formatSingleDate(task.dueDate) : "when ready"}
                       </div>
-                      {canViewAllParticipantData ? (
-                        <div className="small" style={{ marginTop: 4, color: "var(--accent)" }}>
-                          Open in Staff Tasks
-                        </div>
-                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -3330,7 +3325,6 @@ function parseDateSafe(dateStr) {
                     <th>Role</th>
                     <th>Email</th>
                     <th>Project Dates</th>
-                    {canViewAllParticipantData && <th>Fundraising</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -3357,22 +3351,11 @@ function parseDateSafe(dateStr) {
                         </td>
                         <td>{member.email || "Not set"}</td>
                         <td>{formatTripDateRange(member.startDate, member.endDate)}</td>
-                        {canViewAllParticipantData && (
-                          <td>
-                            {member.fundraisingUrl ? (
-                              <a href={member.fundraisingUrl} target="_blank" rel="noreferrer">
-                                Open
-                              </a>
-                            ) : (
-                              <span className="small">Not added</span>
-                            )}
-                          </td>
-                        )}
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={canViewAllParticipantData ? 5 : 4} className="small">
+                      <td colSpan={4} className="small">
                         No team members added yet.
                       </td>
                     </tr>
@@ -3962,30 +3945,79 @@ function parseDateSafe(dateStr) {
                     <span className="badge">{participant.percent}% complete</span>
                   </div>
 
-                  <div style={{ fontWeight: 900, marginBottom: 10 }}>Canvas Modules</div>
-                  <div style={{ display: "grid", gap: 10 }}>
-                    {canvasTrainingModules.map((module) => (
-                      <div
-                        key={`${participant.email}-${module.id}`}
-                        className="card pad"
-                        style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
-                      >
-                        <div className="row" style={{ alignItems: "flex-start" }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
+                      Canvas Modules
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 8,
+                        padding: "10px 12px",
+                        borderRadius: 14,
+                        border: "1px solid rgba(15, 23, 42, 0.08)",
+                        background: "rgba(255,255,255,.78)",
+                      }}
+                    >
+                      {canvasTrainingModules.map((module) => (
+                        <div
+                          key={`${participant.email}-${module.id}`}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "18px minmax(0, 1fr)",
+                            gap: 10,
+                            alignItems: "start",
+                            paddingBottom: 8,
+                            borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
+                          }}
+                        >
                           <input
                             type="checkbox"
                             checked={!!trainingState[module.id]}
                             onChange={() => toggleTraining(module.id, participant.email)}
-                            style={{ marginTop: 3 }}
+                            style={{ marginTop: 2 }}
                           />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 900 }}>{module.title}</div>
+                          <div>
+                            <div
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                lineHeight: 1.35,
+                                marginBottom: 6,
+                              }}
+                            >
+                              {module.title}
+                            </div>
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "minmax(0, 1fr) auto",
+                                gap: 8,
+                                alignItems: "center",
+                              }}
+                            >
+                              <input
+                                className="input"
+                                type="date"
+                                value={trainingState[`${module.id}Date`] || ""}
+                                onChange={(e) =>
+                                  updateTrainingDate(module.id, e.target.value, participant.email)
+                                }
+                                style={{ padding: "8px 10px", fontSize: 13 }}
+                              />
+                              <span
+                                className={
+                                  "badge " +
+                                  (!!trainingState[module.id] ? "badgeSuccess" : "badgeDanger")
+                                }
+                              >
+                                {!!trainingState[module.id] ? "Done" : "Open"}
+                              </span>
+                            </div>
                           </div>
-                          <span className={"badge " + (!!trainingState[module.id] ? "badgeSuccess" : "badgeDanger")}>
-                            {!!trainingState[module.id] ? "Complete" : "Not started"}
-                          </span>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
 
                   <div style={{ marginTop: 12 }}>
