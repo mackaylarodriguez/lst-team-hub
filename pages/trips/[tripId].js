@@ -2496,6 +2496,22 @@ function parseDateSafe(dateStr) {
       (group) => group.slots.length > 0 || group.docs.length > 0
     );
   }, [docs, requiredDocumentSlots]);
+  const optionalDocsByCategory = useMemo(() => {
+    const grouped = new Map();
+
+    (docs || [])
+      .filter((doc) => !doc.resourceKey)
+      .forEach((doc) => {
+        const category = doc.category || "Other";
+        const existing = grouped.get(category) || [];
+        existing.push(doc);
+        grouped.set(category, existing);
+      });
+
+    return Array.from(grouped.entries()).sort(([left], [right]) =>
+      left.localeCompare(right)
+    );
+  }, [docs]);
 
   const currentParticipant = useMemo(() => {
     if (!trip) return null;

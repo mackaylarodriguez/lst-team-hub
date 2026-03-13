@@ -70,7 +70,6 @@ export default function Login() {
           <div className="logo" aria-hidden="true" />
           <div>
             <div style={{ fontSize: 20, fontWeight: 900, letterSpacing:"-.02em" }}>LST International Projects Hub</div>
-            <div className="small">Centralize trip info, tasks, and documents.</div>
           </div>
         </div>
 
