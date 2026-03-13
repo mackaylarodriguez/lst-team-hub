@@ -3940,7 +3940,7 @@ function parseDateSafe(dateStr) {
                   </div>
 
                   <div style={{ marginBottom: 12 }}>
-                    <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
+                    <div className="small" style={{ fontWeight: 900, fontSize: 13, marginBottom: 8 }}>
                       Canvas Modules
                     </div>
                     <div
@@ -3985,20 +3985,10 @@ function parseDateSafe(dateStr) {
                             <div
                               style={{
                                 display: "grid",
-                                gridTemplateColumns: "minmax(0, 1fr) auto",
-                                gap: 8,
+                                gridTemplateColumns: "auto",
                                 alignItems: "center",
                               }}
                             >
-                              <input
-                                className="input"
-                                type="date"
-                                value={trainingState[`${module.id}Date`] || ""}
-                                onChange={(e) =>
-                                  updateTrainingDate(module.id, e.target.value, participant.email)
-                                }
-                                style={{ padding: "8px 10px", fontSize: 13 }}
-                              />
                               <span
                                 className={
                                   "badge " +
@@ -4015,7 +4005,7 @@ function parseDateSafe(dateStr) {
                   </div>
 
                   <div style={{ marginTop: 12 }}>
-                    <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
+                    <div className="small" style={{ fontWeight: 900, fontSize: 13, marginBottom: 8 }}>
                       Basic / Gateway / EndMeeting
                     </div>
                     <div
@@ -4256,15 +4246,29 @@ function parseDateSafe(dateStr) {
                                 <div
                                   key={`${participant.email}-${task.id}`}
                                   className="row"
-                                  style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}
+                                  style={{
+                                    padding: "8px 0",
+                                    borderBottom: "1px solid var(--border)",
+                                    alignItems: "flex-start",
+                                  }}
                                 >
                                   <input
                                     type="checkbox"
                                     checked={done}
                                     onChange={() => toggleTask(task.id, participant.email)}
+                                    style={{ marginTop: 2 }}
                                   />
                                   <div style={{ flex: 1 }}>
-                                    <div style={{ fontWeight: 900 }}>{task.title}</div>
+                                    <div
+                                      style={{
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        lineHeight: 1.35,
+                                        marginBottom: 4,
+                                      }}
+                                    >
+                                      {task.title}
+                                    </div>
                                     <div className="small">Due: {task.due || "Not set"}</div>
                                   </div>
                                   <span className={"badge " + (done ? "badgeSuccess" : "badgeDanger")}>
