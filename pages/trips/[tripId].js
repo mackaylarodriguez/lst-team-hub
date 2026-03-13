@@ -2468,49 +2468,8 @@ function parseDateSafe(dateStr) {
       })),
     [docs]
   );
-  const categorizedTripDocuments = useMemo(() => {
-    const grouped = new Map(
-      DOCUMENT_CATEGORY_OPTIONS.map((category) => [
-        category,
-        { category, slots: [], docs: [] },
-      ])
-    );
-
-    requiredDocumentSlots.forEach((slot) => {
-      const category = slot.category || "Other";
-      const bucket = grouped.get(category) || { category, slots: [], docs: [] };
-      bucket.slots.push(slot);
-      grouped.set(category, bucket);
-    });
-
-    docs
-      .filter((doc) => !doc.resourceKey)
-      .forEach((doc) => {
-        const category = doc.category || "Other";
-        const bucket = grouped.get(category) || { category, slots: [], docs: [] };
-        bucket.docs.push(doc);
-        grouped.set(category, bucket);
-      });
-
-    return Array.from(grouped.values()).filter(
-      (group) => group.slots.length > 0 || group.docs.length > 0
-    );
-  }, [docs, requiredDocumentSlots]);
-  const optionalDocsByCategory = useMemo(() => {
-    const grouped = new Map();
-
-    (docs || [])
-      .filter((doc) => !doc.resourceKey)
-      .forEach((doc) => {
-        const category = doc.category || "Other";
-        const existing = grouped.get(category) || [];
-        existing.push(doc);
-        grouped.set(category, existing);
-      });
-
-    return Array.from(grouped.entries()).sort(([left], [right]) =>
-      left.localeCompare(right)
-    );
+  const optionalDocs = useMemo(() => {
+    return (docs || []).filter((doc) => !doc.resourceKey);
   }, [docs]);
 
   const currentParticipant = useMemo(() => {
@@ -4719,123 +4678,117 @@ function parseDateSafe(dateStr) {
             </div>
 
             <div style={{ fontWeight: 900, marginTop: 18, marginBottom: 10 }}>Additional Documents</div>
-            {optionalDocsByCategory.length === 0 ? (
+            {optionalDocs.length === 0 ? (
               <div className="small">No extra documents yet.</div>
             ) : (
-              <div style={{ display: "grid", gap: 16 }}>
-                {optionalDocsByCategory.map(([category, categoryDocs]) => (
-                  <div key={category}>
-                    <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>{category}</div>
-                    <div style={{ display: "grid", gap: 10 }}>
-                      {categoryDocs.map((d) => {
-                        const available = !!(d.pdfUrl || d.link);
-                        const isEditing = editingDocId === d.id;
-                        const isPdf = !!d.pdfUrl;
+              <div style={{ display: "grid", gap: 10 }}>
+                {optionalDocs.map((d) => {
+                  const available = !!(d.pdfUrl || d.link);
+                  const isEditing = editingDocId === d.id;
+                  const isPdf = !!d.pdfUrl;
 
-                        return (
-                          <div
-                            key={d.id}
-                            className="card pad row"
-                            style={{
-                              boxShadow: "none",
-                              borderColor: "rgba(15, 23, 42, 0.08)",
-                              alignItems: "flex-start",
-                            }}
-                          >
-                            <div style={{ flex: 1 }}>
-                              {isEditing ? (
-                                <div style={{ display: "grid", gap: 8 }}>
-                                  <input
-                                    className="input"
-                                    value={docDraft?.title || ""}
-                                    onChange={(e) =>
-                                      setDocDraft((prev) => ({ ...prev, title: e.target.value }))
-                                    }
-                                    placeholder="Title"
-                                  />
-                                  <input
-                                    className="input"
-                                    value={docDraft?.link || ""}
-                                    onChange={(e) =>
-                                      setDocDraft((prev) => ({ ...prev, link: e.target.value }))
-                                    }
-                                    placeholder="https://..."
-                                    disabled={!!docDraft?.pdfUrl}
-                                  />
-                                  <select
-                                    className="input"
-                                    value={docDraft?.category || "Other"}
-                                    onChange={(e) =>
-                                      setDocDraft((prev) => ({ ...prev, category: e.target.value }))
-                                    }
-                                  >
-                                    {DOCUMENT_CATEGORY_OPTIONS.map((option) => (
-                                      <option key={option} value={option}>
-                                        {option}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <input
-                                    className="input"
-                                    value={docDraft?.workArea || ""}
-                                    onChange={(e) =>
-                                      setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
-                                    }
-                                    placeholder="Notes / work area"
-                                  />
-                                  {!!docDraft?.pdfUrl && (
-                                    <input type="file" onChange={handleReplaceDocumentFile} />
-                                  )}
-                                  <div className="row">
-                                    <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
-                                      Save
-                                    </button>
-                                    <button className="btn" type="button" onClick={handleCancelEditDoc}>
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <div style={{ fontWeight: 900 }}>{d.title}</div>
-                                  <div className="small" style={{ marginTop: 4 }}>
-                                    {isPdf ? "PDF" : "Link"}
-                                    {d.workArea ? ` • ${d.workArea}` : ""}
-                                    {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
-                                  </div>
-                                </>
-                              )}
-                              {canViewAllParticipantData && !isEditing ? (
-                                <div className="row" style={{ marginTop: 10 }}>
-                                  <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
-                                    Edit
-                                  </button>
-                                  <button className="btn" type="button" onClick={() => handleDeleteDoc(d.id)}>
-                                    Delete
-                                  </button>
-                                </div>
-                              ) : null}
-                            </div>
-
-                            <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-                              {available ? (isPdf ? "PDF Ready" : "Link Ready") : "Coming Soon"}
-                            </span>
-
-                            {available ? (
-                              <a className="btn btnPrimary" href={d.pdfUrl || d.link} target="_blank" rel="noreferrer">
-                                Open
-                              </a>
-                            ) : (
-                              <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
-                                Coming soon
-                              </button>
+                  return (
+                    <div
+                      key={d.id}
+                      className="card pad row"
+                      style={{
+                        boxShadow: "none",
+                        borderColor: "rgba(15, 23, 42, 0.08)",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        {isEditing ? (
+                          <div style={{ display: "grid", gap: 8 }}>
+                            <input
+                              className="input"
+                              value={docDraft?.title || ""}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({ ...prev, title: e.target.value }))
+                              }
+                              placeholder="Title"
+                            />
+                            <input
+                              className="input"
+                              value={docDraft?.link || ""}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({ ...prev, link: e.target.value }))
+                              }
+                              placeholder="https://..."
+                              disabled={!!docDraft?.pdfUrl}
+                            />
+                            <select
+                              className="input"
+                              value={docDraft?.category || "Other"}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({ ...prev, category: e.target.value }))
+                              }
+                            >
+                              {DOCUMENT_CATEGORY_OPTIONS.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              className="input"
+                              value={docDraft?.workArea || ""}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
+                              }
+                              placeholder="Notes / work area"
+                            />
+                            {!!docDraft?.pdfUrl && (
+                              <input type="file" onChange={handleReplaceDocumentFile} />
                             )}
+                            <div className="row">
+                              <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
+                                Save
+                              </button>
+                              <button className="btn" type="button" onClick={handleCancelEditDoc}>
+                                Cancel
+                              </button>
+                            </div>
                           </div>
-                        );
-                      })}
+                        ) : (
+                          <>
+                            <div style={{ fontWeight: 900 }}>{d.title}</div>
+                            <div className="small" style={{ marginTop: 4 }}>
+                              {isPdf ? "PDF" : "Link"}
+                              {d.category ? ` • ${d.category}` : ""}
+                              {d.workArea ? ` • ${d.workArea}` : ""}
+                              {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
+                            </div>
+                          </>
+                        )}
+                        {canViewAllParticipantData && !isEditing ? (
+                          <div className="row" style={{ marginTop: 10 }}>
+                            <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
+                              Edit
+                            </button>
+                            <button className="btn" type="button" onClick={() => handleDeleteDoc(d.id)}>
+                              Delete
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
+                        {available ? (isPdf ? "PDF Ready" : "Link Ready") : "Coming Soon"}
+                      </span>
+
+                      {available ? (
+                        <a className="btn btnPrimary" href={d.pdfUrl || d.link} target="_blank" rel="noreferrer">
+                          Open
+                        </a>
+                      ) : (
+                        <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
+                          Coming soon
+                        </button>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
