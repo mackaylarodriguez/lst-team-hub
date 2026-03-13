@@ -311,7 +311,6 @@ export default function Trips() {
             {showTripForm ? "Close" : "Add Trip"}
           </button>
         )}
-        <span className="badge">Demo</span>
       </div>
 
       {canManageTrips && showTripForm && (

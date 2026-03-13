@@ -115,6 +115,10 @@ function createEmptyRosterMember() {
   };
 }
 
+function buildStaffTaskRowDomId(taskId) {
+  return `staff-task-row-${String(taskId || "").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 export default function TripPage() {
   const router = useRouter();
   const { tripId } = router.query;
@@ -185,6 +189,15 @@ export default function TripPage() {
   const [editingStaffTaskId, setEditingStaffTaskId] = useState(null);
   const [editingDueDateTaskId, setEditingDueDateTaskId] = useState(null);
   const [staffTaskTitleDraft, setStaffTaskTitleDraft] = useState("");
+  const [isAddingStaffTask, setIsAddingStaffTask] = useState(false);
+  const [pendingStaffTaskJumpId, setPendingStaffTaskJumpId] = useState("");
+  const [newStaffTaskDraft, setNewStaffTaskDraft] = useState({
+    workArea: "Project Formation",
+    taskName: "",
+    assignedTo: "",
+    dueDate: "",
+    notes: "",
+  });
   const latestStaffTaskSaveRef = useRef(0);
   const editableStaffTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
@@ -315,6 +328,14 @@ export default function TripPage() {
     setRosterDraft(trip.teamMembers || []);
     setIsEditingRoster(false);
     setRosterStatus("");
+    setIsAddingStaffTask(false);
+    setNewStaffTaskDraft({
+      workArea: "Project Formation",
+      taskName: "",
+      assignedTo: "",
+      dueDate: "",
+      notes: "",
+    });
   }, [trip]);
 
   useEffect(() => {
@@ -438,6 +459,38 @@ export default function TripPage() {
   useEffect(() => {
     editableStaffTasksRef.current = editableStaffTasks;
   }, [editableStaffTasks]);
+
+  useEffect(() => {
+    if (tab !== "Staff Tasks" || !pendingStaffTaskJumpId) return undefined;
+
+    let retryTimeout = null;
+    const scrollToTask = () => {
+      const element = document.getElementById(
+        buildStaffTaskRowDomId(pendingStaffTaskJumpId)
+      );
+
+      if (!element) return false;
+
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+      setPendingStaffTaskJumpId("");
+      return true;
+    };
+
+    const initialTimeout = window.setTimeout(() => {
+      if (!scrollToTask()) {
+        retryTimeout = window.setTimeout(() => {
+          scrollToTask();
+        }, 250);
+      }
+    }, 60);
+
+    return () => {
+      window.clearTimeout(initialTimeout);
+      if (retryTimeout) {
+        window.clearTimeout(retryTimeout);
+      }
+    };
+  }, [pendingStaffTaskJumpId, tab]);
 
   useEffect(() => {
     return () => {
@@ -1304,9 +1357,57 @@ export default function TripPage() {
     setStaffTaskTitleDraft("");
   }
 
+  async function handleAddStaffTask() {
+    const trimmedTaskName = String(newStaffTaskDraft.taskName || "").trim();
+    if (!trimmedTaskName) {
+      setStaffTaskStatus("Task name is required.");
+      return;
+    }
+
+    const nextTask = {
+      id: `${trip?.id || "trip"}-custom-${Date.now()}`,
+      workArea: newStaffTaskDraft.workArea || "Project Formation",
+      sequence:
+        Math.max(
+          0,
+          ...(editableStaffTasksRef.current || [])
+            .filter((task) => task.workArea === (newStaffTaskDraft.workArea || "Project Formation"))
+            .map((task) => Number(task.sequence || 0))
+        ) + 1,
+      taskName: trimmedTaskName,
+      assignedTo: newStaffTaskDraft.assignedTo || "",
+      progress: "Not started",
+      dueDate: newStaffTaskDraft.dueDate || "",
+      notes: newStaffTaskDraft.notes || "",
+    };
+
+    try {
+      setStaffTaskStatus("");
+      await saveStaffTasks([...(editableStaffTasksRef.current || []), nextTask]);
+      setIsAddingStaffTask(false);
+      setNewStaffTaskDraft({
+        workArea: newStaffTaskDraft.workArea || "Project Formation",
+        taskName: "",
+        assignedTo: "",
+        dueDate: "",
+        notes: "",
+      });
+      setStaffTaskStatus("Staff task added.");
+    } catch (error) {
+      console.error("Unable to add staff task", error);
+      setStaffTaskStatus(error.message || "Unable to add staff task.");
+    }
+  }
+
   function handleDueDateChange(taskId, value) {
     updateStaffTask(taskId, "dueDate", value);
     setEditingDueDateTaskId(null);
+  }
+
+  function handleJumpToStaffTask(taskId) {
+    if (!taskId) return;
+    setPendingStaffTaskJumpId(taskId);
+    setTab("Staff Tasks");
   }
 
   function handleSaveStaffTaskTitle(taskId) {
@@ -2245,6 +2346,9 @@ function parseDateSafe(dateStr) {
   }
 
   const groupedViewTasks = groupTasksByWorkArea(editableStaffTasks || []);
+  const staffTaskWorkAreas = useMemo(() => {
+    return [...new Set((editableStaffTasks || []).map((task) => task.workArea).filter(Boolean))];
+  }, [editableStaffTasks]);
 
   const completedCount = (editableStaffTasks || []).filter(
     (t) => t.progress === "Complete"
@@ -3064,11 +3168,34 @@ function parseDateSafe(dateStr) {
                         borderBottom: "1px solid var(--border)",
                       }}
                     >
-                      <div style={{ fontWeight: 800 }}>{task.title}</div>
+                      {canViewAllParticipantData ? (
+                        <button
+                          type="button"
+                          onClick={() => handleJumpToStaffTask(task.id)}
+                          style={{
+                            padding: 0,
+                            border: "none",
+                            background: "transparent",
+                            fontWeight: 800,
+                            textAlign: "left",
+                            color: "var(--ink)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {task.title}
+                        </button>
+                      ) : (
+                        <div style={{ fontWeight: 800 }}>{task.title}</div>
+                      )}
                       <div className="small">
                         {task.detail ? `${task.detail} • ` : ""}
                         Due {task.dueDate ? formatSingleDate(task.dueDate) : "when ready"}
                       </div>
+                      {canViewAllParticipantData ? (
+                        <div className="small" style={{ marginTop: 4, color: "var(--accent)" }}>
+                          Open in Staff Tasks
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -3107,10 +3234,6 @@ function parseDateSafe(dateStr) {
                     )}
                   </div>
                 ))}
-              </div>
-              <div style={{ height: 10 }} />
-              <div className="small">
-                Canvas is fixed. Fundraising, budget, and site info links come from this trip's saved data.
               </div>
             </div>
           </div>
@@ -4136,7 +4259,9 @@ function parseDateSafe(dateStr) {
             <div className="row" style={{ marginBottom: 10 }}>
               <div>
                 <div style={{ fontWeight: 900 }}>Documents & Links</div>
-                <div className="small">Required trip documents stay visible even before staff uploads them.</div>
+                <div className="small">
+                  Default trip documents stay visible here, and any extra uploads show underneath.
+                </div>
               </div>
               <div className="spacer" />
               {canViewAllParticipantData && (
@@ -4289,7 +4414,6 @@ function parseDateSafe(dateStr) {
               </div>
             )}
 
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Required Documents</div>
             <div style={{ display: "grid", gap: 12 }}>
               {requiredDocumentSlots.map((slot) => {
                 const doc = slot.resource;
@@ -4414,7 +4538,7 @@ function parseDateSafe(dateStr) {
               })}
             </div>
 
-            <div style={{ fontWeight: 900, marginTop: 18, marginBottom: 10 }}>Other Documents</div>
+            <div style={{ fontWeight: 900, marginTop: 18, marginBottom: 10 }}>Additional Documents</div>
             {optionalDocsByCategory.length === 0 ? (
               <div className="small">No extra documents yet.</div>
             ) : (
@@ -4431,10 +4555,10 @@ function parseDateSafe(dateStr) {
                         return (
                           <div
                             key={d.id}
-                            className="row"
+                            className="card pad row"
                             style={{
-                              padding: "10px 0",
-                              borderBottom: "1px solid var(--border)",
+                              boxShadow: "none",
+                              borderColor: "rgba(15, 23, 42, 0.08)",
                               alignItems: "flex-start",
                             }}
                           >
@@ -4494,7 +4618,7 @@ function parseDateSafe(dateStr) {
                               ) : (
                                 <>
                                   <div style={{ fontWeight: 900 }}>{d.title}</div>
-                                  <div className="small">
+                                  <div className="small" style={{ marginTop: 4 }}>
                                     {isPdf ? "PDF" : "Link"}
                                     {d.workArea ? ` • ${d.workArea}` : ""}
                                     {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
@@ -4514,7 +4638,7 @@ function parseDateSafe(dateStr) {
                             </div>
 
                             <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-                              {isPdf ? "PDF" : available ? "Link ready" : "Missing URL"}
+                              {available ? (isPdf ? "PDF Ready" : "Link Ready") : "Coming Soon"}
                             </span>
 
                             {available ? (
@@ -4711,6 +4835,17 @@ function parseDateSafe(dateStr) {
 
                   <div className="spacer" />
 
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => {
+                      setIsAddingStaffTask((current) => !current);
+                      setStaffTaskStatus("");
+                    }}
+                  >
+                    {isAddingStaffTask ? "Close" : "Add Task"}
+                  </button>
+
                   <span className="badge">{completionPct}% complete</span>
                 </div>
 
@@ -4726,6 +4861,117 @@ function parseDateSafe(dateStr) {
                 {staffTaskStatus ? (
                   <div className="small" style={{ marginBottom: 12 }}>
                     {staffTaskStatus}
+                  </div>
+                ) : null}
+
+                {isAddingStaffTask ? (
+                  <div
+                    className="card pad"
+                    style={{
+                      boxShadow: "none",
+                      marginBottom: 14,
+                      background: "rgba(255,255,255,.78)",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: 12 }}>
+                      <input
+                        className="input"
+                        value={newStaffTaskDraft.taskName}
+                        onChange={(event) =>
+                          setNewStaffTaskDraft((current) => ({
+                            ...current,
+                            taskName: event.target.value,
+                          }))
+                        }
+                        placeholder="Staff task name"
+                      />
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                          gap: 10,
+                        }}
+                      >
+                        <select
+                          className="input"
+                          value={newStaffTaskDraft.workArea}
+                          onChange={(event) =>
+                            setNewStaffTaskDraft((current) => ({
+                              ...current,
+                              workArea: event.target.value,
+                            }))
+                          }
+                        >
+                          {staffTaskWorkAreas.map((area) => (
+                            <option key={area} value={area}>
+                              {area}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          className="input"
+                          value={newStaffTaskDraft.assignedTo}
+                          onChange={(event) =>
+                            setNewStaffTaskDraft((current) => ({
+                              ...current,
+                              assignedTo: event.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Assign Staff</option>
+                          {staffList.map((person) => (
+                            <option key={person} value={person}>
+                              {person}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          className="input"
+                          type="date"
+                          value={newStaffTaskDraft.dueDate}
+                          onChange={(event) =>
+                            setNewStaffTaskDraft((current) => ({
+                              ...current,
+                              dueDate: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <textarea
+                        className="input"
+                        rows={3}
+                        value={newStaffTaskDraft.notes}
+                        onChange={(event) =>
+                          setNewStaffTaskDraft((current) => ({
+                            ...current,
+                            notes: event.target.value,
+                          }))
+                        }
+                        placeholder="Optional notes"
+                      />
+                      <div className="row">
+                        <button className="btn btnPrimary" type="button" onClick={handleAddStaffTask}>
+                          Save Staff Task
+                        </button>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => {
+                            setIsAddingStaffTask(false);
+                            setNewStaffTaskDraft({
+                              workArea: "Project Formation",
+                              taskName: "",
+                              assignedTo: "",
+                              dueDate: "",
+                              notes: "",
+                            });
+                            setStaffTaskStatus("");
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : null}
 
@@ -4759,7 +5005,11 @@ function parseDateSafe(dateStr) {
                           const rowStatus = staffTaskRowStatus[t.id];
 
                           return (
-                            <tr key={t.id} className="staffTaskRow">
+                            <tr
+                              key={t.id}
+                              id={buildStaffTaskRowDomId(t.id)}
+                              className="staffTaskRow"
+                            >
                               <td>
                                 {isEditingTitle ? (
                                   <input

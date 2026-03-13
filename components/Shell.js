@@ -91,16 +91,8 @@ export default function Shell({ children }) {
           <div className="logo" aria-hidden="true" />
           <div>
             <div style={{ fontWeight: 900, letterSpacing: "-.02em" }}>LST International Projects Hub</div>
-            <div className="small">LST • sample prototype</div>
           </div>
         </div>
-
-        <div className="card pad" style={{ boxShadow: "none", borderStyle: "dashed", background: "rgba(255,255,255,.75)" }}>
-          <div className="small">
-            This is a <b>demo</b> with mock data. Use it to pitch the idea and validate workflows.
-          </div>
-        </div>
-
         <div style={{ height: 14 }} />
         <nav className="nav">
           <Link className={path.startsWith("/trips") ? "active" : ""} href="/trips">My Trips</Link>
