@@ -3,7 +3,12 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
-import { getTripForCurrentUser, listTripParticipants, updateTripForCurrentUser } from "@/lib/trips";
+import {
+  getTripForCurrentUser,
+  listTripParticipants,
+  saveTripParticipantDocumentTypes,
+  updateTripForCurrentUser,
+} from "@/lib/trips";
 import { isManagerRole } from "@/lib/roles";
 import { listTripTeamMembers, saveTripTeamMembers } from "@/lib/tripTeamMembers";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
@@ -52,7 +57,11 @@ import {
   saveTripAnnouncement,
 } from "@/lib/tripAnnouncements";
 import { saveTripFundraisingSettings } from "@/lib/tripFundraising";
-import { USER_DOCUMENT_TYPES, getUserDocumentTypeLabel } from "@/lib/userDocumentTypes";
+import {
+  getTripUserDocumentTypes,
+  getUserDocumentTypeLabel,
+  normalizeCustomUserDocumentTypes,
+} from "@/lib/userDocumentTypes";
 import {
   deleteUserDocument,
   listTripUserDocuments,
@@ -148,6 +157,8 @@ export default function TripPage() {
   const [participantDocuments, setParticipantDocuments] = useState([]);
   const [participantDocumentsError, setParticipantDocumentsError] = useState("");
   const [participantDocumentStatus, setParticipantDocumentStatus] = useState({});
+  const [customParticipantDocumentLabel, setCustomParticipantDocumentLabel] = useState("");
+  const [participantDocumentTypeStatus, setParticipantDocumentTypeStatus] = useState("");
   const participantDocumentInputRefs = useRef({});
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkDraft, setLinkDraft] = useState({
@@ -1273,7 +1284,7 @@ export default function TripPage() {
         userId,
         tripId: trip.id,
         documentType,
-        title: `${getUserDocumentTypeLabel(documentType)} - ${trip.name}`,
+        title: `${getUserDocumentTypeLabel(documentType, trip?.participantDocumentTypes)} - ${trip.name}`,
         file,
         uploadedByUserId: session?.profileId || session?.id || userId,
       });
@@ -1315,6 +1326,40 @@ export default function TripPage() {
         ...current,
         [statusKey]: { type: "error", message: error.message || "Upload failed." },
       }));
+    }
+  }
+
+  async function handleAddParticipantDocumentType() {
+    if (!trip?.id) return;
+
+    const nextTypes = normalizeCustomUserDocumentTypes([
+      ...(trip.participantDocumentTypes || []),
+      {
+        label: customParticipantDocumentLabel,
+      },
+    ]);
+
+    if ((trip.participantDocumentTypes || []).length === nextTypes.length) {
+      setParticipantDocumentTypeStatus("Enter a new upload item name.");
+      return;
+    }
+
+    try {
+      setParticipantDocumentTypeStatus("Saving...");
+      const updatedTrip = await saveTripParticipantDocumentTypes(trip.id, nextTypes);
+      setTrip((current) =>
+        current
+          ? {
+              ...current,
+              participantDocumentTypes: updatedTrip.participantDocumentTypes || [],
+            }
+          : current
+      );
+      setCustomParticipantDocumentLabel("");
+      setParticipantDocumentTypeStatus("Saved.");
+    } catch (error) {
+      console.error("Unable to save participant document types", error);
+      setParticipantDocumentTypeStatus(error.message || "Unable to save upload item.");
     }
   }
 
@@ -2532,6 +2577,10 @@ function parseDateSafe(dateStr) {
 
     return grouped;
   }, [participantDocuments]);
+  const tripUserDocumentTypes = useMemo(
+    () => getTripUserDocumentTypes(trip?.participantDocumentTypes || []),
+    [trip?.participantDocumentTypes]
+  );
 
   const participantTaskProgress = useMemo(() => {
     if (!trip) return [];
@@ -4708,122 +4757,117 @@ function parseDateSafe(dateStr) {
                   </div>
                 );
               })}
-            </div>
+              {optionalDocs.map((d) => {
+                const available = !!(d.pdfUrl || d.link);
+                const isEditing = editingDocId === d.id;
+                const isPdf = !!d.pdfUrl;
 
-            <div style={{ fontWeight: 900, marginTop: 18, marginBottom: 10 }}>Additional Documents</div>
-            {optionalDocs.length === 0 ? (
-              <div className="small">No extra documents yet.</div>
-            ) : (
-              <div style={{ display: "grid", gap: 10 }}>
-                {optionalDocs.map((d) => {
-                  const available = !!(d.pdfUrl || d.link);
-                  const isEditing = editingDocId === d.id;
-                  const isPdf = !!d.pdfUrl;
-
-                  return (
-                    <div
-                      key={d.id}
-                      className="card pad row"
-                      style={{
-                        boxShadow: "none",
-                        borderColor: "rgba(15, 23, 42, 0.08)",
-                        alignItems: "flex-start",
-                      }}
-                    >
-                      <div style={{ flex: 1 }}>
-                        {isEditing ? (
-                          <div style={{ display: "grid", gap: 8 }}>
-                            <input
-                              className="input"
-                              value={docDraft?.title || ""}
-                              onChange={(e) =>
-                                setDocDraft((prev) => ({ ...prev, title: e.target.value }))
-                              }
-                              placeholder="Title"
-                            />
-                            <input
-                              className="input"
-                              value={docDraft?.link || ""}
-                              onChange={(e) =>
-                                setDocDraft((prev) => ({ ...prev, link: e.target.value }))
-                              }
-                              placeholder="https://..."
-                              disabled={!!docDraft?.pdfUrl}
-                            />
-                            <select
-                              className="input"
-                              value={docDraft?.category || "Other"}
-                              onChange={(e) =>
-                                setDocDraft((prev) => ({ ...prev, category: e.target.value }))
-                              }
-                            >
-                              {DOCUMENT_CATEGORY_OPTIONS.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              className="input"
-                              value={docDraft?.workArea || ""}
-                              onChange={(e) =>
-                                setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
-                              }
-                              placeholder="Notes / work area"
-                            />
-                            {!!docDraft?.pdfUrl && (
-                              <input type="file" onChange={handleReplaceDocumentFile} />
-                            )}
-                            <div className="row">
-                              <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
-                                Save
-                              </button>
-                              <button className="btn" type="button" onClick={handleCancelEditDoc}>
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div style={{ fontWeight: 900 }}>{d.title}</div>
-                            <div className="small" style={{ marginTop: 4 }}>
-                              {isPdf ? "PDF" : "Link"}
-                              {d.category ? ` • ${d.category}` : ""}
-                              {d.workArea ? ` • ${d.workArea}` : ""}
-                              {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
-                            </div>
-                          </>
-                        )}
-                        {canViewAllParticipantData && !isEditing ? (
-                          <div className="row" style={{ marginTop: 10 }}>
-                            <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
-                              Edit
+                return (
+                  <div
+                    key={d.id}
+                    className="card pad row"
+                    style={{
+                      boxShadow: "none",
+                      borderColor: "rgba(15, 23, 42, 0.08)",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      {isEditing ? (
+                        <div style={{ display: "grid", gap: 8 }}>
+                          <input
+                            className="input"
+                            value={docDraft?.title || ""}
+                            onChange={(e) =>
+                              setDocDraft((prev) => ({ ...prev, title: e.target.value }))
+                            }
+                            placeholder="Title"
+                          />
+                          <input
+                            className="input"
+                            value={docDraft?.link || ""}
+                            onChange={(e) =>
+                              setDocDraft((prev) => ({ ...prev, link: e.target.value }))
+                            }
+                            placeholder="https://..."
+                            disabled={!!docDraft?.pdfUrl}
+                          />
+                          <select
+                            className="input"
+                            value={docDraft?.category || "Other"}
+                            onChange={(e) =>
+                              setDocDraft((prev) => ({ ...prev, category: e.target.value }))
+                            }
+                          >
+                            {DOCUMENT_CATEGORY_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            className="input"
+                            value={docDraft?.workArea || ""}
+                            onChange={(e) =>
+                              setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
+                            }
+                            placeholder="Notes / work area"
+                          />
+                          {!!docDraft?.pdfUrl && (
+                            <input type="file" onChange={handleReplaceDocumentFile} />
+                          )}
+                          <div className="row">
+                            <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
+                              Save
                             </button>
-                            <button className="btn" type="button" onClick={() => handleDeleteDoc(d.id)}>
-                              Delete
+                            <button className="btn" type="button" onClick={handleCancelEditDoc}>
+                              Cancel
                             </button>
                           </div>
-                        ) : null}
-                      </div>
-
-                      <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-                        {available ? (isPdf ? "PDF Ready" : "Link Ready") : "Coming Soon"}
-                      </span>
-
-                      {available ? (
-                        <a className="btn btnPrimary" href={d.pdfUrl || d.link} target="_blank" rel="noreferrer">
-                          Open
-                        </a>
+                        </div>
                       ) : (
-                        <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
-                          Coming soon
-                        </button>
+                        <>
+                          <div style={{ fontWeight: 900 }}>{d.title}</div>
+                          <div className="small" style={{ marginTop: 4 }}>
+                            {isPdf ? "PDF" : "Link"}
+                            {d.category ? ` • ${d.category}` : ""}
+                            {d.workArea ? ` • ${d.workArea}` : ""}
+                            {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
+                          </div>
+                        </>
                       )}
+                      {canViewAllParticipantData && !isEditing ? (
+                        <div className="row" style={{ marginTop: 10 }}>
+                          <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
+                            Edit
+                          </button>
+                          <button className="btn" type="button" onClick={() => handleDeleteDoc(d.id)}>
+                            Delete
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
-                  );
-                })}
-              </div>
-            )}
+
+                    <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
+                      {available ? (isPdf ? "PDF Ready" : "Link Ready") : "Coming Soon"}
+                    </span>
+
+                    {available ? (
+                      <a className="btn btnPrimary" href={d.pdfUrl || d.link} target="_blank" rel="noreferrer">
+                        Open
+                      </a>
+                    ) : (
+                      <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
+                        Coming soon
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              {optionalDocs.length === 0 ? (
+                <div className="small">No extra documents yet.</div>
+              ) : null}
+            </div>
           </div>
         </div>
       )}
@@ -4835,12 +4879,31 @@ function parseDateSafe(dateStr) {
                 <div style={{ fontWeight: 900 }}>
                   {canViewAllParticipantData ? "Participant Uploads" : "My Documents"}
                 </div>
-                <div className="small">
-                  {canViewAllParticipantData
-                    ? "Passport and visa uploads for each participant on this trip."
-                    : "Upload your passport and visa here. Staff can review them from your profile later too."}
-                </div>
               </div>
+              <div className="spacer" />
+              {canViewAllParticipantData ? (
+                <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
+                  <div className="row" style={{ gap: 8 }}>
+                    <input
+                      className="input"
+                      value={customParticipantDocumentLabel}
+                      onChange={(event) => setCustomParticipantDocumentLabel(event.target.value)}
+                      placeholder="Add upload item"
+                      style={{ minWidth: 220 }}
+                    />
+                    <button className="btn" type="button" onClick={handleAddParticipantDocumentType}>
+                      Add Upload
+                    </button>
+                  </div>
+                  {participantDocumentTypeStatus ? (
+                    <div className="small">{participantDocumentTypeStatus}</div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="small">
+                  Upload your documents here. Staff can review them from your profile later too.
+                </div>
+              )}
             </div>
 
             {participantDocumentsError ? (
@@ -4884,7 +4947,7 @@ function parseDateSafe(dateStr) {
                     </div>
 
                     <div style={{ display: "grid", gap: 12 }}>
-                      {USER_DOCUMENT_TYPES.map((documentType) => {
+                      {tripUserDocumentTypes.map((documentType) => {
                         const document = documentSlots[documentType.key] || null;
                         const statusKey = `${participant.id}:${documentType.key}`;
                         const slotStatus = participantDocumentStatus[statusKey];
