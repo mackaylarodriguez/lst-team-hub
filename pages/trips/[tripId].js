@@ -57,6 +57,10 @@ import {
   listTripUserDocuments,
   saveUserDocumentUpload,
 } from "@/lib/userDocuments";
+import {
+  DEFAULT_TRAINING_TIMELINE_TYPE,
+  TRAINING_TIMELINE_OPTIONS,
+} from "@/lib/workerTaskTemplate";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -89,6 +93,8 @@ function buildTripSetupDraft(trip) {
     host: trip?.host || "",
     siteType: trip?.siteType || "",
     teamStatus: trip?.teamStatus || "",
+    trainingTimelineType:
+      trip?.trainingTimelineType || DEFAULT_TRAINING_TIMELINE_TYPE,
     projectType: trip?.projectType || "",
     projectLengthSummary: trip?.projectLengthSummary || "",
     extraTravelStatus: trip?.extraTravelStatus || "no",
@@ -118,6 +124,14 @@ function createEmptyRosterMember() {
 
 function buildStaffTaskRowDomId(taskId) {
   return `staff-task-row-${String(taskId || "").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
+function getDocumentCategoryBadgeClass(category) {
+  if (category === "Travel") return "badgeInfo";
+  if (category === "Insurance") return "badgeWarn";
+  if (category === "Budget") return "badgeSuccess";
+  if (category === "Site") return "badgeInfo";
+  return "";
 }
 
 export default function TripPage() {
@@ -212,8 +226,6 @@ export default function TripPage() {
     "Leslee",
     "Donna",
     "Hannah",
-    "Kelly",
-    "Craig & Kelly",
   ];
 
   const trainingResources = [
@@ -1961,7 +1973,7 @@ function parseDateSafe(dateStr) {
               ...savedTrip,
               participants: current.participants || [],
               teamMembers: current.teamMembers || [],
-              tasks: current.tasks || [],
+              tasks: savedTrip.tasks || current.tasks || [],
               quickLinks: current.quickLinks || [],
               docs: current.docs || [],
               staffTasks: current.staffTasks || [],
@@ -2133,6 +2145,22 @@ function parseDateSafe(dateStr) {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Training Timeline</div>
+                  <select
+                    className="input"
+                    value={tripSetupDraft.trainingTimelineType}
+                    onChange={(event) =>
+                      updateTripSetupDraft("trainingTimelineType", event.target.value)
+                    }
+                  >
+                    {TRAINING_TIMELINE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             ) : canViewAllParticipantData ? (
               <>
@@ -2157,6 +2185,13 @@ function parseDateSafe(dateStr) {
                 <div style={{ height: 12 }} />
                 <div className="small">Team Status</div>
                 <div style={{ fontWeight: 800 }}>{trip.teamStatus || "Not set"}</div>
+                <div style={{ height: 12 }} />
+                <div className="small">Training Timeline</div>
+                <div style={{ fontWeight: 800 }}>
+                  {trip.trainingTimelineType === "college"
+                    ? "College Team (6+ months)"
+                    : "Standard (3 months)"}
+                </div>
               </>
             ) : (
               <div className="tripSetupInfoGrid">
@@ -2433,20 +2468,34 @@ function parseDateSafe(dateStr) {
       })),
     [docs]
   );
-  const optionalDocsByCategory = useMemo(() => {
-    const grouped = new Map();
+  const categorizedTripDocuments = useMemo(() => {
+    const grouped = new Map(
+      DOCUMENT_CATEGORY_OPTIONS.map((category) => [
+        category,
+        { category, slots: [], docs: [] },
+      ])
+    );
+
+    requiredDocumentSlots.forEach((slot) => {
+      const category = slot.category || "Other";
+      const bucket = grouped.get(category) || { category, slots: [], docs: [] };
+      bucket.slots.push(slot);
+      grouped.set(category, bucket);
+    });
 
     docs
       .filter((doc) => !doc.resourceKey)
       .forEach((doc) => {
         const category = doc.category || "Other";
-        const existing = grouped.get(category) || [];
-        existing.push(doc);
-        grouped.set(category, existing);
+        const bucket = grouped.get(category) || { category, slots: [], docs: [] };
+        bucket.docs.push(doc);
+        grouped.set(category, bucket);
       });
 
-    return Array.from(grouped.entries()).sort((left, right) => left[0].localeCompare(right[0]));
-  }, [docs]);
+    return Array.from(grouped.values()).filter(
+      (group) => group.slots.length > 0 || group.docs.length > 0
+    );
+  }, [docs, requiredDocumentSlots]);
 
   const currentParticipant = useMemo(() => {
     if (!trip) return null;
@@ -4026,29 +4075,25 @@ function parseDateSafe(dateStr) {
                           />
                           <div>
                             <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                lineHeight: 1.35,
-                                marginBottom: 6,
-                              }}
+                              className="row"
+                              style={{ alignItems: "center", justifyContent: "space-between", gap: 8 }}
                             >
-                              {module.title}
-                            </div>
-                            <div
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "auto",
-                                alignItems: "center",
-                              }}
-                            >
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  lineHeight: 1.35,
+                                }}
+                              >
+                                {module.title}
+                              </div>
                               <span
                                 className={
                                   "badge " +
                                   (!!trainingState[module.id] ? "badgeSuccess" : "badgeDanger")
                                 }
                               >
-                                {!!trainingState[module.id] ? "Done" : "Open"}
+                                {!!trainingState[module.id] ? "Completed" : "Not started"}
                               </span>
                             </div>
                           </div>
@@ -4123,7 +4168,7 @@ function parseDateSafe(dateStr) {
                                   (!!trainingState[module.id] ? "badgeSuccess" : "badgeDanger")
                                 }
                               >
-                                {!!trainingState[module.id] ? "Done" : "Open"}
+                                {!!trainingState[module.id] ? "Completed" : "Not started"}
                               </span>
                             </div>
                           </div>

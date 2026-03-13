@@ -14,6 +14,10 @@ import {
 import { isAdminRole, isManagerRole } from "@/lib/roles";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import { listStaffTripMetrics } from "@/lib/staffOverview";
+import {
+  DEFAULT_TRAINING_TIMELINE_TYPE,
+  TRAINING_TIMELINE_OPTIONS,
+} from "@/lib/workerTaskTemplate";
 
 const CUSTOM_SITE_OPTION = "__custom__";
 
@@ -33,6 +37,7 @@ function createInitialTripDraft() {
     location: "",
     host: "",
     siteType: "",
+    trainingTimelineType: DEFAULT_TRAINING_TIMELINE_TYPE,
     projectType: "",
     projectLengthSummary: "",
     extraTravelStatus: "no",
@@ -485,6 +490,20 @@ export default function Trips() {
                 <option value="partner">Partner</option>
                 <option value="managed">Managed</option>
                 <option value="seasonal">Seasonal</option>
+              </select>
+            </div>
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Training Timeline</div>
+              <select
+                className="input"
+                value={tripDraft.trainingTimelineType}
+                onChange={(event) => updateTripDraft("trainingTimelineType", event.target.value)}
+              >
+                {TRAINING_TIMELINE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
