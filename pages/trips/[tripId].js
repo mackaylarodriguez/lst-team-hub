@@ -35,6 +35,7 @@ import {
 import {
   createTripTask,
   listTripTasks,
+  updateTripTask,
   listUserTaskProgress,
   saveUserTaskProgress,
 } from "@/lib/tripTasks";
@@ -157,6 +158,7 @@ export default function TripPage() {
   });
   const [taskStatusMessage, setTaskStatusMessage] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [editingWorkerTaskDateId, setEditingWorkerTaskDateId] = useState("");
   const [overviewNotes, setOverviewNotes] = useState([]);
   const [editingOverviewNoteId, setEditingOverviewNoteId] = useState("");
   const [overviewNoteDraft, setOverviewNoteDraft] = useState("");
@@ -328,6 +330,7 @@ export default function TripPage() {
     setRosterDraft(trip.teamMembers || []);
     setIsEditingRoster(false);
     setRosterStatus("");
+    setEditingWorkerTaskDateId("");
     setIsAddingStaffTask(false);
     setNewStaffTaskDraft({
       workArea: "Project Formation",
@@ -1169,6 +1172,56 @@ export default function TripPage() {
       if (latestStaffTaskSaveRef.current !== requestId) return;
       setStaffTaskStatus("Could not save task changes.");
       throw error;
+    }
+  }
+
+  async function handleUpdateWorkerTaskDueDate(taskId, value) {
+    if (!trip || !taskId) return;
+
+    const existingTask = (trip.tasks || []).find((item) => item.id === taskId);
+    if (!existingTask) return;
+
+    try {
+      const savedTask = await updateTripTask({
+        id: taskId,
+        title: existingTask.title,
+        description: existingTask.description,
+        category: existingTask.category,
+        status: existingTask.status,
+        assignedToUserId: existingTask.assignedToUserId,
+        dueDate: value || null,
+      });
+
+      setTrip((current) =>
+        current
+          ? {
+              ...current,
+              tasks: (current.tasks || [])
+                .map((task) => (task.id === taskId ? savedTask : task))
+                .sort((left, right) => {
+                  const leftDue = String(left?.due || "").trim();
+                  const rightDue = String(right?.due || "").trim();
+
+                  if (!leftDue && !rightDue) {
+                    return String(left?.title || "").localeCompare(String(right?.title || ""));
+                  }
+
+                  if (!leftDue) return 1;
+                  if (!rightDue) return -1;
+
+                  return (
+                    leftDue.localeCompare(rightDue) ||
+                    String(left?.title || "").localeCompare(String(right?.title || ""))
+                  );
+                }),
+            }
+          : current
+      );
+      setEditingWorkerTaskDateId("");
+    } catch (error) {
+      console.error("Unable to update worker task due date", error);
+      setTaskStatusMessage(error.message || "Unable to update worker task due date.");
+      setEditingWorkerTaskDateId("");
     }
   }
 
@@ -4259,7 +4312,7 @@ function parseDateSafe(dateStr) {
                                     style={{ marginTop: 2 }}
                                   />
                                   <div style={{ flex: 1 }}>
-                                    <div
+                                  <div
                                       style={{
                                         fontSize: 13,
                                         fontWeight: 600,
@@ -4269,7 +4322,31 @@ function parseDateSafe(dateStr) {
                                     >
                                       {task.title}
                                     </div>
-                                    <div className="small">Due: {task.due || "Not set"}</div>
+                                    {canManageTrips ? (
+                                      editingWorkerTaskDateId === task.id ? (
+                                        <input
+                                          className="input"
+                                          type="date"
+                                          autoFocus
+                                          value={task.due || ""}
+                                          onChange={(e) =>
+                                            handleUpdateWorkerTaskDueDate(task.id, e.target.value)
+                                          }
+                                          onBlur={() => setEditingWorkerTaskDateId("")}
+                                          style={{ padding: "7px 10px", fontSize: 13, maxWidth: 170 }}
+                                        />
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          className="staffTaskDateButton"
+                                          onClick={() => setEditingWorkerTaskDateId(task.id)}
+                                        >
+                                          {task.due ? `Due: ${formatShortDate(task.due)}` : "Add due date"}
+                                        </button>
+                                      )
+                                    ) : (
+                                      <div className="small">Due: {task.due || "Not set"}</div>
+                                    )}
                                   </div>
                                   <span className={"badge " + (done ? "badgeSuccess" : "badgeDanger")}>
                                     {done ? "Complete" : "Not started"}
