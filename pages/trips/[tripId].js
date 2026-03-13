@@ -8,7 +8,7 @@ import { isManagerRole } from "@/lib/roles";
 import { listTripTeamMembers, saveTripTeamMembers } from "@/lib/tripTeamMembers";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import {
-  getTrainingModuleSchedule,
+  getTrainingModuleDeadline,
   listTrainingModules,
   listTrainingProgress,
   saveTrainingProgress,
@@ -262,9 +262,13 @@ export default function TripPage() {
         .filter((module) => module.category === "canvas")
         .map((module) => ({
           ...module,
-          schedule: getTrainingModuleSchedule(module.title, trip?.trainingTimelineType),
+          deadlineDate: getTrainingModuleDeadline(module.title, {
+            startDate: trip?.startDate,
+            endDate: trip?.endDate,
+            trainingTimelineType: trip?.trainingTimelineType,
+          }),
         })),
-    [trainingModules, trip?.trainingTimelineType]
+    [trainingModules, trip?.endDate, trip?.startDate, trip?.trainingTimelineType]
   );
   const supplementalTrainingModules = useMemo(
     () =>
@@ -272,9 +276,13 @@ export default function TripPage() {
         .filter((module) => module.category !== "canvas")
         .map((module) => ({
           ...module,
-          schedule: getTrainingModuleSchedule(module.title, trip?.trainingTimelineType),
+          deadlineDate: getTrainingModuleDeadline(module.title, {
+            startDate: trip?.startDate,
+            endDate: trip?.endDate,
+            trainingTimelineType: trip?.trainingTimelineType,
+          }),
         })),
-    [trainingModules, trip?.trainingTimelineType]
+    [trainingModules, trip?.endDate, trip?.startDate, trip?.trainingTimelineType]
   );
   const datedTrainingModuleIds = useMemo(
     () =>
@@ -4084,9 +4092,9 @@ function parseDateSafe(dateStr) {
                                 {!!trainingState[module.id] ? "Completed" : "Not started"}
                               </span>
                             </div>
-                            {module.schedule ? (
+                            {module.deadlineDate ? (
                               <div className="small" style={{ marginTop: 4 }}>
-                                {module.schedule.phase}
+                                {formatSingleDate(module.deadlineDate)}
                               </div>
                             ) : null}
                           </div>
@@ -4138,9 +4146,9 @@ function parseDateSafe(dateStr) {
                             >
                               {module.title}
                             </div>
-                            {module.schedule ? (
+                            {module.deadlineDate ? (
                               <div className="small" style={{ marginBottom: 6 }}>
-                                {module.schedule.phase}
+                                {formatSingleDate(module.deadlineDate)}
                               </div>
                             ) : null}
                             <div
