@@ -97,6 +97,13 @@ function formatDraftAmount(value) {
   return value === null || value === undefined || value === "" ? "" : String(value);
 }
 
+function buildDateOffsetFromToday(daysToAdd) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + Number(daysToAdd || 0));
+  return date.toISOString().slice(0, 10);
+}
+
 function buildTripSetupDraft(trip) {
   return {
     name: trip?.name || "",
@@ -1525,16 +1532,34 @@ export default function TripPage() {
     try {
       setParticipantDocumentTypeStatus("Saving...");
       const updatedTrip = await saveTripParticipantDocumentTypes(trip.id, nextTypes);
+      const addedType = nextTypes[nextTypes.length - 1] || null;
+      let createdTask = null;
+
+      if (addedType?.label) {
+        createdTask = await createTripTask({
+          tripId: trip.id,
+          title: `Upload ${addedType.label}`,
+          dueDate: buildDateOffsetFromToday(14),
+          category: "Uploads",
+          description: `Upload ${addedType.label} in My Documents.`,
+        });
+      }
+
       setTrip((current) =>
         current
           ? {
               ...current,
               participantDocumentTypes: updatedTrip.participantDocumentTypes || [],
+              tasks: createdTask ? [...(current.tasks || []), createdTask] : current.tasks,
             }
           : current
       );
       setCustomParticipantDocumentLabel("");
-      setParticipantDocumentTypeStatus("Saved.");
+      setParticipantDocumentTypeStatus(
+        createdTask
+          ? `Saved. Task created with due date ${formatShortDate(createdTask.due)}.`
+          : "Saved."
+      );
     } catch (error) {
       console.error("Unable to save participant document types", error);
       setParticipantDocumentTypeStatus(error.message || "Unable to save upload item.");
@@ -1848,7 +1873,7 @@ function parseDateSafe(dateStr) {
       groups.set(section, existing);
     });
 
-    const sectionOrder = ["General", "Fundraising", "Travel", "Training"];
+    const sectionOrder = ["General", "Uploads", "Fundraising", "Travel", "Training"];
 
     return Array.from(groups.entries()).sort((left, right) => {
       const leftIndex = sectionOrder.indexOf(left[0]);
