@@ -3571,14 +3571,7 @@ function parseDateSafe(dateStr) {
             <div className="cardSectionPill" style={{ marginBottom: 14 }}>
               {canViewAllParticipantData ? "Fundraising Pages" : "My Fundraising"}
             </div>
-            <p className="small">
-              {canViewAllParticipantData
-                ? "Save a shared team page or personal Neon links for each participant."
-                : trip?.teamFundraisingUrl
-                  ? "Your team uses one shared Neon fundraising page, and you can also see each team member's page below."
-                  : "This page shows your team's fundraising pages."}
-            </p>
-            <div style={{ height: 10 }} />
+            <div style={{ height: 4 }} />
 
             {!canViewAllParticipantData && trip?.teamFundraisingUrl ? (
               <div className="card pad" style={{ boxShadow: "none", marginBottom: 14 }}>
@@ -3597,6 +3590,80 @@ function parseDateSafe(dateStr) {
                 </a>
               </div>
             ) : null}
+
+            {canViewAllParticipantData && (
+              <div className="card pad" style={{ boxShadow: "none", marginBottom: 14 }}>
+                <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
+                <div className="small" style={{ marginBottom: 10 }}>
+                  Use this when the whole team shares one Neon fundraising page.
+                </div>
+                {!isEditingTeamFundraising ? (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {trip.teamFundraisingUrl ? (
+                      <a className="btn" href={trip.teamFundraisingUrl} target="_blank" rel="noreferrer">
+                        Open Team Neon Page
+                      </a>
+                    ) : (
+                      <div className="small">No shared team Neon link added yet.</div>
+                    )}
+                    <div className="row">
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          setIsEditingTeamFundraising(true);
+                          setTeamFundraisingStatus("");
+                        }}
+                      >
+                        {trip.teamFundraisingUrl ? "Edit Link" : "Add Link"}
+                      </button>
+                      {teamFundraisingStatus ? (
+                        <div className="small" style={{ alignSelf: "center" }}>
+                          {teamFundraisingStatus}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <input
+                      className="input"
+                      value={teamFundraisingDraft.teamFundraisingUrl}
+                      onChange={(event) =>
+                        setTeamFundraisingDraft((current) => ({
+                          ...current,
+                          teamFundraisingUrl: event.target.value,
+                        }))
+                      }
+                      placeholder="Shared team Neon link"
+                    />
+                    <div className="row">
+                      <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
+                        Save Link
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          setIsEditingTeamFundraising(false);
+                          setTeamFundraisingStatus("");
+                          setTeamFundraisingDraft({
+                            teamFundraisingUrl: trip.teamFundraisingUrl || "",
+                          });
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      {teamFundraisingStatus ? (
+                        <div className="small" style={{ alignSelf: "center" }}>
+                          {teamFundraisingStatus}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {visibleFundraisingParticipants.length === 0 ? (
               !canViewAllParticipantData && trip?.teamFundraisingUrl ? null : (
@@ -3767,79 +3834,6 @@ function parseDateSafe(dateStr) {
             )}
           </div>
 
-          {canViewAllParticipantData && (
-            <div className="card pad">
-              <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
-              <div className="small" style={{ marginBottom: 10 }}>
-                Use this when the whole team shares one Neon fundraising page.
-              </div>
-              {!isEditingTeamFundraising ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {trip.teamFundraisingUrl ? (
-                    <a className="btn" href={trip.teamFundraisingUrl} target="_blank" rel="noreferrer">
-                      Open Team Neon Page
-                    </a>
-                  ) : (
-                    <div className="small">No shared team Neon link added yet.</div>
-                  )}
-                  <div className="row">
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                        setIsEditingTeamFundraising(true);
-                        setTeamFundraisingStatus("");
-                      }}
-                    >
-                      {trip.teamFundraisingUrl ? "Edit Link" : "Add Link"}
-                    </button>
-                    {teamFundraisingStatus ? (
-                      <div className="small" style={{ alignSelf: "center" }}>
-                        {teamFundraisingStatus}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: "grid", gap: 10 }}>
-                  <input
-                    className="input"
-                    value={teamFundraisingDraft.teamFundraisingUrl}
-                    onChange={(event) =>
-                      setTeamFundraisingDraft((current) => ({
-                        ...current,
-                        teamFundraisingUrl: event.target.value,
-                      }))
-                    }
-                    placeholder="Shared team Neon link"
-                  />
-                  <div className="row">
-                    <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
-                      Save Link
-                    </button>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                        setIsEditingTeamFundraising(false);
-                        setTeamFundraisingStatus("");
-                        setTeamFundraisingDraft({
-                          teamFundraisingUrl: trip.teamFundraisingUrl || "",
-                        });
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    {teamFundraisingStatus ? (
-                      <div className="small" style={{ alignSelf: "center" }}>
-                        {teamFundraisingStatus}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
 
