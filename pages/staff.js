@@ -254,25 +254,56 @@ export default function StaffAssignments() {
                     </div>
                   </td>
                   <td>
-                    <span className="badge">{participant.trainingPercent}%</span>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {participant.trips.map((assignment) => (
+                        <span
+                          key={`${participant.id}-${assignment.tripId}-training`}
+                          className="badge"
+                        >
+                          {assignment.trainingPercent}%
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td>
-                    <span className="badge">{participant.taskPercent}%</span>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {participant.trips.map((assignment) => (
+                        <span
+                          key={`${participant.id}-${assignment.tripId}-tasks`}
+                          className="badge"
+                        >
+                          {assignment.taskPercent}%
+                        </span>
+                      ))}
+                    </div>
                   </td>
-                  <td>{participant.fundraisingSummary}</td>
                   <td>
-                    <span
-                      className={
-                        "badge " +
-                        (participant.readiness === "Behind"
-                          ? "badgeDanger"
-                          : participant.readiness === "Ready"
-                            ? "badgeSuccess"
-                            : "badgeWarn")
-                      }
-                    >
-                      {participant.readiness}
-                    </span>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {participant.trips.map((assignment) => (
+                        <div key={`${participant.id}-${assignment.tripId}-fundraising`} className="small">
+                          {assignment.fundraisingSummary}
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {participant.trips.map((assignment) => (
+                        <span
+                          key={`${participant.id}-${assignment.tripId}-status`}
+                          className={
+                            "badge " +
+                            (assignment.readiness === "Behind"
+                              ? "badgeDanger"
+                              : assignment.readiness === "Ready"
+                                ? "badgeSuccess"
+                                : "badgeWarn")
+                          }
+                        >
+                          {assignment.readiness}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -346,7 +377,18 @@ function WorkerSection({
                 <td>
                   {worker.assignments.length === 0
                     ? "None"
-                    : worker.assignments.map((assignment) => assignment.trip.name).join(", ")}
+                    : (
+                      <div style={{ display: "grid", gap: 6 }}>
+                        {worker.assignments.map((assignment) => (
+                          <Link
+                            key={`${worker.id}-${assignment.id || assignment.tripId}`}
+                            href={`/trips/${encodeURIComponent(assignment.tripId)}`}
+                          >
+                            {assignment.trip.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                 </td>
                 <td style={{ width: 280 }}>
                   <select

@@ -57,6 +57,7 @@ import {
   saveTripAnnouncement,
 } from "@/lib/tripAnnouncements";
 import { saveTripFundraisingSettings } from "@/lib/tripFundraising";
+import { listTripActivity, logTripActivity } from "@/lib/tripActivity";
 import {
   getTripUserDocumentTypes,
   getUserDocumentTypeLabel,
@@ -136,6 +137,14 @@ function buildStaffTaskRowDomId(taskId) {
   return `staff-task-row-${String(taskId || "").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
+function buildWorkerTaskRowDomId(taskId) {
+  return `worker-task-row-${String(taskId || "").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
+function buildTrainingModuleRowDomId(moduleId) {
+  return `training-module-row-${String(moduleId || "").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 function getDocumentCategoryBadgeClass(category) {
   if (category === "Travel") return "badgeInfo";
   if (category === "Insurance") return "badgeWarn";
@@ -160,6 +169,8 @@ export default function TripPage() {
   const [customParticipantDocumentLabel, setCustomParticipantDocumentLabel] = useState("");
   const [participantDocumentTypeStatus, setParticipantDocumentTypeStatus] = useState("");
   const participantDocumentInputRefs = useRef({});
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [recentActivityError, setRecentActivityError] = useState("");
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkDraft, setLinkDraft] = useState({
     title: "",
@@ -219,6 +230,8 @@ export default function TripPage() {
   const [staffTaskTitleDraft, setStaffTaskTitleDraft] = useState("");
   const [isAddingStaffTask, setIsAddingStaffTask] = useState(false);
   const [pendingStaffTaskJumpId, setPendingStaffTaskJumpId] = useState("");
+  const [pendingWorkerTaskJumpId, setPendingWorkerTaskJumpId] = useState("");
+  const [pendingTrainingModuleJumpId, setPendingTrainingModuleJumpId] = useState("");
   const [newStaffTaskDraft, setNewStaffTaskDraft] = useState({
     workArea: "Project Formation",
     taskName: "",
@@ -231,6 +244,9 @@ export default function TripPage() {
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
   const staffTaskRowTimeoutsRef = useRef({});
   const staffTaskNoteSaveTimeoutsRef = useRef({});
+  const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
+  const isPreviewingParticipant = canManageTrips && !!previewParticipantId;
+  const canViewAllParticipantData = canManageTrips && !isPreviewingParticipant;
 
   const staffList = [
     "Mackayla",
@@ -414,6 +430,46 @@ export default function TripPage() {
   }, [trip?.id]);
 
   useEffect(() => {
+    if (!trip?.id || !canManageTrips) return;
+
+    let cancelled = false;
+
+    async function loadRecentActivity() {
+      try {
+        const rows = await listTripActivity(trip.id, { limit: 8 });
+        if (!cancelled) {
+          setRecentActivity(rows);
+          setRecentActivityError("");
+        }
+      } catch (error) {
+        console.error("Unable to load trip activity", error);
+        if (!cancelled) {
+          setRecentActivity([]);
+          setRecentActivityError(error.message || "Unable to load recent activity.");
+        }
+      }
+    }
+
+    void loadRecentActivity();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canManageTrips, trip?.id]);
+
+  function pushRecentActivity(entry) {
+    if (!entry) return;
+
+    setRecentActivity((current) =>
+      [entry, ...current]
+        .sort((left, right) =>
+          String(right.createdAt || "").localeCompare(String(left.createdAt || ""))
+        )
+        .slice(0, 8)
+    );
+  }
+
+  useEffect(() => {
     if (!trip) return;
 
     let cancelled = false;
@@ -538,6 +594,70 @@ export default function TripPage() {
       }
     };
   }, [pendingStaffTaskJumpId, tab]);
+
+  useEffect(() => {
+    if (tab !== "Tasks" || !pendingWorkerTaskJumpId) return undefined;
+
+    let retryTimeout = null;
+    const scrollToTask = () => {
+      const element = document.getElementById(
+        buildWorkerTaskRowDomId(pendingWorkerTaskJumpId)
+      );
+
+      if (!element) return false;
+
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+      setPendingWorkerTaskJumpId("");
+      return true;
+    };
+
+    const initialTimeout = window.setTimeout(() => {
+      if (!scrollToTask()) {
+        retryTimeout = window.setTimeout(() => {
+          scrollToTask();
+        }, 250);
+      }
+    }, 60);
+
+    return () => {
+      window.clearTimeout(initialTimeout);
+      if (retryTimeout) {
+        window.clearTimeout(retryTimeout);
+      }
+    };
+  }, [pendingWorkerTaskJumpId, tab]);
+
+  useEffect(() => {
+    if (tab !== "Training" || !pendingTrainingModuleJumpId) return undefined;
+
+    let retryTimeout = null;
+    const scrollToModule = () => {
+      const element = document.getElementById(
+        buildTrainingModuleRowDomId(pendingTrainingModuleJumpId)
+      );
+
+      if (!element) return false;
+
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+      setPendingTrainingModuleJumpId("");
+      return true;
+    };
+
+    const initialTimeout = window.setTimeout(() => {
+      if (!scrollToModule()) {
+        retryTimeout = window.setTimeout(() => {
+          scrollToModule();
+        }, 250);
+      }
+    }, 60);
+
+    return () => {
+      window.clearTimeout(initialTimeout);
+      if (retryTimeout) {
+        window.clearTimeout(retryTimeout);
+      }
+    };
+  }, [pendingTrainingModuleJumpId, tab]);
 
   useEffect(() => {
     return () => {
@@ -1095,9 +1215,22 @@ export default function TripPage() {
       taskName: taskId,
       completed: next[taskId],
       dueDate: task?.due || null,
-    }).catch((error) => {
-      console.error("Unable to save user task progress", error);
-    });
+    })
+      .then(async () => {
+        if (!next[taskId]) return;
+        const activityEntry = await logTripActivity({
+          tripId: trip.id,
+          actorUserId: participant.id,
+          actorName: participant.name || session?.name || participant.email,
+          actorEmail: participant.email || session?.email || "",
+          eventType: "task_completed",
+          message: `${participant.name || participant.email || "Someone"} marked task complete`,
+        });
+        pushRecentActivity(activityEntry);
+      })
+      .catch((error) => {
+        console.error("Unable to save user task progress", error);
+      });
   }
 
   async function handleCreateTask() {
@@ -1155,9 +1288,23 @@ export default function TripPage() {
       moduleId: id,
       completed: nextValue,
       completedAt: next[`${id}Date`] || null,
-    }).catch((error) => {
-      console.error("Unable to save training progress", error);
-    });
+    })
+      .then(async () => {
+        if (!nextValue) return;
+        const module = allTrainingModules.find((item) => item.id === id);
+        const activityEntry = await logTripActivity({
+          tripId: trip.id,
+          actorUserId: participant.id,
+          actorName: participant.name || session?.name || participant.email,
+          actorEmail: participant.email || session?.email || "",
+          eventType: "training_completed",
+          message: `${participant.name || participant.email || "Someone"} completed ${module?.title || "training module"}`,
+        });
+        pushRecentActivity(activityEntry);
+      })
+      .catch((error) => {
+        console.error("Unable to save training progress", error);
+      });
   }
 
   function updateTrainingDate(id, value, ownerEmail = session?.email) {
@@ -1185,9 +1332,23 @@ export default function TripPage() {
       moduleId: id,
       completed: !!next[id],
       completedAt: value || null,
-    }).catch((error) => {
-      console.error("Unable to save training date", error);
-    });
+    })
+      .then(async () => {
+        if (!value || currentState[id]) return;
+        const module = allTrainingModules.find((item) => item.id === id);
+        const activityEntry = await logTripActivity({
+          tripId: trip.id,
+          actorUserId: participant.id,
+          actorName: participant.name || session?.name || participant.email,
+          actorEmail: participant.email || session?.email || "",
+          eventType: "training_completed",
+          message: `${participant.name || participant.email || "Someone"} completed ${module?.title || "training module"}`,
+        });
+        pushRecentActivity(activityEntry);
+      })
+      .catch((error) => {
+        console.error("Unable to save training date", error);
+      });
   }
 
   async function saveStaffTasks(nextTasks) {
@@ -1319,6 +1480,23 @@ export default function TripPage() {
         ...current,
         [statusKey]: { type: "success", message: "Uploaded." },
       }));
+      const participantName =
+        trip.participants.find((participant) => String(participant.id) === String(userId))?.name ||
+        session?.name ||
+        session?.email ||
+        "Someone";
+      const activityEntry = await logTripActivity({
+        tripId: trip.id,
+        actorUserId: session?.profileId || session?.id || userId,
+        actorName: session?.name || participantName,
+        actorEmail: session?.email || "",
+        eventType: "participant_document_uploaded",
+        message: `${participantName} uploaded ${getUserDocumentTypeLabel(
+          documentType,
+          trip?.participantDocumentTypes
+        ).toLowerCase()}`,
+      });
+      pushRecentActivity(activityEntry);
     } catch (error) {
       console.error("Unable to upload participant document", error);
       setParticipantDocumentsError(error.message || "Unable to upload document.");
@@ -1388,6 +1566,26 @@ export default function TripPage() {
         ...current,
         [statusKey]: { type: "error", message: error.message || "Delete failed." },
       }));
+    }
+  }
+
+  function handleJumpToOverviewItem(item) {
+    if (!item?.destinationTab || !item?.destinationId) return;
+
+    if (item.destinationTab === "Staff Tasks") {
+      handleJumpToStaffTask(item.destinationId);
+      return;
+    }
+
+    if (item.destinationTab === "Tasks") {
+      setPendingWorkerTaskJumpId(item.destinationId);
+      setTab("Tasks");
+      return;
+    }
+
+    if (item.destinationTab === "Training") {
+      setPendingTrainingModuleJumpId(item.destinationId);
+      setTab("Training");
     }
   }
 
@@ -1684,6 +1882,17 @@ function parseDateSafe(dateStr) {
     });
   }
 
+  function formatRecentActivityTimestamp(value) {
+    if (!value) return "";
+
+    return new Date(value).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
   function formatSingleDate(value) {
     if (!value) return "Not set";
 
@@ -1950,6 +2159,17 @@ function parseDateSafe(dateStr) {
       setEditingAnnouncementId("");
       setIsEditingAnnouncement(false);
       setAnnouncementStatus("Saved.");
+      const activityEntry = await logTripActivity({
+        tripId: trip.id,
+        actorUserId: session?.profileId || session?.id || "",
+        actorName: session?.name || session?.email || "Staff",
+        actorEmail: session?.email || "",
+        eventType: editingAnnouncementId ? "announcement_updated" : "announcement_created",
+        message: editingAnnouncementId
+          ? "Staff updated announcement"
+          : "Staff posted new announcement",
+      });
+      pushRecentActivity(activityEntry);
     } catch (error) {
       console.error("Unable to save trip announcement", error);
       setAnnouncementStatus(error.message || "Unable to save announcement.");
@@ -2509,9 +2729,6 @@ function parseDateSafe(dateStr) {
   ).length;
   const totalCount = (editableStaffTasks || []).length;
   const completionPct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
-  const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
-  const isPreviewingParticipant = canManageTrips && !!previewParticipantId;
-  const canViewAllParticipantData = canManageTrips && !isPreviewingParticipant;
   const siteOptions = useMemo(() => {
     const seen = new Set();
     return [...(SITE_OPTIONS || []), trip?.location || ""]
@@ -2908,26 +3125,55 @@ function parseDateSafe(dateStr) {
           title: task.taskName,
           dueDate: task.dueDate,
           detail: task.workArea,
+          destinationTab: "Staff Tasks",
+          destinationId: task.id,
         }));
     }
 
     const taskState = currentParticipantProgress?.taskState || {};
-
-    return (trip.tasks || [])
+    const upcomingTasks = (trip.tasks || [])
       .filter((task) => !taskState[task.id])
-      .sort((left, right) => {
-        const leftDate = parseDateSafe(left.due)?.getTime() || Number.MAX_SAFE_INTEGER;
-        const rightDate = parseDateSafe(right.due)?.getTime() || Number.MAX_SAFE_INTEGER;
-        return leftDate - rightDate;
-      })
-      .slice(0, 5)
       .map((task) => ({
         id: task.id,
         title: task.title,
         dueDate: task.due,
         detail: getWorkerTaskSection(task),
+        destinationTab: "Tasks",
+        destinationId: task.id,
       }));
-  }, [canViewAllParticipantData, currentParticipantProgress?.taskState, editableStaffTasks, session?.email, session?.name, trip]);
+    const currentTrainingState = currentTrainingProgress?.trainingState || {};
+    const upcomingTraining = allTrainingModules
+      .filter((module) => !currentTrainingState[module.id])
+      .map((module) => ({
+        id: `training-${module.id}`,
+        title: module.title,
+        dueDate: getTrainingModuleDeadline(module.title, {
+          startDate: trip?.startDate,
+          endDate: trip?.endDate,
+          trainingTimelineType: trip?.trainingTimelineType,
+        }),
+        detail: "Training",
+        destinationTab: "Training",
+        destinationId: module.id,
+      }));
+
+    return [...upcomingTasks, ...upcomingTraining]
+      .sort((left, right) => {
+        const leftDate = parseDateSafe(left.dueDate)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const rightDate = parseDateSafe(right.dueDate)?.getTime() || Number.MAX_SAFE_INTEGER;
+        return leftDate - rightDate;
+      })
+      .slice(0, 5);
+  }, [
+    allTrainingModules,
+    canViewAllParticipantData,
+    currentParticipantProgress?.taskState,
+    currentTrainingProgress?.trainingState,
+    editableStaffTasks,
+    session?.email,
+    session?.name,
+    trip,
+  ]);
 
   const participantDocumentsTabLabel = canViewAllParticipantData ? "Participant Docs" : "My Documents";
   const tripDocumentsTabLabel = "Trip Documents";
@@ -3331,7 +3577,21 @@ function parseDateSafe(dateStr) {
                           {task.title}
                         </button>
                       ) : (
-                        <div style={{ fontWeight: 800 }}>{task.title}</div>
+                        <button
+                          type="button"
+                          onClick={() => handleJumpToOverviewItem(task)}
+                          style={{
+                            padding: 0,
+                            border: "none",
+                            background: "transparent",
+                            fontWeight: 800,
+                            textAlign: "left",
+                            color: "var(--ink)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {task.title}
+                        </button>
                       )}
                       <div className="small">
                         {task.detail ? `${task.detail} • ` : ""}
@@ -3377,6 +3637,39 @@ function parseDateSafe(dateStr) {
                 ))}
               </div>
             </div>
+
+            {canViewAllParticipantData ? (
+              <div className="card pad">
+                <div className="row" style={{ marginBottom: 10 }}>
+                  <div className="cardSectionPill">Recent Activity</div>
+                  <div className="spacer" />
+                  <Link href={`/trips/${encodeURIComponent(trip.id)}/activity`} className="small">
+                    See more
+                  </Link>
+                </div>
+                {recentActivityError ? (
+                  <div className="small" style={{ color: "var(--danger)" }}>
+                    {recentActivityError}
+                  </div>
+                ) : recentActivity.length > 0 ? (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {recentActivity.map((entry) => (
+                      <div
+                        key={entry.id}
+                        style={{ paddingBottom: 10, borderBottom: "1px solid var(--border)" }}
+                      >
+                        <div style={{ lineHeight: 1.4 }}>{entry.message}</div>
+                        <div className="small" style={{ marginTop: 4 }}>
+                          {formatRecentActivityTimestamp(entry.createdAt)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="small">No recent activity yet.</div>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       )}
@@ -4102,6 +4395,12 @@ function parseDateSafe(dateStr) {
                       {canvasTrainingModules.map((module) => (
                         <div
                           key={`${participant.email}-${module.id}`}
+                          id={
+                            !canViewAllParticipantData &&
+                            String(participant.id || "") === String(currentParticipant?.id || "")
+                              ? buildTrainingModuleRowDomId(module.id)
+                              : undefined
+                          }
                           style={{
                             display: "grid",
                             gridTemplateColumns: "18px minmax(0, 1fr)",
@@ -4168,6 +4467,12 @@ function parseDateSafe(dateStr) {
                       {supplementalTrainingModules.map((module) => (
                         <div
                           key={`${participant.email}-${module.id}`}
+                          id={
+                            !canViewAllParticipantData &&
+                            String(participant.id || "") === String(currentParticipant?.id || "")
+                              ? buildTrainingModuleRowDomId(module.id)
+                              : undefined
+                          }
                           style={{
                             display: "grid",
                             gridTemplateColumns: "18px minmax(0, 1fr)",
@@ -4397,6 +4702,12 @@ function parseDateSafe(dateStr) {
                               return (
                                 <div
                                   key={`${participant.email}-${task.id}`}
+                                  id={
+                                    !canViewAllParticipantData &&
+                                    String(participant.id || "") === String(currentParticipant?.id || "")
+                                      ? buildWorkerTaskRowDomId(task.id)
+                                      : undefined
+                                  }
                                   className="row"
                                   style={{
                                     padding: "8px 0",
