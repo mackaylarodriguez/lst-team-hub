@@ -3600,10 +3600,16 @@ function parseDateSafe(dateStr) {
             {!canViewAllParticipantData && trip?.teamFundraisingUrl ? (
               <div className="card pad" style={{ boxShadow: "none", marginBottom: 14 }}>
                 <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
-                <div className="small" style={{ marginBottom: 10 }}>
+                <div className="small" style={{ marginBottom: 14 }}>
                   Your whole team uses this one Neon page.
                 </div>
-                <a className="btn btnPrimary" href={trip.teamFundraisingUrl} target="_blank" rel="noreferrer">
+                <a
+                  className="btn btnPrimary"
+                  href={trip.teamFundraisingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ padding: "8px 12px", fontSize: 13, alignSelf: "flex-start" }}
+                >
                   Open Team Neon Page
                 </a>
               </div>
