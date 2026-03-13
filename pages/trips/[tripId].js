@@ -8,6 +8,7 @@ import { isManagerRole } from "@/lib/roles";
 import { listTripTeamMembers, saveTripTeamMembers } from "@/lib/tripTeamMembers";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import {
+  getTrainingModuleSchedule,
   listTrainingModules,
   listTrainingProgress,
   saveTrainingProgress,
@@ -256,12 +257,24 @@ export default function TripPage() {
   ];
 
   const canvasTrainingModules = useMemo(
-    () => trainingModules.filter((module) => module.category === "canvas"),
-    [trainingModules]
+    () =>
+      trainingModules
+        .filter((module) => module.category === "canvas")
+        .map((module) => ({
+          ...module,
+          schedule: getTrainingModuleSchedule(module.title, trip?.trainingTimelineType),
+        })),
+    [trainingModules, trip?.trainingTimelineType]
   );
   const supplementalTrainingModules = useMemo(
-    () => trainingModules.filter((module) => module.category !== "canvas"),
-    [trainingModules]
+    () =>
+      trainingModules
+        .filter((module) => module.category !== "canvas")
+        .map((module) => ({
+          ...module,
+          schedule: getTrainingModuleSchedule(module.title, trip?.trainingTimelineType),
+        })),
+    [trainingModules, trip?.trainingTimelineType]
   );
   const datedTrainingModuleIds = useMemo(
     () =>
@@ -4071,6 +4084,11 @@ function parseDateSafe(dateStr) {
                                 {!!trainingState[module.id] ? "Completed" : "Not started"}
                               </span>
                             </div>
+                            {module.schedule ? (
+                              <div className="small" style={{ marginTop: 4 }}>
+                                {module.schedule.phase}
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       ))}
@@ -4120,6 +4138,11 @@ function parseDateSafe(dateStr) {
                             >
                               {module.title}
                             </div>
+                            {module.schedule ? (
+                              <div className="small" style={{ marginBottom: 6 }}>
+                                {module.schedule.phase}
+                              </div>
+                            ) : null}
                             <div
                               style={{
                                 display: "grid",
