@@ -47,6 +47,7 @@ create table if not exists public.recruiting_cycle_contacts (
   priority text,
   alumni_year_label text,
   stage integer not null default 0,
+  is_potential_team boolean not null default false,
   interested_trip text,
   team_name text,
   team_members text,
@@ -69,11 +70,17 @@ create table if not exists public.recruiting_cycle_contacts (
   unique (contact_id, recruiting_year)
 );
 
+alter table public.recruiting_cycle_contacts
+  add column if not exists is_potential_team boolean not null default false;
+
 create index if not exists recruiting_cycle_contacts_year_idx
   on public.recruiting_cycle_contacts (recruiting_year);
 
 create index if not exists recruiting_cycle_contacts_stage_idx
   on public.recruiting_cycle_contacts (recruiting_year, stage);
+
+create index if not exists recruiting_cycle_contacts_potential_idx
+  on public.recruiting_cycle_contacts (recruiting_year, is_potential_team);
 
 create index if not exists recruiting_cycle_contacts_follow_up_idx
   on public.recruiting_cycle_contacts (recruiting_year, next_follow_up);

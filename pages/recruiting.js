@@ -8,6 +8,7 @@ import {
   RECRUITING_STAGES,
   RECRUITING_UPDATED_EVENT,
   bulkUpdateRecruitingCycleContacts,
+  convertRecruitingCycleRecordToTrip,
   deleteRecruitingSavedFilter,
   getRecruitingStageLabel,
   importRecruitingContacts,
@@ -15,6 +16,8 @@ import {
   listRecruitingCycleContacts,
   listRecruitingSavedFilters,
   listRecruitingYears,
+  logRecruitingCycleContactAction,
+  promoteRecruitingRecordToPotentialTeam,
   saveRecruitingCycleContact,
   saveRecruitingSavedFilter,
 } from "@/lib/recruitingCycles";
@@ -135,6 +138,12 @@ const BULK_ACTION_OPTIONS = [
   { value: "stage", label: "Change Stage" },
 ];
 
+const RECRUITING_TABS = [
+  { id: "outreach", label: "Outreach Queue" },
+  { id: "potential", label: "Potential Teams" },
+  { id: "converted", label: "Converted Teams" },
+];
+
 export default function RecruitingPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -146,6 +155,7 @@ export default function RecruitingPage() {
   const [error, setError] = useState("");
   const [filterConfig, setFilterConfig] = useState(DEFAULT_FILTER_CONFIG);
   const [activeFilterId, setActiveFilterId] = useState("all");
+  const [activeTab, setActiveTab] = useState("outreach");
   const [selectedRecordId, setSelectedRecordId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
@@ -166,6 +176,18 @@ export default function RecruitingPage() {
   const [bulkNextFollowUp, setBulkNextFollowUp] = useState("");
   const [bulkAssignedTo, setBulkAssignedTo] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [formTeamModalOpen, setFormTeamModalOpen] = useState(false);
+  const [teamFormDraft, setTeamFormDraft] = useState({
+    teamName: "",
+    teamMembers: "",
+    teamMemberEmails: "",
+    projectDates: "",
+    site: "",
+    weeks: "",
+    departureDate: "",
+    mackaylaNotes: "",
+    lesleeNotes: "",
+  });
   const importInputRef = useRef(null);
 
   useEffect(() => {
@@ -271,11 +293,19 @@ export default function RecruitingPage() {
         return false;
       }
 
-      if (filterConfig.activeView === "outreach" && (record.isConvertedToTeam || record.stage > 1)) {
+      if (activeFilterId === "no_contact" && record.stage !== 0) {
         return false;
       }
 
-      if (filterConfig.activeView === "pipeline" && (record.isConvertedToTeam || record.stage < 2)) {
+      if (activeFilterId === "follow_up_due" && !isDueTodayOrOverdue(record.nextFollowUp)) {
+        return false;
+      }
+
+      if (filterConfig.activeView === "outreach" && (record.isConvertedToTeam || record.isPotentialTeam || record.stage > 1)) {
+        return false;
+      }
+
+      if (filterConfig.activeView === "potential" && (record.isConvertedToTeam || (!record.isPotentialTeam && record.stage < 2))) {
         return false;
       }
 
@@ -315,11 +345,11 @@ export default function RecruitingPage() {
   }, [activeFilterId, filterConfig, records]);
 
   const outreachQueue = useMemo(
-    () => filteredRecords.filter((record) => !record.isConvertedToTeam && record.stage <= 1),
+    () => filteredRecords.filter((record) => !record.isConvertedToTeam && !record.isPotentialTeam && record.stage <= 1),
     [filteredRecords]
   );
   const pipelineRecords = useMemo(
-    () => filteredRecords.filter((record) => !record.isConvertedToTeam && record.stage >= 2),
+    () => filteredRecords.filter((record) => !record.isConvertedToTeam && (record.isPotentialTeam || record.stage >= 2)),
     [filteredRecords]
   );
   const convertedTeams = useMemo(
@@ -446,6 +476,101 @@ export default function RecruitingPage() {
     }
   }
 
+  async function handleLogRecordAction(record, actionType) {
+    const summary = window.prompt(`Summary for ${actionType}`);
+    if (summary === null) return;
+
+    const nextFollowUp =
+      actionType === "note"
+        ? undefined
+        : window.prompt("Next follow-up date (YYYY-MM-DD). Leave blank to skip.") || undefined;
+
+    await logRecruitingCycleContactAction({
+      record,
+      actionType,
+      actionDate: new Date().toISOString(),
+      staffMember: session?.name || session?.email || "Staff",
+      summary,
+      nextFollowUp,
+      stage: actionType === "email" || actionType === "call" || actionType === "text"
+        ? Math.max(record.stage, 1)
+        : undefined,
+    });
+
+    await refreshCurrentYear();
+  }
+
+  async function handlePromote(record) {
+    await promoteRecruitingRecordToPotentialTeam(record, {
+      staffMember: session?.name || session?.email || "Staff",
+    });
+    setActiveTab("potential");
+    await refreshCurrentYear();
+  }
+
+  async function handleAdvanceStage(record) {
+    await saveRecruitingCycleContact({
+      id: record.id,
+      contactId: record.contactId,
+      recruitingYear: record.recruitingYear,
+      firstName: record.contact?.firstName,
+      lastName: record.contact?.lastName,
+      email: record.contact?.email,
+      gender: record.contact?.gender,
+      priority: record.priority,
+      alumniYearLabel: record.alumniYearLabel,
+      stage: Math.min(record.stage + 1, 3),
+      isPotentialTeam: record.isPotentialTeam,
+      interestedTrip: record.interestedTrip,
+      teamName: record.teamName,
+      teamMembers: record.teamMembers,
+      projectDates: record.projectDates,
+      site: record.site,
+      weeks: record.weeks,
+      departureDate: record.departureDate,
+      assignedTo: record.assignedTo,
+      lastContactedAt: record.lastContactedAt,
+      lastContactMethod: record.lastContactMethod,
+      nextFollowUp: record.nextFollowUp,
+      mackaylaNotes: record.mackaylaNotes,
+      lesleeNotes: record.lesleeNotes,
+      bulkLastContactedAt: record.bulkLastContactedAt,
+      bulkLastContactMethod: record.bulkLastContactMethod,
+      isConvertedToTeam: record.isConvertedToTeam,
+      convertedTeamId: record.convertedTeamId,
+    });
+    await refreshCurrentYear();
+  }
+
+  function openFormTeamModal(record) {
+    setSelectedRecordId(record.id);
+    setTeamFormDraft({
+      teamName: record.teamName || formatContactName(record),
+      teamMembers: record.teamMembers || formatContactName(record),
+      teamMemberEmails: record.contact?.email || "",
+      projectDates: record.projectDates || "",
+      site: record.site || "",
+      weeks: record.weeks || "",
+      departureDate: record.departureDate || "",
+      mackaylaNotes: record.mackaylaNotes || "",
+      lesleeNotes: record.lesleeNotes || "",
+    });
+    setFormTeamModalOpen(true);
+  }
+
+  async function handleFormTeam() {
+    if (!selectedRecord) return;
+
+    await convertRecruitingCycleRecordToTrip({
+      record: selectedRecord,
+      ...teamFormDraft,
+    });
+
+    setFormTeamModalOpen(false);
+    setActiveTab("converted");
+    await refreshCurrentYear();
+  }
+
   function handleDownloadTemplate() {
     const csv = "First Name,Last Name,Email\nJohn,Smith,john@email.com\nSarah,Lee,sarah@email.com\n";
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -513,6 +638,7 @@ export default function RecruitingPage() {
         nextFollowUp: selectedRecord.nextFollowUp,
         mackaylaNotes: selectedRecord.mackaylaNotes,
         lesleeNotes: selectedRecord.lesleeNotes,
+        isPotentialTeam: selectedRecord.isPotentialTeam,
         bulkLastContactedAt: selectedRecord.bulkLastContactedAt,
         bulkLastContactMethod: selectedRecord.bulkLastContactMethod,
         isConvertedToTeam: selectedRecord.isConvertedToTeam,
@@ -532,7 +658,7 @@ export default function RecruitingPage() {
     );
   }
 
-  function renderTable(recordsToRender, showCheckboxes = false) {
+  function renderOutreachTable(recordsToRender) {
     if (recordsToRender.length === 0) {
       return <div className="small">No contacts in this view.</div>;
     }
@@ -541,12 +667,18 @@ export default function RecruitingPage() {
       <table className="table">
         <thead>
           <tr>
-            {showCheckboxes ? <th /> : null}
-            <th>Contact</th>
+            <th />
+            <th>Priority</th>
+            <th>First Name</th>
+            <th>Last Name</th>
+            <th>Email</th>
             <th>Stage</th>
+            <th>Last Contacted</th>
+            <th>Method</th>
             <th>Assigned</th>
             <th>Follow-Up</th>
-            <th>Last Contact</th>
+            <th>Mackayla Notes</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -556,23 +688,124 @@ export default function RecruitingPage() {
               onClick={() => setSelectedRecordId(record.id)}
               style={record.id === selectedRecordId ? { background: "rgba(47,73,147,.06)" } : undefined}
             >
-              {showCheckboxes ? (
-                <td onClick={(event) => event.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(record.id)}
-                    onChange={() => toggleSelected(record.id)}
-                  />
-                </td>
-              ) : null}
-              <td>
-                <div style={{ fontWeight: 700 }}>{formatContactName(record)}</div>
-                <div className="small">{record.contact?.email}</div>
+              <td onClick={(event) => event.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(record.id)}
+                  onChange={() => toggleSelected(record.id)}
+                />
               </td>
+              <td>{record.priority || "-"}</td>
+              <td>{record.contact?.firstName || "-"}</td>
+              <td>{record.contact?.lastName || "-"}</td>
+              <td>{record.contact?.email || "-"}</td>
               <td>{record.stageLabel}</td>
+              <td>{record.lastContactedAt ? formatDateTime(record.lastContactedAt) : "-"}</td>
+              <td>{record.lastContactMethod || "-"}</td>
               <td>{record.assignedTo || "-"}</td>
               <td>{record.nextFollowUp ? formatDate(record.nextFollowUp) : "-"}</td>
-              <td>{record.lastContactedAt ? formatDateTime(record.lastContactedAt) : "-"}</td>
+              <td>{record.mackaylaNotes || "-"}</td>
+              <td onClick={(event) => event.stopPropagation()}>
+                <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                  <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "email")}>Log Email</button>
+                  <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "call")}>Log Call</button>
+                  <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "text")}>Log Text</button>
+                  <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "note")}>Add Note</button>
+                  <button className="btn" type="button" onClick={() => handleAdvanceStage(record)}>Change Stage</button>
+                  <button className="btn" type="button" onClick={() => handlePromote(record)}>Promote</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  function renderPotentialTable(recordsToRender) {
+    if (recordsToRender.length === 0) return <div className="small">No potential teams yet.</div>;
+
+    return (
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Team Name</th>
+            <th>Primary Contact</th>
+            <th>Email</th>
+            <th>Stage</th>
+            <th>Interested Trip</th>
+            <th>Project Dates</th>
+            <th>Site</th>
+            <th>Weeks</th>
+            <th>Departure</th>
+            <th>Mackayla Notes</th>
+            <th>Leslee Notes</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {recordsToRender.map((record) => (
+            <tr
+              key={record.id}
+              onClick={() => setSelectedRecordId(record.id)}
+              style={record.id === selectedRecordId ? { background: "rgba(47,73,147,.06)" } : undefined}
+            >
+              <td>{record.teamName || "-"}</td>
+              <td>{formatContactName(record)}</td>
+              <td>{record.contact?.email || "-"}</td>
+              <td>{record.stageLabel}</td>
+              <td>{record.interestedTrip || "-"}</td>
+              <td>{record.projectDates || "-"}</td>
+              <td>{record.site || "-"}</td>
+              <td>{record.weeks || "-"}</td>
+              <td>{record.departureDate ? formatDate(record.departureDate) : "-"}</td>
+              <td>{record.mackaylaNotes || "-"}</td>
+              <td>{record.lesleeNotes || "-"}</td>
+              <td onClick={(event) => event.stopPropagation()}>
+                <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                  <button className="btn" type="button" onClick={() => setSelectedRecordId(record.id)}>Edit Team Details</button>
+                  <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "note")}>Add Notes</button>
+                  <button className="btn" type="button" onClick={() => setSelectedRecordId(record.id)}>View History</button>
+                  <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>Form Team</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  function renderConvertedTable(recordsToRender) {
+    if (recordsToRender.length === 0) return <div className="small">No converted teams yet.</div>;
+
+    return (
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Team Name</th>
+            <th>Primary Contact</th>
+            <th>Trip / Site</th>
+            <th>Departure Date</th>
+            <th>Status</th>
+            <th>Open Team</th>
+          </tr>
+        </thead>
+        <tbody>
+          {recordsToRender.map((record) => (
+            <tr key={record.id} onClick={() => setSelectedRecordId(record.id)}>
+              <td>{record.teamName || record.linkedTrip?.name || "-"}</td>
+              <td>{formatContactName(record)}</td>
+              <td>{record.linkedTrip?.site || record.site || "-"}</td>
+              <td>{record.linkedTrip?.departureDate ? formatDate(record.linkedTrip.departureDate) : (record.departureDate ? formatDate(record.departureDate) : "-")}</td>
+              <td>{record.linkedTrip?.status || "Converted"}</td>
+              <td>
+                {record.convertedTeamId ? (
+                  <button className="btn btnPrimary" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
+                    Open Team
+                  </button>
+                ) : "-"}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -697,7 +930,7 @@ export default function RecruitingPage() {
           >
             <option value="all">All</option>
             <option value="outreach">Outreach Queue</option>
-            <option value="pipeline">Pipeline</option>
+            <option value="potential">Potential Teams</option>
             <option value="converted">Converted Teams</option>
           </select>
         </div>
@@ -711,6 +944,26 @@ export default function RecruitingPage() {
             }}
           >
             Needs Attention
+          </button>
+          <button
+            className={`btn ${activeFilterId === "no_contact" ? "btnPrimary" : ""}`}
+            type="button"
+            onClick={() => {
+              setActiveFilterId("no_contact");
+              setFilterConfig(DEFAULT_FILTER_CONFIG);
+            }}
+          >
+            No Contact Yet
+          </button>
+          <button
+            className={`btn ${activeFilterId === "follow_up_due" ? "btnPrimary" : ""}`}
+            type="button"
+            onClick={() => {
+              setActiveFilterId("follow_up_due");
+              setFilterConfig(DEFAULT_FILTER_CONFIG);
+            }}
+          >
+            Follow-Up Due
           </button>
           {savedFilters.map((filter) => (
             <div key={filter.id} className="row" style={{ gap: 6 }}>
@@ -734,37 +987,66 @@ export default function RecruitingPage() {
       >
         <div style={{ display: "grid", gap: 16 }}>
           <div className="card pad">
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div>
-                <div style={{ fontWeight: 900 }}>Outreach Queue</div>
-                <div className="small">{outreachQueue.length} contacts</div>
-              </div>
-              <div className="spacer" />
-              <button
-                className="btn"
-                type="button"
-                disabled={selectedIds.length === 0}
-                onClick={() => setBulkModalOpen(true)}
-              >
-                Bulk Actions
-              </button>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              {RECRUITING_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  className={`btn ${activeTab === tab.id ? "btnPrimary" : ""}`}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
-            {renderTable(outreachQueue, true)}
-          </div>
 
-          <div className="card pad">
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Pipeline</div>
-            {renderTable(pipelineRecords)}
-          </div>
+            {activeTab === "outreach" ? (
+              <>
+                <div className="row" style={{ marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 900 }}>Outreach Queue</div>
+                    <div className="small">High-volume lead management for first-touch outreach.</div>
+                  </div>
+                  <div className="spacer" />
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={selectedIds.length === 0}
+                    onClick={() => setBulkModalOpen(true)}
+                  >
+                    Bulk Actions
+                  </button>
+                </div>
+                {renderOutreachTable(outreachQueue)}
+              </>
+            ) : null}
 
-          <div className="card pad">
-            <div style={{ fontWeight: 900, marginBottom: 10 }}>Converted Teams</div>
-            {renderTable(convertedTeams)}
+            {activeTab === "potential" ? (
+              <>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Potential Teams</div>
+                <div className="small" style={{ marginBottom: 10 }}>
+                  Curated serious leads for team formation and Leslee follow-up.
+                </div>
+                {renderPotentialTable(pipelineRecords)}
+              </>
+            ) : null}
+
+            {activeTab === "converted" ? (
+              <>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Converted Teams</div>
+                <div className="small" style={{ marginBottom: 10 }}>
+                  Recruiting records already turned into real teams.
+                </div>
+                {renderConvertedTable(convertedTeams)}
+              </>
+            ) : null}
           </div>
         </div>
 
         <div className="card pad">
-          <div style={{ fontWeight: 900, marginBottom: 10 }}>Contact History</div>
+          <div style={{ fontWeight: 900, marginBottom: 10 }}>
+            {activeTab === "outreach" ? "Contact History" : activeTab === "potential" ? "Potential Team History" : "Converted Team History"}
+          </div>
           {selectedRecord ? (
             <div style={{ display: "grid", gap: 12 }}>
               <div>
@@ -942,6 +1224,52 @@ export default function RecruitingPage() {
               />
               <button className="btn btnPrimary" type="button" onClick={handleCreateContact}>
                 Save Contact
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {formTeamModalOpen ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 50,
+          }}
+        >
+          <div className="card pad" style={{ width: "min(760px, 100%)", maxHeight: "80vh", overflow: "auto" }}>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 900 }}>Form Team</div>
+              <div className="spacer" />
+              <button className="btn" type="button" onClick={() => setFormTeamModalOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 10,
+              }}
+            >
+              <input className="input" value={teamFormDraft.teamName} onChange={(e) => setTeamFormDraft((c) => ({ ...c, teamName: e.target.value }))} placeholder="Team Name" />
+              <input className="input" value={teamFormDraft.site} onChange={(e) => setTeamFormDraft((c) => ({ ...c, site: e.target.value }))} placeholder="Site" />
+              <input className="input" value={teamFormDraft.projectDates} onChange={(e) => setTeamFormDraft((c) => ({ ...c, projectDates: e.target.value }))} placeholder="Project Dates" />
+              <input className="input" value={teamFormDraft.weeks} onChange={(e) => setTeamFormDraft((c) => ({ ...c, weeks: e.target.value }))} placeholder="Number of Weeks" />
+              <input className="input" type="date" value={teamFormDraft.departureDate} onChange={(e) => setTeamFormDraft((c) => ({ ...c, departureDate: e.target.value }))} />
+            </div>
+            <textarea className="input" rows={3} style={{ marginTop: 10 }} value={teamFormDraft.teamMembers} onChange={(e) => setTeamFormDraft((c) => ({ ...c, teamMembers: e.target.value }))} placeholder="Team Members" />
+            <textarea className="input" rows={3} style={{ marginTop: 10 }} value={teamFormDraft.teamMemberEmails} onChange={(e) => setTeamFormDraft((c) => ({ ...c, teamMemberEmails: e.target.value }))} placeholder="Team Member Emails" />
+            <textarea className="input" rows={3} style={{ marginTop: 10 }} value={teamFormDraft.mackaylaNotes} onChange={(e) => setTeamFormDraft((c) => ({ ...c, mackaylaNotes: e.target.value }))} placeholder="Mackayla Notes" />
+            <textarea className="input" rows={3} style={{ marginTop: 10 }} value={teamFormDraft.lesleeNotes} onChange={(e) => setTeamFormDraft((c) => ({ ...c, lesleeNotes: e.target.value }))} placeholder="Leslee Notes" />
+            <div className="row" style={{ marginTop: 12 }}>
+              <button className="btn btnPrimary" type="button" onClick={handleFormTeam}>
+                Form Team
               </button>
             </div>
           </div>
