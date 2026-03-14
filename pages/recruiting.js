@@ -17,7 +17,6 @@ import {
   listRecruitingSavedFilters,
   listRecruitingYears,
   logRecruitingCycleContactAction,
-  promoteRecruitingRecordToPotentialTeam,
   saveRecruitingCycleContact,
   saveRecruitingSavedFilter,
 } from "@/lib/recruitingCycles";
@@ -28,6 +27,32 @@ function formatContactName(record) {
     .join(" ")
     .trim();
   return fullName || record?.contact?.email || "Unnamed contact";
+}
+
+function parseDelimitedLines(value) {
+  return String(value || "")
+    .split(/\r?\n|,/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function getRecordPeopleList(record) {
+  const teamMembers = parseDelimitedLines(record?.teamMembers);
+  if (teamMembers.length > 0) return teamMembers;
+  const primaryContact = formatContactName(record);
+  return primaryContact && primaryContact !== "Unnamed contact" ? [primaryContact] : [];
+}
+
+function getRecordPeopleCount(record) {
+  return Math.max(getRecordPeopleList(record).length, 1);
+}
+
+function getRecordPeopleSummary(record, maxItems = 2) {
+  const people = getRecordPeopleList(record);
+  if (people.length <= maxItems) {
+    return people.join(", ") || "Primary contact only";
+  }
+  return `${people.slice(0, maxItems).join(", ")} +${people.length - maxItems} more`;
 }
 
 function formatDate(value) {
@@ -127,6 +152,7 @@ const DEFAULT_FILTER_CONFIG = {
   stage: "",
   assignedTo: "",
   activeView: "all",
+  workflowStatus: "all",
 };
 
 const BULK_ACTION_OPTIONS = [
@@ -143,6 +169,97 @@ const RECRUITING_TABS = [
   { id: "potential", label: "Potential Teams" },
   { id: "converted", label: "Converted Teams" },
 ];
+
+const PRIMARY_OWNER = "Mackayla";
+const BOSS_OWNER = "Leslee";
+const OWNER_OPTIONS = [PRIMARY_OWNER, BOSS_OWNER];
+const HANDOFF_SUMMARY_START = "[HANDOFF SUMMARY]";
+const HANDOFF_SUMMARY_END = "[/HANDOFF SUMMARY]";
+
+function normalizeOwnerName(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function extractHandoffSummary(notes) {
+  const match = String(notes || "").match(
+    /\[HANDOFF SUMMARY\]\s*([\s\S]*?)\s*\[\/HANDOFF SUMMARY\]/i
+  );
+  return match ? match[1].trim() : "";
+}
+
+function stripHandoffSummary(notes) {
+  return String(notes || "")
+    .replace(/\[HANDOFF SUMMARY\]\s*[\s\S]*?\s*\[\/HANDOFF SUMMARY\]/i, "")
+    .trim();
+}
+
+function buildMackaylaNotes(baseNotes, handoffSummary) {
+  const cleanNotes = String(baseNotes || "").trim();
+  const cleanSummary = String(handoffSummary || "").trim();
+  return [cleanSummary ? `${HANDOFF_SUMMARY_START}\n${cleanSummary}\n${HANDOFF_SUMMARY_END}` : "", cleanNotes]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function isAssignedTo(record, owner) {
+  return normalizeOwnerName(record?.assignedTo) === normalizeOwnerName(owner);
+}
+
+function isReadyForBoss(record) {
+  return Boolean(
+    record?.isPotentialTeam &&
+    isAssignedTo(record, BOSS_OWNER) &&
+    extractHandoffSummary(record?.mackaylaNotes) &&
+    !String(record?.lesleeNotes || "").trim()
+  );
+}
+
+function isOverdueRecord(record) {
+  if (!record?.nextFollowUp) return false;
+  const nextFollowUp = new Date(`${record.nextFollowUp}T00:00:00`);
+  if (Number.isNaN(nextFollowUp.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return nextFollowUp < today;
+}
+
+function isStaleRecord(record) {
+  const referenceDate = new Date(
+    record?.lastContactedAt || record?.updatedAt || record?.createdAt || Date.now()
+  );
+  if (Number.isNaN(referenceDate.getTime())) return false;
+  const ageInDays = (Date.now() - referenceDate.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (record?.isConvertedToTeam) return false;
+  if (record?.isPotentialTeam) {
+    return ageInDays >= 10;
+  }
+  if (Number(record?.stage || 0) === 0) {
+    return ageInDays >= 3;
+  }
+  return ageInDays >= 7;
+}
+
+function getAttentionMeta(record) {
+  if (isOverdueRecord(record)) {
+    return { label: "Overdue", badgeClass: "badgeDanger", rowAccent: "rgba(239,68,68,.18)" };
+  }
+  if (isStaleRecord(record)) {
+    return { label: "Stale", badgeClass: "badgeWarn", rowAccent: "rgba(249,157,42,.18)" };
+  }
+  if (isReadyForBoss(record)) {
+    return { label: "Ready for Boss", badgeClass: "badgeInfo", rowAccent: "rgba(47,73,147,.12)" };
+  }
+  return null;
+}
+
+function getRecordRowStyle(record, isActive = false) {
+  const attention = getAttentionMeta(record);
+  return {
+    background: isActive ? "rgba(47,73,147,.06)" : undefined,
+    boxShadow: attention ? `inset 4px 0 0 ${attention.rowAccent}` : undefined,
+  };
+}
 
 function buildRecruitingRecordPayload(record, overrides = {}) {
   return {
@@ -267,6 +384,10 @@ export default function RecruitingPage() {
     firstName: "",
     lastName: "",
     email: "",
+    gender: "",
+    teamName: "",
+    teamMembers: "",
+    assignedTo: PRIMARY_OWNER,
   });
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importPreviewRows, setImportPreviewRows] = useState([]);
@@ -405,12 +526,27 @@ export default function RecruitingPage() {
         return false;
       }
 
+      if (filterConfig.workflowStatus === "ready_for_boss" && !isReadyForBoss(record)) {
+        return false;
+      }
+
+      if (filterConfig.workflowStatus === "overdue" && !isOverdueRecord(record)) {
+        return false;
+      }
+
+      if (filterConfig.workflowStatus === "stale" && !isStaleRecord(record)) {
+        return false;
+      }
+
       if (filterConfig.stage !== "" && Number(filterConfig.stage) !== record.stage) {
         return false;
       }
 
-      if (filterConfig.assignedTo && !String(record.assignedTo || "").toLowerCase().includes(filterConfig.assignedTo.toLowerCase())) {
-        return false;
+      if (
+        filterConfig.assignedTo &&
+        !String(record.assignedTo || "").toLowerCase().includes(filterConfig.assignedTo.toLowerCase())
+      ) {
+          return false;
       }
 
       if (filterConfig.searchQuery) {
@@ -600,6 +736,10 @@ export default function RecruitingPage() {
         firstName: newContactDraft.firstName,
         lastName: newContactDraft.lastName,
         email: newContactDraft.email,
+        gender: newContactDraft.gender,
+        teamName: newContactDraft.teamName,
+        teamMembers: newContactDraft.teamMembers,
+        assignedTo: newContactDraft.assignedTo,
         stage: 0,
       });
 
@@ -607,6 +747,10 @@ export default function RecruitingPage() {
         firstName: "",
         lastName: "",
         email: "",
+        gender: "",
+        teamName: "",
+        teamMembers: "",
+        assignedTo: PRIMARY_OWNER,
       });
       setAddContactModalOpen(false);
       setError("");
@@ -643,11 +787,44 @@ export default function RecruitingPage() {
   }
 
   async function handlePromote(record) {
-    await promoteRecruitingRecordToPotentialTeam(record, {
+    const existingSummary = extractHandoffSummary(record.mackaylaNotes);
+    const handoffSummary = window.prompt(
+      "Required handoff summary for your boss",
+      existingSummary
+    );
+    if (handoffSummary === null) return;
+    if (!String(handoffSummary || "").trim()) {
+      setError("A handoff summary is required before moving a contact to Potential Teams.");
+      return;
+    }
+
+    await saveRecruitingCycleContact(
+      buildRecruitingRecordPayload(record, {
+        isPotentialTeam: true,
+        stage: Math.max(Number(record.stage || 0), 2),
+        assignedTo: BOSS_OWNER,
+        mackaylaNotes: buildMackaylaNotes(
+          stripHandoffSummary(record.mackaylaNotes),
+          handoffSummary
+        ),
+      })
+    );
+
+    await logRecruitingCycleContactAction({
+      record,
+      actionType: "handoff",
+      actionDate: new Date().toISOString(),
       staffMember: session?.name || session?.email || "Staff",
+      summary: `Ready for boss handoff: ${String(handoffSummary).trim()}`,
+      stage: Math.max(Number(record.stage || 0), 2),
     });
+
+    setError("");
     setActiveTab("potential");
+    setSelectedRecordId(record.id);
+    setExpandedPotentialRecordId(record.id);
     await refreshCurrentYear();
+    await ensureRecordHistoryLoaded(record.id, { force: true });
   }
 
   async function handleAdvanceStage(record) {
@@ -743,7 +920,59 @@ export default function RecruitingPage() {
   function updateRecordField(recordId, field, value) {
     setRecords((current) =>
       current.map((record) =>
-        record.id === recordId ? { ...record, [field]: value } : record
+        record.id === recordId
+          ? {
+              ...record,
+              [field]: value,
+              ...(field === "stage" ? { stageLabel: getRecruitingStageLabel(value) } : {}),
+            }
+          : record
+      )
+    );
+  }
+
+  function updateRecordOwner(recordId, owner) {
+    updateRecordField(recordId, "assignedTo", owner);
+  }
+
+  function updateRecordMackaylaNotes(recordId, value) {
+    setRecords((current) =>
+      current.map((record) =>
+        record.id === recordId
+          ? {
+              ...record,
+              mackaylaNotes: buildMackaylaNotes(value, extractHandoffSummary(record.mackaylaNotes)),
+            }
+          : record
+      )
+    );
+  }
+
+  function updateRecordHandoffSummary(recordId, value) {
+    setRecords((current) =>
+      current.map((record) =>
+        record.id === recordId
+          ? {
+              ...record,
+              mackaylaNotes: buildMackaylaNotes(stripHandoffSummary(record.mackaylaNotes), value),
+            }
+          : record
+      )
+    );
+  }
+
+  function updateContactField(recordId, field, value) {
+    setRecords((current) =>
+      current.map((record) =>
+        record.id === recordId
+          ? {
+              ...record,
+              contact: {
+                ...(record.contact || {}),
+                [field]: value,
+              },
+            }
+          : record
       )
     );
   }
@@ -763,6 +992,25 @@ export default function RecruitingPage() {
     void ensureRecordHistoryLoaded(recordId);
   }
 
+  async function handleQuickContact(record, actionType) {
+    const summary = window.prompt(`${actionType === "email" ? "Email" : actionType === "call" ? "Call" : actionType === "text" ? "Text" : "Note"} notes`);
+    if (summary === null) return;
+
+    await logRecruitingCycleContactAction({
+      record,
+      actionType,
+      actionDate: new Date().toISOString(),
+      staffMember: session?.name || session?.email || "Staff",
+      summary,
+      stage: actionType === "email" || actionType === "call" || actionType === "text"
+        ? Math.max(record.stage, 1)
+        : undefined,
+    });
+
+    await refreshCurrentYear();
+    await ensureRecordHistoryLoaded(record.id, { force: true });
+  }
+
   function renderOutreachTable(recordsToRender) {
     if (recordsToRender.length === 0) {
       return <div className="small">No contacts in this view.</div>;
@@ -770,59 +1018,53 @@ export default function RecruitingPage() {
 
     return (
       <DraggableTable>
-        <table className="table recruitingCompactTable" style={{ minWidth: 1320 }}>
+        <table className="table recruitingCompactTable" style={{ minWidth: 1160 }}>
           <thead>
             <tr>
-              <th />
-              <th>Priority</th>
               <th>First Name</th>
               <th>Last Name</th>
               <th>Email</th>
-              <th>Stage</th>
+              <th>Male/Female</th>
               <th>Last Contacted</th>
-              <th>Method</th>
-              <th>Assigned</th>
-              <th>Follow-Up</th>
-              <th>Mackayla Notes</th>
+              <th>Notes</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {recordsToRender.map((record) => (
-              <tr
-                key={record.id}
-                onClick={() => setSelectedRecordId(record.id)}
-                style={record.id === selectedRecordId ? { background: "rgba(47,73,147,.06)" } : undefined}
-              >
-                <td onClick={(event) => event.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(record.id)}
-                    onChange={() => toggleSelected(record.id)}
-                  />
-                </td>
-                <td>{record.priority || "-"}</td>
-                <td>{record.contact?.firstName || "-"}</td>
-                <td>{record.contact?.lastName || "-"}</td>
-                <td>{record.contact?.email || "-"}</td>
-                <td>{record.stageLabel}</td>
-                <td>{record.lastContactedAt ? formatDateTime(record.lastContactedAt) : "-"}</td>
-                <td>{record.lastContactMethod || "-"}</td>
-                <td>{record.assignedTo || "-"}</td>
-                <td>{record.nextFollowUp ? formatDate(record.nextFollowUp) : "-"}</td>
-                <td>{record.mackaylaNotes || "-"}</td>
-                <td onClick={(event) => event.stopPropagation()}>
-                  <div className="row recruitingActionRow">
-                    <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "email")}>Log Email</button>
-                    <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "call")}>Log Call</button>
-                    <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "text")}>Log Text</button>
-                    <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "note")}>Add Note</button>
-                    <button className="btn" type="button" onClick={() => handleAdvanceStage(record)}>Change Stage</button>
-                    <button className="btn" type="button" onClick={() => handlePromote(record)}>Promote</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {recordsToRender.map((record) => {
+              const attention = getAttentionMeta(record);
+
+              return (
+                <tr
+                  key={record.id}
+                  onClick={() => setSelectedRecordId(record.id)}
+                  style={getRecordRowStyle(record, record.id === selectedRecordId)}
+                >
+                  <td>{record.contact?.firstName || "-"}</td>
+                  <td>{record.contact?.lastName || "-"}</td>
+                  <td>{record.contact?.email || "-"}</td>
+                  <td>
+                    <div>{record.contact?.gender || "-"}</div>
+                    {attention ? (
+                      <span className={`badge ${attention.badgeClass}`} style={{ marginTop: 4 }}>
+                        {attention.label}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td>{record.lastContactedAt ? formatDateTime(record.lastContactedAt) : "-"}</td>
+                  <td>{stripHandoffSummary(record.mackaylaNotes) || "-"}</td>
+                  <td onClick={(event) => event.stopPropagation()}>
+                    <div className="row recruitingActionRow">
+                      <button className="btn" type="button" onClick={() => handleQuickContact(record, "email")}>Emailed</button>
+                      <button className="btn" type="button" onClick={() => handleQuickContact(record, "call")}>Called</button>
+                      <button className="btn" type="button" onClick={() => handleQuickContact(record, "text")}>Texted</button>
+                      <button className="btn" type="button" onClick={() => handleQuickContact(record, "note")}>Note</button>
+                      <button className="btn" type="button" onClick={() => setSelectedRecordId(record.id)}>Edit</button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </DraggableTable>
@@ -834,12 +1076,14 @@ export default function RecruitingPage() {
 
     return (
       <DraggableTable>
-        <table className="table recruitingCompactTable" style={{ minWidth: 1560 }}>
+        <table className="table recruitingCompactTable" style={{ minWidth: 1680 }}>
           <thead>
             <tr>
               <th>Team Name</th>
               <th>Primary Contact</th>
+              <th>People</th>
               <th>Email</th>
+              <th>Owner</th>
               <th>Stage</th>
               <th>Interested Trip</th>
               <th>Project Dates</th>
@@ -856,32 +1100,41 @@ export default function RecruitingPage() {
               const isExpanded = record.id === expandedPotentialRecordId;
               const recordHistory = historyByRecordId[record.id] || [];
               const isHistoryLoading = Boolean(historyLoadingByRecordId[record.id]);
+              const attention = getAttentionMeta(record);
 
               return (
                 <Fragment key={record.id}>
                   <tr
                     onClick={() => togglePotentialRecord(record.id)}
-                    style={isExpanded ? { background: "rgba(47,73,147,.06)" } : undefined}
+                    style={getRecordRowStyle(record, isExpanded)}
                   >
                     <td>{record.teamName || "-"}</td>
                     <td>{formatContactName(record)}</td>
+                    <td>
+                      <div>{getRecordPeopleCount(record)} people</div>
+                      <div className="small" style={{ marginTop: 2 }}>{getRecordPeopleSummary(record)}</div>
+                    </td>
                     <td>{record.contact?.email || "-"}</td>
-                    <td>{record.stageLabel}</td>
+                    <td>{record.assignedTo || PRIMARY_OWNER}</td>
+                    <td>
+                      <div>{isReadyForBoss(record) ? "Ready for Boss" : record.stageLabel}</div>
+                      {attention ? (
+                        <span className={`badge ${attention.badgeClass}`} style={{ marginTop: 4 }}>
+                          {attention.label}
+                        </span>
+                      ) : null}
+                    </td>
                     <td>{record.interestedTrip || "-"}</td>
                     <td>{record.projectDates || "-"}</td>
                     <td>{record.site || "-"}</td>
                     <td>{record.weeks || "-"}</td>
                     <td>{record.departureDate ? formatDate(record.departureDate) : "-"}</td>
-                    <td>{record.mackaylaNotes || "-"}</td>
+                    <td>{stripHandoffSummary(record.mackaylaNotes) || "-"}</td>
                     <td>{record.lesleeNotes || "-"}</td>
                     <td onClick={(event) => event.stopPropagation()}>
                       <div className="row recruitingActionRow">
                         <button className="btn" type="button" onClick={() => togglePotentialRecord(record.id)}>
                           {isExpanded ? "Hide Details" : "Edit Team Details"}
-                        </button>
-                        <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "note")}>Add Notes</button>
-                        <button className="btn" type="button" onClick={() => togglePotentialRecord(record.id)}>
-                          {isExpanded ? "Hide History" : "View History"}
                         </button>
                         <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>Form Team</button>
                       </div>
@@ -889,7 +1142,7 @@ export default function RecruitingPage() {
                   </tr>
                   {isExpanded ? (
                     <tr className="recruitingExpandedRow">
-                      <td colSpan={12}>
+                      <td colSpan={14}>
                         <div className="recruitingExpandedCard">
                           <div className="recruitingExpandedGrid">
                             <div style={{ display: "grid", gap: 12 }}>
@@ -907,6 +1160,33 @@ export default function RecruitingPage() {
                                 }}
                               >
                                 <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
+                                  <input
+                                    className="input"
+                                    value={record.teamName || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateRecordField(record.id, "teamName", event.target.value);
+                                    }}
+                                    placeholder="Optional team name"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Owner</div>
+                                  <select
+                                    className="input"
+                                    value={record.assignedTo || PRIMARY_OWNER}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateRecordOwner(record.id, event.target.value);
+                                    }}
+                                  >
+                                    {OWNER_OPTIONS.map((owner) => (
+                                      <option key={owner} value={owner}>{owner}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
                                   <div className="small" style={{ marginBottom: 6 }}>Stage</div>
                                   <select
                                     className="input"
@@ -922,17 +1202,6 @@ export default function RecruitingPage() {
                                   </select>
                                 </div>
                                 <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Assigned To</div>
-                                  <input
-                                    className="input"
-                                    value={record.assignedTo || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateRecordField(record.id, "assignedTo", event.target.value);
-                                    }}
-                                  />
-                                </div>
-                                <div>
                                   <div className="small" style={{ marginBottom: 6 }}>Next Follow-Up</div>
                                   <input
                                     className="input"
@@ -946,14 +1215,39 @@ export default function RecruitingPage() {
                                 </div>
                               </div>
                               <div>
+                                <div className="small" style={{ marginBottom: 6 }}>People On This Row</div>
+                                <textarea
+                                  className="input"
+                                  rows={3}
+                                  value={record.teamMembers || ""}
+                                  onChange={(event) => {
+                                    setSelectedRecordId(record.id);
+                                    updateRecordField(record.id, "teamMembers", event.target.value);
+                                  }}
+                                  placeholder="One person per line, or comma-separated"
+                                />
+                              </div>
+                              <div>
+                                <div className="small" style={{ marginBottom: 6 }}>Handoff Summary</div>
+                                <textarea
+                                  className="input"
+                                  rows={3}
+                                  value={extractHandoffSummary(record.mackaylaNotes)}
+                                  onChange={(event) => {
+                                    setSelectedRecordId(record.id);
+                                    updateRecordHandoffSummary(record.id, event.target.value);
+                                  }}
+                                />
+                              </div>
+                              <div>
                                 <div className="small" style={{ marginBottom: 6 }}>Mackayla Notes</div>
                                 <textarea
                                   className="input"
                                   rows={3}
-                                  value={record.mackaylaNotes || ""}
+                                  value={stripHandoffSummary(record.mackaylaNotes)}
                                   onChange={(event) => {
                                     setSelectedRecordId(record.id);
-                                    updateRecordField(record.id, "mackaylaNotes", event.target.value);
+                                    updateRecordMackaylaNotes(record.id, event.target.value);
                                   }}
                                 />
                               </div>
@@ -995,7 +1289,7 @@ export default function RecruitingPage() {
                                     <div key={entry.id} className="recruitingHistoryEntry">
                                       <div>{entry.summary || getRecruitingStageLabel(record.stage)}</div>
                                       <div className="small" style={{ marginTop: 4 }}>
-                                        {entry.staffMember ? `${entry.staffMember} • ` : ""}
+                                        {entry.staffMember ? `${entry.staffMember} | ` : ""}
                                         {formatDateTime(entry.actionDate)}
                                       </div>
                                     </div>
@@ -1147,12 +1441,18 @@ export default function RecruitingPage() {
               <option key={stage.value} value={stage.value}>{stage.label}</option>
             ))}
           </select>
-          <input
+          <select
             className="input"
             value={filterConfig.assignedTo}
             onChange={(event) => applyFilter({ ...filterConfig, assignedTo: event.target.value }, "custom")}
-            placeholder="Assigned to"
-          />
+          >
+            <option value="">All owners</option>
+            {OWNER_OPTIONS.map((owner) => (
+              <option key={owner} value={owner}>
+                {owner}
+              </option>
+            ))}
+          </select>
           <select
             className="input"
             value={filterConfig.activeView}
@@ -1194,6 +1494,58 @@ export default function RecruitingPage() {
             }}
           >
             Follow-Up Due
+          </button>
+          <button
+            className={`btn ${activeFilterId === "mackayla_recruiting" ? "btnPrimary" : ""}`}
+            type="button"
+            onClick={() => {
+              setActiveTab("outreach");
+              applyFilter(
+                {
+                  ...DEFAULT_FILTER_CONFIG,
+                  activeView: "outreach",
+                  assignedTo: PRIMARY_OWNER,
+                },
+                "mackayla_recruiting"
+              );
+            }}
+          >
+            Mackayla Recruiting
+          </button>
+          <button
+            className={`btn ${activeFilterId === "ready_for_boss" ? "btnPrimary" : ""}`}
+            type="button"
+            onClick={() => {
+              setActiveTab("potential");
+              applyFilter(
+                {
+                  ...DEFAULT_FILTER_CONFIG,
+                  activeView: "potential",
+                  assignedTo: BOSS_OWNER,
+                  workflowStatus: "ready_for_boss",
+                },
+                "ready_for_boss"
+              );
+            }}
+          >
+            Ready for Boss
+          </button>
+          <button
+            className={`btn ${activeFilterId === "leslee_potential" ? "btnPrimary" : ""}`}
+            type="button"
+            onClick={() => {
+              setActiveTab("potential");
+              applyFilter(
+                {
+                  ...DEFAULT_FILTER_CONFIG,
+                  activeView: "potential",
+                  assignedTo: BOSS_OWNER,
+                },
+                "leslee_potential"
+              );
+            }}
+          >
+            Leslee Potential Teams
           </button>
           {savedFilters.map((filter) => (
             <div key={filter.id} className="row" style={{ gap: 6 }}>
@@ -1237,15 +1589,6 @@ export default function RecruitingPage() {
                     <div style={{ fontWeight: 900 }}>Recruiting</div>
                     <div className="small">Initial recruiting and follow-up before handoff to potential teams.</div>
                   </div>
-                  <div className="spacer" />
-                  <button
-                    className="btn"
-                    type="button"
-                    disabled={selectedIds.length === 0}
-                    onClick={() => setBulkModalOpen(true)}
-                  >
-                    Bulk Actions
-                  </button>
                 </div>
                 {renderOutreachTable(outreachQueue)}
               </>
@@ -1283,6 +1626,52 @@ export default function RecruitingPage() {
                 <div style={{ fontWeight: 800 }}>{formatContactName(selectedRecord)}</div>
                 <div className="small">{selectedRecord.contact?.email}</div>
               </div>
+              {activeTab === "outreach" ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: 10,
+                  }}
+                >
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>First Name</div>
+                    <input
+                      className="input"
+                      value={selectedRecord.contact?.firstName || ""}
+                      onChange={(event) => updateContactField(selectedRecord.id, "firstName", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Last Name</div>
+                    <input
+                      className="input"
+                      value={selectedRecord.contact?.lastName || ""}
+                      onChange={(event) => updateContactField(selectedRecord.id, "lastName", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Email</div>
+                    <input
+                      className="input"
+                      value={selectedRecord.contact?.email || ""}
+                      onChange={(event) => updateContactField(selectedRecord.id, "email", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Male / Female</div>
+                    <select
+                      className="input"
+                      value={selectedRecord.contact?.gender || ""}
+                      onChange={(event) => updateContactField(selectedRecord.id, "gender", event.target.value)}
+                    >
+                      <option value="">Not set</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>Stage</div>
                 <select
@@ -1296,12 +1685,16 @@ export default function RecruitingPage() {
                 </select>
               </div>
               <div>
-                <div className="small" style={{ marginBottom: 6 }}>Assigned To</div>
-                <input
+                <div className="small" style={{ marginBottom: 6 }}>Owner</div>
+                <select
                   className="input"
-                  value={selectedRecord.assignedTo}
-                  onChange={(event) => updateSelectedRecord("assignedTo", event.target.value)}
-                />
+                  value={selectedRecord.assignedTo || PRIMARY_OWNER}
+                  onChange={(event) => updateRecordOwner(selectedRecord.id, event.target.value)}
+                >
+                  {OWNER_OPTIONS.map((owner) => (
+                    <option key={owner} value={owner}>{owner}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>Next Follow-Up</div>
@@ -1312,13 +1705,47 @@ export default function RecruitingPage() {
                   onChange={(event) => updateSelectedRecord("nextFollowUp", event.target.value)}
                 />
               </div>
+              {!selectedRecord.isConvertedToTeam ? (
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
+                  <input
+                    className="input"
+                    value={selectedRecord.teamName || ""}
+                    onChange={(event) => updateSelectedRecord("teamName", event.target.value)}
+                    placeholder="Optional team name"
+                  />
+                </div>
+              ) : null}
+              {!selectedRecord.isConvertedToTeam ? (
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>People On This Row</div>
+                  <textarea
+                    className="input"
+                    rows={3}
+                    value={selectedRecord.teamMembers || ""}
+                    onChange={(event) => updateSelectedRecord("teamMembers", event.target.value)}
+                    placeholder="One person per line, or comma-separated"
+                  />
+                </div>
+              ) : null}
+              {!selectedRecord.isConvertedToTeam ? (
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Handoff Summary</div>
+                  <textarea
+                    className="input"
+                    rows={3}
+                    value={extractHandoffSummary(selectedRecord.mackaylaNotes)}
+                    onChange={(event) => updateRecordHandoffSummary(selectedRecord.id, event.target.value)}
+                  />
+                </div>
+              ) : null}
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>Mackayla Notes</div>
                 <textarea
                   className="input"
                   rows={4}
-                  value={selectedRecord.mackaylaNotes}
-                  onChange={(event) => updateSelectedRecord("mackaylaNotes", event.target.value)}
+                  value={stripHandoffSummary(selectedRecord.mackaylaNotes)}
+                  onChange={(event) => updateRecordMackaylaNotes(selectedRecord.id, event.target.value)}
                 />
               </div>
               <div>
@@ -1326,13 +1753,20 @@ export default function RecruitingPage() {
                 <textarea
                   className="input"
                   rows={4}
-                  value={selectedRecord.lesleeNotes}
+                  value={selectedRecord.lesleeNotes || ""}
                   onChange={(event) => updateSelectedRecord("lesleeNotes", event.target.value)}
                 />
               </div>
-              <button className="btn btnPrimary" type="button" onClick={() => handleSaveRecord()}>
-                {isSavingNotes ? "Saving..." : "Save Record"}
-              </button>
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <button className="btn btnPrimary" type="button" onClick={() => handleSaveRecord()}>
+                  {isSavingNotes ? "Saving..." : "Save Record"}
+                </button>
+                {activeTab === "outreach" ? (
+                  <button className="btn" type="button" onClick={() => handlePromote(selectedRecord)}>
+                    Promote To Potential Teams
+                  </button>
+                ) : null}
+              </div>
 
               <div style={{ fontWeight: 800, marginTop: 6 }}>Activity</div>
               {isCurrentHistoryLoading ? (
@@ -1346,7 +1780,7 @@ export default function RecruitingPage() {
                     >
                       <div>{entry.summary || getRecruitingStageLabel(selectedRecord.stage)}</div>
                       <div className="small" style={{ marginTop: 4 }}>
-                        {entry.staffMember ? `${entry.staffMember} • ` : ""}
+                        {entry.staffMember ? `${entry.staffMember} | ` : ""}
                         {formatDateTime(entry.actionDate)}
                       </div>
                     </div>
@@ -1357,7 +1791,7 @@ export default function RecruitingPage() {
               )}
             </div>
           ) : (
-            <div className="small">Select a recruiting record to view this year’s history.</div>
+            <div className="small">Select a recruiting record to view this year's history.</div>
           )}
         </div>
       </div>
@@ -1421,22 +1855,25 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad" style={{ width: "min(520px, 100%)" }}>
+          <div className="card pad" style={{ width: "min(620px, 100%)" }}>
             <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>Add Contact</div>
+              <div style={{ fontWeight: 900 }}>Add Contact Or Team</div>
               <div className="spacer" />
               <button className="btn" type="button" onClick={() => setAddContactModalOpen(false)}>
                 Close
               </button>
             </div>
             <div style={{ display: "grid", gap: 10 }}>
+              <div className="small">
+                Use one row for a single person, a couple, or a whole team. Keep the primary contact here and list the rest below.
+              </div>
               <input
                 className="input"
                 value={newContactDraft.firstName}
                 onChange={(event) =>
                   setNewContactDraft((current) => ({ ...current, firstName: event.target.value }))
                 }
-                placeholder="First Name"
+                placeholder="Primary Contact First Name"
               />
               <input
                 className="input"
@@ -1444,7 +1881,7 @@ export default function RecruitingPage() {
                 onChange={(event) =>
                   setNewContactDraft((current) => ({ ...current, lastName: event.target.value }))
                 }
-                placeholder="Last Name"
+                placeholder="Primary Contact Last Name"
               />
               <input
                 className="input"
@@ -1452,10 +1889,49 @@ export default function RecruitingPage() {
                 onChange={(event) =>
                   setNewContactDraft((current) => ({ ...current, email: event.target.value }))
                 }
-                placeholder="Email"
+                placeholder="Primary Contact Email"
+              />
+              <select
+                className="input"
+                value={newContactDraft.gender}
+                onChange={(event) =>
+                  setNewContactDraft((current) => ({ ...current, gender: event.target.value }))
+                }
+              >
+                <option value="">Male / Female</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+              <select
+                className="input"
+                value={newContactDraft.assignedTo}
+                onChange={(event) =>
+                  setNewContactDraft((current) => ({ ...current, assignedTo: event.target.value }))
+                }
+              >
+                {OWNER_OPTIONS.map((owner) => (
+                  <option key={owner} value={owner}>{owner}</option>
+                ))}
+              </select>
+              <input
+                className="input"
+                value={newContactDraft.teamName}
+                onChange={(event) =>
+                  setNewContactDraft((current) => ({ ...current, teamName: event.target.value }))
+                }
+                placeholder="Team Name (Optional)"
+              />
+              <textarea
+                className="input"
+                rows={4}
+                value={newContactDraft.teamMembers}
+                onChange={(event) =>
+                  setNewContactDraft((current) => ({ ...current, teamMembers: event.target.value }))
+                }
+                placeholder="People On This Row: one per line, or comma-separated"
               />
               <button className="btn btnPrimary" type="button" onClick={handleCreateContact}>
-                Save Contact
+                Save Recruiting Row
               </button>
             </div>
           </div>
@@ -1559,12 +2035,12 @@ export default function RecruitingPage() {
                 value={bulkNextFollowUp}
                 onChange={(event) => setBulkNextFollowUp(event.target.value)}
               />
-              <input
-                className="input"
-                value={bulkAssignedTo}
-                onChange={(event) => setBulkAssignedTo(event.target.value)}
-                placeholder="Assign to staff member"
-              />
+              <select className="input" value={bulkAssignedTo} onChange={(event) => setBulkAssignedTo(event.target.value)}>
+                <option value="">No owner change</option>
+                {OWNER_OPTIONS.map((owner) => (
+                  <option key={owner} value={owner}>{owner}</option>
+                ))}
+              </select>
               <button className="btn btnPrimary" type="button" onClick={handleBulkActionSubmit}>
                 Apply to {selectedIds.length} contacts
               </button>
