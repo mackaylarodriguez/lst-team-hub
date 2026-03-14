@@ -1,6 +1,6 @@
 import Shell from "@/components/Shell";
 import { useRouter } from "next/router";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { requireSession } from "@/lib/auth";
 import { isStaffRole } from "@/lib/roles";
@@ -442,7 +442,6 @@ export default function RecruitingPage() {
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("outreach");
   const [selectedRecordId, setSelectedRecordId] = useState("");
-  const [expandedPotentialRecordId, setExpandedPotentialRecordId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [newContactDraft, setNewContactDraft] = useState({
@@ -569,7 +568,6 @@ export default function RecruitingPage() {
     loadingHistoryRef.current = {};
     setHistoryByRecordId({});
     setHistoryLoadingByRecordId({});
-    setExpandedPotentialRecordId("");
   }, [selectedYear]);
 
   const filteredRecords = useMemo(() => {
@@ -694,12 +692,6 @@ export default function RecruitingPage() {
       setSelectedRecordId(recordsForActiveTab[0].id);
     }
   }, [recordsForActiveTab, selectedRecordId]);
-
-  useEffect(() => {
-    if (activeTab !== "potential") {
-      setExpandedPotentialRecordId("");
-    }
-  }, [activeTab]);
 
   useEffect(() => {
     if (!selectedRecordId || activeTab === "potential") return;
@@ -1402,19 +1394,15 @@ export default function RecruitingPage() {
           </thead>
           <tbody>
             {recordsToRender.map((record) => {
-              const isExpanded = record.id === expandedPotentialRecordId;
-              const isHistoryVisible = record.id === visiblePotentialHistoryRecordId;
-              const recordHistory = historyByRecordId[record.id] || [];
-              const isHistoryLoading = Boolean(historyLoadingByRecordId[record.id]);
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
 
               return (
-                <Fragment key={record.id}>
-                  <tr
-                    onClick={() => togglePotentialRecord(record.id)}
-                    style={getRecordRowStyle(record, isExpanded)}
-                  >
+                <tr
+                  key={record.id}
+                  onClick={() => setSelectedRecordId(record.id)}
+                  style={getRecordRowStyle(record, record.id === selectedRecordId)}
+                >
                     <td>{record.teamName || "-"}</td>
                     <td>{formatContactName(record)}</td>
                     <td>
@@ -1446,334 +1434,16 @@ export default function RecruitingPage() {
                     <td>{record.lesleeNotes || "-"}</td>
                     <td onClick={(event) => event.stopPropagation()}>
                       <div className="row recruitingActionRow">
-                        <button className="btn" type="button" onClick={() => togglePotentialRecord(record.id)}>
-                          {isExpanded ? "Hide Details" : "Edit Team Details"}
+                        <button className="btn" type="button" onClick={() => void openRecordDetails(record.id)}>
+                          Edit Team Details
                         </button>
-                        <button className="btn" type="button" onClick={() => void togglePotentialHistory(record.id)}>
-                          {isHistoryVisible ? "Hide History" : "View History"}
+                        <button className="btn" type="button" onClick={() => void openRecordDetails(record.id)}>
+                          View History
                         </button>
                         <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>Form Team</button>
                       </div>
                     </td>
                   </tr>
-                  {isExpanded ? (
-                    <tr className="recruitingExpandedRow">
-                      <td colSpan={14}>
-                        <div className="recruitingExpandedCard">
-                          <div
-                            className="recruitingExpandedGrid"
-                            style={{
-                              gridTemplateColumns: isHistoryVisible
-                                ? "minmax(320px, 1.2fr) minmax(240px, 1fr)"
-                                : "minmax(0, 1fr)",
-                            }}
-                          >
-                            <div style={{ display: "grid", gap: 12 }}>
-                              <div>
-                                <div style={{ fontWeight: 900 }}>{record.teamName || formatContactName(record)}</div>
-                                <div className="small">
-                                  Team-first view for potential teams. Add the people and team details here, then keep one lead contact below for reference.
-                                </div>
-                                {renderDuplicateNotice(duplicateInfo)}
-                              </div>
-                              <div>
-                                <div className="small" style={{ fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>
-                                  Team Details
-                                </div>
-                              </div>
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                                  gap: 10,
-                                }}
-                              >
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
-                                  <input
-                                    className="input"
-                                    value={record.teamName || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateRecordField(record.id, "teamName", event.target.value);
-                                    }}
-                                    placeholder="Optional team name"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Owner</div>
-                                  <select
-                                    className="input"
-                                    value={record.assignedTo || PRIMARY_OWNER}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateRecordOwner(record.id, event.target.value);
-                                    }}
-                                  >
-                                    {OWNER_OPTIONS.map((owner) => (
-                                      <option key={owner} value={owner}>{owner}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Stage</div>
-                                  <select
-                                    className="input"
-                                    value={record.stage}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateRecordField(record.id, "stage", Number(event.target.value));
-                                    }}
-                                  >
-                                    {RECRUITING_STAGES.map((stage) => (
-                                      <option key={stage.value} value={stage.value}>{stage.label}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Next Follow-Up</div>
-                                  <input
-                                    className="input"
-                                    type="date"
-                                    value={record.nextFollowUp || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateRecordField(record.id, "nextFollowUp", event.target.value);
-                                    }}
-                                  />
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Interested Trip</div>
-                                  <input
-                                    className="input"
-                                    value={record.interestedTrip || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateRecordField(record.id, "interestedTrip", event.target.value);
-                                    }}
-                                    placeholder="Trip or focus area"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Project Dates</div>
-                                  <input
-                                    className="input"
-                                    value={record.projectDates || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateRecordField(record.id, "projectDates", event.target.value);
-                                    }}
-                                    placeholder="Dates or season"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Site</div>
-                                  <input
-                                    className="input"
-                                    value={record.site || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateRecordField(record.id, "site", event.target.value);
-                                    }}
-                                    placeholder="Site"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
-                                  <input
-                                    className="input"
-                                    type="number"
-                                    min="0"
-                                    value={record.weeks || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateRecordField(record.id, "weeks", event.target.value);
-                                    }}
-                                    placeholder="Number of weeks"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Departure Date</div>
-                                  <input
-                                    className="input"
-                                    type="date"
-                                    value={record.departureDate || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateRecordField(record.id, "departureDate", event.target.value);
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                              <div>
-                                <div className="small" style={{ marginBottom: 6 }}>Team Members</div>
-                                <textarea
-                                  className="input"
-                                  rows={3}
-                                  value={record.teamMembers || ""}
-                                  onChange={(event) => {
-                                    setSelectedRecordId(record.id);
-                                    updateRecordField(record.id, "teamMembers", event.target.value);
-                                  }}
-                                  placeholder="One person per line, or comma-separated"
-                                />
-                              </div>
-                              <div>
-                                <div className="small" style={{ fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>
-                                  Lead Contact
-                                </div>
-                              </div>
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                                  gap: 10,
-                                }}
-                              >
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>First Name</div>
-                                  <input
-                                    className="input"
-                                    value={record.contact?.firstName || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateContactField(record.id, "firstName", event.target.value);
-                                    }}
-                                  />
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Last Name</div>
-                                  <input
-                                    className="input"
-                                    value={record.contact?.lastName || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateContactField(record.id, "lastName", event.target.value);
-                                    }}
-                                  />
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Email</div>
-                                  <input
-                                    className="input"
-                                    value={record.contact?.email || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateContactField(record.id, "email", event.target.value);
-                                    }}
-                                  />
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Phone</div>
-                                  <input
-                                    className="input"
-                                    value={record.contact?.phone || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateContactField(record.id, "phone", event.target.value);
-                                    }}
-                                    placeholder="Phone number"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="small" style={{ marginBottom: 6 }}>Male / Female</div>
-                                  <select
-                                    className="input"
-                                    value={record.contact?.gender || ""}
-                                    onChange={(event) => {
-                                      setSelectedRecordId(record.id);
-                                      updateContactField(record.id, "gender", event.target.value);
-                                    }}
-                                  >
-                                    <option value="">Not set</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                  </select>
-                                </div>
-                              </div>
-                              <div>
-                                <div className="small" style={{ marginBottom: 6 }}>Handoff Summary</div>
-                                <textarea
-                                  className="input"
-                                  rows={3}
-                                  value={extractHandoffSummary(record.mackaylaNotes)}
-                                  onChange={(event) => {
-                                    setSelectedRecordId(record.id);
-                                    updateRecordHandoffSummary(record.id, event.target.value);
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <div className="small" style={{ marginBottom: 6 }}>Mackayla Notes</div>
-                                <textarea
-                                  className="input"
-                                  rows={3}
-                                  value={stripHandoffSummary(record.mackaylaNotes)}
-                                  onChange={(event) => {
-                                    setSelectedRecordId(record.id);
-                                    updateRecordMackaylaNotes(record.id, event.target.value);
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <div className="small" style={{ marginBottom: 6 }}>Leslee Notes</div>
-                                <textarea
-                                  className="input"
-                                  rows={3}
-                                  value={record.lesleeNotes || ""}
-                                  onChange={(event) => {
-                                    setSelectedRecordId(record.id);
-                                    updateRecordField(record.id, "lesleeNotes", event.target.value);
-                                  }}
-                                />
-                              </div>
-                              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                                <button
-                                  className="btn btnPrimary"
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedRecordId(record.id);
-                                    void handleSaveRecord(record.id);
-                                  }}
-                                >
-                                  {isSavingNotes && selectedRecordId === record.id ? "Saving..." : "Save Record"}
-                                </button>
-                                <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "note")}>
-                                  Add Activity Note
-                                </button>
-                                <button className="btn" type="button" onClick={() => void togglePotentialHistory(record.id)}>
-                                  {isHistoryVisible ? "Hide History" : "View History"}
-                                </button>
-                              </div>
-                            </div>
-                            {isHistoryVisible ? (
-                              <div style={{ display: "grid", gap: 10 }}>
-                                <div style={{ fontWeight: 800 }}>Activity</div>
-                                {isHistoryLoading ? (
-                                  <div className="small">Loading history...</div>
-                                ) : recordHistory.length > 0 ? (
-                                  <div className="recruitingHistoryList">
-                                    {recordHistory.map((entry) => (
-                                      <div key={entry.id} className="recruitingHistoryEntry">
-                                        <div>{entry.summary || getRecruitingStageLabel(record.stage)}</div>
-                                        <div className="small" style={{ marginTop: 4 }}>
-                                          {entry.staffMember ? `${entry.staffMember} | ` : ""}
-                                          {formatDateTime(entry.actionDate)}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="small">No activity logged yet.</div>
-                                )}
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : null}
-                </Fragment>
               );
             })}
           </tbody>
@@ -2153,14 +1823,17 @@ export default function RecruitingPage() {
                   {tab.label}
                 </button>
               ))}
-              {activeTab !== "potential" ? (
+              {selectedRecord ? (
                 <button
                   className="btn"
                   type="button"
-                  disabled={!selectedRecord}
                   onClick={() => void openRecordDetails(selectedRecord?.id)}
                 >
-                  {activeTab === "outreach" ? "Open Contact History" : "Open Converted Team History"}
+                  {activeTab === "outreach"
+                    ? "Open Contact History"
+                    : activeTab === "potential"
+                    ? "Open Potential Team Details"
+                    : "Open Converted Team History"}
                 </button>
               ) : null}
             </div>
@@ -2181,7 +1854,7 @@ export default function RecruitingPage() {
               <>
                 <div style={{ fontWeight: 900, marginBottom: 6 }}>Potential Teams</div>
                 <div className="small" style={{ marginBottom: 10 }}>
-                  Curated serious leads for team formation and Leslee follow-up. Click a row to open notes and history.
+                  Curated serious leads for team formation and Leslee follow-up.
                 </div>
                 {renderPotentialTable(pipelineRecords)}
               </>
@@ -2200,7 +1873,7 @@ export default function RecruitingPage() {
         </div>
       </div>
 
-      {recordDetailsModalOpen && activeTab !== "potential" ? (
+      {recordDetailsModalOpen ? (
         <div
           style={{
             position: "fixed",
@@ -2215,7 +1888,11 @@ export default function RecruitingPage() {
           <div className="card pad" style={{ width: "min(860px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>
-                {activeTab === "outreach" ? "Contact History" : "Converted Team History"}
+                {activeTab === "outreach"
+                  ? "Contact History"
+                  : activeTab === "potential"
+                  ? "Potential Team Details"
+                  : "Converted Team History"}
               </div>
               <div className="spacer" />
               <button className="btn" type="button" onClick={() => setRecordDetailsModalOpen(false)}>
@@ -2237,7 +1914,7 @@ export default function RecruitingPage() {
                     })
                   )}
                 </div>
-                {activeTab === "outreach" ? (
+                {!selectedRecord.isConvertedToTeam ? (
                   <div
                     style={{
                       display: "grid",
