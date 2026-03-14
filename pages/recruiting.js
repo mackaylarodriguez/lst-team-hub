@@ -9,6 +9,7 @@ import {
   RECRUITING_UPDATED_EVENT,
   bulkUpdateRecruitingCycleContacts,
   convertRecruitingCycleRecordToTrip,
+  deleteRecruitingCycleContact,
   deleteRecruitingSavedFilter,
   getRecruitingStageLabel,
   importRecruitingContacts,
@@ -457,7 +458,9 @@ export default function RecruitingPage() {
   const [bulkNextFollowUp, setBulkNextFollowUp] = useState("");
   const [bulkAssignedTo, setBulkAssignedTo] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [deletingDuplicateRecordId, setDeletingDuplicateRecordId] = useState("");
   const [promoteModalOpen, setPromoteModalOpen] = useState(false);
+  const [recordDetailsModalOpen, setRecordDetailsModalOpen] = useState(false);
   const [promoteDraft, setPromoteDraft] = useState(() => buildPromoteDraft(null));
   const [formTeamModalOpen, setFormTeamModalOpen] = useState(false);
   const [teamFormDraft, setTeamFormDraft] = useState({
@@ -644,6 +647,11 @@ export default function RecruitingPage() {
     () => filteredRecords.filter((record) => record.isConvertedToTeam),
     [filteredRecords]
   );
+  const recordsForActiveTab = useMemo(() => {
+    if (activeTab === "potential") return pipelineRecords;
+    if (activeTab === "converted") return convertedTeams;
+    return outreachQueue;
+  }, [activeTab, convertedTeams, outreachQueue, pipelineRecords]);
 
   const stats = useMemo(() => {
     const total = records.length;
@@ -668,14 +676,22 @@ export default function RecruitingPage() {
     : false;
 
   useEffect(() => {
-    if (!selectedRecordId && records.length > 0) {
-      setSelectedRecordId(records[0].id);
+    if (recordsForActiveTab.length === 0) {
+      setSelectedRecordId("");
+      return;
     }
-  }, [records, selectedRecordId]);
+
+    if (!recordsForActiveTab.some((record) => record.id === selectedRecordId)) {
+      setSelectedRecordId(recordsForActiveTab[0].id);
+    }
+  }, [recordsForActiveTab, selectedRecordId]);
 
   useEffect(() => {
     if (activeTab !== "potential") {
       setExpandedPotentialRecordId("");
+    }
+    if (activeTab === "potential") {
+      setRecordDetailsModalOpen(false);
     }
   }, [activeTab]);
 
@@ -768,6 +784,25 @@ export default function RecruitingPage() {
     );
   }, [records, duplicateSourceLookup]);
 
+  const duplicateReviewGroups = useMemo(() => {
+    const groups = [];
+
+    duplicateSourceLookup.recordEmails.forEach((matchingRecords, email) => {
+      const activeTeamMatches = duplicateSourceLookup.activeTeamEmails.get(email) || [];
+      if (matchingRecords.length <= 1 && activeTeamMatches.length === 0) {
+        return;
+      }
+
+      groups.push({
+        email,
+        records: matchingRecords,
+        activeTeams: activeTeamMatches,
+      });
+    });
+
+    return groups.sort((left, right) => left.email.localeCompare(right.email));
+  }, [duplicateSourceLookup]);
+
   const newContactDuplicateInfo = useMemo(
     () => getDuplicateInfoForEmail(newContactDraft.email),
     [newContactDraft.email, duplicateSourceLookup]
@@ -776,6 +811,14 @@ export default function RecruitingPage() {
   function applyFilter(config, filterId = "custom") {
     setFilterConfig({ ...DEFAULT_FILTER_CONFIG, ...config });
     setActiveFilterId(filterId);
+  }
+
+  function handleChangeTab(tabId) {
+    setActiveTab(tabId);
+    setFilterConfig((current) => ({ ...current, activeView: tabId }));
+    if (activeFilterId !== "all") {
+      setActiveFilterId("custom");
+    }
   }
 
   async function ensureRecordHistoryLoaded(recordId, options = {}) {
@@ -865,8 +908,8 @@ export default function RecruitingPage() {
   }
 
   async function handleCreateContact() {
-    if (!newContactDraft.email.trim()) {
-      setError("Email is required.");
+    if (!newContactDraft.email.trim() && !newContactDraft.phone.trim()) {
+      setError("Add either an email or a phone number.");
       return;
     }
     if (newContactDuplicateInfo) {
@@ -983,7 +1026,7 @@ export default function RecruitingPage() {
 
     setError("");
     setPromoteModalOpen(false);
-    setActiveTab("potential");
+    handleChangeTab("potential");
     setSelectedRecordId(record.id);
     setExpandedPotentialRecordId(record.id);
     await refreshCurrentYear();
@@ -997,6 +1040,59 @@ export default function RecruitingPage() {
       })
     );
     await refreshCurrentYear();
+  }
+
+  async function openRecordDetails(recordId) {
+    if (!recordId) return;
+    setSelectedRecordId(recordId);
+    setRecordDetailsModalOpen(true);
+    await ensureRecordHistoryLoaded(recordId);
+  }
+
+  async function openRecordFromDuplicateReview(record) {
+    if (!record?.id) return;
+
+    if (record.isPotentialTeam) {
+      handleChangeTab("potential");
+      setSelectedRecordId(record.id);
+      setExpandedPotentialRecordId(record.id);
+      await ensureRecordHistoryLoaded(record.id);
+      return;
+    }
+
+    if (record.isConvertedToTeam) {
+      handleChangeTab("converted");
+    } else {
+      handleChangeTab("outreach");
+    }
+    await openRecordDetails(record.id);
+  }
+
+  async function handleDeleteDuplicateRecord(record) {
+    if (!record?.id) return;
+
+    const confirmed = window.confirm(
+      `Remove duplicate recruiting row for ${formatContactName(record)}?`
+    );
+    if (!confirmed) return;
+
+    try {
+      setDeletingDuplicateRecordId(record.id);
+      await deleteRecruitingCycleContact(record.id);
+      if (selectedRecordId === record.id) {
+        setSelectedRecordId("");
+      }
+      if (expandedPotentialRecordId === record.id) {
+        setExpandedPotentialRecordId("");
+      }
+      setError("");
+      await refreshCurrentYear();
+    } catch (deleteError) {
+      console.error("Unable to delete duplicate recruiting row", deleteError);
+      setError(deleteError.message || "Unable to delete duplicate recruiting row.");
+    } finally {
+      setDeletingDuplicateRecordId("");
+    }
   }
 
   function openFormTeamModal(record) {
@@ -1024,7 +1120,7 @@ export default function RecruitingPage() {
     });
 
     setFormTeamModalOpen(false);
-    setActiveTab("converted");
+    handleChangeTab("converted");
     await refreshCurrentYear();
   }
 
@@ -1174,6 +1270,26 @@ export default function RecruitingPage() {
     await ensureRecordHistoryLoaded(record.id, { force: true });
   }
 
+  async function handleAttendedInfoMeeting(record) {
+    const summary = window.prompt(
+      "Info meeting notes",
+      "Attended info meeting"
+    );
+    if (summary === null) return;
+
+    await logRecruitingCycleContactAction({
+      record,
+      actionType: "info meeting",
+      actionDate: new Date().toISOString(),
+      staffMember: session?.name || session?.email || "Staff",
+      summary: String(summary || "").trim() || "Attended info meeting",
+      stage: Math.max(record.stage, 1),
+    });
+
+    await refreshCurrentYear();
+    await ensureRecordHistoryLoaded(record.id, { force: true });
+  }
+
   function renderOutreachTable(recordsToRender) {
     if (recordsToRender.length === 0) {
       return <div className="small">No contacts in this view.</div>;
@@ -1228,8 +1344,9 @@ export default function RecruitingPage() {
                       <button className="btn" type="button" onClick={() => handleQuickContact(record, "email")}>Emailed</button>
                       <button className="btn" type="button" onClick={() => handleQuickContact(record, "call")}>Called</button>
                       <button className="btn" type="button" onClick={() => handleQuickContact(record, "text")}>Texted</button>
+                      <button className="btn" type="button" onClick={() => handleAttendedInfoMeeting(record)}>Attended Info Meeting</button>
                       <button className="btn" type="button" onClick={() => handleQuickContact(record, "note")}>Note</button>
-                      <button className="btn" type="button" onClick={() => setSelectedRecordId(record.id)}>Edit</button>
+                      <button className="btn" type="button" onClick={() => void openRecordDetails(record.id)}>Edit Details</button>
                     </div>
                   </td>
                 </tr>
@@ -1656,11 +1773,16 @@ export default function RecruitingPage() {
                 <td>{record.linkedTrip?.departureDate ? formatDate(record.linkedTrip.departureDate) : (record.departureDate ? formatDate(record.departureDate) : "-")}</td>
                 <td>{record.linkedTrip?.status || "Converted"}</td>
                 <td>
-                  {record.convertedTeamId ? (
-                    <button className="btn btnPrimary" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
-                      Open Team
+                  <div className="row recruitingActionRow" onClick={(event) => event.stopPropagation()}>
+                    <button className="btn" type="button" onClick={() => void openRecordDetails(record.id)}>
+                      View History
                     </button>
-                  ) : "-"}
+                    {record.convertedTeamId ? (
+                      <button className="btn btnPrimary" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
+                        Open Team
+                      </button>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -1720,6 +1842,106 @@ export default function RecruitingPage() {
               Duplicates skipped: {importDuplicates.map((row) => row.email).join(", ")}
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {duplicateReviewGroups.length > 0 ? (
+        <div className="card pad" style={{ marginBottom: 14 }}>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 900 }}>Duplicate Review</div>
+              <div className="small">
+                Review matching emails here and keep just one recruiting row where it belongs.
+              </div>
+            </div>
+            <div className="spacer" />
+            <span className="badge">{duplicateReviewGroups.length}</span>
+          </div>
+          <div style={{ display: "grid", gap: 12 }}>
+            {duplicateReviewGroups.map((group) => (
+              <div
+                key={group.email}
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 14,
+                  border: "1px solid rgba(239,68,68,.18)",
+                  background: "rgba(255,245,245,.9)",
+                  display: "grid",
+                  gap: 10,
+                }}
+              >
+                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ fontWeight: 900 }}>{group.email}</div>
+                  <span className="badge badgeDanger">Duplicate</span>
+                  <span className="badge">{group.records.length} recruiting row{group.records.length === 1 ? "" : "s"}</span>
+                  {group.activeTeams.length > 0 ? (
+                    <span className="badge badgeWarn">
+                      {group.activeTeams.length} active team match{group.activeTeams.length === 1 ? "" : "es"}
+                    </span>
+                  ) : null}
+                </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {group.records.map((record) => (
+                    <div
+                      key={record.id}
+                      className="row"
+                      style={{
+                        gap: 10,
+                        alignItems: "flex-start",
+                        paddingBottom: 8,
+                        borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 800 }}>{record.teamName || formatContactName(record)}</div>
+                        <div className="small">
+                          {getWorkflowBoardLabel(record)} | {record.assignedTo || "Unassigned"} | {record.stageLabel}
+                        </div>
+                        {(record.site || record.projectDates || record.teamMembers) ? (
+                          <div className="small" style={{ marginTop: 4 }}>
+                            {[
+                              record.site ? `Site: ${record.site}` : "",
+                              record.projectDates ? `Dates: ${record.projectDates}` : "",
+                              record.teamMembers ? `People: ${getRecordPeopleSummary(record, 3)}` : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" | ")}
+                          </div>
+                        ) : null}
+                      </div>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => void openRecordFromDuplicateReview(record)}
+                      >
+                        Open
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => void handleDeleteDuplicateRecord(record)}
+                        disabled={deletingDuplicateRecordId === record.id}
+                      >
+                        {deletingDuplicateRecordId === record.id ? "Removing..." : "Remove Extra Row"}
+                      </button>
+                    </div>
+                  ))}
+                  {group.activeTeams.length > 0 ? (
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <div className="small" style={{ fontWeight: 900 }}>Already on Active Teams</div>
+                      {group.activeTeams.map((member, index) => (
+                        <div key={`${group.email}-${member.tripId || member.tripName || index}`} className="small">
+                          {[member.name || member.email, member.tripName, member.tripStatus]
+                            .filter(Boolean)
+                            .join(" | ")}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 
@@ -1817,7 +2039,7 @@ export default function RecruitingPage() {
             className={`btn ${activeFilterId === "mackayla_recruiting" ? "btnPrimary" : ""}`}
             type="button"
             onClick={() => {
-              setActiveTab("outreach");
+              handleChangeTab("outreach");
               applyFilter(
                 {
                   ...DEFAULT_FILTER_CONFIG,
@@ -1834,7 +2056,7 @@ export default function RecruitingPage() {
             className={`btn ${activeFilterId === "ready_for_boss" ? "btnPrimary" : ""}`}
             type="button"
             onClick={() => {
-              setActiveTab("potential");
+              handleChangeTab("potential");
               applyFilter(
                 {
                   ...DEFAULT_FILTER_CONFIG,
@@ -1852,7 +2074,7 @@ export default function RecruitingPage() {
             className={`btn ${activeFilterId === "leslee_potential" ? "btnPrimary" : ""}`}
             type="button"
             onClick={() => {
-              setActiveTab("potential");
+              handleChangeTab("potential");
               applyFilter(
                 {
                   ...DEFAULT_FILTER_CONFIG,
@@ -1878,13 +2100,7 @@ export default function RecruitingPage() {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: activeTab === "potential" ? "minmax(0, 1fr)" : "minmax(0, 2fr) minmax(320px, 1fr)",
-          gap: 16,
-        }}
-      >
+      <div style={{ display: "grid", gap: 16 }}>
         <div style={{ display: "grid", gap: 16 }}>
           <div className="card pad">
             <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
@@ -1893,11 +2109,21 @@ export default function RecruitingPage() {
                   key={tab.id}
                   className={`btn ${activeTab === tab.id ? "btnPrimary" : ""}`}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleChangeTab(tab.id)}
                 >
                   {tab.label}
                 </button>
               ))}
+              {activeTab !== "potential" ? (
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={!selectedRecord}
+                  onClick={() => void openRecordDetails(selectedRecord?.id)}
+                >
+                  {activeTab === "outreach" ? "Open Contact History" : "Open Converted Team History"}
+                </button>
+              ) : null}
             </div>
 
             {activeTab === "outreach" ? (
@@ -1933,261 +2159,286 @@ export default function RecruitingPage() {
             ) : null}
           </div>
         </div>
+      </div>
 
-        <div className="card pad" style={activeTab === "potential" ? { display: "none" } : undefined}>
-          <div style={{ fontWeight: 900, marginBottom: 10 }}>
-            {activeTab === "outreach" ? "Contact History" : "Converted Team History"}
-          </div>
-          {selectedRecord ? (
-            <div style={{ display: "grid", gap: 12 }}>
-              <div>
-                <div style={{ fontWeight: 800 }}>{formatContactName(selectedRecord)}</div>
-                <div className="small">{selectedRecord.contact?.email}</div>
-                {selectedRecord.contact?.phone ? (
-                  <div className="small">{selectedRecord.contact.phone}</div>
+      {recordDetailsModalOpen && activeTab !== "potential" ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 50,
+          }}
+        >
+          <div className="card pad" style={{ width: "min(860px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 900 }}>
+                {activeTab === "outreach" ? "Contact History" : "Converted Team History"}
+              </div>
+              <div className="spacer" />
+              <button className="btn" type="button" onClick={() => setRecordDetailsModalOpen(false)}>
+                Close
+              </button>
+            </div>
+            {selectedRecord ? (
+              <div style={{ display: "grid", gap: 12 }}>
+                <div>
+                  <div style={{ fontWeight: 800 }}>{formatContactName(selectedRecord)}</div>
+                  <div className="small">{selectedRecord.contact?.email}</div>
+                  {selectedRecord.contact?.phone ? (
+                    <div className="small">{selectedRecord.contact.phone}</div>
+                  ) : null}
+                  {renderDuplicateNotice(
+                    getDuplicateInfoForEmail(selectedRecord.contact?.email, {
+                      excludeRecordId: selectedRecord.id,
+                      includeActiveTeam: !selectedRecord.isConvertedToTeam,
+                    })
+                  )}
+                </div>
+                {activeTab === "outreach" ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                      gap: 10,
+                    }}
+                  >
+                    <div>
+                      <div className="small" style={{ marginBottom: 6 }}>First Name</div>
+                      <input
+                        className="input"
+                        value={selectedRecord.contact?.firstName || ""}
+                        onChange={(event) => updateContactField(selectedRecord.id, "firstName", event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <div className="small" style={{ marginBottom: 6 }}>Last Name</div>
+                      <input
+                        className="input"
+                        value={selectedRecord.contact?.lastName || ""}
+                        onChange={(event) => updateContactField(selectedRecord.id, "lastName", event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <div className="small" style={{ marginBottom: 6 }}>Email</div>
+                      <input
+                        className="input"
+                        value={selectedRecord.contact?.email || ""}
+                        onChange={(event) => updateContactField(selectedRecord.id, "email", event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <div className="small" style={{ marginBottom: 6 }}>Phone</div>
+                      <input
+                        className="input"
+                        value={selectedRecord.contact?.phone || ""}
+                        onChange={(event) => updateContactField(selectedRecord.id, "phone", event.target.value)}
+                        placeholder="Phone number"
+                      />
+                    </div>
+                    <div>
+                      <div className="small" style={{ marginBottom: 6 }}>Male / Female</div>
+                      <select
+                        className="input"
+                        value={selectedRecord.contact?.gender || ""}
+                        onChange={(event) => updateContactField(selectedRecord.id, "gender", event.target.value)}
+                      >
+                        <option value="">Not set</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                      </select>
+                    </div>
+                  </div>
                 ) : null}
-                {renderDuplicateNotice(
-                  getDuplicateInfoForEmail(selectedRecord.contact?.email, {
-                    excludeRecordId: selectedRecord.id,
-                    includeActiveTeam: !selectedRecord.isConvertedToTeam,
-                  })
-                )}
-              </div>
-              {activeTab === "outreach" ? (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                    gap: 10,
-                  }}
-                >
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>First Name</div>
-                    <input
-                      className="input"
-                      value={selectedRecord.contact?.firstName || ""}
-                      onChange={(event) => updateContactField(selectedRecord.id, "firstName", event.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Last Name</div>
-                    <input
-                      className="input"
-                      value={selectedRecord.contact?.lastName || ""}
-                      onChange={(event) => updateContactField(selectedRecord.id, "lastName", event.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Email</div>
-                    <input
-                      className="input"
-                      value={selectedRecord.contact?.email || ""}
-                      onChange={(event) => updateContactField(selectedRecord.id, "email", event.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Phone</div>
-                    <input
-                      className="input"
-                      value={selectedRecord.contact?.phone || ""}
-                      onChange={(event) => updateContactField(selectedRecord.id, "phone", event.target.value)}
-                      placeholder="Phone number"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Male / Female</div>
-                    <select
-                      className="input"
-                      value={selectedRecord.contact?.gender || ""}
-                      onChange={(event) => updateContactField(selectedRecord.id, "gender", event.target.value)}
-                    >
-                      <option value="">Not set</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                    </select>
-                  </div>
-                </div>
-              ) : null}
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Stage</div>
-                <select
-                  className="input"
-                  value={selectedRecord.stage}
-                  onChange={(event) => updateSelectedRecord("stage", Number(event.target.value))}
-                >
-                  {RECRUITING_STAGES.map((stage) => (
-                    <option key={stage.value} value={stage.value}>{stage.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Owner</div>
-                <select
-                  className="input"
-                  value={selectedRecord.assignedTo || PRIMARY_OWNER}
-                  onChange={(event) => updateRecordOwner(selectedRecord.id, event.target.value)}
-                >
-                  {OWNER_OPTIONS.map((owner) => (
-                    <option key={owner} value={owner}>{owner}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Next Follow-Up</div>
-                <input
-                  className="input"
-                  type="date"
-                  value={selectedRecord.nextFollowUp || ""}
-                  onChange={(event) => updateSelectedRecord("nextFollowUp", event.target.value)}
-                />
-              </div>
-              {!selectedRecord.isConvertedToTeam ? (
                 <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Interested Trip</div>
-                  <input
+                  <div className="small" style={{ marginBottom: 6 }}>Stage</div>
+                  <select
                     className="input"
-                    value={selectedRecord.interestedTrip || ""}
-                    onChange={(event) => updateSelectedRecord("interestedTrip", event.target.value)}
-                    placeholder="Trip or focus area"
-                  />
+                    value={selectedRecord.stage}
+                    onChange={(event) => updateSelectedRecord("stage", Number(event.target.value))}
+                  >
+                    {RECRUITING_STAGES.map((stage) => (
+                      <option key={stage.value} value={stage.value}>{stage.label}</option>
+                    ))}
+                  </select>
                 </div>
-              ) : null}
-              {!selectedRecord.isConvertedToTeam ? (
                 <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Project Dates</div>
-                  <input
+                  <div className="small" style={{ marginBottom: 6 }}>Owner</div>
+                  <select
                     className="input"
-                    value={selectedRecord.projectDates || ""}
-                    onChange={(event) => updateSelectedRecord("projectDates", event.target.value)}
-                    placeholder="Dates or season"
-                  />
+                    value={selectedRecord.assignedTo || PRIMARY_OWNER}
+                    onChange={(event) => updateRecordOwner(selectedRecord.id, event.target.value)}
+                  >
+                    {OWNER_OPTIONS.map((owner) => (
+                      <option key={owner} value={owner}>{owner}</option>
+                    ))}
+                  </select>
                 </div>
-              ) : null}
-              {!selectedRecord.isConvertedToTeam ? (
                 <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Site</div>
-                  <input
-                    className="input"
-                    value={selectedRecord.site || ""}
-                    onChange={(event) => updateSelectedRecord("site", event.target.value)}
-                    placeholder="Site"
-                  />
-                </div>
-              ) : null}
-              {!selectedRecord.isConvertedToTeam ? (
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
-                  <input
-                    className="input"
-                    type="number"
-                    min="0"
-                    value={selectedRecord.weeks || ""}
-                    onChange={(event) => updateSelectedRecord("weeks", event.target.value)}
-                    placeholder="Number of weeks"
-                  />
-                </div>
-              ) : null}
-              {!selectedRecord.isConvertedToTeam ? (
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Departure Date</div>
+                  <div className="small" style={{ marginBottom: 6 }}>Next Follow-Up</div>
                   <input
                     className="input"
                     type="date"
-                    value={selectedRecord.departureDate || ""}
-                    onChange={(event) => updateSelectedRecord("departureDate", event.target.value)}
+                    value={selectedRecord.nextFollowUp || ""}
+                    onChange={(event) => updateSelectedRecord("nextFollowUp", event.target.value)}
                   />
                 </div>
-              ) : null}
-              {!selectedRecord.isConvertedToTeam ? (
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
-                  <input
-                    className="input"
-                    value={selectedRecord.teamName || ""}
-                    onChange={(event) => updateSelectedRecord("teamName", event.target.value)}
-                    placeholder="Optional team name"
-                  />
-                </div>
-              ) : null}
-              {!selectedRecord.isConvertedToTeam ? (
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>People On This Row</div>
-                  <textarea
-                    className="input"
-                    rows={3}
-                    value={selectedRecord.teamMembers || ""}
-                    onChange={(event) => updateSelectedRecord("teamMembers", event.target.value)}
-                    placeholder="One person per line, or comma-separated"
-                  />
-                </div>
-              ) : null}
-              {!selectedRecord.isConvertedToTeam ? (
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Handoff Summary</div>
-                  <textarea
-                    className="input"
-                    rows={3}
-                    value={extractHandoffSummary(selectedRecord.mackaylaNotes)}
-                    onChange={(event) => updateRecordHandoffSummary(selectedRecord.id, event.target.value)}
-                  />
-                </div>
-              ) : null}
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Mackayla Notes</div>
-                <textarea
-                  className="input"
-                  rows={4}
-                  value={stripHandoffSummary(selectedRecord.mackaylaNotes)}
-                  onChange={(event) => updateRecordMackaylaNotes(selectedRecord.id, event.target.value)}
-                />
-              </div>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Leslee Notes</div>
-                <textarea
-                  className="input"
-                  rows={4}
-                  value={selectedRecord.lesleeNotes || ""}
-                  onChange={(event) => updateSelectedRecord("lesleeNotes", event.target.value)}
-                />
-              </div>
-              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                <button className="btn btnPrimary" type="button" onClick={() => handleSaveRecord()}>
-                  {isSavingNotes ? "Saving..." : "Save Record"}
-                </button>
-                {activeTab === "outreach" ? (
-                  <button className="btn" type="button" onClick={() => handlePromote(selectedRecord)}>
-                    Promote To Potential Teams
-                  </button>
+                {!selectedRecord.isConvertedToTeam ? (
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Interested Trip</div>
+                    <input
+                      className="input"
+                      value={selectedRecord.interestedTrip || ""}
+                      onChange={(event) => updateSelectedRecord("interestedTrip", event.target.value)}
+                      placeholder="Trip or focus area"
+                    />
+                  </div>
                 ) : null}
-              </div>
-
-              <div style={{ fontWeight: 800, marginTop: 6 }}>Activity</div>
-              {isCurrentHistoryLoading ? (
-                <div className="small">Loading history...</div>
-              ) : currentHistory.length > 0 ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {currentHistory.map((entry) => (
-                    <div
-                      key={entry.id}
-                      style={{ paddingBottom: 10, borderBottom: "1px solid var(--border)" }}
-                    >
-                      <div>{entry.summary || getRecruitingStageLabel(selectedRecord.stage)}</div>
-                      <div className="small" style={{ marginTop: 4 }}>
-                        {entry.staffMember ? `${entry.staffMember} | ` : ""}
-                        {formatDateTime(entry.actionDate)}
-                      </div>
-                    </div>
-                  ))}
+                {!selectedRecord.isConvertedToTeam ? (
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Project Dates</div>
+                    <input
+                      className="input"
+                      value={selectedRecord.projectDates || ""}
+                      onChange={(event) => updateSelectedRecord("projectDates", event.target.value)}
+                      placeholder="Dates or season"
+                    />
+                  </div>
+                ) : null}
+                {!selectedRecord.isConvertedToTeam ? (
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Site</div>
+                    <input
+                      className="input"
+                      value={selectedRecord.site || ""}
+                      onChange={(event) => updateSelectedRecord("site", event.target.value)}
+                      placeholder="Site"
+                    />
+                  </div>
+                ) : null}
+                {!selectedRecord.isConvertedToTeam ? (
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      value={selectedRecord.weeks || ""}
+                      onChange={(event) => updateSelectedRecord("weeks", event.target.value)}
+                      placeholder="Number of weeks"
+                    />
+                  </div>
+                ) : null}
+                {!selectedRecord.isConvertedToTeam ? (
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Departure Date</div>
+                    <input
+                      className="input"
+                      type="date"
+                      value={selectedRecord.departureDate || ""}
+                      onChange={(event) => updateSelectedRecord("departureDate", event.target.value)}
+                    />
+                  </div>
+                ) : null}
+                {!selectedRecord.isConvertedToTeam ? (
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
+                    <input
+                      className="input"
+                      value={selectedRecord.teamName || ""}
+                      onChange={(event) => updateSelectedRecord("teamName", event.target.value)}
+                      placeholder="Optional team name"
+                    />
+                  </div>
+                ) : null}
+                {!selectedRecord.isConvertedToTeam ? (
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>People On This Row</div>
+                    <textarea
+                      className="input"
+                      rows={3}
+                      value={selectedRecord.teamMembers || ""}
+                      onChange={(event) => updateSelectedRecord("teamMembers", event.target.value)}
+                      placeholder="One person per line, or comma-separated"
+                    />
+                  </div>
+                ) : null}
+                {!selectedRecord.isConvertedToTeam ? (
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Handoff Summary</div>
+                    <textarea
+                      className="input"
+                      rows={3}
+                      value={extractHandoffSummary(selectedRecord.mackaylaNotes)}
+                      onChange={(event) => updateRecordHandoffSummary(selectedRecord.id, event.target.value)}
+                    />
+                  </div>
+                ) : null}
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Mackayla Notes</div>
+                  <textarea
+                    className="input"
+                    rows={4}
+                    value={stripHandoffSummary(selectedRecord.mackaylaNotes)}
+                    onChange={(event) => updateRecordMackaylaNotes(selectedRecord.id, event.target.value)}
+                  />
                 </div>
-              ) : (
-                <div className="small">No activity logged yet.</div>
-              )}
-            </div>
-          ) : (
-            <div className="small">Select a recruiting record to view this year's history.</div>
-          )}
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Leslee Notes</div>
+                  <textarea
+                    className="input"
+                    rows={4}
+                    value={selectedRecord.lesleeNotes || ""}
+                    onChange={(event) => updateSelectedRecord("lesleeNotes", event.target.value)}
+                  />
+                </div>
+                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <button className="btn btnPrimary" type="button" onClick={() => handleSaveRecord()}>
+                    {isSavingNotes ? "Saving..." : "Save Record"}
+                  </button>
+                  {activeTab === "outreach" ? (
+                    <button className="btn" type="button" onClick={() => handleAttendedInfoMeeting(selectedRecord)}>
+                      Attended Info Meeting
+                    </button>
+                  ) : null}
+                  {activeTab === "outreach" ? (
+                    <button className="btn" type="button" onClick={() => handlePromote(selectedRecord)}>
+                      Promote To Potential Teams
+                    </button>
+                  ) : null}
+                </div>
+
+                <div style={{ fontWeight: 800, marginTop: 6 }}>Activity</div>
+                {isCurrentHistoryLoading ? (
+                  <div className="small">Loading history...</div>
+                ) : currentHistory.length > 0 ? (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {currentHistory.map((entry) => (
+                      <div
+                        key={entry.id}
+                        style={{ paddingBottom: 10, borderBottom: "1px solid var(--border)" }}
+                      >
+                        <div>{entry.summary || getRecruitingStageLabel(selectedRecord.stage)}</div>
+                        <div className="small" style={{ marginTop: 4 }}>
+                          {entry.staffMember ? `${entry.staffMember} | ` : ""}
+                          {formatDateTime(entry.actionDate)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="small">No activity logged yet.</div>
+                )}
+              </div>
+            ) : (
+              <div className="small">Select a recruiting record to view this year's history.</div>
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {importModalOpen ? (
         <div
@@ -2453,6 +2704,9 @@ export default function RecruitingPage() {
             <div style={{ display: "grid", gap: 10 }}>
               <div className="small">
                 Use one row for a single person, a couple, or a whole team. Keep the primary contact here and list the rest below.
+              </div>
+              <div className="small">
+                Enter either an email or a phone number. You do not need both.
               </div>
               <input
                 className="input"

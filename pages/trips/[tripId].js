@@ -122,7 +122,7 @@ const AUTO_SITE_INFO_LINKS = [
   [["krakow poland", "krakow"], "https://lst365.sharepoint.com/:w:/g/IQDdYxW3aFWKS69WTRknVWFKAde4Lx-hMuz7n3axYEPFhv4?e=eOe9j4"],
   [["lodz poland", "lodz"], "https://lst365.sharepoint.com/:w:/g/IQC-jkBrhVkhRKJPLw2WucIdAXalV12z8aXyGaTdhX-6ghg?e=kF41eX"],
   [["pabianice poland", "pabianice"], "https://lst365.sharepoint.com/:w:/g/IQCGgNg98C1mSbDF5LqYtL34AStYJB4QiTTz-Zl8G0oUFeE?e=QHcSLP"],
-  [["south korea seoul", "seoul south korea", "seoul"], "https://lst365.sharepoint.com/:w:/g/IQDnOTLPfex0RqJG4p6ChdERAZ2WKBJZHw3pzjFk4Om_aHw?e=7oZybD"],
+  [["south korea seoul", "seoul south korea", "seoul korea", "korea seoul", "seoul"], "https://lst365.sharepoint.com/:w:/g/IQDnOTLPfex0RqJG4p6ChdERAZ2WKBJZHw3pzjFk4Om_aHw?e=7oZybD"],
   [["spain murcia alcantarilla", "murcia alcantarilla", "alcantarilla", "murcia"], "https://lst365.sharepoint.com/:w:/g/IQBHLXMUylwVRblNuEp_IfPeAexqrlspqpMj2fE00jyGt6E?e=eVhwsq"],
   [["west springeifld", "west springfield"], "https://lst365.sharepoint.com/:w:/g/IQAhz_L8VEJqR5uqjcsUevrfARar3ZTPt_KAUUJuSFS6xXM?e=sIN60O"],
   [["ecuador tabacundo", "tabacundo", "tabacundo ecuador"], "https://lst365.sharepoint.com/:x:/g/IQA5-MNxcpW0S715lEJe206YAZGC0Uw1e35UpI3gIoJOSoQ?e=Q6qbtu"],
@@ -226,6 +226,7 @@ export default function TripPage() {
     category: "Other",
     workArea: "",
     resourceKey: "",
+    visibleToParticipants: true,
   });
   const [pendingPdfDraft, setPendingPdfDraft] = useState(null);
   const [editingDocId, setEditingDocId] = useState(null);
@@ -311,6 +312,7 @@ export default function TripPage() {
   const trainingResources = [
     {
       id: "canvas",
+      group: "required",
       title: "Canvas",
       description: "Instructions on accessing online LST team training.",
       url: trainingAccessUrl,
@@ -319,6 +321,7 @@ export default function TripPage() {
     },
     {
       id: "basic",
+      group: "required",
       title: "Basic Training",
       description: "Understanding the LST approach.",
       url: basicTrainingUrl,
@@ -327,6 +330,7 @@ export default function TripPage() {
     },
     {
       id: "gateway",
+      group: "required",
       title: "Gateway Training",
       description: "Pre-departure preparation.",
       url: gatewayTrainingUrl,
@@ -335,6 +339,7 @@ export default function TripPage() {
     },
     {
       id: "endmeetings",
+      group: "required",
       title: "EndMeetings",
       description: "Post-project debriefing.",
       url: gatewayTrainingUrl,
@@ -343,6 +348,7 @@ export default function TripPage() {
     },
     {
       id: "optional",
+      group: "optional",
       title: "Optional Training",
       description:
         "Optional workshops offered through the year, mainly for experienced Workers.",
@@ -352,6 +358,7 @@ export default function TripPage() {
     },
     {
       id: "lst-connect",
+      group: "optional",
       title: "LST Connect",
       description:
         "Join LST Connect to practice with an online Reader before leaving. Register as a Worker.",
@@ -360,6 +367,12 @@ export default function TripPage() {
       accent: "#0f766e",
     },
   ];
+  const requiredTrainingResources = trainingResources.filter(
+    (resource) => resource.group === "required"
+  );
+  const optionalTrainingResources = trainingResources.filter(
+    (resource) => resource.group === "optional"
+  );
 
   const canvasTrainingModules = useMemo(
     () =>
@@ -876,6 +889,7 @@ export default function TripPage() {
       category: "Other",
       workArea: trip?.name || "",
       resourceKey: "",
+      visibleToParticipants: true,
     });
     event.target.value = "";
   }
@@ -887,6 +901,7 @@ export default function TripPage() {
       category: slot.category,
       workArea: trip?.name || "",
       resourceKey: slot.key,
+      visibleToParticipants: true,
     });
   }
 
@@ -898,6 +913,7 @@ export default function TripPage() {
       category: slot.category,
       workArea: trip?.name || "",
       resourceKey: slot.key,
+      visibleToParticipants: slot.resource?.visibleToParticipants !== false,
     });
   }
 
@@ -915,6 +931,7 @@ export default function TripPage() {
         category: pendingPdfDraft.category,
         workArea: pendingPdfDraft.workArea,
         resourceKey: pendingPdfDraft.resourceKey,
+        visibleToParticipants: pendingPdfDraft.visibleToParticipants,
         tripId: trip?.id,
       });
       setDocs((current) => [created, ...current]);
@@ -934,6 +951,7 @@ export default function TripPage() {
       category: "Other",
       workArea: trip?.name || "",
       resourceKey: "",
+      visibleToParticipants: true,
     });
   }
 
@@ -945,6 +963,7 @@ export default function TripPage() {
       category: "Other",
       workArea: trip?.name || "",
       resourceKey: "",
+      visibleToParticipants: true,
     });
   }
 
@@ -968,7 +987,10 @@ export default function TripPage() {
 
   function handleEditDoc(doc) {
     setEditingDocId(doc.id);
-    setDocDraft({ ...doc });
+    setDocDraft({
+      ...doc,
+      visibleToParticipants: doc.visibleToParticipants !== false,
+    });
   }
 
   async function handleDeleteDoc(docId) {
@@ -999,6 +1021,7 @@ export default function TripPage() {
         category: docDraft.category,
         resourceKey: docDraft.resourceKey,
         workArea: docDraft.workArea,
+        visibleToParticipants: docDraft.visibleToParticipants,
       });
       setDocs((current) =>
         current.map((doc) => (doc.id === updated.id ? updated : doc))
@@ -1022,6 +1045,7 @@ export default function TripPage() {
         category: docDraft.category,
         workArea: docDraft.workArea,
         resourceKey: docDraft.resourceKey,
+        visibleToParticipants: docDraft.visibleToParticipants,
         tripId: trip?.id,
       });
       const updated = await updateResource({
@@ -1032,6 +1056,7 @@ export default function TripPage() {
         category: created.category,
         resourceKey: created.resourceKey,
         workArea: created.workArea,
+        visibleToParticipants: docDraft.visibleToParticipants,
       });
       setDocs((current) =>
         current.map((doc) => (doc.id === updated.id ? updated : doc))
@@ -1043,6 +1068,60 @@ export default function TripPage() {
       setDocsError(error.message || "Unable to save resources.");
     } finally {
       event.target.value = "";
+    }
+  }
+
+  async function handleToggleDocVisibility(doc, nextVisible) {
+    if (!doc?.id) return;
+
+    try {
+      const updated = await updateResource({
+        id: doc.id,
+        title: doc.title,
+        link: doc.link,
+        pdfUrl: doc.pdfUrl,
+        category: doc.category,
+        resourceKey: doc.resourceKey,
+        workArea: doc.workArea,
+        visibleToParticipants: nextVisible,
+      });
+      setDocs((current) =>
+        current.map((entry) => (entry.id === updated.id ? updated : entry))
+      );
+      setDocsError("");
+    } catch (error) {
+      console.error("Unable to update document visibility", error);
+      setDocsError(error.message || "Unable to save resources.");
+    }
+  }
+
+  async function handleToggleRequiredSlotVisibility(slot, nextVisible) {
+    const doc = slot?.resource;
+    if (doc?.id && !doc?.isAutoGenerated) {
+      await handleToggleDocVisibility(doc, nextVisible);
+      return;
+    }
+
+    if (slot?.kind !== "link") return;
+
+    const sourceLink = doc?.link || doc?.pdfUrl || "";
+    if (!sourceLink) return;
+
+    try {
+      const created = await addLinkResource({
+        title: doc?.title || slot.title,
+        link: sourceLink,
+        category: slot.category,
+        workArea: trip?.name || "",
+        resourceKey: slot.key,
+        visibleToParticipants: nextVisible,
+        tripId: trip?.id,
+      });
+      setDocs((current) => [created, ...current]);
+      setDocsError("");
+    } catch (error) {
+      console.error("Unable to save site visibility override", error);
+      setDocsError(error.message || "Unable to save resources.");
     }
   }
 
@@ -2839,17 +2918,33 @@ function parseDateSafe(dateStr) {
       .sort((left, right) => left.localeCompare(right));
   }, [trip?.location]);
   const selectedSiteValue = isCustomSiteInput ? CUSTOM_SITE_OPTION : tripSetupDraft.location || "";
+  const visibleDocs = useMemo(
+    () =>
+      canViewAllParticipantData
+        ? docs
+        : (docs || []).filter((doc) => doc.visibleToParticipants !== false),
+    [canViewAllParticipantData, docs]
+  );
+  const hiddenRequiredDocumentKeys = useMemo(
+    () =>
+      new Set(
+        (docs || [])
+          .filter((doc) => doc.resourceKey && doc.visibleToParticipants === false)
+          .map((doc) => doc.resourceKey)
+      ),
+    [docs]
+  );
   const requiredDocumentSlots = useMemo(
     () =>
       REQUIRED_TRIP_DOCUMENT_SLOTS.map((slot) => ({
         ...slot,
-        resource: docs.find((doc) => doc.resourceKey === slot.key) || null,
+        resource: visibleDocs.find((doc) => doc.resourceKey === slot.key) || null,
       })),
-    [docs]
+    [visibleDocs]
   );
   const optionalDocs = useMemo(() => {
-    return (docs || []).filter((doc) => !doc.resourceKey);
-  }, [docs]);
+    return (visibleDocs || []).filter((doc) => !doc.resourceKey);
+  }, [visibleDocs]);
 
   const currentParticipant = useMemo(() => {
     if (!trip) return null;
@@ -3135,10 +3230,11 @@ function parseDateSafe(dateStr) {
         : currentParticipant?.fundraisingUrl
         ? "Your personal Neon page is available."
         : "No personal Neon page added yet.";
-  const smartsheetBudgetDoc = docs.find((doc) => doc.resourceKey === "smartsheet-budget");
+  const smartsheetBudgetDoc = visibleDocs.find((doc) => doc.resourceKey === "smartsheet-budget");
   const siteInfoDoc = docs.find((doc) => doc.resourceKey === "site-info-link");
+  const visibleSiteInfoDoc = visibleDocs.find((doc) => doc.resourceKey === "site-info-link");
   const autoSiteInfoLink = AUTO_SITE_INFO_LINKS_BY_KEY.get(normalizeSiteInfoKey(trip?.location)) || "";
-  const effectiveSiteInfoDoc = siteInfoDoc || (
+  const effectiveSiteInfoDoc = visibleSiteInfoDoc || (!siteInfoDoc && autoSiteInfoLink ? (
     autoSiteInfoLink
       ? {
           id: "auto-site-info-link",
@@ -3148,9 +3244,10 @@ function parseDateSafe(dateStr) {
           createdAt: "",
           updatedAt: "",
           isAutoGenerated: true,
+          visibleToParticipants: true,
         }
       : null
-  );
+  ) : null);
   const effectiveRequiredDocumentSlots = useMemo(
     () =>
       requiredDocumentSlots.map((slot) =>
@@ -3162,6 +3259,17 @@ function parseDateSafe(dateStr) {
           : slot
       ),
     [effectiveSiteInfoDoc, requiredDocumentSlots]
+  );
+  const viewerRequiredDocumentSlots = useMemo(
+    () =>
+      canViewAllParticipantData
+        ? effectiveRequiredDocumentSlots
+        : effectiveRequiredDocumentSlots.filter((slot) => !hiddenRequiredDocumentKeys.has(slot.key)),
+    [canViewAllParticipantData, effectiveRequiredDocumentSlots, hiddenRequiredDocumentKeys]
+  );
+  const viewerMainRequiredDocumentSlots = useMemo(
+    () => viewerRequiredDocumentSlots.filter((slot) => slot.key !== "site-info-link"),
+    [viewerRequiredDocumentSlots]
   );
   const quickLinks = useMemo(() => {
     const workerFundraisingUrl = trip?.teamFundraisingUrl || currentParticipant?.fundraisingUrl || "";
@@ -4422,11 +4530,65 @@ function parseDateSafe(dateStr) {
             <div
               style={{
                 display: "grid",
+                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gap: 16,
+              }}
+            >
+              {requiredTrainingResources.map((resource) => (
+                <a
+                  key={resource.id}
+                  href={resource.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="card pad"
+                  style={{
+                    display: "block",
+                    color: "inherit",
+                    boxShadow: "none",
+                    textDecoration: "none",
+                    borderColor: "rgba(15, 23, 42, 0.08)",
+                  }}
+                >
+                  <div className="row" style={{ alignItems: "flex-start" }}>
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 12,
+                        background: resource.accent,
+                        color: "#fff",
+                        display: "grid",
+                        placeItems: "center",
+                        fontWeight: 900,
+                        fontSize: 13,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {resource.icon}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 900, marginBottom: 4 }}>{resource.title}</div>
+                      <div className="small">{resource.description}</div>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+
+            <div style={{ height: 18 }} />
+
+            <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
+              Optional
+            </div>
+
+            <div
+              style={{
+                display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                 gap: 16,
               }}
             >
-              {trainingResources.map((resource) => (
+              {optionalTrainingResources.map((resource) => (
                 <a
                   key={resource.id}
                   href={resource.url}
@@ -4908,7 +5070,7 @@ function parseDateSafe(dateStr) {
               <div>
                 <div style={{ fontWeight: 900 }}>Documents & Links</div>
                 <div className="small">
-                  Default trip documents stay visible here, and any extra uploads show underneath.
+                  Default trip documents stay visible here, and staff can switch each document on or off for participants.
                 </div>
               </div>
               <div className="spacer" />
@@ -4986,6 +5148,19 @@ function parseDateSafe(dateStr) {
                     }
                     placeholder="Notes / work area"
                   />
+                  <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={linkDraft.visibleToParticipants !== false}
+                      onChange={(e) =>
+                        setLinkDraft((prev) => ({
+                          ...prev,
+                          visibleToParticipants: e.target.checked,
+                        }))
+                      }
+                    />
+                    Visible to participants
+                  </label>
                   <div className="row">
                     <button className="btn btnPrimary" type="button" onClick={handleSaveLink}>
                       Save Link
@@ -5042,6 +5217,19 @@ function parseDateSafe(dateStr) {
                       setPendingPdfDraft((prev) => ({ ...prev, file: e.target.files?.[0] || null }))
                     }
                   />
+                  <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={pendingPdfDraft.visibleToParticipants !== false}
+                      onChange={(e) =>
+                        setPendingPdfDraft((prev) => ({
+                          ...prev,
+                          visibleToParticipants: e.target.checked,
+                        }))
+                      }
+                    />
+                    Visible to participants
+                  </label>
                   <div className="small">
                     File: {pendingPdfDraft.file?.name || "Choose a file to upload"}
                   </div>
@@ -5063,7 +5251,130 @@ function parseDateSafe(dateStr) {
             )}
 
             <div style={{ display: "grid", gap: 12 }}>
-              {effectiveRequiredDocumentSlots.map((slot) => {
+              {canViewAllParticipantData || !hiddenRequiredDocumentKeys.has("site-info-link") ? (
+                <div
+                  className="card pad"
+                  style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
+                >
+                  <div className="row" style={{ alignItems: "flex-start" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 900 }}>Site-Linked Document</div>
+                      <div className="small" style={{ marginTop: 4 }}>
+                        Assigned site: {trip?.location || "No site selected yet"}
+                      </div>
+                      <div className="small" style={{ marginTop: 4 }}>
+                        {effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl
+                          ? "This site name is linked automatically to its document."
+                          : "No matching site link yet. Add a custom site link or update the site name."}
+                      </div>
+                      {canViewAllParticipantData ? (
+                        <div className="small" style={{ marginTop: 4 }}>
+                          {siteInfoDoc
+                            ? `Participants can ${siteInfoDoc.visibleToParticipants === false ? "not " : ""}see the saved site document.`
+                            : "Auto-linked site docs start visible to participants until staff switches them off."}
+                        </div>
+                      ) : null}
+                    </div>
+                    <span
+                      className={
+                        "badge " +
+                        ((effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl)
+                          ? "badgeSuccess"
+                          : "badgeWarn")
+                      }
+                    >
+                      {(effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl)
+                        ? "Site Matched"
+                        : "Needs Link"}
+                    </span>
+                  </div>
+                  {(effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl) ? (
+                    <div className="row" style={{ marginTop: 10 }}>
+                      <a
+                        className="btn btnPrimary"
+                        href={effectiveSiteInfoDoc.pdfUrl || effectiveSiteInfoDoc.link}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open Site Link
+                      </a>
+                      {canViewAllParticipantData ? (
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() =>
+                            handleToggleRequiredSlotVisibility(
+                              {
+                                key: "site-info-link",
+                                title: "Site Info Link",
+                                category: "Site",
+                                kind: "link",
+                                resource: effectiveSiteInfoDoc,
+                              },
+                              effectiveSiteInfoDoc.visibleToParticipants === false
+                            )
+                          }
+                        >
+                          {effectiveSiteInfoDoc.visibleToParticipants === false
+                            ? "Make Visible To Participants"
+                            : "Hide From Participants"}
+                        </button>
+                      ) : null}
+                      {canViewAllParticipantData && siteInfoDoc ? (
+                        <>
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => handleEditDoc(siteInfoDoc)}
+                          >
+                            Edit Saved Link
+                          </button>
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => handleDeleteDoc(siteInfoDoc.id)}
+                          >
+                            Delete Custom Link
+                          </button>
+                        </>
+                      ) : canViewAllParticipantData ? (
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() =>
+                            handlePrepareRequiredLink({
+                              key: "site-info-link",
+                              title: "Site Info Link",
+                              category: "Site",
+                              resource: effectiveSiteInfoDoc,
+                            })
+                          }
+                        >
+                          Save Custom Link
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : canViewAllParticipantData ? (
+                    <div className="row" style={{ marginTop: 10 }}>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() =>
+                          handlePrepareRequiredLink({
+                            key: "site-info-link",
+                            title: "Site Info Link",
+                            category: "Site",
+                            resource: effectiveSiteInfoDoc,
+                          })
+                        }
+                      >
+                        Add Site Link
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {viewerMainRequiredDocumentSlots.map((slot) => {
                 const doc = slot.resource;
                 const available = !!(doc?.pdfUrl || doc?.link);
                 const isEditing = editingDocId === doc?.id;
@@ -5118,6 +5429,19 @@ function parseDateSafe(dateStr) {
                               }
                               placeholder="Notes / work area"
                             />
+                            <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <input
+                                type="checkbox"
+                                checked={docDraft?.visibleToParticipants !== false}
+                                onChange={(e) =>
+                                  setDocDraft((prev) => ({
+                                    ...prev,
+                                    visibleToParticipants: e.target.checked,
+                                  }))
+                                }
+                              />
+                              Visible to participants
+                            </label>
                             {!!docDraft?.pdfUrl && (
                               <input type="file" onChange={handleReplaceDocumentFile} />
                             )}
@@ -5147,6 +5471,13 @@ function parseDateSafe(dateStr) {
                             ) : (
                               <div className="small" style={{ marginTop: 4 }}>Coming soon</div>
                             )}
+                            {canViewAllParticipantData && available ? (
+                              <div className="small" style={{ marginTop: 4 }}>
+                                {doc?.visibleToParticipants === false
+                                  ? "Hidden from participants"
+                                  : "Visible to participants"}
+                              </div>
+                            ) : null}
                           </>
                         )}
                       </div>
@@ -5184,6 +5515,19 @@ function parseDateSafe(dateStr) {
                             {isAutoGenerated ? "Save Custom Link" : "Add Link"}
                           </button>
                         )
+                      ) : null}
+                      {canViewAllParticipantData && available ? (
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() =>
+                            handleToggleRequiredSlotVisibility(slot, doc?.visibleToParticipants === false)
+                          }
+                        >
+                          {doc?.visibleToParticipants === false
+                            ? "Make Visible To Participants"
+                            : "Hide From Participants"}
+                        </button>
                       ) : null}
                     </div>
                     {slot.tutorialUrl ? (
@@ -5273,6 +5617,19 @@ function parseDateSafe(dateStr) {
                             }
                             placeholder="Notes / work area"
                           />
+                          <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <input
+                              type="checkbox"
+                              checked={docDraft?.visibleToParticipants !== false}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({
+                                  ...prev,
+                                  visibleToParticipants: e.target.checked,
+                                }))
+                              }
+                            />
+                            Visible to participants
+                          </label>
                           {!!docDraft?.pdfUrl && (
                             <input type="file" onChange={handleReplaceDocumentFile} />
                           )}
@@ -5294,6 +5651,13 @@ function parseDateSafe(dateStr) {
                             {d.workArea ? ` • ${d.workArea}` : ""}
                             {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
                           </div>
+                          {canViewAllParticipantData ? (
+                            <div className="small" style={{ marginTop: 4 }}>
+                              {d.visibleToParticipants === false
+                                ? "Hidden from participants"
+                                : "Visible to participants"}
+                            </div>
+                          ) : null}
                         </>
                       )}
                       {canViewAllParticipantData && !isEditing ? (
@@ -5303,6 +5667,17 @@ function parseDateSafe(dateStr) {
                           </button>
                           <button className="btn" type="button" onClick={() => handleDeleteDoc(d.id)}>
                             Delete
+                          </button>
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() =>
+                              handleToggleDocVisibility(d, d.visibleToParticipants === false)
+                            }
+                          >
+                            {d.visibleToParticipants === false
+                              ? "Make Visible To Participants"
+                              : "Hide From Participants"}
                           </button>
                         </div>
                       ) : null}
