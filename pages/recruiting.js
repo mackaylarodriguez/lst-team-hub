@@ -1373,7 +1373,20 @@ export default function RecruitingPage() {
 
     return (
       <DraggableTable>
-        <table className="table recruitingCompactTable" style={{ minWidth: 1680 }}>
+        <table className="table recruitingCompactTable recruitingFitTable">
+          <colgroup>
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "13%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "10%" }} />
+          </colgroup>
           <thead>
             <tr>
               <th>Team Name</th>
@@ -1382,11 +1395,8 @@ export default function RecruitingPage() {
               <th>Email</th>
               <th>Owner</th>
               <th>Stage</th>
-              <th>Interested Trip</th>
-              <th>Project Dates</th>
-              <th>Site</th>
-              <th>Weeks</th>
-              <th>Departure</th>
+              <th>Trip / Site</th>
+              <th>Timing</th>
               <th>Mackayla Notes</th>
               <th>Leslee Notes</th>
               <th>Actions</th>
@@ -1409,14 +1419,16 @@ export default function RecruitingPage() {
                       <div>{getRecordPeopleCount(record)} people</div>
                       <div className="small" style={{ marginTop: 2 }}>{getRecordPeopleSummary(record)}</div>
                     </td>
-                    <td>
+                    <td className="recruitingFitEmailCell">
                       <div>{record.contact?.email || "-"}</div>
                       {record.contact?.phone ? (
                         <div className="small">{record.contact.phone}</div>
                       ) : null}
                       {renderDuplicateNotice(duplicateInfo, { compact: true })}
                     </td>
-                    <td>{record.assignedTo || PRIMARY_OWNER}</td>
+                    <td>
+                      <span className="badge badgeInfo">{record.assignedTo || PRIMARY_OWNER}</span>
+                    </td>
                     <td>
                       <div>{isReadyForBoss(record) ? "Ready for Boss" : record.stageLabel}</div>
                       {attention ? (
@@ -1425,17 +1437,33 @@ export default function RecruitingPage() {
                         </span>
                       ) : null}
                     </td>
-                    <td>{record.interestedTrip || "-"}</td>
-                    <td>{record.projectDates || "-"}</td>
-                    <td>{record.site || "-"}</td>
-                    <td>{record.weeks || "-"}</td>
-                    <td>{record.departureDate ? formatDate(record.departureDate) : "-"}</td>
-                    <td>{stripHandoffSummary(record.mackaylaNotes) || "-"}</td>
-                    <td>{record.lesleeNotes || "-"}</td>
+                    <td>
+                      <div>{record.interestedTrip || "-"}</div>
+                      <div className="small" style={{ marginTop: 2 }}>{record.site || "No site yet"}</div>
+                    </td>
+                    <td>
+                      <div>{record.projectDates || "-"}</div>
+                      <div className="small" style={{ marginTop: 2 }}>
+                        {record.weeks ? `${record.weeks} week${String(record.weeks) === "1" ? "" : "s"}` : "Weeks not set"}
+                      </div>
+                      <div className="small" style={{ marginTop: 2 }}>
+                        {record.departureDate ? `Departs ${formatDate(record.departureDate)}` : "No departure yet"}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="recruitingFitNotesText" title={stripHandoffSummary(record.mackaylaNotes) || ""}>
+                        {stripHandoffSummary(record.mackaylaNotes) || "-"}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="recruitingFitNotesText" title={record.lesleeNotes || ""}>
+                        {record.lesleeNotes || "-"}
+                      </div>
+                    </td>
                     <td onClick={(event) => event.stopPropagation()}>
-                      <div className="row recruitingActionRow">
+                      <div className="row recruitingActionRow recruitingFitActionRow">
                         <button className="btn" type="button" onClick={() => void openRecordDetails(record.id)}>
-                          Edit Team Details
+                          Edit Details
                         </button>
                         <button className="btn" type="button" onClick={() => void openRecordDetails(record.id)}>
                           View History
