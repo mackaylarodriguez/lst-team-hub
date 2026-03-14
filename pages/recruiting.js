@@ -148,6 +148,12 @@ export default function RecruitingPage() {
   const [activeFilterId, setActiveFilterId] = useState("all");
   const [selectedRecordId, setSelectedRecordId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
+  const [addContactModalOpen, setAddContactModalOpen] = useState(false);
+  const [newContactDraft, setNewContactDraft] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+  });
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importPreviewRows, setImportPreviewRows] = useState([]);
   const [importSummary, setImportSummary] = useState("");
@@ -411,6 +417,35 @@ export default function RecruitingPage() {
     await refreshCurrentYear();
   }
 
+  async function handleCreateContact() {
+    if (!newContactDraft.email.trim()) {
+      setError("Email is required.");
+      return;
+    }
+
+    try {
+      await saveRecruitingCycleContact({
+        recruitingYear: selectedYear,
+        firstName: newContactDraft.firstName,
+        lastName: newContactDraft.lastName,
+        email: newContactDraft.email,
+        stage: 0,
+      });
+
+      setNewContactDraft({
+        firstName: "",
+        lastName: "",
+        email: "",
+      });
+      setAddContactModalOpen(false);
+      setError("");
+      await refreshCurrentYear();
+    } catch (saveError) {
+      console.error("Unable to create recruiting contact", saveError);
+      setError(saveError.message || "Unable to create contact.");
+    }
+  }
+
   function handleDownloadTemplate() {
     const csv = "First Name,Last Name,Email\nJohn,Smith,john@email.com\nSarah,Lee,sarah@email.com\n";
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -565,6 +600,9 @@ export default function RecruitingPage() {
         </select>
         <button className="btn" type="button" onClick={handleDownloadTemplate}>
           Download Template
+        </button>
+        <button className="btn" type="button" onClick={() => setAddContactModalOpen(true)}>
+          Add Contact
         </button>
         <button className="btn" type="button" onClick={() => importInputRef.current?.click()}>
           Import Contacts
@@ -851,6 +889,59 @@ export default function RecruitingPage() {
             <div className="row" style={{ marginTop: 12 }}>
               <button className="btn btnPrimary" type="button" onClick={handleConfirmImport}>
                 Confirm Import
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {addContactModalOpen ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 50,
+          }}
+        >
+          <div className="card pad" style={{ width: "min(520px, 100%)" }}>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 900 }}>Add Contact</div>
+              <div className="spacer" />
+              <button className="btn" type="button" onClick={() => setAddContactModalOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              <input
+                className="input"
+                value={newContactDraft.firstName}
+                onChange={(event) =>
+                  setNewContactDraft((current) => ({ ...current, firstName: event.target.value }))
+                }
+                placeholder="First Name"
+              />
+              <input
+                className="input"
+                value={newContactDraft.lastName}
+                onChange={(event) =>
+                  setNewContactDraft((current) => ({ ...current, lastName: event.target.value }))
+                }
+                placeholder="Last Name"
+              />
+              <input
+                className="input"
+                value={newContactDraft.email}
+                onChange={(event) =>
+                  setNewContactDraft((current) => ({ ...current, email: event.target.value }))
+                }
+                placeholder="Email"
+              />
+              <button className="btn btnPrimary" type="button" onClick={handleCreateContact}>
+                Save Contact
               </button>
             </div>
           </div>
