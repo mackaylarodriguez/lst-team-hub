@@ -1,6 +1,6 @@
 import Shell from "@/components/Shell";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { requireSession } from "@/lib/auth";
 import { isStaffRole } from "@/lib/roles";
@@ -160,6 +160,7 @@ export default function RecruitingPage() {
   const [bulkNextFollowUp, setBulkNextFollowUp] = useState("");
   const [bulkAssignedTo, setBulkAssignedTo] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const importInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -565,15 +566,16 @@ export default function RecruitingPage() {
         <button className="btn" type="button" onClick={handleDownloadTemplate}>
           Download Template
         </button>
-        <label className="btn" style={{ cursor: "pointer" }}>
+        <button className="btn" type="button" onClick={() => importInputRef.current?.click()}>
           Import Contacts
-          <input
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            hidden
-            onChange={handleImportFileChange}
-          />
-        </label>
+        </button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          hidden
+          onChange={handleImportFileChange}
+        />
       </div>
 
       {error ? (
