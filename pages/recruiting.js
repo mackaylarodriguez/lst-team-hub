@@ -431,6 +431,7 @@ export default function RecruitingPage() {
   const [error, setError] = useState("");
   const [filterConfig, setFilterConfig] = useState(DEFAULT_FILTER_CONFIG);
   const [activeFilterId, setActiveFilterId] = useState("all");
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("outreach");
   const [selectedRecordId, setSelectedRecordId] = useState("");
   const [expandedPotentialRecordId, setExpandedPotentialRecordId] = useState("");
@@ -807,6 +808,15 @@ export default function RecruitingPage() {
     () => getDuplicateInfoForEmail(newContactDraft.email),
     [newContactDraft.email, duplicateSourceLookup]
   );
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filterConfig.searchQuery) count += 1;
+    if (filterConfig.stage !== "") count += 1;
+    if (filterConfig.assignedTo) count += 1;
+    if (filterConfig.workflowStatus !== "all") count += 1;
+    if (activeFilterId && !["all", "custom"].includes(activeFilterId)) count += 1;
+    return count;
+  }, [activeFilterId, filterConfig]);
 
   function applyFilter(config, filterId = "custom") {
     setFilterConfig({ ...DEFAULT_FILTER_CONFIG, ...config });
@@ -1816,6 +1826,10 @@ export default function RecruitingPage() {
         <button className="btn" type="button" onClick={() => setAddContactModalOpen(true)}>
           Add Contact
         </button>
+        <button className={`btn ${filterPanelOpen ? "btnPrimary" : ""}`} type="button" onClick={() => setFilterPanelOpen((current) => !current)}>
+          {filterPanelOpen ? "Hide Search & Filters" : "Search & Filters"}
+          {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+        </button>
         <button className="btn" type="button" onClick={() => importInputRef.current?.click()}>
           Import Contacts
         </button>
@@ -1945,160 +1959,161 @@ export default function RecruitingPage() {
         </div>
       ) : null}
 
-      <div className="card pad" style={{ marginBottom: 14 }}>
-        <div className="row" style={{ marginBottom: 10 }}>
-          <div style={{ fontWeight: 900 }}>Filters</div>
-          <div className="spacer" />
-          <button className="btn" type="button" onClick={() => applyFilter(DEFAULT_FILTER_CONFIG, "all")}>
-            Clear
-          </button>
-          <button className="btn" type="button" onClick={handleSaveCurrentFilter}>
-            Save Filter
-          </button>
-        </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: 10,
-          }}
-        >
-          <input
-            className="input"
-            value={filterConfig.searchQuery}
-            onChange={(event) =>
-              applyFilter({ ...filterConfig, searchQuery: event.target.value }, activeFilterId === "needs_attention" ? "custom" : activeFilterId)
-            }
-            placeholder="Search contacts"
-          />
-          <select
-            className="input"
-            value={filterConfig.stage}
-            onChange={(event) => applyFilter({ ...filterConfig, stage: event.target.value }, "custom")}
-          >
-            <option value="">All stages</option>
-            {RECRUITING_STAGES.map((stage) => (
-              <option key={stage.value} value={stage.value}>{stage.label}</option>
-            ))}
-          </select>
-          <select
-            className="input"
-            value={filterConfig.assignedTo}
-            onChange={(event) => applyFilter({ ...filterConfig, assignedTo: event.target.value }, "custom")}
-          >
-            <option value="">All owners</option>
-            {OWNER_OPTIONS.map((owner) => (
-              <option key={owner} value={owner}>
-                {owner}
-              </option>
-            ))}
-          </select>
-          <select
-            className="input"
-            value={filterConfig.activeView}
-            onChange={(event) => applyFilter({ ...filterConfig, activeView: event.target.value }, "custom")}
-          >
-            <option value="all">All</option>
-            <option value="outreach">Recruiting</option>
-            <option value="potential">Potential Teams</option>
-            <option value="converted">Converted Teams</option>
-          </select>
-        </div>
-        <div className="row" style={{ marginTop: 10, gap: 8, flexWrap: "wrap" }}>
-          <button
-            className={`btn ${activeFilterId === "needs_attention" ? "btnPrimary" : ""}`}
-            type="button"
-            onClick={() => {
-              setActiveFilterId("needs_attention");
-              setFilterConfig(DEFAULT_FILTER_CONFIG);
-            }}
-          >
-            Needs Attention
-          </button>
-          <button
-            className={`btn ${activeFilterId === "no_contact" ? "btnPrimary" : ""}`}
-            type="button"
-            onClick={() => {
-              setActiveFilterId("no_contact");
-              setFilterConfig(DEFAULT_FILTER_CONFIG);
-            }}
-          >
-            No Contact Yet
-          </button>
-          <button
-            className={`btn ${activeFilterId === "follow_up_due" ? "btnPrimary" : ""}`}
-            type="button"
-            onClick={() => {
-              setActiveFilterId("follow_up_due");
-              setFilterConfig(DEFAULT_FILTER_CONFIG);
-            }}
-          >
-            Follow-Up Due
-          </button>
-          <button
-            className={`btn ${activeFilterId === "mackayla_recruiting" ? "btnPrimary" : ""}`}
-            type="button"
-            onClick={() => {
-              handleChangeTab("outreach");
-              applyFilter(
-                {
-                  ...DEFAULT_FILTER_CONFIG,
-                  activeView: "outreach",
-                  assignedTo: PRIMARY_OWNER,
-                },
-                "mackayla_recruiting"
-              );
-            }}
-          >
-            Mackayla Recruiting
-          </button>
-          <button
-            className={`btn ${activeFilterId === "ready_for_boss" ? "btnPrimary" : ""}`}
-            type="button"
-            onClick={() => {
-              handleChangeTab("potential");
-              applyFilter(
-                {
-                  ...DEFAULT_FILTER_CONFIG,
-                  activeView: "potential",
-                  assignedTo: BOSS_OWNER,
-                  workflowStatus: "ready_for_boss",
-                },
-                "ready_for_boss"
-              );
-            }}
-          >
-            Ready for Boss
-          </button>
-          <button
-            className={`btn ${activeFilterId === "leslee_potential" ? "btnPrimary" : ""}`}
-            type="button"
-            onClick={() => {
-              handleChangeTab("potential");
-              applyFilter(
-                {
-                  ...DEFAULT_FILTER_CONFIG,
-                  activeView: "potential",
-                  assignedTo: BOSS_OWNER,
-                },
-                "leslee_potential"
-              );
-            }}
-          >
-            Leslee Potential Teams
-          </button>
-          {savedFilters.map((filter) => (
-            <div key={filter.id} className="row" style={{ gap: 6 }}>
-              <button className="btn" type="button" onClick={() => applyFilter(filter.filterConfig, filter.id)}>
-                {filter.filterName}
-              </button>
-              <button className="btn" type="button" onClick={() => handleDeleteFilter(filter.id)}>
-                Delete
-              </button>
+      {filterPanelOpen ? (
+        <div className="card pad" style={{ marginBottom: 14 }}>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 900 }}>Search & Filters</div>
+              <div className="small">Open this only when you want to narrow the list.</div>
             </div>
-          ))}
+            <div className="spacer" />
+            <button className="btn" type="button" onClick={() => applyFilter(DEFAULT_FILTER_CONFIG, "all")}>
+              Clear
+            </button>
+            <button className="btn" type="button" onClick={handleSaveCurrentFilter}>
+              Save Filter
+            </button>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 10,
+            }}
+          >
+            <input
+              className="input"
+              value={filterConfig.searchQuery}
+              onChange={(event) =>
+                applyFilter({ ...filterConfig, searchQuery: event.target.value }, activeFilterId === "needs_attention" ? "custom" : activeFilterId)
+              }
+              placeholder="Search contacts"
+            />
+            <select
+              className="input"
+              value={filterConfig.stage}
+              onChange={(event) => applyFilter({ ...filterConfig, stage: event.target.value }, "custom")}
+            >
+              <option value="">All stages</option>
+              {RECRUITING_STAGES.map((stage) => (
+                <option key={stage.value} value={stage.value}>{stage.label}</option>
+              ))}
+            </select>
+            <select
+              className="input"
+              value={filterConfig.assignedTo}
+              onChange={(event) => applyFilter({ ...filterConfig, assignedTo: event.target.value }, "custom")}
+            >
+              <option value="">All owners</option>
+              {OWNER_OPTIONS.map((owner) => (
+                <option key={owner} value={owner}>
+                  {owner}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="row" style={{ marginTop: 10, gap: 8, flexWrap: "wrap" }}>
+            <button
+              className={`btn ${activeFilterId === "needs_attention" ? "btnPrimary" : ""}`}
+              type="button"
+              onClick={() => {
+                setActiveFilterId("needs_attention");
+                setFilterConfig(DEFAULT_FILTER_CONFIG);
+              }}
+            >
+              Needs Attention
+            </button>
+            <button
+              className={`btn ${activeFilterId === "no_contact" ? "btnPrimary" : ""}`}
+              type="button"
+              onClick={() => {
+                setActiveFilterId("no_contact");
+                setFilterConfig(DEFAULT_FILTER_CONFIG);
+              }}
+            >
+              No Contact Yet
+            </button>
+            <button
+              className={`btn ${activeFilterId === "follow_up_due" ? "btnPrimary" : ""}`}
+              type="button"
+              onClick={() => {
+                setActiveFilterId("follow_up_due");
+                setFilterConfig(DEFAULT_FILTER_CONFIG);
+              }}
+            >
+              Follow-Up Due
+            </button>
+            <button
+              className={`btn ${activeFilterId === "mackayla_recruiting" ? "btnPrimary" : ""}`}
+              type="button"
+              onClick={() => {
+                handleChangeTab("outreach");
+                applyFilter(
+                  {
+                    ...DEFAULT_FILTER_CONFIG,
+                    activeView: "outreach",
+                    assignedTo: PRIMARY_OWNER,
+                  },
+                  "mackayla_recruiting"
+                );
+              }}
+            >
+              Mackayla Recruiting
+            </button>
+            <button
+              className={`btn ${activeFilterId === "ready_for_boss" ? "btnPrimary" : ""}`}
+              type="button"
+              onClick={() => {
+                handleChangeTab("potential");
+                applyFilter(
+                  {
+                    ...DEFAULT_FILTER_CONFIG,
+                    activeView: "potential",
+                    assignedTo: BOSS_OWNER,
+                    workflowStatus: "ready_for_boss",
+                  },
+                  "ready_for_boss"
+                );
+              }}
+            >
+              Ready for Boss
+            </button>
+            <button
+              className={`btn ${activeFilterId === "leslee_potential" ? "btnPrimary" : ""}`}
+              type="button"
+              onClick={() => {
+                handleChangeTab("potential");
+                applyFilter(
+                  {
+                    ...DEFAULT_FILTER_CONFIG,
+                    activeView: "potential",
+                    assignedTo: BOSS_OWNER,
+                  },
+                  "leslee_potential"
+                );
+              }}
+            >
+              Leslee Potential Teams
+            </button>
+            {savedFilters.map((filter) => (
+              <div key={filter.id} className="row" style={{ gap: 6 }}>
+                <button className="btn" type="button" onClick={() => applyFilter(filter.filterConfig, filter.id)}>
+                  {filter.filterName}
+                </button>
+                <button className="btn" type="button" onClick={() => handleDeleteFilter(filter.id)}>
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : activeFilterCount > 0 ? (
+        <div className="card pad" style={{ marginBottom: 14 }}>
+          <div className="small">
+            Filters are active. Open `Search & Filters` to adjust or clear them.
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ display: "grid", gap: 16 }}>
         <div style={{ display: "grid", gap: 16 }}>
