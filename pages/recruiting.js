@@ -866,21 +866,6 @@ export default function RecruitingPage() {
         </div>
       ) : null}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: 12,
-          marginBottom: 14,
-        }}
-      >
-        <div className="card pad"><div className="small">Total</div><div style={{ fontSize: 28, fontWeight: 900 }}>{stats.total}</div></div>
-        <div className="card pad"><div className="small">No Contact</div><div style={{ fontSize: 28, fontWeight: 900 }}>{stats.noContact}</div></div>
-        <div className="card pad"><div className="small">Contacted</div><div style={{ fontSize: 28, fontWeight: 900 }}>{stats.contacted}</div></div>
-        <div className="card pad"><div className="small">Very Interested</div><div style={{ fontSize: 28, fontWeight: 900 }}>{stats.interested}</div></div>
-        <div className="card pad"><div className="small">Applied</div><div style={{ fontSize: 28, fontWeight: 900 }}>{stats.applied}</div></div>
-      </div>
-
       <div className="card pad" style={{ marginBottom: 14 }}>
         <div className="row" style={{ marginBottom: 10 }}>
           <div style={{ fontWeight: 900 }}>Filters</div>
