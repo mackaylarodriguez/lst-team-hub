@@ -139,7 +139,7 @@ const BULK_ACTION_OPTIONS = [
 ];
 
 const RECRUITING_TABS = [
-  { id: "outreach", label: "Outreach Queue" },
+  { id: "outreach", label: "Recruiting" },
   { id: "potential", label: "Potential Teams" },
   { id: "converted", label: "Converted Teams" },
 ];
@@ -1159,7 +1159,7 @@ export default function RecruitingPage() {
             onChange={(event) => applyFilter({ ...filterConfig, activeView: event.target.value }, "custom")}
           >
             <option value="all">All</option>
-            <option value="outreach">Outreach Queue</option>
+            <option value="outreach">Recruiting</option>
             <option value="potential">Potential Teams</option>
             <option value="converted">Converted Teams</option>
           </select>
@@ -1234,8 +1234,8 @@ export default function RecruitingPage() {
               <>
                 <div className="row" style={{ marginBottom: 10 }}>
                   <div>
-                    <div style={{ fontWeight: 900 }}>Outreach Queue</div>
-                    <div className="small">High-volume lead management for first-touch outreach.</div>
+                    <div style={{ fontWeight: 900 }}>Recruiting</div>
+                    <div className="small">Initial recruiting and follow-up before handoff to potential teams.</div>
                   </div>
                   <div className="spacer" />
                   <button
