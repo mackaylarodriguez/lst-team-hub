@@ -23,11 +23,14 @@ import {
   addLinkResource,
   addPdfResource,
   deleteResource,
+  isMissingResourceTutorialColumnError,
+  isMissingResourceVisibilityColumnError,
   listResources,
   updateResource,
 } from "@/lib/resources";
 import {
   DOCUMENT_CATEGORY_OPTIONS,
+  getDocumentSlotByKey,
   REQUIRED_TRIP_DOCUMENT_SLOTS,
 } from "@/lib/tripDocumentSlots";
 import { percentComplete } from "@/lib/tasks";
@@ -201,6 +204,34 @@ function getDocumentCategoryBadgeClass(category) {
   return "";
 }
 
+const siteLinkActionButtonStyle = {
+  minWidth: 168,
+  justifyContent: "center",
+};
+
+function buildDocumentDraft(overrides = {}) {
+  return {
+    title: "",
+    link: "",
+    category: "Other",
+    workArea: "",
+    resourceKey: "",
+    visibleToParticipants: true,
+    tutorialTitle: "",
+    tutorialUrl: "",
+    tutorialDescription: "",
+    ...overrides,
+  };
+}
+
+function getEffectiveTutorialContent(slot, doc) {
+  return {
+    tutorialTitle: doc?.tutorialTitle || slot?.tutorialTitle || "",
+    tutorialUrl: doc?.tutorialUrl || slot?.tutorialUrl || "",
+    tutorialDescription: doc?.tutorialDescription || slot?.tutorialDescription || "",
+  };
+}
+
 export default function TripPage() {
   const router = useRouter();
   const { tripId } = router.query;
@@ -220,14 +251,7 @@ export default function TripPage() {
   const [recentActivity, setRecentActivity] = useState([]);
   const [recentActivityError, setRecentActivityError] = useState("");
   const [isAddingLink, setIsAddingLink] = useState(false);
-  const [linkDraft, setLinkDraft] = useState({
-    title: "",
-    link: "",
-    category: "Other",
-    workArea: "",
-    resourceKey: "",
-    visibleToParticipants: true,
-  });
+  const [linkDraft, setLinkDraft] = useState(buildDocumentDraft());
   const [pendingPdfDraft, setPendingPdfDraft] = useState(null);
   const [editingDocId, setEditingDocId] = useState(null);
   const [docDraft, setDocDraft] = useState(null);
@@ -907,14 +931,15 @@ export default function TripPage() {
 
   function handlePrepareRequiredLink(slot) {
     setIsAddingLink(true);
-    setLinkDraft({
+    setLinkDraft(buildDocumentDraft({
       title: slot.resource?.title || slot.title,
       link: slot.resource?.link || slot.resource?.pdfUrl || "",
       category: slot.category,
       workArea: trip?.name || "",
       resourceKey: slot.key,
       visibleToParticipants: slot.resource?.visibleToParticipants !== false,
-    });
+      ...getEffectiveTutorialContent(slot, slot.resource),
+    }));
   }
 
   function handleCancelPendingPdf() {
@@ -945,26 +970,20 @@ export default function TripPage() {
 
   function handleAddLink() {
     setIsAddingLink(true);
-    setLinkDraft({
-      title: "",
-      link: "",
-      category: "Other",
-      workArea: trip?.name || "",
-      resourceKey: "",
-      visibleToParticipants: true,
-    });
+    setLinkDraft(
+      buildDocumentDraft({
+        workArea: trip?.name || "",
+      })
+    );
   }
 
   function handleCancelAddLink() {
     setIsAddingLink(false);
-    setLinkDraft({
-      title: "",
-      link: "",
-      category: "Other",
-      workArea: trip?.name || "",
-      resourceKey: "",
-      visibleToParticipants: true,
-    });
+    setLinkDraft(
+      buildDocumentDraft({
+        workArea: trip?.name || "",
+      })
+    );
   }
 
   async function handleSaveLink() {
@@ -980,17 +999,27 @@ export default function TripPage() {
       setDocsError("");
       handleCancelAddLink();
     } catch (error) {
+      if (isMissingResourceTutorialColumnError(error)) {
+        setDocsError(
+          "Tutorial link editing needs the Supabase migration `supabase/trip_resources_add_tutorial_fields.sql` run first."
+        );
+        return;
+      }
       console.error("Unable to add link resource", error);
       setDocsError(error.message || "Unable to save resources.");
     }
   }
 
   function handleEditDoc(doc) {
+    const slot = getDocumentSlotByKey(doc?.resourceKey);
     setEditingDocId(doc.id);
-    setDocDraft({
-      ...doc,
-      visibleToParticipants: doc.visibleToParticipants !== false,
-    });
+    setDocDraft(
+      buildDocumentDraft({
+        ...doc,
+        visibleToParticipants: doc.visibleToParticipants !== false,
+        ...getEffectiveTutorialContent(slot, doc),
+      })
+    );
   }
 
   async function handleDeleteDoc(docId) {
@@ -1021,6 +1050,9 @@ export default function TripPage() {
         category: docDraft.category,
         resourceKey: docDraft.resourceKey,
         workArea: docDraft.workArea,
+        tutorialTitle: docDraft.tutorialTitle,
+        tutorialUrl: docDraft.tutorialUrl,
+        tutorialDescription: docDraft.tutorialDescription,
         visibleToParticipants: docDraft.visibleToParticipants,
       });
       setDocs((current) =>
@@ -1029,6 +1061,12 @@ export default function TripPage() {
       setDocsError("");
       handleCancelEditDoc();
     } catch (error) {
+      if (isMissingResourceTutorialColumnError(error)) {
+        setDocsError(
+          "Tutorial link editing needs the Supabase migration `supabase/trip_resources_add_tutorial_fields.sql` run first."
+        );
+        return;
+      }
       console.error("Unable to update resource", error);
       setDocsError(error.message || "Unable to save resources.");
     }
@@ -1045,6 +1083,9 @@ export default function TripPage() {
         category: docDraft.category,
         workArea: docDraft.workArea,
         resourceKey: docDraft.resourceKey,
+        tutorialTitle: docDraft.tutorialTitle,
+        tutorialUrl: docDraft.tutorialUrl,
+        tutorialDescription: docDraft.tutorialDescription,
         visibleToParticipants: docDraft.visibleToParticipants,
         tripId: trip?.id,
       });
@@ -1056,6 +1097,9 @@ export default function TripPage() {
         category: created.category,
         resourceKey: created.resourceKey,
         workArea: created.workArea,
+        tutorialTitle: docDraft.tutorialTitle,
+        tutorialUrl: docDraft.tutorialUrl,
+        tutorialDescription: docDraft.tutorialDescription,
         visibleToParticipants: docDraft.visibleToParticipants,
       });
       setDocs((current) =>
@@ -1064,6 +1108,12 @@ export default function TripPage() {
       setDocsError("");
       handleCancelEditDoc();
     } catch (error) {
+      if (isMissingResourceTutorialColumnError(error)) {
+        setDocsError(
+          "Tutorial link editing needs the Supabase migration `supabase/trip_resources_add_tutorial_fields.sql` run first."
+        );
+        return;
+      }
       console.error("Unable to replace PDF resource", error);
       setDocsError(error.message || "Unable to save resources.");
     } finally {
@@ -1084,12 +1134,19 @@ export default function TripPage() {
         resourceKey: doc.resourceKey,
         workArea: doc.workArea,
         visibleToParticipants: nextVisible,
+        allowVisibilityFallback: false,
       });
       setDocs((current) =>
         current.map((entry) => (entry.id === updated.id ? updated : entry))
       );
       setDocsError("");
     } catch (error) {
+      if (isMissingResourceVisibilityColumnError(error)) {
+        setDocsError(
+          "Participant visibility needs the Supabase migration `supabase/trip_resources_add_visibility.sql` run first."
+        );
+        return;
+      }
       console.error("Unable to update document visibility", error);
       setDocsError(error.message || "Unable to save resources.");
     }
@@ -1115,11 +1172,18 @@ export default function TripPage() {
         workArea: trip?.name || "",
         resourceKey: slot.key,
         visibleToParticipants: nextVisible,
+        allowVisibilityFallback: false,
         tripId: trip?.id,
       });
       setDocs((current) => [created, ...current]);
       setDocsError("");
     } catch (error) {
+      if (isMissingResourceVisibilityColumnError(error)) {
+        setDocsError(
+          "Participant visibility needs the Supabase migration `supabase/trip_resources_add_visibility.sql` run first."
+        );
+        return;
+      }
       console.error("Unable to save site visibility override", error);
       setDocsError(error.message || "Unable to save resources.");
     }
@@ -1947,6 +2011,22 @@ export default function TripPage() {
       default:
         return "statusNotStarted";
     }
+  }
+
+  function getFundraisingProgressMeta(participant) {
+    if (participant?.fundraisingUrl) {
+      return {
+        label: "Worker Progress: Ready",
+        badgeClass: "badgeSuccess",
+        helperText: "Personal Neon fundraising page saved.",
+      };
+    }
+
+    return {
+      label: "Worker Progress: Missing",
+      badgeClass: "badgeWarn",
+      helperText: "No personal Neon link added yet.",
+    };
   }
 
 function parseDateSafe(dateStr) {
@@ -4346,6 +4426,7 @@ function parseDateSafe(dateStr) {
                 {visibleFundraisingParticipants.map((participant) => {
                   const isEditingParticipantLink =
                     editingParticipantFundraisingId === participant.id;
+                  const fundraisingProgressMeta = getFundraisingProgressMeta(participant);
                   return (
                     <div
                       key={participant.email}
@@ -4383,14 +4464,12 @@ function parseDateSafe(dateStr) {
                             {participant.name}
                           </div>
                           <div className="spacer" />
-                          <span className={"badge " + (participant.fundraisingUrl ? "badgeSuccess" : "badgeWarn")}>
-                            {participant.fundraisingUrl ? "Ready" : "Missing"}
+                          <span className={"badge " + fundraisingProgressMeta.badgeClass}>
+                            {fundraisingProgressMeta.label}
                           </span>
                         </div>
                         <div className="small" style={{ marginBottom: 12 }}>
-                          {participant.fundraisingUrl
-                            ? "Personal Neon fundraising page saved."
-                            : "No personal Neon link added yet."}
+                          {fundraisingProgressMeta.helperText}
                         </div>
                       </div>
                       <div>
@@ -4649,9 +4728,6 @@ function parseDateSafe(dateStr) {
                       <div style={{ fontWeight: 900 }}>
                         {canViewAllParticipantData ? participant.name : "My Training"}
                       </div>
-                      {canViewAllParticipantData && (
-                        <div className="small">{participant.email}</div>
-                      )}
                     </div>
                     <div className="spacer" />
                     <span className="badge">{participant.percent}% complete</span>
@@ -4959,9 +5035,6 @@ function parseDateSafe(dateStr) {
                       <div style={{ fontWeight: 900 }}>
                         {canViewAllParticipantData ? participant.name : "My Tasks"}
                       </div>
-                      {canViewAllParticipantData && (
-                        <div className="small">{participant.email}</div>
-                      )}
                     </div>
                     <div className="spacer" />
                     <span className="badge">{participant.percent}% complete</span>
@@ -5148,6 +5221,46 @@ function parseDateSafe(dateStr) {
                     }
                     placeholder="Notes / work area"
                   />
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                      padding: 10,
+                      borderRadius: 12,
+                      background: "rgba(15, 23, 42, 0.04)",
+                    }}
+                  >
+                    <div className="small" style={{ fontWeight: 900 }}>
+                      Tutorial
+                    </div>
+                    <input
+                      className="input"
+                      value={linkDraft.tutorialTitle || ""}
+                      onChange={(e) =>
+                        setLinkDraft((prev) => ({ ...prev, tutorialTitle: e.target.value }))
+                      }
+                      placeholder="Tutorial button label"
+                    />
+                    <input
+                      className="input"
+                      value={linkDraft.tutorialUrl || ""}
+                      onChange={(e) =>
+                        setLinkDraft((prev) => ({ ...prev, tutorialUrl: e.target.value }))
+                      }
+                      placeholder="Tutorial link https://..."
+                    />
+                    <input
+                      className="input"
+                      value={linkDraft.tutorialDescription || ""}
+                      onChange={(e) =>
+                        setLinkDraft((prev) => ({
+                          ...prev,
+                          tutorialDescription: e.target.value,
+                        }))
+                      }
+                      placeholder="Tutorial description"
+                    />
+                  </div>
                   <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input
                       type="checkbox"
@@ -5295,6 +5408,7 @@ function parseDateSafe(dateStr) {
                         href={effectiveSiteInfoDoc.pdfUrl || effectiveSiteInfoDoc.link}
                         target="_blank"
                         rel="noreferrer"
+                        style={siteLinkActionButtonStyle}
                       >
                         Open Site Link
                       </a>
@@ -5302,6 +5416,7 @@ function parseDateSafe(dateStr) {
                         <button
                           className="btn"
                           type="button"
+                          style={siteLinkActionButtonStyle}
                           onClick={() =>
                             handleToggleRequiredSlotVisibility(
                               {
@@ -5325,6 +5440,7 @@ function parseDateSafe(dateStr) {
                           <button
                             className="btn"
                             type="button"
+                            style={siteLinkActionButtonStyle}
                             onClick={() => handleEditDoc(siteInfoDoc)}
                           >
                             Edit Saved Link
@@ -5332,6 +5448,7 @@ function parseDateSafe(dateStr) {
                           <button
                             className="btn"
                             type="button"
+                            style={siteLinkActionButtonStyle}
                             onClick={() => handleDeleteDoc(siteInfoDoc.id)}
                           >
                             Delete Custom Link
@@ -5341,6 +5458,7 @@ function parseDateSafe(dateStr) {
                         <button
                           className="btn"
                           type="button"
+                          style={siteLinkActionButtonStyle}
                           onClick={() =>
                             handlePrepareRequiredLink({
                               key: "site-info-link",
@@ -5350,7 +5468,7 @@ function parseDateSafe(dateStr) {
                             })
                           }
                         >
-                          Save Custom Link
+                          Edit
                         </button>
                       ) : null}
                     </div>
@@ -5359,6 +5477,7 @@ function parseDateSafe(dateStr) {
                       <button
                         className="btn"
                         type="button"
+                        style={siteLinkActionButtonStyle}
                         onClick={() =>
                           handlePrepareRequiredLink({
                             key: "site-info-link",
@@ -5429,6 +5548,52 @@ function parseDateSafe(dateStr) {
                               }
                               placeholder="Notes / work area"
                             />
+                            <div
+                              style={{
+                                display: "grid",
+                                gap: 8,
+                                padding: 10,
+                                borderRadius: 12,
+                                background: "rgba(15, 23, 42, 0.04)",
+                              }}
+                            >
+                              <div className="small" style={{ fontWeight: 900 }}>
+                                Tutorial
+                              </div>
+                              <input
+                                className="input"
+                                value={docDraft?.tutorialTitle || ""}
+                                onChange={(e) =>
+                                  setDocDraft((prev) => ({
+                                    ...prev,
+                                    tutorialTitle: e.target.value,
+                                  }))
+                                }
+                                placeholder="Tutorial button label"
+                              />
+                              <input
+                                className="input"
+                                value={docDraft?.tutorialUrl || ""}
+                                onChange={(e) =>
+                                  setDocDraft((prev) => ({
+                                    ...prev,
+                                    tutorialUrl: e.target.value,
+                                  }))
+                                }
+                                placeholder="Tutorial link https://..."
+                              />
+                              <input
+                                className="input"
+                                value={docDraft?.tutorialDescription || ""}
+                                onChange={(e) =>
+                                  setDocDraft((prev) => ({
+                                    ...prev,
+                                    tutorialDescription: e.target.value,
+                                  }))
+                                }
+                                placeholder="Tutorial description"
+                              />
+                            </div>
                             <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                               <input
                                 type="checkbox"
@@ -5512,7 +5677,7 @@ function parseDateSafe(dateStr) {
                           </button>
                         ) : (
                           <button className="btn" type="button" onClick={() => handlePrepareRequiredLink(slot)}>
-                            {isAutoGenerated ? "Save Custom Link" : "Add Link"}
+                            {isAutoGenerated ? "Edit" : "Add Link"}
                           </button>
                         )
                       ) : null}
@@ -5530,7 +5695,11 @@ function parseDateSafe(dateStr) {
                         </button>
                       ) : null}
                     </div>
-                    {slot.tutorialUrl ? (
+                    {(() => {
+                      const tutorial = getEffectiveTutorialContent(slot, doc);
+                      if (!tutorial.tutorialUrl) return null;
+
+                      return (
                       <div
                         style={{
                           marginTop: 12,
@@ -5544,20 +5713,30 @@ function parseDateSafe(dateStr) {
                           Tutorial
                         </div>
                         <div className="small">
-                          {slot.tutorialDescription || "Helpful walkthrough for this resource."}
+                          {tutorial.tutorialDescription || "Helpful walkthrough for this resource."}
                         </div>
                         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                           <a
                             className="btn"
-                            href={slot.tutorialUrl}
+                            href={tutorial.tutorialUrl}
                             target="_blank"
                             rel="noreferrer"
                           >
-                            {slot.tutorialTitle || "Open Tutorial"}
+                            {tutorial.tutorialTitle || "Open Tutorial"}
                           </a>
+                          {canViewAllParticipantData && slot.kind === "link" ? (
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => (doc && !isAutoGenerated ? handleEditDoc(doc) : handlePrepareRequiredLink(slot))}
+                            >
+                              Edit Tutorial
+                            </button>
+                          ) : null}
                         </div>
                       </div>
-                    ) : null}
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -5617,6 +5796,52 @@ function parseDateSafe(dateStr) {
                             }
                             placeholder="Notes / work area"
                           />
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: 8,
+                              padding: 10,
+                              borderRadius: 12,
+                              background: "rgba(15, 23, 42, 0.04)",
+                            }}
+                          >
+                            <div className="small" style={{ fontWeight: 900 }}>
+                              Tutorial
+                            </div>
+                            <input
+                              className="input"
+                              value={docDraft?.tutorialTitle || ""}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({
+                                  ...prev,
+                                  tutorialTitle: e.target.value,
+                                }))
+                              }
+                              placeholder="Tutorial button label"
+                            />
+                            <input
+                              className="input"
+                              value={docDraft?.tutorialUrl || ""}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({
+                                  ...prev,
+                                  tutorialUrl: e.target.value,
+                                }))
+                              }
+                              placeholder="Tutorial link https://..."
+                            />
+                            <input
+                              className="input"
+                              value={docDraft?.tutorialDescription || ""}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({
+                                  ...prev,
+                                  tutorialDescription: e.target.value,
+                                }))
+                              }
+                              placeholder="Tutorial description"
+                            />
+                          </div>
                           <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <input
                               type="checkbox"
@@ -5679,6 +5904,39 @@ function parseDateSafe(dateStr) {
                               ? "Make Visible To Participants"
                               : "Hide From Participants"}
                           </button>
+                        </div>
+                      ) : null}
+                      {d.tutorialUrl ? (
+                        <div
+                          style={{
+                            marginTop: 12,
+                            paddingTop: 12,
+                            borderTop: "1px solid rgba(15, 23, 42, 0.08)",
+                            display: "grid",
+                            gap: 8,
+                          }}
+                        >
+                          <div className="small" style={{ fontWeight: 900 }}>
+                            Tutorial
+                          </div>
+                          <div className="small">
+                            {d.tutorialDescription || "Helpful walkthrough for this resource."}
+                          </div>
+                          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                            <a
+                              className="btn"
+                              href={d.tutorialUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {d.tutorialTitle || "Open Tutorial"}
+                            </a>
+                            {canViewAllParticipantData ? (
+                              <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
+                                Edit Tutorial
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                       ) : null}
                     </div>
@@ -5777,7 +6035,6 @@ function parseDateSafe(dateStr) {
                             "My Uploads"
                           )}
                         </div>
-                        <div className="small">{participant.email}</div>
                       </div>
                     </div>
 
@@ -6042,8 +6299,8 @@ function parseDateSafe(dateStr) {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th style={{ width: "36%" }}>Task</th>
-                      <th style={{ width: "10%", textAlign: "center" }}>Assigned To</th>
+                      <th style={{ width: "39%" }}>Task</th>
+                      <th style={{ width: "7%", textAlign: "center" }}>Assigned</th>
                       <th style={{ width: "14%", textAlign: "center" }}>Progress</th>
                       <th style={{ width: "10%" }}>Due Date</th>
                       <th style={{ width: "22%" }}>Notes</th>
@@ -6088,10 +6345,10 @@ function parseDateSafe(dateStr) {
                                 )}
                               </td>
 
-                              <td style={{ textAlign: "center" }}>
+                              <td className="staffTaskAssignedCell">
                                 {isEditingTitle ? (
                                   <select
-                                    className="input"
+                                    className="input staffTaskAssignedSelect"
                                     value={t.assignedTo || ""}
                                     onChange={(e) =>
                                       updateStaffTask(t.id, "assignedTo", e.target.value)
@@ -6105,7 +6362,10 @@ function parseDateSafe(dateStr) {
                                     ))}
                                   </select>
                                 ) : (
-                                  <span style={{ fontSize: "14px" }}>
+                                  <span
+                                    className={"badge " + (t.assignedTo ? "badgeInfo staffTaskAssignedBadge" : "")}
+                                    title={t.assignedTo || "Not assigned"}
+                                  >
                                     {t.assignedTo || "-"}
                                   </span>
                                 )}

@@ -8,9 +8,14 @@ import {
 } from "@/lib/trips";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
 import {
+  deleteStaffMiscTask,
   isTaskAssignedToUser,
+  isMissingStaffMiscTasksTableError,
+  listStaffMiscTasksForUser,
   listStaffTasksForTrip,
+  saveStaffMiscTask,
   saveStaffTasks,
+  STAFF_MISC_TASKS_UPDATED_EVENT,
   STAFF_TASKS_UPDATED_EVENT,
 } from "@/lib/staffTasks";
 
@@ -39,12 +44,22 @@ export default function Admin() {
   const [session, setSession] = useState(null);
   const [sortMode, setSortMode] = useState("dueDate");
   const [staffTasksByTrip, setStaffTasksByTrip] = useState({});
+  const [miscTasks, setMiscTasks] = useState([]);
   const [editingTaskKey, setEditingTaskKey] = useState(null);
   const [taskTitleDraft, setTaskTitleDraft] = useState("");
+  const [isAddingMiscTask, setIsAddingMiscTask] = useState(false);
+  const [newMiscTaskDraft, setNewMiscTaskDraft] = useState({
+    taskName: "",
+    dueDate: "",
+    progress: "Not started",
+    notes: "",
+  });
   const [trips, setTrips] = useState([]);
   const [staffTaskStatus, setStaffTaskStatus] = useState("");
   const latestStaffTaskSaveRef = useRef(0);
+  const latestMiscTaskSaveRef = useRef(0);
   const staffTasksByTripRef = useRef({});
+  const miscTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
   const staffTaskRowTimeoutsRef = useRef({});
   const staffTaskNoteSaveTimeoutsRef = useRef({});
@@ -120,8 +135,50 @@ export default function Admin() {
   }, [trips]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function syncMiscTasks() {
+      if (!session?.email) {
+        if (!cancelled) {
+          setMiscTasks([]);
+        }
+        return;
+      }
+
+      try {
+        const nextTasks = await listStaffMiscTasksForUser(session.email);
+        if (!cancelled) {
+          setMiscTasks(nextTasks);
+        }
+      } catch (error) {
+        console.error("Unable to load misc tasks", error);
+        if (!cancelled) {
+          setMiscTasks([]);
+        }
+      }
+    }
+
+    void syncMiscTasks();
+
+    function handleMiscTaskUpdate() {
+      void syncMiscTasks();
+    }
+
+    window.addEventListener(STAFF_MISC_TASKS_UPDATED_EVENT, handleMiscTaskUpdate);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(STAFF_MISC_TASKS_UPDATED_EVENT, handleMiscTaskUpdate);
+    };
+  }, [session?.email]);
+
+  useEffect(() => {
     staffTasksByTripRef.current = staffTasksByTrip;
   }, [staffTasksByTrip]);
+
+  useEffect(() => {
+    miscTasksRef.current = miscTasks;
+  }, [miscTasks]);
 
   useEffect(() => {
     return () => {
@@ -135,21 +192,24 @@ export default function Admin() {
   }, []);
 
   const allTasks = useMemo(
-    () =>
-      trips.flatMap((trip) =>
+    () => [
+      ...trips.flatMap((trip) =>
         (staffTasksByTrip[trip.id] || trip.staffTasks || []).map((task) => ({
           ...task,
           tripId: trip.id,
           tripName: trip.name,
         }))
       ),
-    [staffTasksByTrip, trips]
+      ...miscTasks,
+    ],
+    [miscTasks, staffTasksByTrip, trips]
   );
 
   const myTasks = useMemo(
     () =>
       allTasks.filter((task) =>
-        isTaskAssignedToUser(task.assignedTo, session?.name)
+        isTaskAssignedToUser(task.assignedTo, session?.name || session?.email) ||
+        isTaskAssignedToUser(task.assignedTo, session?.email)
       ),
     [allTasks, session]
   );
@@ -184,7 +244,57 @@ export default function Admin() {
     };
   }, [myTasks, sortMode]);
 
+  function setLocalMiscTaskField(taskId, field, value) {
+    const nextTasks = miscTasksRef.current.map((task) =>
+      task.id === taskId ? { ...task, [field]: value } : task
+    );
+
+    setMiscTasks(nextTasks);
+    miscTasksRef.current = nextTasks;
+    return nextTasks;
+  }
+
   async function updateTask(tripId, taskId, field, value) {
+    if (tripId === "misc") {
+      const nextTasks = setLocalMiscTaskField(taskId, field, value);
+      const nextTask = nextTasks.find((task) => task.id === taskId);
+      const requestId = latestMiscTaskSaveRef.current + 1;
+      latestMiscTaskSaveRef.current = requestId;
+
+      setStaffTaskRowFeedback(getTaskKey(tripId, taskId), "info", "Saving...");
+      try {
+        setStaffTaskStatus("Saving...");
+        const savedTask = await saveStaffMiscTask({
+          ...nextTask,
+          staffEmail: session?.email || "",
+          staffName: session?.name || session?.email || "Staff",
+          updatedAt: new Date().toISOString(),
+        });
+        if (latestMiscTaskSaveRef.current !== requestId) return;
+
+        setMiscTasks((current) =>
+          current.map((task) => (task.id === savedTask.id ? savedTask : task))
+        );
+        miscTasksRef.current = miscTasksRef.current.map((task) =>
+          task.id === savedTask.id ? savedTask : task
+        );
+        setStaffTaskStatus("Saved.");
+        setStaffTaskRowFeedback(getTaskKey(tripId, taskId), "success", "Saved");
+      } catch (error) {
+        console.error("Unable to save misc task", error);
+        if (latestMiscTaskSaveRef.current !== requestId) return;
+        if (isMissingStaffMiscTasksTableError(error)) {
+          setStaffTaskStatus(
+            "Personal tasks need the Supabase migrations `supabase/staff_misc_tasks.sql` and `supabase/staff_misc_tasks_rls.sql` run first."
+          );
+        } else {
+          setStaffTaskStatus("Could not save task changes.");
+        }
+        setStaffTaskRowFeedback(getTaskKey(tripId, taskId), "error", "Could not save task changes.");
+      }
+      return;
+    }
+
     const nextTripTasks = setLocalTaskField(tripId, taskId, field, value);
     console.log("[adminPage] updateTask", {
       tripId,
@@ -243,6 +353,59 @@ export default function Admin() {
     return nextTripTasks;
   }
 
+  async function handleAddMiscTask() {
+    if (!newMiscTaskDraft.taskName.trim()) return;
+
+    try {
+      setStaffTaskStatus("Saving...");
+      const savedTask = await saveStaffMiscTask({
+        ...newMiscTaskDraft,
+        staffEmail: session?.email || "",
+        staffName: session?.name || session?.email || "Staff",
+        workArea: "Misc",
+      });
+      setMiscTasks((current) => [...current, savedTask]);
+      miscTasksRef.current = [...miscTasksRef.current, savedTask];
+      setNewMiscTaskDraft({
+        taskName: "",
+        dueDate: "",
+        progress: "Not started",
+        notes: "",
+      });
+      setIsAddingMiscTask(false);
+      setStaffTaskStatus("Saved.");
+    } catch (error) {
+      console.error("Unable to add misc task", error);
+      if (isMissingStaffMiscTasksTableError(error)) {
+        setStaffTaskStatus(
+          "Personal tasks need the Supabase migrations `supabase/staff_misc_tasks.sql` and `supabase/staff_misc_tasks_rls.sql` run first."
+        );
+      } else {
+        setStaffTaskStatus("Could not save task changes.");
+      }
+    }
+  }
+
+  async function handleDeleteTask(task) {
+    if (!task?.isMiscTask || !task?.id) return;
+
+    try {
+      await deleteStaffMiscTask(task.id);
+      setMiscTasks((current) => current.filter((entry) => entry.id !== task.id));
+      miscTasksRef.current = miscTasksRef.current.filter((entry) => entry.id !== task.id);
+      setStaffTaskStatus("Deleted.");
+    } catch (error) {
+      console.error("Unable to delete misc task", error);
+      if (isMissingStaffMiscTasksTableError(error)) {
+        setStaffTaskStatus(
+          "Personal tasks need the Supabase migrations `supabase/staff_misc_tasks.sql` and `supabase/staff_misc_tasks_rls.sql` run first."
+        );
+      } else {
+        setStaffTaskStatus("Could not delete task.");
+      }
+    }
+  }
+
   function clearPendingTaskNoteSave(taskKey) {
     const existingTimeout = staffTaskNoteSaveTimeoutsRef.current[taskKey];
     if (existingTimeout) {
@@ -256,7 +419,11 @@ export default function Admin() {
 
   function handleTaskNotesChange(tripId, taskId, value) {
     const taskKey = getTaskKey(tripId, taskId);
-    setLocalTaskField(tripId, taskId, "notes", value);
+    if (tripId === "misc") {
+      setLocalMiscTaskField(taskId, "notes", value);
+    } else {
+      setLocalTaskField(tripId, taskId, "notes", value);
+    }
     setStaffTaskStatus("");
     clearPendingTaskNoteSave(taskKey);
 
@@ -349,7 +516,7 @@ export default function Admin() {
           <div>
             <div style={{ fontWeight: 900 }}>My Tasks</div>
             <div className="small">
-              {myTasks.length} assigned task{myTasks.length === 1 ? "" : "s"}
+              {myTasks.length} total task{myTasks.length === 1 ? "" : "s"}, including your misc personal tasks
             </div>
           </div>
           {staffTaskStatus ? (
@@ -358,6 +525,13 @@ export default function Admin() {
             </div>
           ) : null}
           <div className="spacer" />
+          <button
+            className="btn"
+            type="button"
+            onClick={() => setIsAddingMiscTask((current) => !current)}
+          >
+            {isAddingMiscTask ? "Cancel" : "Add My Task"}
+          </button>
           <label className="small" htmlFor="admin-task-sort">
             Sort
           </label>
@@ -374,6 +548,82 @@ export default function Admin() {
             <option value="progress">Progress</option>
           </select>
         </div>
+
+        {isAddingMiscTask ? (
+          <div
+            className="card pad"
+            style={{
+              boxShadow: "none",
+              background: "rgba(255,255,255,.76)",
+              marginBottom: 14,
+            }}
+          >
+            <div style={{ fontWeight: 900, marginBottom: 10 }}>New Misc Task</div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 10,
+                alignItems: "end",
+              }}
+            >
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Task</div>
+                <input
+                  className="input"
+                  value={newMiscTaskDraft.taskName}
+                  onChange={(e) =>
+                    setNewMiscTaskDraft((current) => ({ ...current, taskName: e.target.value }))
+                  }
+                  placeholder="Something you need to remember"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Due Date</div>
+                <input
+                  className="input"
+                  type="date"
+                  value={newMiscTaskDraft.dueDate}
+                  onChange={(e) =>
+                    setNewMiscTaskDraft((current) => ({ ...current, dueDate: e.target.value }))
+                  }
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Progress</div>
+                <select
+                  className={`input statusSelect ${getProgressInputClass(newMiscTaskDraft.progress)}`}
+                  value={newMiscTaskDraft.progress}
+                  onChange={(e) =>
+                    setNewMiscTaskDraft((current) => ({ ...current, progress: e.target.value }))
+                  }
+                >
+                  {PROGRESS_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Notes</div>
+                <input
+                  className="input"
+                  value={newMiscTaskDraft.notes}
+                  onChange={(e) =>
+                    setNewMiscTaskDraft((current) => ({ ...current, notes: e.target.value }))
+                  }
+                  placeholder="Optional note"
+                />
+              </div>
+            </div>
+            <div className="row" style={{ marginTop: 10 }}>
+              <button className="btn btnPrimary" type="button" onClick={() => void handleAddMiscTask()}>
+                Save My Task
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="adminTaskSummary">
           <div className="adminTaskSummaryCard">
@@ -403,6 +653,7 @@ export default function Admin() {
         onUpdateTask={updateTask}
         onTaskNotesChange={handleTaskNotesChange}
         onTaskNotesBlur={flushTaskNotesSave}
+        onDeleteTask={handleDeleteTask}
         staffTaskRowStatus={staffTaskRowStatus}
       />
 
@@ -418,6 +669,7 @@ export default function Admin() {
         onUpdateTask={updateTask}
         onTaskNotesChange={handleTaskNotesChange}
         onTaskNotesBlur={flushTaskNotesSave}
+        onDeleteTask={handleDeleteTask}
         staffTaskRowStatus={staffTaskRowStatus}
       />
 
@@ -433,6 +685,7 @@ export default function Admin() {
         onUpdateTask={updateTask}
         onTaskNotesChange={handleTaskNotesChange}
         onTaskNotesBlur={flushTaskNotesSave}
+        onDeleteTask={handleDeleteTask}
         staffTaskRowStatus={staffTaskRowStatus}
       />
     </Shell>
@@ -451,6 +704,7 @@ function TaskSection({
   onUpdateTask,
   onTaskNotesChange,
   onTaskNotesBlur,
+  onDeleteTask,
   staffTaskRowStatus,
 }) {
   return (
@@ -463,7 +717,7 @@ function TaskSection({
       {tasks.length === 0 ? (
         <div className="small">No tasks in this section.</div>
       ) : (
-        <table className="table">
+        <table className="table adminTasksTable">
           <thead>
             <tr>
               <th style={{ width: "22%" }}>Project</th>
@@ -482,7 +736,10 @@ function TaskSection({
 
               return (
                 <tr key={taskKey} className="staffTaskRow">
-                  <td style={{ fontWeight: 700 }}>{task.tripName}</td>
+                  <td style={{ fontWeight: 700 }}>
+                    <div>{task.tripName}</div>
+                    {task.isMiscTask ? <div className="small">Personal task</div> : null}
+                  </td>
                   <td>
                     {isEditingTitle ? (
                       <input
@@ -561,13 +818,24 @@ function TaskSection({
                           </button>
                         </>
                       ) : (
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => onEditTitle(task)}
-                        >
-                          Edit
-                        </button>
+                        <>
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => onEditTitle(task)}
+                          >
+                            Edit
+                          </button>
+                          {task.isMiscTask ? (
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => void onDeleteTask(task)}
+                            >
+                              Delete
+                            </button>
+                          ) : null}
+                        </>
                       )}
                     </div>
                   </td>

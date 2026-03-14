@@ -20,15 +20,6 @@ import {
 } from "@/lib/workerTaskTemplate";
 
 const CUSTOM_SITE_OPTION = "__custom__";
-const compactTripViewButtonStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: 84,
-  paddingInline: 8,
-  whiteSpace: "nowrap",
-};
-
 function createEmptyTeamMember() {
   return {
     firstName: "",
@@ -706,7 +697,6 @@ export default function Trips() {
                   <Link
                     className="btn btnPrimary"
                     href={`/trips/${encodeURIComponent(trip.id)}`}
-                    style={compactTripViewButtonStyle}
                   >
                     View Trip
                   </Link>
@@ -789,7 +779,6 @@ export default function Trips() {
                   <Link
                     className="btn btnPrimary"
                     href={`/trips/${encodeURIComponent(trip.id)}`}
-                    style={compactTripViewButtonStyle}
                   >
                     View Trip
                   </Link>
@@ -871,7 +860,6 @@ export default function Trips() {
                     <Link
                       className="btn btnPrimary"
                       href={`/trips/${encodeURIComponent(trip.id)}`}
-                      style={compactTripViewButtonStyle}
                     >
                       View Trip
                     </Link>

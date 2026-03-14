@@ -129,6 +129,14 @@ function formatDateTime(value) {
   });
 }
 
+function formatCompactDateTime(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function isOlderThanDays(value, days) {
   if (!value) return false;
   const date = new Date(value);
@@ -691,9 +699,6 @@ export default function RecruitingPage() {
     if (activeTab !== "potential") {
       setExpandedPotentialRecordId("");
     }
-    if (activeTab === "potential") {
-      setRecordDetailsModalOpen(false);
-    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -1038,7 +1043,7 @@ export default function RecruitingPage() {
     setPromoteModalOpen(false);
     handleChangeTab("potential");
     setSelectedRecordId(record.id);
-    setExpandedPotentialRecordId(record.id);
+    setRecordDetailsModalOpen(true);
     await refreshCurrentYear();
     await ensureRecordHistoryLoaded(record.id, { force: true });
   }
@@ -1064,9 +1069,7 @@ export default function RecruitingPage() {
 
     if (record.isPotentialTeam) {
       handleChangeTab("potential");
-      setSelectedRecordId(record.id);
-      setExpandedPotentialRecordId(record.id);
-      await ensureRecordHistoryLoaded(record.id);
+      await openRecordDetails(record.id);
       return;
     }
 
@@ -1091,9 +1094,6 @@ export default function RecruitingPage() {
       await deleteRecruitingCycleContact(record.id);
       if (selectedRecordId === record.id) {
         setSelectedRecordId("");
-      }
-      if (expandedPotentialRecordId === record.id) {
-        setExpandedPotentialRecordId("");
       }
       setError("");
       await refreshCurrentYear();
@@ -1251,16 +1251,6 @@ export default function RecruitingPage() {
     updateRecordField(selectedRecordId, field, value);
   }
 
-  function togglePotentialRecord(recordId) {
-    setSelectedRecordId(recordId);
-    if (expandedPotentialRecordId === recordId) {
-      setExpandedPotentialRecordId("");
-      return;
-    }
-    setExpandedPotentialRecordId(recordId);
-    void ensureRecordHistoryLoaded(recordId);
-  }
-
   async function handleQuickContact(record, actionType) {
     const summary = window.prompt(`${actionType === "email" ? "Email" : actionType === "call" ? "Call" : actionType === "text" ? "Text" : "Note"} notes`);
     if (summary === null) return;
@@ -1307,7 +1297,16 @@ export default function RecruitingPage() {
 
     return (
       <DraggableTable>
-        <table className="table recruitingCompactTable" style={{ minWidth: 1160 }}>
+        <table className="table recruitingCompactTable recruitingFitTable">
+          <colgroup>
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "19%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "19%" }} />
+            <col style={{ width: "20%" }} />
+          </colgroup>
           <thead>
             <tr>
               <th>First Name</th>
@@ -1332,7 +1331,7 @@ export default function RecruitingPage() {
                 >
                   <td>{record.contact?.firstName || "-"}</td>
                   <td>{record.contact?.lastName || "-"}</td>
-                  <td>
+                  <td className="recruitingFitEmailCell">
                     <div>{record.contact?.email || "-"}</div>
                     {record.contact?.phone ? (
                       <div className="small">{record.contact.phone}</div>
@@ -1347,16 +1346,25 @@ export default function RecruitingPage() {
                       </span>
                     ) : null}
                   </td>
-                  <td>{record.lastContactedAt ? formatDateTime(record.lastContactedAt) : "-"}</td>
-                  <td>{stripHandoffSummary(record.mackaylaNotes) || "-"}</td>
+                  <td title={record.lastContactedAt ? formatDateTime(record.lastContactedAt) : ""}>
+                    {record.lastContactedAt ? formatCompactDateTime(record.lastContactedAt) : "-"}
+                  </td>
+                  <td>
+                    <div
+                      className="recruitingFitNotesText"
+                      title={stripHandoffSummary(record.mackaylaNotes) || ""}
+                    >
+                      {stripHandoffSummary(record.mackaylaNotes) || "-"}
+                    </div>
+                  </td>
                   <td onClick={(event) => event.stopPropagation()}>
-                    <div className="row recruitingActionRow">
+                    <div className="row recruitingActionRow recruitingFitActionRow">
                       <button className="btn" type="button" onClick={() => handleQuickContact(record, "email")}>Emailed</button>
                       <button className="btn" type="button" onClick={() => handleQuickContact(record, "call")}>Called</button>
                       <button className="btn" type="button" onClick={() => handleQuickContact(record, "text")}>Texted</button>
-                      <button className="btn" type="button" onClick={() => handleAttendedInfoMeeting(record)}>Attended Info Meeting</button>
+                      <button className="btn" type="button" onClick={() => handleAttendedInfoMeeting(record)}>Info Meeting</button>
                       <button className="btn" type="button" onClick={() => handleQuickContact(record, "note")}>Note</button>
-                      <button className="btn" type="button" onClick={() => void openRecordDetails(record.id)}>Edit Details</button>
+                      <button className="btn" type="button" onClick={() => void openRecordDetails(record.id)}>Edit</button>
                     </div>
                   </td>
                 </tr>
@@ -1395,6 +1403,7 @@ export default function RecruitingPage() {
           <tbody>
             {recordsToRender.map((record) => {
               const isExpanded = record.id === expandedPotentialRecordId;
+              const isHistoryVisible = record.id === visiblePotentialHistoryRecordId;
               const recordHistory = historyByRecordId[record.id] || [];
               const isHistoryLoading = Boolean(historyLoadingByRecordId[record.id]);
               const attention = getAttentionMeta(record);
@@ -1440,6 +1449,9 @@ export default function RecruitingPage() {
                         <button className="btn" type="button" onClick={() => togglePotentialRecord(record.id)}>
                           {isExpanded ? "Hide Details" : "Edit Team Details"}
                         </button>
+                        <button className="btn" type="button" onClick={() => void togglePotentialHistory(record.id)}>
+                          {isHistoryVisible ? "Hide History" : "View History"}
+                        </button>
                         <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>Form Team</button>
                       </div>
                     </td>
@@ -1448,7 +1460,14 @@ export default function RecruitingPage() {
                     <tr className="recruitingExpandedRow">
                       <td colSpan={14}>
                         <div className="recruitingExpandedCard">
-                          <div className="recruitingExpandedGrid">
+                          <div
+                            className="recruitingExpandedGrid"
+                            style={{
+                              gridTemplateColumns: isHistoryVisible
+                                ? "minmax(320px, 1.2fr) minmax(240px, 1fr)"
+                                : "minmax(0, 1fr)",
+                            }}
+                          >
                             <div style={{ display: "grid", gap: 12 }}>
                               <div>
                                 <div style={{ fontWeight: 900 }}>{record.teamName || formatContactName(record)}</div>
@@ -1722,28 +1741,33 @@ export default function RecruitingPage() {
                                 <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "note")}>
                                   Add Activity Note
                                 </button>
+                                <button className="btn" type="button" onClick={() => void togglePotentialHistory(record.id)}>
+                                  {isHistoryVisible ? "Hide History" : "View History"}
+                                </button>
                               </div>
                             </div>
-                            <div style={{ display: "grid", gap: 10 }}>
-                              <div style={{ fontWeight: 800 }}>Activity</div>
-                              {isHistoryLoading ? (
-                                <div className="small">Loading history...</div>
-                              ) : recordHistory.length > 0 ? (
-                                <div className="recruitingHistoryList">
-                                  {recordHistory.map((entry) => (
-                                    <div key={entry.id} className="recruitingHistoryEntry">
-                                      <div>{entry.summary || getRecruitingStageLabel(record.stage)}</div>
-                                      <div className="small" style={{ marginTop: 4 }}>
-                                        {entry.staffMember ? `${entry.staffMember} | ` : ""}
-                                        {formatDateTime(entry.actionDate)}
+                            {isHistoryVisible ? (
+                              <div style={{ display: "grid", gap: 10 }}>
+                                <div style={{ fontWeight: 800 }}>Activity</div>
+                                {isHistoryLoading ? (
+                                  <div className="small">Loading history...</div>
+                                ) : recordHistory.length > 0 ? (
+                                  <div className="recruitingHistoryList">
+                                    {recordHistory.map((entry) => (
+                                      <div key={entry.id} className="recruitingHistoryEntry">
+                                        <div>{entry.summary || getRecruitingStageLabel(record.stage)}</div>
+                                        <div className="small" style={{ marginTop: 4 }}>
+                                          {entry.staffMember ? `${entry.staffMember} | ` : ""}
+                                          {formatDateTime(entry.actionDate)}
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="small">No activity logged yet.</div>
-                              )}
-                            </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="small">No activity logged yet.</div>
+                                )}
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       </td>

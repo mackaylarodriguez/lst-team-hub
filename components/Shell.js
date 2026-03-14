@@ -15,6 +15,7 @@ export default function Shell({ children }) {
   const router = useRouter();
   const [session, setSession] = useState(null);
   const [profiles, setProfiles] = useState([]);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const path = router.pathname;
 
   useEffect(() => {
@@ -44,6 +45,20 @@ export default function Shell({ children }) {
   const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
   const isAdminUser = session?.actualRole === ROLE_ADMIN;
   const isStaffUser = isStaffRole(session?.role);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storedValue = window.localStorage.getItem("lst-sidebar-collapsed");
+    if (storedValue === "true") {
+      setIsSidebarCollapsed(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("lst-sidebar-collapsed", isSidebarCollapsed ? "true" : "false");
+  }, [isSidebarCollapsed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,22 +99,47 @@ export default function Shell({ children }) {
     setImpersonatedProfile(profile);
   }
 
+  const navItems = [
+    { href: "/trips", label: "My Trips", shortLabel: "Trips", active: path.startsWith("/trips") },
+    canManageTrips
+      ? { href: "/admin", label: "My Tasks", shortLabel: "Tasks", active: path === "/admin" }
+      : null,
+    isStaffUser
+      ? { href: "/staff", label: "Participants", shortLabel: "People", active: path === "/staff" }
+      : null,
+    isStaffUser
+      ? { href: "/recruiting", label: "Recruiting", shortLabel: "Recruit", active: path === "/recruiting" }
+      : null,
+    { href: "/profile", label: "Profile", shortLabel: "Profile", active: path === "/profile" },
+  ].filter(Boolean);
+
   return (
-    <div className="shell">
-      <aside className="sidebar">
+    <div className={`shell ${isSidebarCollapsed ? "shellCollapsed" : ""}`}>
+      <aside className={`sidebar ${isSidebarCollapsed ? "sidebarCollapsed" : ""}`}>
+        <div className="sidebarToggleRow">
+          <button
+            className="btn sidebarToggleButton"
+            type="button"
+            onClick={() => setIsSidebarCollapsed((current) => !current)}
+          >
+            {isSidebarCollapsed ? "Expand" : "Collapse"}
+          </button>
+        </div>
         <div className="brand">
           <div className="logo" aria-hidden="true" />
-          <div>
-            <div style={{ fontWeight: 900, letterSpacing: "-.02em" }}>LST International Projects Hub</div>
-          </div>
+          {!isSidebarCollapsed ? (
+            <div>
+              <div style={{ fontWeight: 900, letterSpacing: "-.02em" }}>LST International Projects Hub</div>
+            </div>
+          ) : null}
         </div>
         <div style={{ height: 14 }} />
         <nav className="nav">
-          <Link className={path.startsWith("/trips") ? "active" : ""} href="/trips">My Trips</Link>
-          {canManageTrips && <Link className={path === "/admin" ? "active" : ""} href="/admin">My Tasks</Link>}
-          {isStaffUser && <Link className={path === "/staff" ? "active" : ""} href="/staff">Participants</Link>}
-          {isStaffUser && <Link className={path === "/recruiting" ? "active" : ""} href="/recruiting">Recruiting</Link>}
-          <Link className={path === "/profile" ? "active" : ""} href="/profile">Profile</Link>
+          {navItems.map((item) => (
+            <Link key={item.href} className={item.active ? "active" : ""} href={item.href}>
+              {isSidebarCollapsed ? item.shortLabel : item.label}
+            </Link>
+          ))}
           <a
             href="#"
             onClick={async (e) => {
@@ -108,24 +148,30 @@ export default function Shell({ children }) {
               router.push("/login");
             }}
           >
-            Logout
+            {isSidebarCollapsed ? "Out" : "Logout"}
           </a>
         </nav>
 
         <div style={{ height: 14 }} />
-        <div className="small">
-          Signed in as <b>{session?.name || "—"}</b><br/>
-          <span className="badge" style={{ marginTop: 8 }}>
-            {session?.role || "unknown"}
-          </span>
-          {session?.isImpersonating && (
-            <div style={{ marginTop: 8 }}>
-              Viewing as <b>{session.email}</b>
-            </div>
-          )}
-        </div>
+        {!isSidebarCollapsed ? (
+          <div className="small">
+            Signed in as <b>{session?.name || "-"}</b><br />
+            <span className="badge" style={{ marginTop: 8 }}>
+              {session?.role || "unknown"}
+            </span>
+            {session?.isImpersonating && (
+              <div style={{ marginTop: 8 }}>
+                Viewing as <b>{session.email}</b>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="sidebarCollapsedMeta">
+            <span className="badge">{session?.role || "unknown"}</span>
+          </div>
+        )}
 
-        {isAdminUser && (
+        {isAdminUser && !isSidebarCollapsed && (
           <>
             <div style={{ height: 14 }} />
             <div className="card pad" style={{ boxShadow: "none", background: "rgba(255,255,255,.75)" }}>
