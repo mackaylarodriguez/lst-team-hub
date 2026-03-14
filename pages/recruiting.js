@@ -20,6 +20,7 @@ import {
   saveRecruitingCycleContact,
   saveRecruitingSavedFilter,
 } from "@/lib/recruitingCycles";
+import { listTripTeamMembersForDuplicateCheck } from "@/lib/tripTeamMembers";
 
 function formatContactName(record) {
   const fullName = [record?.contact?.firstName, record?.contact?.lastName]
@@ -27,6 +28,58 @@ function formatContactName(record) {
     .join(" ")
     .trim();
   return fullName || record?.contact?.email || "Unnamed contact";
+}
+
+function normalizeEmailValue(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizeStatusValue(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getWorkflowBoardLabel(record) {
+  if (record?.isConvertedToTeam) return "Converted Teams";
+  if (record?.isPotentialTeam) return "Potential Teams";
+  return "Recruiting";
+}
+
+function joinLabels(labels) {
+  if (labels.length <= 1) return labels[0] || "";
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
+}
+
+function renderDuplicateNotice(duplicateInfo, options = {}) {
+  if (!duplicateInfo) return null;
+
+  return (
+    <div className="recruitingDuplicateNotice">
+      <span className="badge badgeDanger">Duplicate</span>
+      {!options.compact ? (
+        <div className="small recruitingDuplicateText">{duplicateInfo.summary}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function buildPromoteDraft(record) {
+  return {
+    firstName: record?.contact?.firstName || "",
+    lastName: record?.contact?.lastName || "",
+    email: record?.contact?.email || "",
+    phone: record?.contact?.phone || "",
+    gender: record?.contact?.gender || "",
+    teamName: record?.teamName || "",
+    teamMembers: record?.teamMembers || "",
+    stage: Math.max(Number(record?.stage || 0), 2),
+    interestedTrip: record?.interestedTrip || "",
+    projectDates: record?.projectDates || "",
+    site: record?.site || "",
+    weeks: record?.weeks || "",
+    departureDate: record?.departureDate || "",
+    handoffSummary: extractHandoffSummary(record?.mackaylaNotes),
+  };
 }
 
 function parseDelimitedLines(value) {
@@ -269,6 +322,7 @@ function buildRecruitingRecordPayload(record, overrides = {}) {
     firstName: record.contact?.firstName,
     lastName: record.contact?.lastName,
     email: record.contact?.email,
+    phone: record.contact?.phone,
     gender: record.contact?.gender,
     priority: record.priority,
     alumniYearLabel: record.alumniYearLabel,
@@ -369,6 +423,7 @@ export default function RecruitingPage() {
   const [years, setYears] = useState([]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [records, setRecords] = useState([]);
+  const [tripTeamMembers, setTripTeamMembers] = useState([]);
   const [savedFilters, setSavedFilters] = useState([]);
   const [historyByRecordId, setHistoryByRecordId] = useState({});
   const [historyLoadingByRecordId, setHistoryLoadingByRecordId] = useState({});
@@ -384,6 +439,7 @@ export default function RecruitingPage() {
     firstName: "",
     lastName: "",
     email: "",
+    phone: "",
     gender: "",
     teamName: "",
     teamMembers: "",
@@ -401,6 +457,8 @@ export default function RecruitingPage() {
   const [bulkNextFollowUp, setBulkNextFollowUp] = useState("");
   const [bulkAssignedTo, setBulkAssignedTo] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [promoteModalOpen, setPromoteModalOpen] = useState(false);
+  const [promoteDraft, setPromoteDraft] = useState(() => buildPromoteDraft(null));
   const [formTeamModalOpen, setFormTeamModalOpen] = useState(false);
   const [teamFormDraft, setTeamFormDraft] = useState({
     teamName: "",
@@ -463,12 +521,14 @@ export default function RecruitingPage() {
 
     async function loadRecruitingData() {
       try {
-        const [nextRecords, nextFilters] = await Promise.all([
+        const [nextRecords, nextFilters, nextTripTeamMembers] = await Promise.all([
           listRecruitingCycleContacts(selectedYear),
           listRecruitingSavedFilters(selectedYear),
+          listTripTeamMembersForDuplicateCheck(),
         ]);
         setRecords(nextRecords);
         setSavedFilters(nextFilters);
+        setTripTeamMembers(nextTripTeamMembers);
         setError("");
       } catch (loadError) {
         console.error("Unable to load recruiting records", loadError);
@@ -625,13 +685,93 @@ export default function RecruitingPage() {
   }, [activeTab, selectedRecordId]);
 
   async function refreshCurrentYear() {
-    const [nextRecords, nextFilters] = await Promise.all([
+    const [nextRecords, nextFilters, nextTripTeamMembers] = await Promise.all([
       listRecruitingCycleContacts(selectedYear),
       listRecruitingSavedFilters(selectedYear),
+      listTripTeamMembersForDuplicateCheck(),
     ]);
     setRecords(nextRecords);
     setSavedFilters(nextFilters);
+    setTripTeamMembers(nextTripTeamMembers);
   }
+
+  const duplicateSourceLookup = useMemo(() => {
+    const recordEmails = new Map();
+    const activeTeamEmails = new Map();
+
+    records.forEach((record) => {
+      const email = normalizeEmailValue(record.contact?.email);
+      if (!email) return;
+      const current = recordEmails.get(email) || [];
+      current.push(record);
+      recordEmails.set(email, current);
+    });
+
+    tripTeamMembers.forEach((member) => {
+      const email = normalizeEmailValue(member.email);
+      if (!email || normalizeStatusValue(member.tripStatus) !== "active") return;
+      const current = activeTeamEmails.get(email) || [];
+      current.push(member);
+      activeTeamEmails.set(email, current);
+    });
+
+    return { recordEmails, activeTeamEmails };
+  }, [records, tripTeamMembers]);
+
+  function getDuplicateInfoForEmail(email, options = {}) {
+    const normalizedEmail = normalizeEmailValue(email);
+    if (!normalizedEmail) return null;
+
+    const sameBoardMatches = (duplicateSourceLookup.recordEmails.get(normalizedEmail) || []).filter(
+      (record) => record.id !== options.excludeRecordId
+    );
+    const activeTeamMatches = options.includeActiveTeam === false
+      ? []
+      : duplicateSourceLookup.activeTeamEmails.get(normalizedEmail) || [];
+
+    if (!sameBoardMatches.length && !activeTeamMatches.length) {
+      return null;
+    }
+
+    const messages = [];
+
+    if (sameBoardMatches.length > 0) {
+      const boardLabels = [...new Set(sameBoardMatches.map((record) => getWorkflowBoardLabel(record)))];
+      messages.push(`Already in ${joinLabels(boardLabels)}`);
+    }
+
+    if (activeTeamMatches.length > 0) {
+      const tripNames = [...new Set(activeTeamMatches.map((member) => member.tripName).filter(Boolean))];
+      const teamLabel = tripNames.length > 0
+        ? `Already on active team${tripNames.length === 1 ? "" : "s"}: ${tripNames.slice(0, 2).join(", ")}${tripNames.length > 2 ? ` +${tripNames.length - 2} more` : ""}`
+        : "Already on an active team";
+      messages.push(teamLabel);
+    }
+
+    return {
+      summary: messages.join(" | "),
+      blockingMessage: `Duplicate email. ${messages.join(". ")}.`,
+    };
+  }
+
+  const duplicateInfoByRecordId = useMemo(() => {
+    return Object.fromEntries(
+      records
+        .map((record) => {
+          const duplicateInfo = getDuplicateInfoForEmail(record.contact?.email, {
+            excludeRecordId: record.id,
+            includeActiveTeam: !record.isConvertedToTeam,
+          });
+          return duplicateInfo ? [record.id, duplicateInfo] : null;
+        })
+        .filter(Boolean)
+    );
+  }, [records, duplicateSourceLookup]);
+
+  const newContactDuplicateInfo = useMemo(
+    () => getDuplicateInfoForEmail(newContactDraft.email),
+    [newContactDraft.email, duplicateSourceLookup]
+  );
 
   function applyFilter(config, filterId = "custom") {
     setFilterConfig({ ...DEFAULT_FILTER_CONFIG, ...config });
@@ -729,6 +869,10 @@ export default function RecruitingPage() {
       setError("Email is required.");
       return;
     }
+    if (newContactDuplicateInfo) {
+      setError(newContactDuplicateInfo.blockingMessage);
+      return;
+    }
 
     try {
       await saveRecruitingCycleContact({
@@ -736,6 +880,7 @@ export default function RecruitingPage() {
         firstName: newContactDraft.firstName,
         lastName: newContactDraft.lastName,
         email: newContactDraft.email,
+        phone: newContactDraft.phone,
         gender: newContactDraft.gender,
         teamName: newContactDraft.teamName,
         teamMembers: newContactDraft.teamMembers,
@@ -747,6 +892,7 @@ export default function RecruitingPage() {
         firstName: "",
         lastName: "",
         email: "",
+        phone: "",
         gender: "",
         teamName: "",
         teamMembers: "",
@@ -786,26 +932,42 @@ export default function RecruitingPage() {
     await ensureRecordHistoryLoaded(record.id, { force: true });
   }
 
-  async function handlePromote(record) {
-    const existingSummary = extractHandoffSummary(record.mackaylaNotes);
-    const handoffSummary = window.prompt(
-      "Required handoff summary for your boss",
-      existingSummary
-    );
-    if (handoffSummary === null) return;
-    if (!String(handoffSummary || "").trim()) {
+  function handlePromote(record) {
+    setSelectedRecordId(record.id);
+    setPromoteDraft(buildPromoteDraft(record));
+    setPromoteModalOpen(true);
+    setError("");
+  }
+
+  async function handleConfirmPromote() {
+    const record = records.find((item) => item.id === selectedRecordId);
+    if (!record) return;
+
+    if (!String(promoteDraft.handoffSummary || "").trim()) {
       setError("A handoff summary is required before moving a contact to Potential Teams.");
       return;
     }
 
     await saveRecruitingCycleContact(
       buildRecruitingRecordPayload(record, {
+        firstName: promoteDraft.firstName,
+        lastName: promoteDraft.lastName,
+        email: promoteDraft.email,
+        phone: promoteDraft.phone,
+        gender: promoteDraft.gender,
         isPotentialTeam: true,
-        stage: Math.max(Number(record.stage || 0), 2),
+        stage: Math.max(Number(promoteDraft.stage || 0), 2),
         assignedTo: BOSS_OWNER,
+        teamName: promoteDraft.teamName,
+        teamMembers: promoteDraft.teamMembers,
+        interestedTrip: promoteDraft.interestedTrip,
+        projectDates: promoteDraft.projectDates,
+        site: promoteDraft.site,
+        weeks: promoteDraft.weeks,
+        departureDate: promoteDraft.departureDate,
         mackaylaNotes: buildMackaylaNotes(
           stripHandoffSummary(record.mackaylaNotes),
-          handoffSummary
+          promoteDraft.handoffSummary
         ),
       })
     );
@@ -815,11 +977,12 @@ export default function RecruitingPage() {
       actionType: "handoff",
       actionDate: new Date().toISOString(),
       staffMember: session?.name || session?.email || "Staff",
-      summary: `Ready for boss handoff: ${String(handoffSummary).trim()}`,
-      stage: Math.max(Number(record.stage || 0), 2),
+      summary: `Ready for boss handoff: ${String(promoteDraft.handoffSummary).trim()}`,
+      stage: Math.max(Number(promoteDraft.stage || 0), 2),
     });
 
     setError("");
+    setPromoteModalOpen(false);
     setActiveTab("potential");
     setSelectedRecordId(record.id);
     setExpandedPotentialRecordId(record.id);
@@ -1033,6 +1196,7 @@ export default function RecruitingPage() {
           <tbody>
             {recordsToRender.map((record) => {
               const attention = getAttentionMeta(record);
+              const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
 
               return (
                 <tr
@@ -1042,7 +1206,13 @@ export default function RecruitingPage() {
                 >
                   <td>{record.contact?.firstName || "-"}</td>
                   <td>{record.contact?.lastName || "-"}</td>
-                  <td>{record.contact?.email || "-"}</td>
+                  <td>
+                    <div>{record.contact?.email || "-"}</div>
+                    {record.contact?.phone ? (
+                      <div className="small">{record.contact.phone}</div>
+                    ) : null}
+                    {renderDuplicateNotice(duplicateInfo, { compact: true })}
+                  </td>
                   <td>
                     <div>{record.contact?.gender || "-"}</div>
                     {attention ? (
@@ -1101,6 +1271,7 @@ export default function RecruitingPage() {
               const recordHistory = historyByRecordId[record.id] || [];
               const isHistoryLoading = Boolean(historyLoadingByRecordId[record.id]);
               const attention = getAttentionMeta(record);
+              const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
 
               return (
                 <Fragment key={record.id}>
@@ -1114,7 +1285,13 @@ export default function RecruitingPage() {
                       <div>{getRecordPeopleCount(record)} people</div>
                       <div className="small" style={{ marginTop: 2 }}>{getRecordPeopleSummary(record)}</div>
                     </td>
-                    <td>{record.contact?.email || "-"}</td>
+                    <td>
+                      <div>{record.contact?.email || "-"}</div>
+                      {record.contact?.phone ? (
+                        <div className="small">{record.contact.phone}</div>
+                      ) : null}
+                      {renderDuplicateNotice(duplicateInfo, { compact: true })}
+                    </td>
                     <td>{record.assignedTo || PRIMARY_OWNER}</td>
                     <td>
                       <div>{isReadyForBoss(record) ? "Ready for Boss" : record.stageLabel}</div>
@@ -1149,7 +1326,13 @@ export default function RecruitingPage() {
                               <div>
                                 <div style={{ fontWeight: 900 }}>{record.teamName || formatContactName(record)}</div>
                                 <div className="small">
-                                  Click another row to switch teams. Drag sideways if you need more columns.
+                                  Team-first view for potential teams. Add the people and team details here, then keep one lead contact below for reference.
+                                </div>
+                                {renderDuplicateNotice(duplicateInfo)}
+                              </div>
+                              <div>
+                                <div className="small" style={{ fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>
+                                  Team Details
                                 </div>
                               </div>
                               <div
@@ -1213,9 +1396,71 @@ export default function RecruitingPage() {
                                     }}
                                   />
                                 </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Interested Trip</div>
+                                  <input
+                                    className="input"
+                                    value={record.interestedTrip || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateRecordField(record.id, "interestedTrip", event.target.value);
+                                    }}
+                                    placeholder="Trip or focus area"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Project Dates</div>
+                                  <input
+                                    className="input"
+                                    value={record.projectDates || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateRecordField(record.id, "projectDates", event.target.value);
+                                    }}
+                                    placeholder="Dates or season"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Site</div>
+                                  <input
+                                    className="input"
+                                    value={record.site || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateRecordField(record.id, "site", event.target.value);
+                                    }}
+                                    placeholder="Site"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
+                                  <input
+                                    className="input"
+                                    type="number"
+                                    min="0"
+                                    value={record.weeks || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateRecordField(record.id, "weeks", event.target.value);
+                                    }}
+                                    placeholder="Number of weeks"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Departure Date</div>
+                                  <input
+                                    className="input"
+                                    type="date"
+                                    value={record.departureDate || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateRecordField(record.id, "departureDate", event.target.value);
+                                    }}
+                                  />
+                                </div>
                               </div>
                               <div>
-                                <div className="small" style={{ marginBottom: 6 }}>People On This Row</div>
+                                <div className="small" style={{ marginBottom: 6 }}>Team Members</div>
                                 <textarea
                                   className="input"
                                   rows={3}
@@ -1226,6 +1471,79 @@ export default function RecruitingPage() {
                                   }}
                                   placeholder="One person per line, or comma-separated"
                                 />
+                              </div>
+                              <div>
+                                <div className="small" style={{ fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>
+                                  Lead Contact
+                                </div>
+                              </div>
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                                  gap: 10,
+                                }}
+                              >
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>First Name</div>
+                                  <input
+                                    className="input"
+                                    value={record.contact?.firstName || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateContactField(record.id, "firstName", event.target.value);
+                                    }}
+                                  />
+                                </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Last Name</div>
+                                  <input
+                                    className="input"
+                                    value={record.contact?.lastName || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateContactField(record.id, "lastName", event.target.value);
+                                    }}
+                                  />
+                                </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Email</div>
+                                  <input
+                                    className="input"
+                                    value={record.contact?.email || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateContactField(record.id, "email", event.target.value);
+                                    }}
+                                  />
+                                </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Phone</div>
+                                  <input
+                                    className="input"
+                                    value={record.contact?.phone || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateContactField(record.id, "phone", event.target.value);
+                                    }}
+                                    placeholder="Phone number"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Male / Female</div>
+                                  <select
+                                    className="input"
+                                    value={record.contact?.gender || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateContactField(record.id, "gender", event.target.value);
+                                    }}
+                                  >
+                                    <option value="">Not set</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                  </select>
+                                </div>
                               </div>
                               <div>
                                 <div className="small" style={{ marginBottom: 6 }}>Handoff Summary</div>
@@ -1625,6 +1943,15 @@ export default function RecruitingPage() {
               <div>
                 <div style={{ fontWeight: 800 }}>{formatContactName(selectedRecord)}</div>
                 <div className="small">{selectedRecord.contact?.email}</div>
+                {selectedRecord.contact?.phone ? (
+                  <div className="small">{selectedRecord.contact.phone}</div>
+                ) : null}
+                {renderDuplicateNotice(
+                  getDuplicateInfoForEmail(selectedRecord.contact?.email, {
+                    excludeRecordId: selectedRecord.id,
+                    includeActiveTeam: !selectedRecord.isConvertedToTeam,
+                  })
+                )}
               </div>
               {activeTab === "outreach" ? (
                 <div
@@ -1656,6 +1983,15 @@ export default function RecruitingPage() {
                       className="input"
                       value={selectedRecord.contact?.email || ""}
                       onChange={(event) => updateContactField(selectedRecord.id, "email", event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Phone</div>
+                    <input
+                      className="input"
+                      value={selectedRecord.contact?.phone || ""}
+                      onChange={(event) => updateContactField(selectedRecord.id, "phone", event.target.value)}
+                      placeholder="Phone number"
                     />
                   </div>
                   <div>
@@ -1705,6 +2041,63 @@ export default function RecruitingPage() {
                   onChange={(event) => updateSelectedRecord("nextFollowUp", event.target.value)}
                 />
               </div>
+              {!selectedRecord.isConvertedToTeam ? (
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Interested Trip</div>
+                  <input
+                    className="input"
+                    value={selectedRecord.interestedTrip || ""}
+                    onChange={(event) => updateSelectedRecord("interestedTrip", event.target.value)}
+                    placeholder="Trip or focus area"
+                  />
+                </div>
+              ) : null}
+              {!selectedRecord.isConvertedToTeam ? (
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Project Dates</div>
+                  <input
+                    className="input"
+                    value={selectedRecord.projectDates || ""}
+                    onChange={(event) => updateSelectedRecord("projectDates", event.target.value)}
+                    placeholder="Dates or season"
+                  />
+                </div>
+              ) : null}
+              {!selectedRecord.isConvertedToTeam ? (
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Site</div>
+                  <input
+                    className="input"
+                    value={selectedRecord.site || ""}
+                    onChange={(event) => updateSelectedRecord("site", event.target.value)}
+                    placeholder="Site"
+                  />
+                </div>
+              ) : null}
+              {!selectedRecord.isConvertedToTeam ? (
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    value={selectedRecord.weeks || ""}
+                    onChange={(event) => updateSelectedRecord("weeks", event.target.value)}
+                    placeholder="Number of weeks"
+                  />
+                </div>
+              ) : null}
+              {!selectedRecord.isConvertedToTeam ? (
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Departure Date</div>
+                  <input
+                    className="input"
+                    type="date"
+                    value={selectedRecord.departureDate || ""}
+                    onChange={(event) => updateSelectedRecord("departureDate", event.target.value)}
+                  />
+                </div>
+              ) : null}
               {!selectedRecord.isConvertedToTeam ? (
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
@@ -1843,6 +2236,200 @@ export default function RecruitingPage() {
         </div>
       ) : null}
 
+      {promoteModalOpen ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 50,
+          }}
+        >
+          <div className="card pad" style={{ width: "min(860px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 900 }}>Promote To Potential Teams</div>
+              <div className="spacer" />
+              <button className="btn" type="button" onClick={() => setPromoteModalOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="small" style={{ marginBottom: 12 }}>
+              Fill in the team and project details first. Lead contact info stays lower down just for reference.
+            </div>
+            <div className="small" style={{ fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>
+              Team Details
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 10,
+              }}
+            >
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Stage</div>
+                <select
+                  className="input"
+                  value={promoteDraft.stage}
+                  onChange={(event) => setPromoteDraft((current) => ({ ...current, stage: Number(event.target.value) }))}
+                >
+                  {RECRUITING_STAGES.map((stage) => (
+                    <option key={stage.value} value={stage.value}>{stage.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
+                <input
+                  className="input"
+                  value={promoteDraft.teamName}
+                  onChange={(event) => setPromoteDraft((current) => ({ ...current, teamName: event.target.value }))}
+                  placeholder="Optional team name"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Interested Trip</div>
+                <input
+                  className="input"
+                  value={promoteDraft.interestedTrip}
+                  onChange={(event) => setPromoteDraft((current) => ({ ...current, interestedTrip: event.target.value }))}
+                  placeholder="Trip or focus area"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Project Dates</div>
+                <input
+                  className="input"
+                  value={promoteDraft.projectDates}
+                  onChange={(event) => setPromoteDraft((current) => ({ ...current, projectDates: event.target.value }))}
+                  placeholder="Dates or season"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Site</div>
+                <input
+                  className="input"
+                  value={promoteDraft.site}
+                  onChange={(event) => setPromoteDraft((current) => ({ ...current, site: event.target.value }))}
+                  placeholder="Site"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  value={promoteDraft.weeks}
+                  onChange={(event) => setPromoteDraft((current) => ({ ...current, weeks: event.target.value }))}
+                  placeholder="Number of weeks"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Departure Date</div>
+                <input
+                  className="input"
+                  type="date"
+                  value={promoteDraft.departureDate}
+                  onChange={(event) => setPromoteDraft((current) => ({ ...current, departureDate: event.target.value }))}
+                />
+              </div>
+            </div>
+            <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Team Members</div>
+                <textarea
+                  className="input"
+                  rows={3}
+                  value={promoteDraft.teamMembers}
+                  onChange={(event) => setPromoteDraft((current) => ({ ...current, teamMembers: event.target.value }))}
+                  placeholder="One person per line, or comma-separated"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Required Handoff Summary</div>
+                <textarea
+                  className="input"
+                  rows={4}
+                  value={promoteDraft.handoffSummary}
+                  onChange={(event) => setPromoteDraft((current) => ({ ...current, handoffSummary: event.target.value }))}
+                  placeholder="What does Leslee need to know right away?"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>
+                  Lead Contact
+                </div>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: 10,
+                }}
+              >
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>First Name</div>
+                  <input
+                    className="input"
+                    value={promoteDraft.firstName}
+                    onChange={(event) => setPromoteDraft((current) => ({ ...current, firstName: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Last Name</div>
+                  <input
+                    className="input"
+                    value={promoteDraft.lastName}
+                    onChange={(event) => setPromoteDraft((current) => ({ ...current, lastName: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Email</div>
+                  <input
+                    className="input"
+                    value={promoteDraft.email}
+                    onChange={(event) => setPromoteDraft((current) => ({ ...current, email: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Phone</div>
+                  <input
+                    className="input"
+                    value={promoteDraft.phone}
+                    onChange={(event) => setPromoteDraft((current) => ({ ...current, phone: event.target.value }))}
+                    placeholder="Phone number"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Male / Female</div>
+                  <select
+                    className="input"
+                    value={promoteDraft.gender}
+                    onChange={(event) => setPromoteDraft((current) => ({ ...current, gender: event.target.value }))}
+                  >
+                    <option value="">Not set</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+              <button className="btn btnPrimary" type="button" onClick={() => void handleConfirmPromote()}>
+                Save And Move To Potential Teams
+              </button>
+              <button className="btn" type="button" onClick={() => setPromoteModalOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {addContactModalOpen ? (
         <div
           style={{
@@ -1891,6 +2478,15 @@ export default function RecruitingPage() {
                 }
                 placeholder="Primary Contact Email"
               />
+              <input
+                className="input"
+                value={newContactDraft.phone}
+                onChange={(event) =>
+                  setNewContactDraft((current) => ({ ...current, phone: event.target.value }))
+                }
+                placeholder="Primary Contact Phone"
+              />
+              {renderDuplicateNotice(newContactDuplicateInfo)}
               <select
                 className="input"
                 value={newContactDraft.gender}

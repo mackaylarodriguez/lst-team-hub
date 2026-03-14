@@ -262,31 +262,61 @@ export default function TripPage() {
     "Donna",
     "Hannah",
   ];
+  const trainingAccessUrl = "https://lst365.sharepoint.com/Training/Forms/AllItems.aspx?id=%2FTraining%2FLST%20International%20Projects%20Training%2FTeam%20Training%2FCurrent%20LST%20Team%20Training%20Components%2FNew%2DRevised%20Version%20of%20Team%20Training%2FInstructions%20on%20Accessing%20Online%20LST%20Team%20Training%2Epdf&parent=%2FTraining%2FLST%20International%20Projects%20Training%2FTeam%20Training%2FCurrent%20LST%20Team%20Training%20Components%2FNew%2DRevised%20Version%20of%20Team%20Training&p=true&ga=1";
+  const basicTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=134&";
+  const gatewayTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=136&";
+  const generalFinancialInformationUrl = "https://lst.org/projects/general-financial-information/";
 
   const trainingResources = [
     {
       id: "canvas",
       title: "Canvas",
-      description: "Modules 1-9 and trip training content.",
-      url: "https://canvas.instructure.com/courses/12611786",
+      description: "Instructions on accessing online LST team training.",
+      url: trainingAccessUrl,
       icon: "CV",
       accent: "#2f4993",
     },
     {
       id: "basic",
       title: "Basic Training",
-      description: "Core pre-trip foundations and prep.",
-      url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=134&",
+      description: "Understanding the LST approach.",
+      url: basicTrainingUrl,
       icon: "BT",
       accent: "#3caae1",
     },
     {
       id: "gateway",
       title: "Gateway Training",
-      description: "Gateway Training plus the EndMeeting link and follow-through.",
-      url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=136&",
+      description: "Pre-departure preparation.",
+      url: gatewayTrainingUrl,
       icon: "GT",
       accent: "#f99d2a",
+    },
+    {
+      id: "endmeetings",
+      title: "EndMeetings",
+      description: "Post-project debriefing.",
+      url: gatewayTrainingUrl,
+      icon: "EM",
+      accent: "#4c7c3d",
+    },
+    {
+      id: "optional",
+      title: "Optional Training",
+      description:
+        "Optional workshops offered through the year, mainly for experienced Workers.",
+      url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=135&",
+      icon: "OT",
+      accent: "#7a5af8",
+    },
+    {
+      id: "lst-connect",
+      title: "LST Connect",
+      description:
+        "Join LST Connect to practice with an online Reader before leaving. Register as a Worker.",
+      url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=133&",
+      icon: "LC",
+      accent: "#0f766e",
     },
   ];
 
@@ -3074,7 +3104,7 @@ function parseDateSafe(dateStr) {
     const links = [
       {
         label: "Canvas",
-        url: "https://canvas.instructure.com/courses/12611786",
+        url: trainingAccessUrl,
         ready: true,
       },
     ];
@@ -3113,6 +3143,7 @@ function parseDateSafe(dateStr) {
     siteInfoDoc?.pdfUrl,
     smartsheetBudgetDoc?.link,
     smartsheetBudgetDoc?.pdfUrl,
+    trainingAccessUrl,
     trip?.teamFundraisingUrl,
   ]);
   const visibleTaskParticipants = canViewAllParticipantData
@@ -3589,15 +3620,7 @@ function parseDateSafe(dateStr) {
                         <button
                           type="button"
                           onClick={() => handleJumpToStaffTask(task.id)}
-                          style={{
-                            padding: 0,
-                            border: "none",
-                            background: "transparent",
-                            fontWeight: 800,
-                            textAlign: "left",
-                            color: "var(--ink)",
-                            cursor: "pointer",
-                          }}
+                          className="overviewTaskJumpButton"
                         >
                           {task.title}
                         </button>
@@ -3605,15 +3628,7 @@ function parseDateSafe(dateStr) {
                         <button
                           type="button"
                           onClick={() => handleJumpToOverviewItem(task)}
-                          style={{
-                            padding: 0,
-                            border: "none",
-                            background: "transparent",
-                            fontWeight: 800,
-                            textAlign: "left",
-                            color: "var(--ink)",
-                            cursor: "pointer",
-                          }}
+                          className="overviewTaskJumpButton"
                         >
                           {task.title}
                         </button>
@@ -4034,6 +4049,16 @@ function parseDateSafe(dateStr) {
           <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 14 }}>
               {canViewAllParticipantData ? "Fundraising Pages" : "My Fundraising"}
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              <a
+                className="btn"
+                href={generalFinancialInformationUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                General Financial Information
+              </a>
             </div>
             <div style={{ height: 4 }} />
 
@@ -5089,6 +5114,34 @@ function parseDateSafe(dateStr) {
                         )
                       ) : null}
                     </div>
+                    {slot.tutorialUrl ? (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          paddingTop: 12,
+                          borderTop: "1px solid rgba(15, 23, 42, 0.08)",
+                          display: "grid",
+                          gap: 8,
+                        }}
+                      >
+                        <div className="small" style={{ fontWeight: 900 }}>
+                          Tutorial
+                        </div>
+                        <div className="small">
+                          {slot.tutorialDescription || "Helpful walkthrough for this resource."}
+                        </div>
+                        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                          <a
+                            className="btn"
+                            href={slot.tutorialUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {slot.tutorialTitle || "Open Tutorial"}
+                          </a>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}

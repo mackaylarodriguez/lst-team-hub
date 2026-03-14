@@ -3,6 +3,7 @@ create table if not exists public.recruiting_contacts (
   first_name text,
   last_name text,
   email text,
+  phone text,
   gender text,
   priority text,
   alumni_2026 boolean not null default false,

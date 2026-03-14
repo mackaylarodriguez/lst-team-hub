@@ -8,6 +8,10 @@ import { isManagerRole } from "@/lib/roles";
 import { getUserDocumentTypeLabel } from "@/lib/userDocumentTypes";
 import { listProfileDocuments } from "@/lib/userDocuments";
 import {
+  getRecruitingStageLabel,
+  listRecruitingCycleContactsByEmail,
+} from "@/lib/recruitingCycles";
+import {
   deleteProfileStaffNote,
   listProfileStaffNotes,
   saveProfileStaffNote,
@@ -26,6 +30,27 @@ function formatProfileRole(role) {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
+function extractHandoffSummary(notes) {
+  const match = String(notes || "").match(
+    /\[HANDOFF SUMMARY\]\s*([\s\S]*?)\s*\[\/HANDOFF SUMMARY\]/i
+  );
+  return match ? match[1].trim() : "";
+}
+
+function stripHandoffSummary(notes) {
+  return String(notes || "")
+    .replace(/\[HANDOFF SUMMARY\]\s*[\s\S]*?\s*\[\/HANDOFF SUMMARY\]/i, "")
+    .trim();
+}
+
+function hasRecruitingNotes(record) {
+  return Boolean(
+    extractHandoffSummary(record?.mackaylaNotes) ||
+    stripHandoffSummary(record?.mackaylaNotes) ||
+    String(record?.lesleeNotes || "").trim()
+  );
+}
+
 export default function Profile() {
   const router = useRouter();
   const { participantId } = router.query;
@@ -34,6 +59,7 @@ export default function Profile() {
   const [assignments, setAssignments] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [recruitingRecords, setRecruitingRecords] = useState([]);
   const [loadError, setLoadError] = useState("");
   const [noteDraft, setNoteDraft] = useState("");
   const [editingNoteId, setEditingNoteId] = useState("");
@@ -130,9 +156,12 @@ export default function Profile() {
           );
         }
 
-        const [nextDocuments, nextNotes] = await Promise.all([
+        const [nextDocuments, nextNotes, nextRecruitingRecords] = await Promise.all([
           listProfileDocuments(targetProfileId),
           canManageProfiles ? listProfileStaffNotes(targetProfileId) : Promise.resolve([]),
+          canManageProfiles && displayProfile.email
+            ? listRecruitingCycleContactsByEmail(displayProfile.email)
+            : Promise.resolve([]),
         ]);
 
         if (cancelled) return;
@@ -149,6 +178,7 @@ export default function Profile() {
         );
         setDocuments(nextDocuments);
         setNotes(nextNotes);
+        setRecruitingRecords((nextRecruitingRecords || []).filter(hasRecruitingNotes));
       } catch (error) {
         console.error("Unable to load profile page", error);
         if (!cancelled) {
@@ -361,81 +391,160 @@ export default function Profile() {
         </div>
 
         {canManageProfiles && profile ? (
-          <div className="card pad">
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div>
-                <div style={{ fontWeight: 900 }}>Staff Notes</div>
-                <div className="small">Private participant notes visible only to staff.</div>
+          <div style={{ display: "grid", gap: 16 }}>
+            <div className="card pad">
+              <div className="row" style={{ marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 900 }}>Recruiting Notes</div>
+                  <div className="small">
+                    Mackayla and Leslee notes from recruiting stay visible here after the team is formed.
+                  </div>
+                </div>
+                <div className="spacer" />
+                <span className="badge">{recruitingRecords.length}</span>
               </div>
-              <div className="spacer" />
-              {!editingNoteId && !noteDraft ? (
-                <button className="btn" type="button" onClick={() => startNoteEdit()}>
-                  Add Note
-                </button>
-              ) : null}
+
+              <div style={{ display: "grid", gap: 12 }}>
+                {recruitingRecords.length > 0 ? (
+                  recruitingRecords.map((record) => {
+                    const handoffSummary = extractHandoffSummary(record.mackaylaNotes);
+                    const mackaylaNotes = stripHandoffSummary(record.mackaylaNotes);
+
+                    return (
+                      <div
+                        key={record.id}
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: 14,
+                          background: "var(--primarySoft)",
+                          border: "1px solid rgba(47, 73, 147, 0.12)",
+                        }}
+                      >
+                        <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                          <div style={{ fontWeight: 900 }}>
+                            {record.teamName || record.linkedTrip?.name || record.contact?.email || "Recruiting record"}
+                          </div>
+                          <span className="badge">{record.recruitingYear}</span>
+                          <span className="badge">
+                            {record.isConvertedToTeam ? "Formed Team" : record.isPotentialTeam ? "Potential Team" : "Recruiting"}
+                          </span>
+                          <span className="badge">{getRecruitingStageLabel(record.stage)}</span>
+                        </div>
+                        {(record.projectDates || record.site || record.weeks || record.departureDate) ? (
+                          <div className="small" style={{ marginBottom: 8 }}>
+                            {[
+                              record.projectDates ? `Project Dates: ${record.projectDates}` : "",
+                              record.site ? `Site: ${record.site}` : "",
+                              record.weeks ? `Weeks: ${record.weeks}` : "",
+                              record.departureDate ? `Departure: ${formatDate(record.departureDate)}` : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" | ")}
+                          </div>
+                        ) : null}
+                        {handoffSummary ? (
+                          <div style={{ marginBottom: 10 }}>
+                            <div className="small" style={{ fontWeight: 900, marginBottom: 4 }}>Handoff Summary</div>
+                            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{handoffSummary}</div>
+                          </div>
+                        ) : null}
+                        {mackaylaNotes ? (
+                          <div style={{ marginBottom: 10 }}>
+                            <div className="small" style={{ fontWeight: 900, marginBottom: 4 }}>Mackayla Notes</div>
+                            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{mackaylaNotes}</div>
+                          </div>
+                        ) : null}
+                        {record.lesleeNotes ? (
+                          <div>
+                            <div className="small" style={{ fontWeight: 900, marginBottom: 4 }}>Leslee Notes</div>
+                            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{record.lesleeNotes}</div>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="small">No recruiting notes attached to this profile yet.</div>
+                )}
+              </div>
             </div>
 
-            {editingNoteId || noteDraft ? (
-              <div style={{ marginBottom: 14 }}>
-                <textarea
-                  className="input"
-                  rows={4}
-                  value={noteDraft}
-                  onChange={(event) => setNoteDraft(event.target.value)}
-                  placeholder="Private note about this participant."
-                />
-                <div className="row" style={{ marginTop: 10 }}>
-                  <button className="btn btnPrimary" type="button" onClick={handleSaveNote}>
-                    Save Note
-                  </button>
-                  <button className="btn" type="button" onClick={cancelNoteEdit}>
-                    Cancel
-                  </button>
-                  {editingNoteId ? (
-                    <button className="btn" type="button" onClick={handleDeleteNote}>
-                      Delete
-                    </button>
-                  ) : null}
-                  {noteStatus ? (
-                    <div className="small" style={{ alignSelf: "center" }}>
-                      {noteStatus}
-                    </div>
-                  ) : null}
+            <div className="card pad">
+              <div className="row" style={{ marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 900 }}>Staff Notes</div>
+                  <div className="small">Private participant notes visible only to staff.</div>
                 </div>
+                <div className="spacer" />
+                {!editingNoteId && !noteDraft ? (
+                  <button className="btn" type="button" onClick={() => startNoteEdit()}>
+                    Add Note
+                  </button>
+                ) : null}
               </div>
-            ) : null}
 
-            <div style={{ display: "grid", gap: 12 }}>
-              {notes.length > 0 ? (
-                notes.map((note) => (
-                  <div
-                    key={note.id}
-                    style={{
-                      padding: "12px 14px",
-                      borderRadius: 14,
-                      background: "#f5f1ea",
-                      border: "1px solid rgba(18, 16, 12, 0.08)",
-                    }}
-                  >
-                    <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{note.note}</div>
-                    <div className="small" style={{ marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <span>
-                        <strong>By:</strong> {note.authorName || note.authorEmail || "Unknown user"}
-                      </span>
-                      <span>
-                        <strong>Updated:</strong> {formatDate(note.updatedAt || note.createdAt)}
-                      </span>
-                    </div>
-                    <div className="row" style={{ marginTop: 10 }}>
-                      <button className="btn" type="button" onClick={() => startNoteEdit(note)}>
-                        Edit
+              {editingNoteId || noteDraft ? (
+                <div style={{ marginBottom: 14 }}>
+                  <textarea
+                    className="input"
+                    rows={4}
+                    value={noteDraft}
+                    onChange={(event) => setNoteDraft(event.target.value)}
+                    placeholder="Private note about this participant."
+                  />
+                  <div className="row" style={{ marginTop: 10 }}>
+                    <button className="btn btnPrimary" type="button" onClick={handleSaveNote}>
+                      Save Note
+                    </button>
+                    <button className="btn" type="button" onClick={cancelNoteEdit}>
+                      Cancel
+                    </button>
+                    {editingNoteId ? (
+                      <button className="btn" type="button" onClick={handleDeleteNote}>
+                        Delete
                       </button>
-                    </div>
+                    ) : null}
+                    {noteStatus ? (
+                      <div className="small" style={{ alignSelf: "center" }}>
+                        {noteStatus}
+                      </div>
+                    ) : null}
                   </div>
-                ))
-              ) : (
-                <div className="small">No private staff notes yet.</div>
-              )}
+                </div>
+              ) : null}
+
+              <div style={{ display: "grid", gap: 12 }}>
+                {notes.length > 0 ? (
+                  notes.map((note) => (
+                    <div
+                      key={note.id}
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: 14,
+                        background: "#f5f1ea",
+                        border: "1px solid rgba(18, 16, 12, 0.08)",
+                      }}
+                    >
+                      <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{note.note}</div>
+                      <div className="small" style={{ marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        <span>
+                          <strong>By:</strong> {note.authorName || note.authorEmail || "Unknown user"}
+                        </span>
+                        <span>
+                          <strong>Updated:</strong> {formatDate(note.updatedAt || note.createdAt)}
+                        </span>
+                      </div>
+                      <div className="row" style={{ marginTop: 10 }}>
+                        <button className="btn" type="button" onClick={() => startNoteEdit(note)}>
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="small">No private staff notes yet.</div>
+                )}
+              </div>
             </div>
           </div>
         ) : null}
