@@ -60,6 +60,65 @@ a:hover{text-decoration:underline}
 .table{width:100%; border-collapse:collapse}
 .table th,.table td{padding:10px; border-bottom:1px solid var(--border); text-align:left}
 .table th{font-size:12px; color:var(--muted)}
+.recruitingTableScroller{
+  width:100%;
+  overflow-x:auto;
+  overflow-y:visible;
+  cursor:grab;
+}
+.recruitingTableScroller.isDragging{
+  cursor:grabbing;
+  user-select:none;
+}
+.recruitingCompactTable th,
+.recruitingCompactTable td{
+  padding:6px 8px;
+  font-size:12px;
+  line-height:1.25;
+  vertical-align:top;
+  white-space:nowrap;
+}
+.recruitingCompactTable th{
+  font-size:11px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.recruitingActionRow{
+  gap:4px;
+  flex-wrap:nowrap;
+}
+.recruitingActionRow .btn{
+  padding:6px 8px;
+  border-radius:10px;
+  font-size:12px;
+  white-space:nowrap;
+}
+.recruitingExpandedRow td{
+  padding:0;
+  background:#fff;
+}
+.recruitingExpandedCard{
+  padding:14px 16px 16px 16px;
+  border-top:1px solid var(--border);
+  background:linear-gradient(180deg, rgba(234,242,255,.55), rgba(255,255,255,.98));
+}
+.recruitingExpandedGrid{
+  display:grid;
+  grid-template-columns:minmax(320px, 1.2fr) minmax(240px, 1fr);
+  gap:14px;
+  align-items:start;
+}
+.recruitingHistoryList{
+  display:grid;
+  gap:8px;
+  max-height:320px;
+  overflow:auto;
+  padding-right:4px;
+}
+.recruitingHistoryEntry{
+  padding-bottom:8px;
+  border-bottom:1px solid var(--border);
+}
 .progress{height:10px; background:var(--primarySoft); border:1px solid rgba(47,73,147,.16); border-radius:999px; overflow:hidden}
 .progress > div{height:100%; background:linear-gradient(90deg,var(--primary),var(--primary2))}
 .badgeInfo{border-color:rgba(47,73,147,.22); color:var(--primary); background:var(--primarySoft)}
@@ -296,6 +355,9 @@ a:hover{text-decoration:underline}
     grid-template-columns:1fr;
   }
   .tripSetupColumns{
+    grid-template-columns:1fr;
+  }
+  .recruitingExpandedGrid{
     grid-template-columns:1fr;
   }
 }

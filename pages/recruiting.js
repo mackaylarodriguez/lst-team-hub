@@ -1,6 +1,6 @@
 import Shell from "@/components/Shell";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { requireSession } from "@/lib/auth";
 import { isStaffRole } from "@/lib/roles";
@@ -144,6 +144,108 @@ const RECRUITING_TABS = [
   { id: "converted", label: "Converted Teams" },
 ];
 
+function buildRecruitingRecordPayload(record, overrides = {}) {
+  return {
+    id: record.id,
+    contactId: record.contactId,
+    recruitingYear: record.recruitingYear,
+    firstName: record.contact?.firstName,
+    lastName: record.contact?.lastName,
+    email: record.contact?.email,
+    gender: record.contact?.gender,
+    priority: record.priority,
+    alumniYearLabel: record.alumniYearLabel,
+    stage: record.stage,
+    isPotentialTeam: record.isPotentialTeam,
+    interestedTrip: record.interestedTrip,
+    teamName: record.teamName,
+    teamMembers: record.teamMembers,
+    projectDates: record.projectDates,
+    site: record.site,
+    weeks: record.weeks,
+    departureDate: record.departureDate,
+    assignedTo: record.assignedTo,
+    lastContactedAt: record.lastContactedAt,
+    lastContactMethod: record.lastContactMethod,
+    nextFollowUp: record.nextFollowUp,
+    mackaylaNotes: record.mackaylaNotes,
+    lesleeNotes: record.lesleeNotes,
+    bulkLastContactedAt: record.bulkLastContactedAt,
+    bulkLastContactMethod: record.bulkLastContactMethod,
+    isConvertedToTeam: record.isConvertedToTeam,
+    convertedTeamId: record.convertedTeamId,
+    ...overrides,
+  };
+}
+
+function DraggableTable({ children }) {
+  const containerRef = useRef(null);
+  const dragStateRef = useRef({
+    isDragging: false,
+    pointerId: null,
+    startX: 0,
+    scrollLeft: 0,
+  });
+  const [isDragging, setIsDragging] = useState(false);
+
+  function endDrag() {
+    if (
+      containerRef.current &&
+      dragStateRef.current.pointerId !== null &&
+      containerRef.current.hasPointerCapture?.(dragStateRef.current.pointerId)
+    ) {
+      containerRef.current.releasePointerCapture(dragStateRef.current.pointerId);
+    }
+
+    dragStateRef.current = {
+      isDragging: false,
+      pointerId: null,
+      startX: 0,
+      scrollLeft: containerRef.current?.scrollLeft || 0,
+    };
+    setIsDragging(false);
+  }
+
+  function handlePointerDown(event) {
+    if (
+      !containerRef.current ||
+      event.button !== 0 ||
+      event.target.closest("button, a, input, textarea, select, label")
+    ) {
+      return;
+    }
+
+    dragStateRef.current = {
+      isDragging: true,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      scrollLeft: containerRef.current.scrollLeft,
+    };
+    containerRef.current.setPointerCapture?.(event.pointerId);
+    setIsDragging(true);
+  }
+
+  function handlePointerMove(event) {
+    if (!dragStateRef.current.isDragging || !containerRef.current) return;
+    const deltaX = event.clientX - dragStateRef.current.startX;
+    containerRef.current.scrollLeft = dragStateRef.current.scrollLeft - deltaX;
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className={`recruitingTableScroller ${isDragging ? "isDragging" : ""}`}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+      onPointerLeave={endDrag}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function RecruitingPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -151,12 +253,14 @@ export default function RecruitingPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [records, setRecords] = useState([]);
   const [savedFilters, setSavedFilters] = useState([]);
-  const [history, setHistory] = useState([]);
+  const [historyByRecordId, setHistoryByRecordId] = useState({});
+  const [historyLoadingByRecordId, setHistoryLoadingByRecordId] = useState({});
   const [error, setError] = useState("");
   const [filterConfig, setFilterConfig] = useState(DEFAULT_FILTER_CONFIG);
   const [activeFilterId, setActiveFilterId] = useState("all");
   const [activeTab, setActiveTab] = useState("outreach");
   const [selectedRecordId, setSelectedRecordId] = useState("");
+  const [expandedPotentialRecordId, setExpandedPotentialRecordId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [newContactDraft, setNewContactDraft] = useState({
@@ -189,6 +293,8 @@ export default function RecruitingPage() {
     lesleeNotes: "",
   });
   const importInputRef = useRef(null);
+  const historyCacheRef = useRef({});
+  const loadingHistoryRef = useRef({});
 
   useEffect(() => {
     let cancelled = false;
@@ -262,30 +368,16 @@ export default function RecruitingPage() {
   }, [selectedYear, session]);
 
   useEffect(() => {
-    if (!selectedRecordId) {
-      setHistory([]);
-      return;
-    }
+    historyCacheRef.current = historyByRecordId;
+  }, [historyByRecordId]);
 
-    let cancelled = false;
-
-    async function loadHistory() {
-      try {
-        const rows = await listRecruitingActivityLogs(selectedRecordId);
-        if (!cancelled) {
-          setHistory(rows);
-        }
-      } catch (loadError) {
-        console.error("Unable to load recruiting history", loadError);
-      }
-    }
-
-    void loadHistory();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedRecordId]);
+  useEffect(() => {
+    historyCacheRef.current = {};
+    loadingHistoryRef.current = {};
+    setHistoryByRecordId({});
+    setHistoryLoadingByRecordId({});
+    setExpandedPotentialRecordId("");
+  }, [selectedYear]);
 
   const filteredRecords = useMemo(() => {
     return records.filter((record) => {
@@ -371,12 +463,30 @@ export default function RecruitingPage() {
     () => records.find((record) => record.id === selectedRecordId) || null,
     [records, selectedRecordId]
   );
+  const currentHistory = useMemo(
+    () => (selectedRecordId ? historyByRecordId[selectedRecordId] || [] : []),
+    [historyByRecordId, selectedRecordId]
+  );
+  const isCurrentHistoryLoading = selectedRecordId
+    ? Boolean(historyLoadingByRecordId[selectedRecordId])
+    : false;
 
   useEffect(() => {
     if (!selectedRecordId && records.length > 0) {
       setSelectedRecordId(records[0].id);
     }
   }, [records, selectedRecordId]);
+
+  useEffect(() => {
+    if (activeTab !== "potential") {
+      setExpandedPotentialRecordId("");
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!selectedRecordId || activeTab === "potential") return;
+    void ensureRecordHistoryLoaded(selectedRecordId);
+  }, [activeTab, selectedRecordId]);
 
   async function refreshCurrentYear() {
     const [nextRecords, nextFilters] = await Promise.all([
@@ -390,6 +500,37 @@ export default function RecruitingPage() {
   function applyFilter(config, filterId = "custom") {
     setFilterConfig({ ...DEFAULT_FILTER_CONFIG, ...config });
     setActiveFilterId(filterId);
+  }
+
+  async function ensureRecordHistoryLoaded(recordId, options = {}) {
+    const force = options.force === true;
+    if (!recordId) return [];
+    if (!force && historyCacheRef.current[recordId]) {
+      return historyCacheRef.current[recordId];
+    }
+    if (!force && loadingHistoryRef.current[recordId]) {
+      return [];
+    }
+
+    loadingHistoryRef.current[recordId] = true;
+    setHistoryLoadingByRecordId((current) => ({ ...current, [recordId]: true }));
+
+    try {
+      const rows = await listRecruitingActivityLogs(recordId);
+      historyCacheRef.current = { ...historyCacheRef.current, [recordId]: rows };
+      setHistoryByRecordId((current) => ({ ...current, [recordId]: rows }));
+      return rows;
+    } catch (loadError) {
+      console.error("Unable to load recruiting history", loadError);
+      return [];
+    } finally {
+      delete loadingHistoryRef.current[recordId];
+      setHistoryLoadingByRecordId((current) => {
+        const next = { ...current };
+        delete next[recordId];
+        return next;
+      });
+    }
   }
 
   async function handleSaveCurrentFilter() {
@@ -498,6 +639,7 @@ export default function RecruitingPage() {
     });
 
     await refreshCurrentYear();
+    await ensureRecordHistoryLoaded(record.id, { force: true });
   }
 
   async function handlePromote(record) {
@@ -509,36 +651,11 @@ export default function RecruitingPage() {
   }
 
   async function handleAdvanceStage(record) {
-    await saveRecruitingCycleContact({
-      id: record.id,
-      contactId: record.contactId,
-      recruitingYear: record.recruitingYear,
-      firstName: record.contact?.firstName,
-      lastName: record.contact?.lastName,
-      email: record.contact?.email,
-      gender: record.contact?.gender,
-      priority: record.priority,
-      alumniYearLabel: record.alumniYearLabel,
-      stage: Math.min(record.stage + 1, 3),
-      isPotentialTeam: record.isPotentialTeam,
-      interestedTrip: record.interestedTrip,
-      teamName: record.teamName,
-      teamMembers: record.teamMembers,
-      projectDates: record.projectDates,
-      site: record.site,
-      weeks: record.weeks,
-      departureDate: record.departureDate,
-      assignedTo: record.assignedTo,
-      lastContactedAt: record.lastContactedAt,
-      lastContactMethod: record.lastContactMethod,
-      nextFollowUp: record.nextFollowUp,
-      mackaylaNotes: record.mackaylaNotes,
-      lesleeNotes: record.lesleeNotes,
-      bulkLastContactedAt: record.bulkLastContactedAt,
-      bulkLastContactMethod: record.bulkLastContactMethod,
-      isConvertedToTeam: record.isConvertedToTeam,
-      convertedTeamId: record.convertedTeamId,
-    });
+    await saveRecruitingCycleContact(
+      buildRecruitingRecordPayload(record, {
+        stage: Math.min(record.stage + 1, 3),
+      })
+    );
     await refreshCurrentYear();
   }
 
@@ -609,53 +726,41 @@ export default function RecruitingPage() {
     await refreshCurrentYear();
   }
 
-  async function handleSaveSelectedRecordNotes() {
-    if (!selectedRecord) return;
+  async function handleSaveRecord(recordId = selectedRecordId) {
+    const recordToSave = records.find((record) => record.id === recordId);
+    if (!recordToSave) return;
 
     try {
       setIsSavingNotes(true);
-      await saveRecruitingCycleContact({
-        id: selectedRecord.id,
-        contactId: selectedRecord.contactId,
-        recruitingYear: selectedRecord.recruitingYear,
-        firstName: selectedRecord.contact?.firstName,
-        lastName: selectedRecord.contact?.lastName,
-        email: selectedRecord.contact?.email,
-        gender: selectedRecord.contact?.gender,
-        priority: selectedRecord.priority,
-        alumniYearLabel: selectedRecord.alumniYearLabel,
-        stage: selectedRecord.stage,
-        interestedTrip: selectedRecord.interestedTrip,
-        teamName: selectedRecord.teamName,
-        teamMembers: selectedRecord.teamMembers,
-        projectDates: selectedRecord.projectDates,
-        site: selectedRecord.site,
-        weeks: selectedRecord.weeks,
-        departureDate: selectedRecord.departureDate,
-        assignedTo: selectedRecord.assignedTo,
-        lastContactedAt: selectedRecord.lastContactedAt,
-        lastContactMethod: selectedRecord.lastContactMethod,
-        nextFollowUp: selectedRecord.nextFollowUp,
-        mackaylaNotes: selectedRecord.mackaylaNotes,
-        lesleeNotes: selectedRecord.lesleeNotes,
-        isPotentialTeam: selectedRecord.isPotentialTeam,
-        bulkLastContactedAt: selectedRecord.bulkLastContactedAt,
-        bulkLastContactMethod: selectedRecord.bulkLastContactMethod,
-        isConvertedToTeam: selectedRecord.isConvertedToTeam,
-        convertedTeamId: selectedRecord.convertedTeamId,
-      });
+      await saveRecruitingCycleContact(buildRecruitingRecordPayload(recordToSave));
       await refreshCurrentYear();
+      await ensureRecordHistoryLoaded(recordId, { force: true });
     } finally {
       setIsSavingNotes(false);
     }
   }
 
-  function updateSelectedRecord(field, value) {
+  function updateRecordField(recordId, field, value) {
     setRecords((current) =>
       current.map((record) =>
-        record.id === selectedRecordId ? { ...record, [field]: value } : record
+        record.id === recordId ? { ...record, [field]: value } : record
       )
     );
+  }
+
+  function updateSelectedRecord(field, value) {
+    if (!selectedRecordId) return;
+    updateRecordField(selectedRecordId, field, value);
+  }
+
+  function togglePotentialRecord(recordId) {
+    setSelectedRecordId(recordId);
+    if (expandedPotentialRecordId === recordId) {
+      setExpandedPotentialRecordId("");
+      return;
+    }
+    setExpandedPotentialRecordId(recordId);
+    void ensureRecordHistoryLoaded(recordId);
   }
 
   function renderOutreachTable(recordsToRender) {
@@ -664,61 +769,63 @@ export default function RecruitingPage() {
     }
 
     return (
-      <table className="table">
-        <thead>
-          <tr>
-            <th />
-            <th>Priority</th>
-            <th>First Name</th>
-            <th>Last Name</th>
-            <th>Email</th>
-            <th>Stage</th>
-            <th>Last Contacted</th>
-            <th>Method</th>
-            <th>Assigned</th>
-            <th>Follow-Up</th>
-            <th>Mackayla Notes</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {recordsToRender.map((record) => (
-            <tr
-              key={record.id}
-              onClick={() => setSelectedRecordId(record.id)}
-              style={record.id === selectedRecordId ? { background: "rgba(47,73,147,.06)" } : undefined}
-            >
-              <td onClick={(event) => event.stopPropagation()}>
-                <input
-                  type="checkbox"
-                  checked={selectedIds.includes(record.id)}
-                  onChange={() => toggleSelected(record.id)}
-                />
-              </td>
-              <td>{record.priority || "-"}</td>
-              <td>{record.contact?.firstName || "-"}</td>
-              <td>{record.contact?.lastName || "-"}</td>
-              <td>{record.contact?.email || "-"}</td>
-              <td>{record.stageLabel}</td>
-              <td>{record.lastContactedAt ? formatDateTime(record.lastContactedAt) : "-"}</td>
-              <td>{record.lastContactMethod || "-"}</td>
-              <td>{record.assignedTo || "-"}</td>
-              <td>{record.nextFollowUp ? formatDate(record.nextFollowUp) : "-"}</td>
-              <td>{record.mackaylaNotes || "-"}</td>
-              <td onClick={(event) => event.stopPropagation()}>
-                <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-                  <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "email")}>Log Email</button>
-                  <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "call")}>Log Call</button>
-                  <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "text")}>Log Text</button>
-                  <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "note")}>Add Note</button>
-                  <button className="btn" type="button" onClick={() => handleAdvanceStage(record)}>Change Stage</button>
-                  <button className="btn" type="button" onClick={() => handlePromote(record)}>Promote</button>
-                </div>
-              </td>
+      <DraggableTable>
+        <table className="table recruitingCompactTable" style={{ minWidth: 1320 }}>
+          <thead>
+            <tr>
+              <th />
+              <th>Priority</th>
+              <th>First Name</th>
+              <th>Last Name</th>
+              <th>Email</th>
+              <th>Stage</th>
+              <th>Last Contacted</th>
+              <th>Method</th>
+              <th>Assigned</th>
+              <th>Follow-Up</th>
+              <th>Mackayla Notes</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {recordsToRender.map((record) => (
+              <tr
+                key={record.id}
+                onClick={() => setSelectedRecordId(record.id)}
+                style={record.id === selectedRecordId ? { background: "rgba(47,73,147,.06)" } : undefined}
+              >
+                <td onClick={(event) => event.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(record.id)}
+                    onChange={() => toggleSelected(record.id)}
+                  />
+                </td>
+                <td>{record.priority || "-"}</td>
+                <td>{record.contact?.firstName || "-"}</td>
+                <td>{record.contact?.lastName || "-"}</td>
+                <td>{record.contact?.email || "-"}</td>
+                <td>{record.stageLabel}</td>
+                <td>{record.lastContactedAt ? formatDateTime(record.lastContactedAt) : "-"}</td>
+                <td>{record.lastContactMethod || "-"}</td>
+                <td>{record.assignedTo || "-"}</td>
+                <td>{record.nextFollowUp ? formatDate(record.nextFollowUp) : "-"}</td>
+                <td>{record.mackaylaNotes || "-"}</td>
+                <td onClick={(event) => event.stopPropagation()}>
+                  <div className="row recruitingActionRow">
+                    <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "email")}>Log Email</button>
+                    <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "call")}>Log Call</button>
+                    <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "text")}>Log Text</button>
+                    <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "note")}>Add Note</button>
+                    <button className="btn" type="button" onClick={() => handleAdvanceStage(record)}>Change Stage</button>
+                    <button className="btn" type="button" onClick={() => handlePromote(record)}>Promote</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </DraggableTable>
     );
   }
 
@@ -726,53 +833,189 @@ export default function RecruitingPage() {
     if (recordsToRender.length === 0) return <div className="small">No potential teams yet.</div>;
 
     return (
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Team Name</th>
-            <th>Primary Contact</th>
-            <th>Email</th>
-            <th>Stage</th>
-            <th>Interested Trip</th>
-            <th>Project Dates</th>
-            <th>Site</th>
-            <th>Weeks</th>
-            <th>Departure</th>
-            <th>Mackayla Notes</th>
-            <th>Leslee Notes</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {recordsToRender.map((record) => (
-            <tr
-              key={record.id}
-              onClick={() => setSelectedRecordId(record.id)}
-              style={record.id === selectedRecordId ? { background: "rgba(47,73,147,.06)" } : undefined}
-            >
-              <td>{record.teamName || "-"}</td>
-              <td>{formatContactName(record)}</td>
-              <td>{record.contact?.email || "-"}</td>
-              <td>{record.stageLabel}</td>
-              <td>{record.interestedTrip || "-"}</td>
-              <td>{record.projectDates || "-"}</td>
-              <td>{record.site || "-"}</td>
-              <td>{record.weeks || "-"}</td>
-              <td>{record.departureDate ? formatDate(record.departureDate) : "-"}</td>
-              <td>{record.mackaylaNotes || "-"}</td>
-              <td>{record.lesleeNotes || "-"}</td>
-              <td onClick={(event) => event.stopPropagation()}>
-                <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-                  <button className="btn" type="button" onClick={() => setSelectedRecordId(record.id)}>Edit Team Details</button>
-                  <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "note")}>Add Notes</button>
-                  <button className="btn" type="button" onClick={() => setSelectedRecordId(record.id)}>View History</button>
-                  <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>Form Team</button>
-                </div>
-              </td>
+      <DraggableTable>
+        <table className="table recruitingCompactTable" style={{ minWidth: 1560 }}>
+          <thead>
+            <tr>
+              <th>Team Name</th>
+              <th>Primary Contact</th>
+              <th>Email</th>
+              <th>Stage</th>
+              <th>Interested Trip</th>
+              <th>Project Dates</th>
+              <th>Site</th>
+              <th>Weeks</th>
+              <th>Departure</th>
+              <th>Mackayla Notes</th>
+              <th>Leslee Notes</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {recordsToRender.map((record) => {
+              const isExpanded = record.id === expandedPotentialRecordId;
+              const recordHistory = historyByRecordId[record.id] || [];
+              const isHistoryLoading = Boolean(historyLoadingByRecordId[record.id]);
+
+              return (
+                <Fragment key={record.id}>
+                  <tr
+                    onClick={() => togglePotentialRecord(record.id)}
+                    style={isExpanded ? { background: "rgba(47,73,147,.06)" } : undefined}
+                  >
+                    <td>{record.teamName || "-"}</td>
+                    <td>{formatContactName(record)}</td>
+                    <td>{record.contact?.email || "-"}</td>
+                    <td>{record.stageLabel}</td>
+                    <td>{record.interestedTrip || "-"}</td>
+                    <td>{record.projectDates || "-"}</td>
+                    <td>{record.site || "-"}</td>
+                    <td>{record.weeks || "-"}</td>
+                    <td>{record.departureDate ? formatDate(record.departureDate) : "-"}</td>
+                    <td>{record.mackaylaNotes || "-"}</td>
+                    <td>{record.lesleeNotes || "-"}</td>
+                    <td onClick={(event) => event.stopPropagation()}>
+                      <div className="row recruitingActionRow">
+                        <button className="btn" type="button" onClick={() => togglePotentialRecord(record.id)}>
+                          {isExpanded ? "Hide Details" : "Edit Team Details"}
+                        </button>
+                        <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "note")}>Add Notes</button>
+                        <button className="btn" type="button" onClick={() => togglePotentialRecord(record.id)}>
+                          {isExpanded ? "Hide History" : "View History"}
+                        </button>
+                        <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>Form Team</button>
+                      </div>
+                    </td>
+                  </tr>
+                  {isExpanded ? (
+                    <tr className="recruitingExpandedRow">
+                      <td colSpan={12}>
+                        <div className="recruitingExpandedCard">
+                          <div className="recruitingExpandedGrid">
+                            <div style={{ display: "grid", gap: 12 }}>
+                              <div>
+                                <div style={{ fontWeight: 900 }}>{record.teamName || formatContactName(record)}</div>
+                                <div className="small">
+                                  Click another row to switch teams. Drag sideways if you need more columns.
+                                </div>
+                              </div>
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                                  gap: 10,
+                                }}
+                              >
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Stage</div>
+                                  <select
+                                    className="input"
+                                    value={record.stage}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateRecordField(record.id, "stage", Number(event.target.value));
+                                    }}
+                                  >
+                                    {RECRUITING_STAGES.map((stage) => (
+                                      <option key={stage.value} value={stage.value}>{stage.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Assigned To</div>
+                                  <input
+                                    className="input"
+                                    value={record.assignedTo || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateRecordField(record.id, "assignedTo", event.target.value);
+                                    }}
+                                  />
+                                </div>
+                                <div>
+                                  <div className="small" style={{ marginBottom: 6 }}>Next Follow-Up</div>
+                                  <input
+                                    className="input"
+                                    type="date"
+                                    value={record.nextFollowUp || ""}
+                                    onChange={(event) => {
+                                      setSelectedRecordId(record.id);
+                                      updateRecordField(record.id, "nextFollowUp", event.target.value);
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <div className="small" style={{ marginBottom: 6 }}>Mackayla Notes</div>
+                                <textarea
+                                  className="input"
+                                  rows={3}
+                                  value={record.mackaylaNotes || ""}
+                                  onChange={(event) => {
+                                    setSelectedRecordId(record.id);
+                                    updateRecordField(record.id, "mackaylaNotes", event.target.value);
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <div className="small" style={{ marginBottom: 6 }}>Leslee Notes</div>
+                                <textarea
+                                  className="input"
+                                  rows={3}
+                                  value={record.lesleeNotes || ""}
+                                  onChange={(event) => {
+                                    setSelectedRecordId(record.id);
+                                    updateRecordField(record.id, "lesleeNotes", event.target.value);
+                                  }}
+                                />
+                              </div>
+                              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                                <button
+                                  className="btn btnPrimary"
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedRecordId(record.id);
+                                    void handleSaveRecord(record.id);
+                                  }}
+                                >
+                                  {isSavingNotes && selectedRecordId === record.id ? "Saving..." : "Save Record"}
+                                </button>
+                                <button className="btn" type="button" onClick={() => handleLogRecordAction(record, "note")}>
+                                  Add Activity Note
+                                </button>
+                              </div>
+                            </div>
+                            <div style={{ display: "grid", gap: 10 }}>
+                              <div style={{ fontWeight: 800 }}>Activity</div>
+                              {isHistoryLoading ? (
+                                <div className="small">Loading history...</div>
+                              ) : recordHistory.length > 0 ? (
+                                <div className="recruitingHistoryList">
+                                  {recordHistory.map((entry) => (
+                                    <div key={entry.id} className="recruitingHistoryEntry">
+                                      <div>{entry.summary || getRecruitingStageLabel(record.stage)}</div>
+                                      <div className="small" style={{ marginTop: 4 }}>
+                                        {entry.staffMember ? `${entry.staffMember} • ` : ""}
+                                        {formatDateTime(entry.actionDate)}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="small">No activity logged yet.</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </DraggableTable>
     );
   }
 
@@ -780,36 +1023,38 @@ export default function RecruitingPage() {
     if (recordsToRender.length === 0) return <div className="small">No converted teams yet.</div>;
 
     return (
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Team Name</th>
-            <th>Primary Contact</th>
-            <th>Trip / Site</th>
-            <th>Departure Date</th>
-            <th>Status</th>
-            <th>Open Team</th>
-          </tr>
-        </thead>
-        <tbody>
-          {recordsToRender.map((record) => (
-            <tr key={record.id} onClick={() => setSelectedRecordId(record.id)}>
-              <td>{record.teamName || record.linkedTrip?.name || "-"}</td>
-              <td>{formatContactName(record)}</td>
-              <td>{record.linkedTrip?.site || record.site || "-"}</td>
-              <td>{record.linkedTrip?.departureDate ? formatDate(record.linkedTrip.departureDate) : (record.departureDate ? formatDate(record.departureDate) : "-")}</td>
-              <td>{record.linkedTrip?.status || "Converted"}</td>
-              <td>
-                {record.convertedTeamId ? (
-                  <button className="btn btnPrimary" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
-                    Open Team
-                  </button>
-                ) : "-"}
-              </td>
+      <DraggableTable>
+        <table className="table recruitingCompactTable" style={{ minWidth: 760 }}>
+          <thead>
+            <tr>
+              <th>Team Name</th>
+              <th>Primary Contact</th>
+              <th>Trip / Site</th>
+              <th>Departure Date</th>
+              <th>Status</th>
+              <th>Open Team</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {recordsToRender.map((record) => (
+              <tr key={record.id} onClick={() => setSelectedRecordId(record.id)}>
+                <td>{record.teamName || record.linkedTrip?.name || "-"}</td>
+                <td>{formatContactName(record)}</td>
+                <td>{record.linkedTrip?.site || record.site || "-"}</td>
+                <td>{record.linkedTrip?.departureDate ? formatDate(record.linkedTrip.departureDate) : (record.departureDate ? formatDate(record.departureDate) : "-")}</td>
+                <td>{record.linkedTrip?.status || "Converted"}</td>
+                <td>
+                  {record.convertedTeamId ? (
+                    <button className="btn btnPrimary" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
+                      Open Team
+                    </button>
+                  ) : "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </DraggableTable>
     );
   }
 
@@ -966,7 +1211,7 @@ export default function RecruitingPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0, 2fr) minmax(320px, 1fr)",
+          gridTemplateColumns: activeTab === "potential" ? "minmax(0, 1fr)" : "minmax(0, 2fr) minmax(320px, 1fr)",
           gap: 16,
         }}
       >
@@ -1010,7 +1255,7 @@ export default function RecruitingPage() {
               <>
                 <div style={{ fontWeight: 900, marginBottom: 6 }}>Potential Teams</div>
                 <div className="small" style={{ marginBottom: 10 }}>
-                  Curated serious leads for team formation and Leslee follow-up.
+                  Curated serious leads for team formation and Leslee follow-up. Click a row to open notes and history.
                 </div>
                 {renderPotentialTable(pipelineRecords)}
               </>
@@ -1028,9 +1273,9 @@ export default function RecruitingPage() {
           </div>
         </div>
 
-        <div className="card pad">
+        <div className="card pad" style={activeTab === "potential" ? { display: "none" } : undefined}>
           <div style={{ fontWeight: 900, marginBottom: 10 }}>
-            {activeTab === "outreach" ? "Contact History" : activeTab === "potential" ? "Potential Team History" : "Converted Team History"}
+            {activeTab === "outreach" ? "Contact History" : "Converted Team History"}
           </div>
           {selectedRecord ? (
             <div style={{ display: "grid", gap: 12 }}>
@@ -1085,14 +1330,16 @@ export default function RecruitingPage() {
                   onChange={(event) => updateSelectedRecord("lesleeNotes", event.target.value)}
                 />
               </div>
-              <button className="btn btnPrimary" type="button" onClick={handleSaveSelectedRecordNotes}>
+              <button className="btn btnPrimary" type="button" onClick={() => handleSaveRecord()}>
                 {isSavingNotes ? "Saving..." : "Save Record"}
               </button>
 
               <div style={{ fontWeight: 800, marginTop: 6 }}>Activity</div>
-              {history.length > 0 ? (
+              {isCurrentHistoryLoading ? (
+                <div className="small">Loading history...</div>
+              ) : currentHistory.length > 0 ? (
                 <div style={{ display: "grid", gap: 10 }}>
-                  {history.map((entry) => (
+                  {currentHistory.map((entry) => (
                     <div
                       key={entry.id}
                       style={{ paddingBottom: 10, borderBottom: "1px solid var(--border)" }}

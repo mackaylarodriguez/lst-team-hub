@@ -20,6 +20,14 @@ import {
 } from "@/lib/workerTaskTemplate";
 
 const CUSTOM_SITE_OPTION = "__custom__";
+const compactTripViewButtonStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 84,
+  paddingInline: 8,
+  whiteSpace: "nowrap",
+};
 
 function createEmptyTeamMember() {
   return {
@@ -695,7 +703,13 @@ export default function Trips() {
                 ) : null}
                 <div style={{ height: 12 }} />
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <Link className="btn btnPrimary" href={`/trips/${encodeURIComponent(trip.id)}`}>View Trip</Link>
+                  <Link
+                    className="btn btnPrimary"
+                    href={`/trips/${encodeURIComponent(trip.id)}`}
+                    style={compactTripViewButtonStyle}
+                  >
+                    View Trip
+                  </Link>
                   {canManageTrips && (
                     <button
                       className="btn"
@@ -772,7 +786,13 @@ export default function Trips() {
                 ) : null}
                 <div style={{ height: 12 }} />
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <Link className="btn btnPrimary" href={`/trips/${encodeURIComponent(trip.id)}`}>View Trip</Link>
+                  <Link
+                    className="btn btnPrimary"
+                    href={`/trips/${encodeURIComponent(trip.id)}`}
+                    style={compactTripViewButtonStyle}
+                  >
+                    View Trip
+                  </Link>
                   {canManageTrips && (
                     <button
                       className="btn"
@@ -848,7 +868,13 @@ export default function Trips() {
                   ) : null}
                   <div style={{ height: 12 }} />
                   <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                    <Link className="btn btnPrimary" href={`/trips/${encodeURIComponent(trip.id)}`}>View Trip</Link>
+                    <Link
+                      className="btn btnPrimary"
+                      href={`/trips/${encodeURIComponent(trip.id)}`}
+                      style={compactTripViewButtonStyle}
+                    >
+                      View Trip
+                    </Link>
                     <button
                       className="btn"
                       type="button"
