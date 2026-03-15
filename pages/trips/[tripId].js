@@ -244,6 +244,7 @@ function createEmptyWorkerDraft() {
     lastName: "",
     email: "",
     assignmentMode: "unassigned",
+    inviteOnSave: true,
   };
 }
 
@@ -2653,6 +2654,36 @@ function parseDateSafe(dateStr) {
     setNewWorkerDraft((current) => ({ ...current, [field]: value }));
   }
 
+  async function sendWorkerInvite(email) {
+    const normalizedWorkerEmail = normalizeEmail(email);
+    if (!normalizedWorkerEmail) {
+      setWorkerAddStatus("Add an email before sending an invite.");
+      return false;
+    }
+
+    try {
+      setInvitingWorkerEmail(normalizedWorkerEmail);
+      const { subject, body } = buildWorkerInvitePayload(normalizedWorkerEmail, trip);
+      const mailtoUrl = `mailto:${encodeURIComponent(normalizedWorkerEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+      if (typeof window !== "undefined") {
+        window.location.href = mailtoUrl;
+      }
+
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${subject}\n\n${body}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Unable to prepare worker invite", error);
+      setWorkerAddStatus("Invite text could not be prepared.");
+      return false;
+    } finally {
+      setInvitingWorkerEmail("");
+    }
+  }
+
   function handleAddRosterMember() {
     setRosterDraft((current) => [...current, createEmptyRosterMember()]);
   }
@@ -2731,6 +2762,10 @@ function parseDateSafe(dateStr) {
         }
       }
 
+      const inviteWasSent = newWorkerDraft.inviteOnSave
+        ? await sendWorkerInvite(email)
+        : false;
+
       setTrip((current) => (current
         ? {
             ...current,
@@ -2738,7 +2773,9 @@ function parseDateSafe(dateStr) {
             participants: nextParticipants,
           }
         : current));
-      setWorkerAddStatus(statusMessage);
+      setWorkerAddStatus(
+        inviteWasSent ? `${statusMessage.replace(/\.$/, "")}. Invite opened.` : statusMessage
+      );
       setNewWorkerDraft(createEmptyWorkerDraft());
       setIsAddingWorker(false);
     } catch (error) {
@@ -2749,31 +2786,9 @@ function parseDateSafe(dateStr) {
 
   async function handleInviteWorker(member) {
     const email = normalizeEmail(member?.email);
-    if (!email) {
-      setWorkerAddStatus("Add an email before sending an invite.");
-      return;
-    }
-
-    try {
-      setInvitingWorkerEmail(email);
-      const { subject, body } = buildWorkerInvitePayload(email, trip);
-      const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-      if (typeof window !== "undefined") {
-        window.location.href = mailtoUrl;
-      }
-
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(`${subject}\n\n${body}`);
-        setWorkerAddStatus(`Invite copied and email opened for ${email}.`);
-      } else {
-        setWorkerAddStatus(`Invite opened for ${email}.`);
-      }
-    } catch (error) {
-      console.error("Unable to prepare worker invite", error);
-      setWorkerAddStatus("Invite text could not be prepared.");
-    } finally {
-      setInvitingWorkerEmail("");
+    const inviteWasSent = await sendWorkerInvite(email);
+    if (inviteWasSent) {
+      setWorkerAddStatus(`Invite opened for ${email}.`);
     }
   }
 
@@ -4243,9 +4258,17 @@ function parseDateSafe(dateStr) {
                     <option value="assigned">Assign To This Trip</option>
                   </select>
                 </div>
+                <label className="small" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={newWorkerDraft.inviteOnSave}
+                    onChange={(event) => updateNewWorkerDraft("inviteOnSave", event.target.checked)}
+                  />
+                  Send invite after saving
+                </label>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                   <button className="btn btnPrimary" type="button" onClick={handleAddWorkerToTrip}>
-                    Save Worker
+                    {newWorkerDraft.inviteOnSave ? "Save And Invite" : "Save Worker"}
                   </button>
                   <button className="btn" type="button" onClick={handleCancelAddWorker}>
                     Cancel
