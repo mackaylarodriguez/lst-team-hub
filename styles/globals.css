@@ -60,6 +60,7 @@ a:hover{text-decoration:underline}
 .sidebar{position:sticky; top:0; height:100vh; padding:18px; background:#fff; border-right:1px solid var(--border)}
 .sidebarCollapsed{padding-left:10px; padding-right:10px}
 .sidebarToggleRow{display:flex; justify-content:flex-end; margin-bottom:10px}
+.sidebarCollapsed .sidebarToggleRow{justify-content:center}
 .sidebarToggleButton{
   width:42px;
   height:42px;
@@ -361,6 +362,7 @@ a:hover{text-decoration:underline}
   .shellCollapsed{grid-template-columns:1fr}
   .sidebar{position:relative; height:auto; border-right:none; border-bottom:1px solid var(--border)}
   .sidebarCollapsed{padding-left:18px; padding-right:18px}
+  .sidebarCollapsed .sidebarToggleRow{justify-content:flex-end}
   .sidebarCollapsed .brand{justify-content:flex-start}
   .sidebarCollapsed .nav a,
   .sidebarCollapsed .sidebarNavLink{justify-content:flex-start; padding:10px 12px; font-size:14px}
