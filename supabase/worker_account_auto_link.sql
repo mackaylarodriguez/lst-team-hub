@@ -7,21 +7,27 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (
-    id,
-    email,
-    role,
-    first_name,
-    last_name
-  )
-  values (
-    new.id,
-    lower(trim(coalesce(new.email, ''))),
-    'worker',
-    null,
-    null
-  )
-  on conflict (id) do nothing;
+  if not exists (
+    select 1
+    from public.profiles
+    where lower(trim(coalesce(email, ''))) = lower(trim(coalesce(new.email, '')))
+  ) then
+    insert into public.profiles (
+      id,
+      email,
+      role,
+      first_name,
+      last_name
+    )
+    values (
+      new.id,
+      lower(trim(coalesce(new.email, ''))),
+      'worker',
+      null,
+      null
+    )
+    on conflict (id) do nothing;
+  end if;
 
   return new;
 end;
@@ -50,22 +56,28 @@ begin
     );
   end if;
 
-  insert into public.profiles (
-    id,
-    email,
-    role,
-    first_name,
-    last_name
-  )
-  values (
-    current_user_id,
-    current_email,
-    'worker',
-    null,
-    null
-  )
-  on conflict (id) do update
-  set email = excluded.email;
+  if not exists (
+    select 1
+    from public.profiles
+    where lower(trim(coalesce(email, ''))) = current_email
+  ) then
+    insert into public.profiles (
+      id,
+      email,
+      role,
+      first_name,
+      last_name
+    )
+    values (
+      current_user_id,
+      current_email,
+      'worker',
+      null,
+      null
+    )
+    on conflict (id) do update
+    set email = excluded.email;
+  end if;
 
   update public.profiles as profile_row
   set
