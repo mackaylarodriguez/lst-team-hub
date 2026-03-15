@@ -42,6 +42,8 @@ a:hover{text-decoration:underline}
   align-items:center;
   justify-content:center;
   width:102px;
+  font-size:14px;
+  line-height:1.2;
   text-align:center;
 }
 .input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:12px; font-size:14px}
@@ -142,10 +144,12 @@ a:hover{text-decoration:underline}
   align-items:center;
   gap:12px;
   flex-wrap:wrap;
+  width:100%;
 }
 .recruitingYearSelect{
   width:92px;
   min-width:92px;
+  flex:0 0 92px;
   padding-right:28px;
 }
 .recruitingActionCard{
@@ -154,16 +158,18 @@ a:hover{text-decoration:underline}
   gap:8px;
   padding:8px 10px;
   border-radius:16px;
+  margin-left:auto;
 }
 .recruitingTemplateButton{
   white-space:nowrap;
+  flex:0 0 auto;
 }
 .recruitingSearchCluster{
-  flex:1 1 340px;
+  flex:1 1 420px;
   display:flex;
   align-items:center;
   gap:10px;
-  min-width:280px;
+  min-width:320px;
 }
 .recruitingToolbarSearch{
   flex:1 1 auto;
@@ -262,6 +268,10 @@ a:hover{text-decoration:underline}
   white-space:normal;
   line-height:1.2;
 }
+.recruitingUpdatedMeta{
+  margin-top:4px;
+  line-height:1.2;
+}
 .recruitingLastContactCell{
   font-weight:700;
   white-space:normal;
@@ -357,6 +367,12 @@ a:hover{text-decoration:underline}
 }
 .recruitingDuplicateText{
   color:#b42318;
+}
+.recruitingInnerCard{
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:rgba(244,248,252,.7);
 }
 .progress{height:10px; background:var(--primarySoft); border:1px solid rgba(47,73,147,.16); border-radius:999px; overflow:hidden}
 .progress > div{height:100%; background:linear-gradient(90deg,var(--primary),var(--primary2))}
@@ -573,6 +589,12 @@ a:hover{text-decoration:underline}
 .adminTaskJumpButton{
   font-size:12px;
   font-weight:700;
+}
+.adminTaskTitleText{
+  display:inline-block;
+  font-size:12px;
+  font-weight:700;
+  line-height:1.3;
 }
 .adminTaskSummary{
   display:grid;

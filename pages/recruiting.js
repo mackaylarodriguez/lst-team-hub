@@ -13,9 +13,12 @@ import {
   getRecruitingStageLabel,
   importRecruitingContacts,
   listRecruitingActivityLogs,
+  listLatestRecruitingActivityByIds,
   listRecruitingCycleContacts,
   listRecruitingYears,
+  logRecruitingActivity,
   logRecruitingCycleContactAction,
+  mergeRecruitingCycleContacts,
   saveRecruitingCycleContact,
 } from "@/lib/recruitingCycles";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
@@ -319,6 +322,21 @@ function formatLastContactSummary(record) {
   return actionLabel && dateLabel ? `${actionLabel} ${dateLabel}` : dateLabel || actionLabel || "-";
 }
 
+function formatRecruitingUpdateMeta(record, latestActivity) {
+  if (latestActivity?.staffMember || latestActivity?.actionDate) {
+    const dateLabel = formatCompactDateTime(latestActivity.actionDate || latestActivity.createdAt);
+    const staffLabel = latestActivity.staffMember || "Staff";
+    return dateLabel ? `Updated by ${staffLabel} • ${dateLabel}` : `Updated by ${staffLabel}`;
+  }
+
+  if (record?.updatedAt) {
+    const dateLabel = formatCompactDateTime(record.updatedAt);
+    return dateLabel ? `Updated ${dateLabel}` : "Updated recently";
+  }
+
+  return "";
+}
+
 function isOlderThanDays(value, days) {
   if (!value) return false;
   const date = new Date(value);
@@ -620,6 +638,7 @@ export default function RecruitingPage() {
   const [tripTeamMembers, setTripTeamMembers] = useState([]);
   const [historyByRecordId, setHistoryByRecordId] = useState({});
   const [historyLoadingByRecordId, setHistoryLoadingByRecordId] = useState({});
+  const [latestActivityByRecordId, setLatestActivityByRecordId] = useState({});
   const [error, setError] = useState("");
   const [pageStatus, setPageStatus] = useState("");
   const [filterConfig, setFilterConfig] = useState(DEFAULT_FILTER_CONFIG);
@@ -654,6 +673,7 @@ export default function RecruitingPage() {
   const [bulkAssignedTo, setBulkAssignedTo] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [deletingDuplicateRecordId, setDeletingDuplicateRecordId] = useState("");
+  const [mergingDuplicateRecordId, setMergingDuplicateRecordId] = useState("");
   const [promoteModalOpen, setPromoteModalOpen] = useState(false);
   const [recordDetailsModalOpen, setRecordDetailsModalOpen] = useState(false);
   const [recordDetailsMode, setRecordDetailsMode] = useState("details");
@@ -716,8 +736,12 @@ export default function RecruitingPage() {
           listRecruitingCycleContacts(selectedYear),
           listTripTeamMembersForDuplicateCheck(),
         ]);
+        const nextLatestActivity = await listLatestRecruitingActivityByIds(
+          nextRecords.map((record) => record.id)
+        );
         setRecords(nextRecords);
         setTripTeamMembers(nextTripTeamMembers);
+        setLatestActivityByRecordId(nextLatestActivity);
         setError("");
       } catch (loadError) {
         console.error("Unable to load recruiting records", loadError);
@@ -746,6 +770,7 @@ export default function RecruitingPage() {
     loadingHistoryRef.current = {};
     setHistoryByRecordId({});
     setHistoryLoadingByRecordId({});
+    setLatestActivityByRecordId({});
   }, [selectedYear]);
 
   const filteredRecords = useMemo(() => {
@@ -895,8 +920,12 @@ export default function RecruitingPage() {
       listRecruitingCycleContacts(selectedYear),
       listTripTeamMembersForDuplicateCheck(),
     ]);
+    const nextLatestActivity = await listLatestRecruitingActivityByIds(
+      nextRecords.map((record) => record.id)
+    );
     setRecords(nextRecords);
     setTripTeamMembers(nextTripTeamMembers);
+    setLatestActivityByRecordId(nextLatestActivity);
   }
 
   const duplicateSourceLookup = useMemo(() => {
@@ -1073,6 +1102,10 @@ export default function RecruitingPage() {
       const rows = await listRecruitingActivityLogs(recordId);
       historyCacheRef.current = { ...historyCacheRef.current, [recordId]: rows };
       setHistoryByRecordId((current) => ({ ...current, [recordId]: rows }));
+      setLatestActivityByRecordId((current) => ({
+        ...current,
+        [recordId]: rows[0] || current[recordId] || null,
+      }));
       return rows;
     } catch (loadError) {
       console.error("Unable to load recruiting history", loadError);
@@ -1313,6 +1346,44 @@ export default function RecruitingPage() {
     }
   }
 
+  async function handleMergeDuplicateGroup(group, keepRecord) {
+    if (!group?.records?.length || !keepRecord?.id) return;
+
+    const otherRecords = group.records.filter((record) => record.id !== keepRecord.id);
+    if (otherRecords.length === 0) {
+      setPageStatus("Nothing to merge for that email.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Keep ${keepRecord.teamName || formatContactName(keepRecord)} and merge ${otherRecords.length} duplicate row${otherRecords.length === 1 ? "" : "s"} into it?`
+    );
+    if (!confirmed) return;
+
+    try {
+      setMergingDuplicateRecordId(keepRecord.id);
+      for (const duplicateRecord of otherRecords) {
+        await mergeRecruitingCycleContacts({
+          keepRecordId: keepRecord.id,
+          removeRecordId: duplicateRecord.id,
+          staffMember: session?.name || session?.email || "Staff",
+        });
+      }
+      setSelectedRecordId(keepRecord.id);
+      setError("");
+      setPageStatus(
+        `Merged ${otherRecords.length} duplicate row${otherRecords.length === 1 ? "" : "s"} into ${keepRecord.teamName || formatContactName(keepRecord)}.`
+      );
+      await refreshCurrentYear();
+      await ensureRecordHistoryLoaded(keepRecord.id, { force: true });
+    } catch (mergeError) {
+      console.error("Unable to merge duplicate recruiting rows", mergeError);
+      setError(mergeError.message || "Unable to merge duplicate rows.");
+    } finally {
+      setMergingDuplicateRecordId("");
+    }
+  }
+
   function openFormTeamModal(record) {
     setSelectedRecordId(record.id);
     setTeamFormDraft(buildTeamFormDraft(record));
@@ -1425,6 +1496,13 @@ export default function RecruitingPage() {
     try {
       setIsSavingNotes(true);
       await saveRecruitingCycleContact(buildRecruitingRecordPayload(recordToSave));
+      await logRecruitingActivity({
+        recruitingCycleContactId: recordId,
+        actionType: "update",
+        actionDate: new Date().toISOString(),
+        staffMember: session?.name || session?.email || "Staff",
+        summary: "Updated recruiting details.",
+      });
       await refreshCurrentYear();
       await ensureRecordHistoryLoaded(recordId, { force: true });
       setRecordDetailsModalOpen(false);
@@ -1668,6 +1746,8 @@ export default function RecruitingPage() {
             {recordsToRender.map((record) => {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
+              const latestActivity = latestActivityByRecordId[record.id] || null;
+              const updateMeta = formatRecruitingUpdateMeta(record, latestActivity);
 
               return (
                 <tr
@@ -1690,6 +1770,14 @@ export default function RecruitingPage() {
                         .filter(Boolean)
                         .join(" | ") || "-"}
                     </div>
+                    {updateMeta ? (
+                      <div
+                        className="small recruitingUpdatedMeta"
+                        title={latestActivity?.summary || updateMeta}
+                      >
+                        {updateMeta}
+                      </div>
+                    ) : null}
                     {attention ? (
                       <span className={`badge ${attention.badgeClass}`} style={{ marginTop: 4 }}>
                         {attention.label}
@@ -1774,6 +1862,8 @@ export default function RecruitingPage() {
             {recordsToRender.map((record) => {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
+              const latestActivity = latestActivityByRecordId[record.id] || null;
+              const updateMeta = formatRecruitingUpdateMeta(record, latestActivity);
 
               return (
                 <tr
@@ -1782,7 +1872,17 @@ export default function RecruitingPage() {
                   style={getRecordRowStyle(record, record.id === selectedRecordId)}
                 >
                     <td>{record.teamName || "-"}</td>
-                    <td>{formatContactName(record)}</td>
+                    <td>
+                      <div>{formatContactName(record)}</div>
+                      {updateMeta ? (
+                        <div
+                          className="small recruitingUpdatedMeta"
+                          title={latestActivity?.summary || updateMeta}
+                        >
+                          {updateMeta}
+                        </div>
+                      ) : null}
+                    </td>
                     <td>
                       <div>{getRecordPeopleCount(record)} people</div>
                       <div className="small" style={{ marginTop: 2 }}>{getRecordPeopleSummary(record)}</div>
@@ -1869,7 +1969,20 @@ export default function RecruitingPage() {
           <tbody>
             {recordsToRender.map((record) => (
               <tr key={record.id} onClick={() => setSelectedRecordId(record.id)}>
-                <td>{record.teamName || record.linkedTrip?.name || "-"}</td>
+                <td>
+                  <div>{record.teamName || record.linkedTrip?.name || "-"}</div>
+                  {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id]) ? (
+                    <div
+                      className="small recruitingUpdatedMeta"
+                      title={
+                        latestActivityByRecordId[record.id]?.summary ||
+                        formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])
+                      }
+                    >
+                      {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])}
+                    </div>
+                  ) : null}
+                </td>
                 <td>{formatContactName(record)}</td>
                 <td>{record.linkedTrip?.site || record.site || "-"}</td>
                 <td>{record.linkedTrip?.departureDate ? formatDate(record.linkedTrip.departureDate) : formatFlexibleDepartureDate(record.departureDate)}</td>
@@ -1912,17 +2025,6 @@ export default function RecruitingPage() {
               <option key={year} value={year}>{year}</option>
             ))}
           </select>
-          <div className="card recruitingActionCard">
-            <button className="btn btnPrimary" type="button" onClick={openAddContactModal}>
-              Add Contact
-            </button>
-            <button className="btn" type="button" onClick={() => importInputRef.current?.click()}>
-              Add Bulk Contacts
-            </button>
-          </div>
-          <button className="btn recruitingTemplateButton" type="button" onClick={handleDownloadTemplate}>
-            Download Template
-          </button>
           <div className="recruitingSearchCluster">
             <input
               className="input recruitingToolbarSearch"
@@ -1936,6 +2038,17 @@ export default function RecruitingPage() {
             <button className={`btn ${filterPanelOpen ? "btnPrimary" : ""}`} type="button" onClick={() => setFilterPanelOpen((current) => !current)}>
               {filterPanelOpen ? "Hide Filters" : "Filters"}
               {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </button>
+          </div>
+          <button className="btn recruitingTemplateButton" type="button" onClick={handleDownloadTemplate}>
+            Download Template
+          </button>
+          <div className="card recruitingActionCard">
+            <button className="btn btnPrimary" type="button" onClick={openAddContactModal}>
+              Add Contact
+            </button>
+            <button className="btn" type="button" onClick={() => importInputRef.current?.click()}>
+              Add Bulk Contacts
             </button>
           </div>
         </div>
@@ -2042,6 +2155,16 @@ export default function RecruitingPage() {
                       >
                         Open
                       </button>
+                      {group.records.length > 1 ? (
+                        <button
+                          className="btn btnPrimary"
+                          type="button"
+                          onClick={() => void handleMergeDuplicateGroup(group, record)}
+                          disabled={mergingDuplicateRecordId === record.id}
+                        >
+                          {mergingDuplicateRecordId === record.id ? "Merging..." : "Keep This + Merge"}
+                        </button>
+                      ) : null}
                       <button
                         className="btn"
                         type="button"
@@ -2394,8 +2517,8 @@ export default function RecruitingPage() {
                       </div>
                     ) : null}
                     {!selectedRecord.isConvertedToTeam ? (
-                      <div>
-                        <div className="small" style={{ marginBottom: 6 }}>Team Members</div>
+                      <div className="recruitingInnerCard">
+                        <div style={{ fontWeight: 900, marginBottom: 10 }}>Team Members</div>
                         <div style={{ display: "grid", gap: 8 }}>
                           {selectedRecordPeople.length > 0 ? (
                             selectedRecordPeople.map((person, index) => {
@@ -2435,7 +2558,7 @@ export default function RecruitingPage() {
                               );
                             })
                           ) : (
-                            <div className="small">No extra team members added yet.</div>
+                            <div className="small">No team members added yet.</div>
                           )}
                           <div
                             style={{
@@ -2479,17 +2602,6 @@ export default function RecruitingPage() {
                           </div>
                           {renderDuplicateNotice(recordPersonDuplicateInfo)}
                         </div>
-                      </div>
-                    ) : null}
-                    {!selectedRecord.isConvertedToTeam ? (
-                      <div>
-                        <div className="small" style={{ marginBottom: 6 }}>Handoff Summary</div>
-                        <textarea
-                          className="input"
-                          rows={3}
-                          value={extractHandoffSummary(selectedRecord.mackaylaNotes)}
-                          onChange={(event) => updateRecordHandoffSummary(selectedRecord.id, event.target.value)}
-                        />
                       </div>
                     ) : null}
                     <div>

@@ -50,7 +50,7 @@ export default function Admin() {
   const [isAddingMiscTask, setIsAddingMiscTask] = useState(false);
   const [newMiscTaskDraft, setNewMiscTaskDraft] = useState({
     taskName: "",
-    workArea: "Misc",
+    workArea: "Personal Task",
     dueDate: "",
     progress: "Not started",
     notes: "",
@@ -247,7 +247,7 @@ export default function Admin() {
 
   const personalTaskCategoryOptions = useMemo(() => {
     const seen = new Set();
-    const options = ["Misc"];
+    const options = ["Personal Task"];
 
     trips.forEach((trip) => {
       const tripName = String(trip?.name || "").trim();
@@ -384,7 +384,7 @@ export default function Admin() {
       miscTasksRef.current = [...miscTasksRef.current, savedTask];
       setNewMiscTaskDraft({
         taskName: "",
-        workArea: "Misc",
+        workArea: "Personal Task",
         dueDate: "",
         progress: "Not started",
         notes: "",
@@ -542,10 +542,10 @@ export default function Admin() {
 
       <div className="card pad" style={{ marginBottom: 16 }}>
         <div className="row" style={{ marginBottom: 10 }}>
-          <div>
-            <div style={{ fontWeight: 900 }}>My Tasks</div>
-            <div className="small">
-              {myTasks.length} total task{myTasks.length === 1 ? "" : "s"}, including your misc personal tasks
+            <div>
+              <div style={{ fontWeight: 900 }}>My Tasks</div>
+              <div className="small">
+              {myTasks.length} total task{myTasks.length === 1 ? "" : "s"}, including your personal tasks
             </div>
           </div>
           {staffTaskStatus ? (
@@ -790,11 +790,11 @@ function TaskSection({
               return (
                 <tr key={taskKey} className="staffTaskRow">
                   <td style={{ fontWeight: 700 }}>
-                    {task.isMiscTask ? (
-                      <div style={{ display: "grid", gap: 6 }}>
+                  {task.isMiscTask ? (
+                      isEditingTitle ? (
                         <select
                           className="input"
-                          value={task.workArea || "Misc"}
+                          value={task.workArea || "Personal Task"}
                           onChange={(e) => void onUpdateTask(task.tripId, task.id, "workArea", e.target.value)}
                         >
                           {personalTaskCategoryOptions.map((option) => (
@@ -803,8 +803,11 @@ function TaskSection({
                             </option>
                           ))}
                         </select>
-                        <div className="small">Personal task</div>
-                      </div>
+                      ) : (
+                        <div style={{ fontWeight: 700 }}>
+                          {task.workArea || "Personal Task"}
+                        </div>
+                      )
                     ) : (
                       <div>{task.tripName}</div>
                     )}
@@ -818,7 +821,7 @@ function TaskSection({
                       />
                     ) : (
                       task.isMiscTask ? (
-                        <span style={{ fontWeight: 600 }}>
+                        <span className="adminTaskTitleText">
                           {task.taskName || task.title || "-"}
                         </span>
                       ) : (

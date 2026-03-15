@@ -97,6 +97,59 @@ function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function getWorkerConnectionStatus(member) {
+  if (member?.connected) {
+    return {
+      statusLabel: "Assigned",
+      statusBadgeClass: "badgeSuccess",
+      accountLabel: "Account Linked",
+      accountBadgeClass: "badgeSuccess",
+      canInvite: false,
+    };
+  }
+
+  if (member?.email) {
+    return {
+      statusLabel: "Pending Account",
+      statusBadgeClass: "badgeWarn",
+      accountLabel: "Needs Account",
+      accountBadgeClass: "badgeWarn",
+      canInvite: true,
+    };
+  }
+
+  return {
+    statusLabel: "Unassigned",
+    statusBadgeClass: "",
+    accountLabel: "No Email Yet",
+    accountBadgeClass: "",
+    canInvite: false,
+  };
+}
+
+function buildWorkerInvitePayload(email, trip) {
+  const loginUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/login`
+    : "/login";
+  const tripName = trip?.name || "your LST team";
+  const site = trip?.location ? ` for ${trip.location}` : "";
+  const subject = `Join ${tripName} on the LST app`;
+  const body = [
+    "Hi,",
+    "",
+    `You have been added to ${tripName}${site} in the LST app.`,
+    "",
+    "Create your account here:",
+    loginUrl,
+    "",
+    "Use this same email address so your account links to the team automatically.",
+    "",
+    "Thanks!",
+  ].join("\n");
+
+  return { loginUrl, subject, body };
+}
+
 function normalizeSiteInfoKey(value) {
   return String(value || "")
     .normalize("NFD")
@@ -307,6 +360,7 @@ export default function TripPage() {
   const [isAddingWorker, setIsAddingWorker] = useState(false);
   const [newWorkerDraft, setNewWorkerDraft] = useState(() => createEmptyWorkerDraft());
   const [workerAddStatus, setWorkerAddStatus] = useState("");
+  const [invitingWorkerEmail, setInvitingWorkerEmail] = useState("");
 
   const [trip, setTrip] = useState(null);
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
@@ -2693,6 +2747,36 @@ function parseDateSafe(dateStr) {
     }
   }
 
+  async function handleInviteWorker(member) {
+    const email = normalizeEmail(member?.email);
+    if (!email) {
+      setWorkerAddStatus("Add an email before sending an invite.");
+      return;
+    }
+
+    try {
+      setInvitingWorkerEmail(email);
+      const { subject, body } = buildWorkerInvitePayload(email, trip);
+      const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+      if (typeof window !== "undefined") {
+        window.location.href = mailtoUrl;
+      }
+
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${subject}\n\n${body}`);
+        setWorkerAddStatus(`Invite copied and email opened for ${email}.`);
+      } else {
+        setWorkerAddStatus(`Invite opened for ${email}.`);
+      }
+    } catch (error) {
+      console.error("Unable to prepare worker invite", error);
+      setWorkerAddStatus("Invite text could not be prepared.");
+    } finally {
+      setInvitingWorkerEmail("");
+    }
+  }
+
   function renderTripSetupCard() {
     return (
       <div className="card pad" style={{ gridColumn: "1 / -1" }}>
@@ -4240,13 +4324,18 @@ function parseDateSafe(dateStr) {
                   <tr>
                     <th>Name</th>
                     <th>Status</th>
+                    <th>Account</th>
                     <th>Email</th>
                     <th>Project Dates</th>
+                    {canViewAllParticipantData ? <th>Actions</th> : null}
                   </tr>
                 </thead>
                 <tbody>
                   {teamTabMembers.length > 0 ? (
-                    teamTabMembers.map((member) => (
+                    teamTabMembers.map((member) => {
+                      const connectionStatus = getWorkerConnectionStatus(member);
+
+                      return (
                       <tr key={member.key}>
                         <td style={{ fontWeight: 800 }}>
                           {canViewAllParticipantData && member.profileId ? (
@@ -4258,24 +4347,43 @@ function parseDateSafe(dateStr) {
                           )}
                         </td>
                         <td>
-                          {member.connected ? (
-                            <span className="badge badgeSuccess">Assigned</span>
-                          ) : (
-                            <span className="badge badgeWarn">Unassigned</span>
-                          )}
+                          <span className={`badge ${connectionStatus.statusBadgeClass}`.trim()}>
+                            {connectionStatus.statusLabel}
+                          </span>
                           {member.role ? (
                             <div className="small" style={{ marginTop: 4 }}>
                               {member.role}
                             </div>
                           ) : null}
                         </td>
+                        <td>
+                          <span className={`badge ${connectionStatus.accountBadgeClass}`.trim()}>
+                            {connectionStatus.accountLabel}
+                          </span>
+                        </td>
                         <td>{member.email || "Not set"}</td>
                         <td>{formatTripDateRange(member.startDate, member.endDate)}</td>
+                        {canViewAllParticipantData ? (
+                          <td>
+                            {connectionStatus.canInvite ? (
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={() => void handleInviteWorker(member)}
+                                disabled={invitingWorkerEmail === normalizeEmail(member.email)}
+                              >
+                                {invitingWorkerEmail === normalizeEmail(member.email) ? "Opening..." : "Invite"}
+                              </button>
+                            ) : (
+                              <span className="small">-</span>
+                            )}
+                          </td>
+                        ) : null}
                       </tr>
-                    ))
+                    )})
                   ) : (
                     <tr>
-                      <td colSpan={4} className="small">
+                      <td colSpan={canViewAllParticipantData ? 6 : 5} className="small">
                         No workers added yet.
                       </td>
                     </tr>
