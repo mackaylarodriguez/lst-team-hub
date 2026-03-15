@@ -11,6 +11,67 @@ import {
 import { useEffect, useState } from "react";
 import { isManagerRole, isStaffRole, ROLE_ADMIN } from "@/lib/roles";
 
+function SidebarIcon({ name }) {
+  if (name === "trips") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+        <path d="M8 3.5v3" />
+        <path d="M16 3.5v3" />
+        <path d="M3.5 9.5h17" />
+      </svg>
+    );
+  }
+
+  if (name === "tasks") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M9 6.5h10" />
+        <path d="M9 12h10" />
+        <path d="M9 17.5h10" />
+        <path d="M5 6.5h.01" />
+        <path d="M5 12h.01" />
+        <path d="M5 17.5h.01" />
+      </svg>
+    );
+  }
+
+  if (name === "workers") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+        <path d="M16.5 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+        <path d="M3.5 18.5c.7-2.7 2.8-4 5-4s4.3 1.3 5 4" />
+        <path d="M13.5 18.5c.5-1.9 2-2.9 3.6-2.9 1.4 0 2.6.7 3.4 2.1" />
+      </svg>
+    );
+  }
+
+  if (name === "recruiting") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="10" cy="10" r="5.5" />
+        <path d="m14 14 6 6" />
+      </svg>
+    );
+  }
+
+  if (name === "profile") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="8.5" r="3.5" />
+        <path d="M5 19c1.2-3.3 4.1-5 7-5s5.8 1.7 7 5" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="8" />
+    </svg>
+  );
+}
+
 export default function Shell({ children }) {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -100,17 +161,17 @@ export default function Shell({ children }) {
   }
 
   const navItems = [
-    { href: "/trips", label: "My Trips", shortLabel: "Trips", active: path.startsWith("/trips") },
+    { href: "/trips", label: "My Trips", active: path.startsWith("/trips"), icon: "trips" },
     canManageTrips
-      ? { href: "/admin", label: "My Tasks", shortLabel: "Tasks", active: path === "/admin" }
+      ? { href: "/admin", label: "My Tasks", active: path === "/admin", icon: "tasks" }
       : null,
     isStaffUser
-      ? { href: "/staff", label: "Workers", shortLabel: "People", active: path === "/staff" }
+      ? { href: "/staff", label: "Workers", active: path === "/staff", icon: "workers" }
       : null,
     isStaffUser
-      ? { href: "/recruiting", label: "Recruiting", shortLabel: "Recruit", active: path === "/recruiting" }
+      ? { href: "/recruiting", label: "Recruiting", active: path === "/recruiting", icon: "recruiting" }
       : null,
-    { href: "/profile", label: "Profile", shortLabel: "Profile", active: path === "/profile" },
+    { href: "/profile", label: "Profile", active: path === "/profile", icon: "profile" },
   ].filter(Boolean);
 
   return (
@@ -118,11 +179,17 @@ export default function Shell({ children }) {
       <aside className={`sidebar ${isSidebarCollapsed ? "sidebarCollapsed" : ""}`}>
         <div className="sidebarToggleRow">
           <button
-            className="btn sidebarToggleButton"
+            className="sidebarToggleButton"
             type="button"
             onClick={() => setIsSidebarCollapsed((current) => !current)}
+            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isSidebarCollapsed ? "Expand" : "Collapse"}
+            <span className="sidebarToggleIcon" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
           </button>
         </div>
         <div className="brand">
@@ -136,19 +203,38 @@ export default function Shell({ children }) {
         <div style={{ height: 14 }} />
         <nav className="nav">
           {navItems.map((item) => (
-            <Link key={item.href} className={item.active ? "active" : ""} href={item.href}>
-              {isSidebarCollapsed ? item.shortLabel : item.label}
+            <Link
+              key={item.href}
+              className={`sidebarNavLink ${item.active ? "active" : ""}`}
+              href={item.href}
+              aria-label={item.label}
+              title={item.label}
+            >
+              <span className="sidebarNavIcon">
+                <SidebarIcon name={item.icon} />
+              </span>
+              {!isSidebarCollapsed ? <span>{item.label}</span> : null}
             </Link>
           ))}
           <a
             href="#"
+            className="sidebarNavLink"
+            aria-label="Logout"
+            title="Logout"
             onClick={async (e) => {
               e.preventDefault();
               await clearSession();
               router.push("/login");
             }}
           >
-            {isSidebarCollapsed ? "Out" : "Logout"}
+            <span className="sidebarNavIcon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 4.5H6.5A2.5 2.5 0 0 0 4 7v10a2.5 2.5 0 0 0 2.5 2.5H9" />
+                <path d="M14 16.5 19 12l-5-4.5" />
+                <path d="M10 12h9" />
+              </svg>
+            </span>
+            {!isSidebarCollapsed ? <span>Logout</span> : null}
           </a>
         </nav>
 

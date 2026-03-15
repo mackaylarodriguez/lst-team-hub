@@ -185,6 +185,15 @@ function createEmptyRosterMember() {
   };
 }
 
+function createEmptyWorkerDraft() {
+  return {
+    firstName: "",
+    lastName: "",
+    email: "",
+    assignmentMode: "unassigned",
+  };
+}
+
 function buildStaffTaskRowDomId(taskId) {
   return `staff-task-row-${String(taskId || "").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
@@ -296,7 +305,7 @@ export default function TripPage() {
   const [rosterDraft, setRosterDraft] = useState([]);
   const [rosterStatus, setRosterStatus] = useState("");
   const [isAddingWorker, setIsAddingWorker] = useState(false);
-  const [newWorkerEmail, setNewWorkerEmail] = useState("");
+  const [newWorkerDraft, setNewWorkerDraft] = useState(() => createEmptyWorkerDraft());
   const [workerAddStatus, setWorkerAddStatus] = useState("");
 
   const [trip, setTrip] = useState(null);
@@ -2575,15 +2584,19 @@ function parseDateSafe(dateStr) {
   function handleStartAddWorker() {
     setIsEditingRoster(false);
     setRosterStatus("");
-    setNewWorkerEmail("");
+    setNewWorkerDraft(createEmptyWorkerDraft());
     setWorkerAddStatus("");
     setIsAddingWorker(true);
   }
 
   function handleCancelAddWorker() {
-    setNewWorkerEmail("");
+    setNewWorkerDraft(createEmptyWorkerDraft());
     setWorkerAddStatus("");
     setIsAddingWorker(false);
+  }
+
+  function updateNewWorkerDraft(field, value) {
+    setNewWorkerDraft((current) => ({ ...current, [field]: value }));
   }
 
   function handleAddRosterMember() {
@@ -2613,22 +2626,66 @@ function parseDateSafe(dateStr) {
   async function handleAddWorkerToTrip() {
     if (!trip?.id) return;
 
+    const firstName = String(newWorkerDraft.firstName || "").trim();
+    const lastName = String(newWorkerDraft.lastName || "").trim();
+    const email = normalizeEmail(newWorkerDraft.email);
+
+    if (!firstName || !lastName || !email) {
+      setWorkerAddStatus("Enter first name, last name, and email.");
+      return;
+    }
+
+    const existingRosterMember = (trip.teamMembers || []).find(
+      (member) => normalizeEmail(member.email) === email
+    );
+    const existingAssignedWorker = (trip.participants || []).find(
+      (participant) => normalizeEmail(participant.email) === email
+    );
+
+    if (existingRosterMember || existingAssignedWorker) {
+      setWorkerAddStatus("That worker is already on this trip.");
+      return;
+    }
+
     try {
       setWorkerAddStatus("Adding...");
-      const result = await assignWorkerByEmailToTrip({
-        workerEmail: newWorkerEmail,
-        tripId: trip.id,
-      });
+      const nextRosterMembers = await saveTripTeamMembers(trip.id, [
+        ...(trip.teamMembers || []),
+        {
+          firstName,
+          lastName,
+          email,
+          startDate: "",
+          endDate: "",
+        },
+      ]);
 
-      if (result.status !== "assigned") {
-        setWorkerAddStatus(result.message || "Unable to add worker.");
-        return;
+      let nextParticipants = trip.participants || [];
+      let statusMessage = "Worker added as unassigned.";
+
+      if (newWorkerDraft.assignmentMode === "assigned") {
+        const result = await assignWorkerByEmailToTrip({
+          workerEmail: email,
+          tripId: trip.id,
+        });
+
+        if (result.status === "assigned" || result.status === "duplicate") {
+          nextParticipants = await listTripParticipants(trip.id);
+          statusMessage = "Worker added and assigned to this trip.";
+        } else {
+          statusMessage = "Worker saved as unassigned. Assign them after an account exists for that email.";
+        }
       }
 
-      const nextParticipants = await listTripParticipants(trip.id);
-      setTrip((current) => (current ? { ...current, participants: nextParticipants } : current));
-      setWorkerAddStatus("Worker added and linked to this trip.");
-      setNewWorkerEmail("");
+      setTrip((current) => (current
+        ? {
+            ...current,
+            teamMembers: nextRosterMembers,
+            participants: nextParticipants,
+          }
+        : current));
+      setWorkerAddStatus(statusMessage);
+      setNewWorkerDraft(createEmptyWorkerDraft());
       setIsAddingWorker(false);
     } catch (error) {
       console.error("Unable to add worker to trip", error);
@@ -4071,15 +4128,37 @@ function parseDateSafe(dateStr) {
                 }}
               >
                 <div className="small">
-                  Add a worker account by email. This links an existing worker profile to this trip.
+                  Add a worker to this team with name and email. You can leave them unassigned or assign them to this trip now.
                 </div>
-                <input
-                  className="input"
-                  type="email"
-                  value={newWorkerEmail}
-                  onChange={(event) => setNewWorkerEmail(event.target.value)}
-                  placeholder="worker@email.com"
-                />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                  <input
+                    className="input"
+                    value={newWorkerDraft.firstName}
+                    onChange={(event) => updateNewWorkerDraft("firstName", event.target.value)}
+                    placeholder="First name"
+                  />
+                  <input
+                    className="input"
+                    value={newWorkerDraft.lastName}
+                    onChange={(event) => updateNewWorkerDraft("lastName", event.target.value)}
+                    placeholder="Last name"
+                  />
+                  <input
+                    className="input"
+                    type="email"
+                    value={newWorkerDraft.email}
+                    onChange={(event) => updateNewWorkerDraft("email", event.target.value)}
+                    placeholder="worker@email.com"
+                  />
+                  <select
+                    className="input"
+                    value={newWorkerDraft.assignmentMode}
+                    onChange={(event) => updateNewWorkerDraft("assignmentMode", event.target.value)}
+                  >
+                    <option value="unassigned">Leave Unassigned</option>
+                    <option value="assigned">Assign To This Trip</option>
+                  </select>
+                </div>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                   <button className="btn btnPrimary" type="button" onClick={handleAddWorkerToTrip}>
                     Save Worker
@@ -4160,7 +4239,7 @@ function parseDateSafe(dateStr) {
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Role</th>
+                    <th>Status</th>
                     <th>Email</th>
                     <th>Project Dates</th>
                   </tr>
@@ -4179,13 +4258,16 @@ function parseDateSafe(dateStr) {
                           )}
                         </td>
                         <td>
-                          {member.role ? (
-                            <span className={"badge " + (member.role === "Leader" ? "badgeWarn" : "")}>
-                              {member.role}
-                            </span>
+                          {member.connected ? (
+                            <span className="badge badgeSuccess">Assigned</span>
                           ) : (
-                            <span className="small">Worker</span>
+                            <span className="badge badgeWarn">Unassigned</span>
                           )}
+                          {member.role ? (
+                            <div className="small" style={{ marginTop: 4 }}>
+                              {member.role}
+                            </div>
+                          ) : null}
                         </td>
                         <td>{member.email || "Not set"}</td>
                         <td>{formatTripDateRange(member.startDate, member.endDate)}</td>

@@ -34,6 +34,16 @@ a:hover{text-decoration:underline}
 .btn:hover{background:var(--skySoft)}
 .btnPrimary{border-color:transparent; background:var(--primary); color:#fff}
 .btnPrimary:hover{background:var(--primary2)}
+.tripCardActionRow{
+  align-items:stretch;
+}
+.tripCardActionButton{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:102px;
+  text-align:center;
+}
 .input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:12px; font-size:14px}
 .input:focus{outline:none; border-color:rgba(60,170,225,.7); box-shadow:0 0 0 4px rgba(60,170,225,.12)}
 .statusSelect{font-weight:700}
@@ -49,8 +59,30 @@ a:hover{text-decoration:underline}
 .shellCollapsed{grid-template-columns:112px 1fr}
 .sidebar{position:sticky; top:0; height:100vh; padding:18px; background:#fff; border-right:1px solid var(--border)}
 .sidebarCollapsed{padding-left:10px; padding-right:10px}
-.sidebarToggleRow{display:flex; margin-bottom:10px}
-.sidebarToggleButton{width:100%; justify-content:center}
+.sidebarToggleRow{display:flex; justify-content:flex-end; margin-bottom:10px}
+.sidebarToggleButton{
+  width:42px;
+  height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:#fff;
+  cursor:pointer;
+}
+.sidebarToggleButton:hover{background:var(--skySoft)}
+.sidebarToggleIcon{
+  display:grid;
+  gap:4px;
+}
+.sidebarToggleIcon span{
+  display:block;
+  width:16px;
+  height:2px;
+  border-radius:999px;
+  background:var(--text);
+}
 .brand{display:flex; gap:10px; align-items:center; margin-bottom:18px}
 .sidebarCollapsed .brand{justify-content:center}
 .logo{width:38px; height:38px; border-radius:12px; background:linear-gradient(135deg,var(--primary),var(--primary2)); box-shadow:0 12px 25px rgba(47,73,147,.22)}
@@ -58,7 +90,33 @@ a:hover{text-decoration:underline}
 .nav a{padding:10px 12px; border-radius:12px; color:var(--text); border:1px solid transparent}
 .nav a:hover{background:var(--skySoft); text-decoration:none}
 .nav a.active{background:var(--primarySoft); border-color:rgba(47,73,147,.22); color:var(--primary)}
-.sidebarCollapsed .nav a{text-align:center; padding:10px 8px; font-size:12px; line-height:1.15}
+.sidebarNavLink{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.sidebarNavIcon{
+  width:18px;
+  height:18px;
+  flex:0 0 18px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.sidebarNavIcon svg{
+  width:18px;
+  height:18px;
+}
+.sidebarCollapsed .nav a,
+.sidebarCollapsed .sidebarNavLink{
+  justify-content:center;
+  padding:12px 8px;
+}
+.sidebarCollapsed .sidebarNavIcon{
+  width:20px;
+  height:20px;
+  flex-basis:20px;
+}
 .sidebarCollapsedMeta{display:flex; justify-content:center}
 .main{padding:26px 28px 40px 28px}
 .tabs{display:flex; gap:8px; flex-wrap:wrap}
@@ -72,6 +130,84 @@ a:hover{text-decoration:underline}
   overflow-x:auto;
   overflow-y:visible;
   cursor:grab;
+}
+.recruitingToolbar{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.recruitingYearSelect{
+  width:92px;
+  min-width:92px;
+  padding-right:28px;
+}
+.recruitingActionCard{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border-radius:16px;
+}
+.recruitingTemplateButton{
+  white-space:nowrap;
+}
+.recruitingSearchCluster{
+  flex:1 1 340px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:280px;
+}
+.recruitingToolbarSearch{
+  flex:1 1 auto;
+  min-width:180px;
+}
+.recruitingFontButton{
+  width:38px;
+  height:38px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:#fff;
+  color:var(--primary);
+  font-weight:900;
+  font-size:16px;
+  line-height:1;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, background-color .16s ease, color .16s ease;
+}
+.recruitingFontDock{
+  position:fixed;
+  right:24px;
+  bottom:24px;
+  z-index:24;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px;
+  border:1px solid rgba(18,16,12,.08);
+  border-radius:999px;
+  background:rgba(255,255,255,.94);
+  box-shadow:0 16px 30px rgba(15,23,42,.14);
+  backdrop-filter:blur(10px);
+}
+.recruitingFontButton:hover:not(:disabled),
+.recruitingFontButton:focus-visible:not(:disabled){
+  transform:translateY(-1px);
+  border-color:rgba(47,73,147,.35);
+  background:rgba(234,242,255,.65);
+  box-shadow:0 8px 18px rgba(47,73,147,.12);
+}
+.recruitingFontButton:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+  box-shadow:none;
+}
+.recruitingFontButtonLarge{
+  font-size:20px;
 }
 .recruitingTableScroller.isDragging{
   cursor:grabbing;
@@ -226,8 +362,14 @@ a:hover{text-decoration:underline}
   .sidebar{position:relative; height:auto; border-right:none; border-bottom:1px solid var(--border)}
   .sidebarCollapsed{padding-left:18px; padding-right:18px}
   .sidebarCollapsed .brand{justify-content:flex-start}
-  .sidebarCollapsed .nav a{text-align:left; padding:10px 12px; font-size:14px}
+  .sidebarCollapsed .nav a,
+  .sidebarCollapsed .sidebarNavLink{justify-content:flex-start; padding:10px 12px; font-size:14px}
   .sidebarCollapsedMeta{justify-content:flex-start}
+  .recruitingSearchCluster{min-width:100%}
+  .recruitingFontDock{
+    right:16px;
+    bottom:16px;
+  }
 }
 .staffTaskSectionHeader{
   display:flex;

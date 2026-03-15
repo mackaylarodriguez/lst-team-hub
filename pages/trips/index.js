@@ -693,16 +693,16 @@ export default function Trips() {
                   </div>
                 ) : null}
                 <div style={{ height: 12 }} />
-                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <div className="row tripCardActionRow" style={{ gap: 8, flexWrap: "wrap" }}>
                   <Link
-                    className="btn btnPrimary"
+                    className="btn btnPrimary tripCardActionButton"
                     href={`/trips/${encodeURIComponent(trip.id)}`}
                   >
                     View Trip
                   </Link>
                   {canManageTrips && (
                     <button
-                      className="btn"
+                      className="btn tripCardActionButton"
                       type="button"
                       onClick={async () => {
                         try {
@@ -719,7 +719,7 @@ export default function Trips() {
                   )}
                   {isAdminUser && (
                     <button
-                      className="btn"
+                      className="btn tripCardActionButton"
                       type="button"
                       onClick={() => handleDeleteTrip(trip.id)}
                     >
@@ -775,16 +775,16 @@ export default function Trips() {
                   </div>
                 ) : null}
                 <div style={{ height: 12 }} />
-                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <div className="row tripCardActionRow" style={{ gap: 8, flexWrap: "wrap" }}>
                   <Link
-                    className="btn btnPrimary"
+                    className="btn btnPrimary tripCardActionButton"
                     href={`/trips/${encodeURIComponent(trip.id)}`}
                   >
                     View Trip
                   </Link>
                   {canManageTrips && (
                     <button
-                      className="btn"
+                      className="btn tripCardActionButton"
                       type="button"
                       onClick={async () => {
                         try {
@@ -801,7 +801,7 @@ export default function Trips() {
                   )}
                   {isAdminUser && (
                     <button
-                      className="btn"
+                      className="btn tripCardActionButton"
                       type="button"
                       onClick={() => handleDeleteTrip(trip.id)}
                     >
@@ -856,15 +856,15 @@ export default function Trips() {
                     </div>
                   ) : null}
                   <div style={{ height: 12 }} />
-                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <div className="row tripCardActionRow" style={{ gap: 8, flexWrap: "wrap" }}>
                     <Link
-                      className="btn btnPrimary"
+                      className="btn btnPrimary tripCardActionButton"
                       href={`/trips/${encodeURIComponent(trip.id)}`}
                     >
                       View Trip
                     </Link>
                     <button
-                      className="btn"
+                      className="btn tripCardActionButton"
                       type="button"
                       onClick={async () => {
                         try {
@@ -880,7 +880,7 @@ export default function Trips() {
                     </button>
                     {isAdminUser && (
                       <button
-                        className="btn"
+                        className="btn tripCardActionButton"
                         type="button"
                         onClick={() => handleDeleteTrip(trip.id)}
                       >

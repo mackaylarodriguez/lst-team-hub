@@ -399,6 +399,8 @@ const DEFAULT_FILTER_CONFIG = {
   workflowStatus: "all",
 };
 
+const TABLE_FONT_SIZES = ["small", "medium", "large"];
+
 const BULK_ACTION_OPTIONS = [
   { value: "bulk email", label: "Mark Bulk Email Sent" },
   { value: "bulk text", label: "Mark Bulk Text Sent" },
@@ -1031,6 +1033,18 @@ export default function RecruitingPage() {
   function applyFilter(config, filterId = "custom") {
     setFilterConfig({ ...DEFAULT_FILTER_CONFIG, ...config });
     setActiveFilterId(filterId);
+  }
+
+  function adjustTableFont(direction) {
+    const currentIndex = TABLE_FONT_SIZES.indexOf(tableFontSize);
+    if (currentIndex === -1) {
+      setTableFontSize("medium");
+      return;
+    }
+    const nextIndex = direction === "down"
+      ? Math.max(0, currentIndex - 1)
+      : Math.min(TABLE_FONT_SIZES.length - 1, currentIndex + 1);
+    setTableFontSize(TABLE_FONT_SIZES[nextIndex]);
   }
 
   function handleChangeTab(tabId) {
@@ -1881,45 +1895,49 @@ export default function RecruitingPage() {
 
   return (
     <Shell>
-      <div className="row" style={{ marginBottom: 14 }}>
+      <div style={{ display: "grid", gap: 12, marginBottom: 14 }}>
         <div>
           <h1 className="h1" style={{ marginBottom: 4 }}>Recruiting</h1>
           <div className="small">Yearly recruiting cycles, import, queue management, and contact history.</div>
         </div>
-        <div className="spacer" />
-        <select
-          className="input"
-          value={selectedYear}
-          onChange={(event) => setSelectedYear(Number(event.target.value))}
-          style={{ minWidth: 120 }}
-        >
-          {years.map((year) => (
-            <option key={year} value={year}>{year}</option>
-          ))}
-        </select>
-        <button className="btn" type="button" onClick={handleDownloadTemplate}>
-          Download Template
-        </button>
-        <button className="btn" type="button" onClick={openAddContactModal}>
-          Add Contact
-        </button>
-        <select
-          className="input"
-          value={tableFontSize}
-          onChange={(event) => setTableFontSize(event.target.value)}
-          style={{ width: 132 }}
-        >
-          <option value="small">Font: Small</option>
-          <option value="medium">Font: Medium</option>
-          <option value="large">Font: Large</option>
-        </select>
-        <button className={`btn ${filterPanelOpen ? "btnPrimary" : ""}`} type="button" onClick={() => setFilterPanelOpen((current) => !current)}>
-          {filterPanelOpen ? "Hide Search & Filters" : "Search & Filters"}
-          {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-        </button>
-        <button className="btn" type="button" onClick={() => importInputRef.current?.click()}>
-          Import Contacts
-        </button>
+        <div className="recruitingToolbar">
+          <select
+            className="input recruitingYearSelect"
+            value={selectedYear}
+            onChange={(event) => setSelectedYear(Number(event.target.value))}
+            aria-label="Recruiting year"
+          >
+            {years.map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+          <div className="card recruitingActionCard">
+            <button className="btn btnPrimary" type="button" onClick={openAddContactModal}>
+              Add Contact
+            </button>
+            <button className="btn" type="button" onClick={() => importInputRef.current?.click()}>
+              Add Bulk Contacts
+            </button>
+          </div>
+          <button className="btn recruitingTemplateButton" type="button" onClick={handleDownloadTemplate}>
+            Download Template
+          </button>
+          <div className="recruitingSearchCluster">
+            <input
+              className="input recruitingToolbarSearch"
+              value={filterConfig.searchQuery}
+              onChange={(event) =>
+                applyFilter({ ...filterConfig, searchQuery: event.target.value }, "custom")
+              }
+              placeholder={`Search ${selectedYear} contacts`}
+              aria-label="Search recruiting contacts"
+            />
+            <button className={`btn ${filterPanelOpen ? "btnPrimary" : ""}`} type="button" onClick={() => setFilterPanelOpen((current) => !current)}>
+              {filterPanelOpen ? "Hide Filters" : "Filters"}
+              {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </button>
+          </div>
+        </div>
         <input
           ref={importInputRef}
           type="file"
@@ -2056,8 +2074,8 @@ export default function RecruitingPage() {
         <div className="card pad" style={{ marginBottom: 14 }}>
           <div className="row" style={{ marginBottom: 10 }}>
             <div>
-              <div style={{ fontWeight: 900 }}>Search & Filters</div>
-              <div className="small">Use search, owner, stage, or a couple quick views when you want to narrow the list.</div>
+              <div style={{ fontWeight: 900 }}>Filters</div>
+              <div className="small">Use owner, stage, or a couple quick views when you want to narrow the list.</div>
             </div>
             <div className="spacer" />
             <button className="btn" type="button" onClick={() => applyFilter(DEFAULT_FILTER_CONFIG, "all")}>
@@ -2071,14 +2089,6 @@ export default function RecruitingPage() {
               gap: 10,
             }}
           >
-            <input
-              className="input"
-              value={filterConfig.searchQuery}
-              onChange={(event) =>
-                applyFilter({ ...filterConfig, searchQuery: event.target.value }, "custom")
-              }
-              placeholder="Search contacts"
-            />
             <select
               className="input"
               value={filterConfig.stage}
@@ -2128,7 +2138,7 @@ export default function RecruitingPage() {
       ) : activeFilterCount > 0 ? (
         <div className="card pad" style={{ marginBottom: 14 }}>
           <div className="small">
-            Filters are active. Open `Search & Filters` to adjust or clear them.
+            Filters are active. Use the search bar or open `Filters` to adjust or clear them.
           </div>
         </div>
       ) : null}
@@ -2552,6 +2562,29 @@ export default function RecruitingPage() {
           </div>
         </div>
       ) : null}
+
+      <div className="recruitingFontDock" aria-label="Table font size">
+        <button
+          className="recruitingFontButton"
+          type="button"
+          onClick={() => adjustTableFont("down")}
+          disabled={tableFontSize === "small"}
+          aria-label="Smaller recruiting text"
+          title="Smaller text"
+        >
+          a
+        </button>
+        <button
+          className="recruitingFontButton recruitingFontButtonLarge"
+          type="button"
+          onClick={() => adjustTableFont("up")}
+          disabled={tableFontSize === "large"}
+          aria-label="Larger recruiting text"
+          title="Larger text"
+        >
+          A
+        </button>
+      </div>
 
       {importModalOpen ? (
         <div
