@@ -67,7 +67,11 @@ export default function Login() {
     <div className="container" style={{ display:"grid", placeItems:"center", minHeight:"100vh" }}>
       <div className="card pad" style={{ width:"min(520px, 100%)" }}>
         <div className="row" style={{ marginBottom: 14 }}>
-          <div className="logo" aria-hidden="true" />
+          <img
+            className="logoImage"
+            src="/logos/Lets-Start-Talking-LOGO-CMYK.png"
+            alt="LST logo"
+          />
           <div>
             <div style={{ fontSize: 20, fontWeight: 900, letterSpacing:"-.02em" }}>LST International Projects Hub</div>
           </div>
@@ -76,8 +80,8 @@ export default function Login() {
         <div className="card pad" style={{ boxShadow:"none", borderStyle:"dashed", marginBottom: 14, background:"rgba(255,255,255,.75)" }}>
           <div className="small">
             {mode === "signin"
-              ? "Sign in with a real Supabase user account for this project."
-              : "Create a public account with Supabase Auth."}
+              ? "Sign in with your LST app account."
+              : "Create your LST app account here. If your email already matches a worker on a trip, we will link it automatically."}
           </div>
         </div>
 
