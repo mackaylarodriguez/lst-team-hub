@@ -86,7 +86,12 @@ a:hover{text-decoration:underline}
 }
 .brand{display:flex; gap:10px; align-items:center; margin-bottom:18px}
 .sidebarCollapsed .brand{justify-content:center}
-.logo{width:38px; height:38px; border-radius:12px; background:linear-gradient(135deg,var(--primary),var(--primary2)); box-shadow:0 12px 25px rgba(47,73,147,.22)}
+.logoImage{
+  width:42px;
+  height:42px;
+  object-fit:contain;
+  display:block;
+}
 .nav{display:flex; flex-direction:column; gap:6px; margin-top:10px}
 .nav a{padding:10px 12px; border-radius:12px; color:var(--text); border:1px solid transparent}
 .nav a:hover{background:var(--skySoft); text-decoration:none}

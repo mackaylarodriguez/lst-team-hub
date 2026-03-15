@@ -193,7 +193,11 @@ export default function Shell({ children }) {
           </button>
         </div>
         <div className="brand">
-          <div className="logo" aria-hidden="true" />
+          <img
+            className="logoImage"
+            src="/logos/Lets-Start-Talking-LOGO-CMYK.png"
+            alt="LST logo"
+          />
           {!isSidebarCollapsed ? (
             <div>
               <div style={{ fontWeight: 900, letterSpacing: "-.02em" }}>LST International Projects Hub</div>
