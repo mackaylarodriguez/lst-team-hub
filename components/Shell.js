@@ -105,7 +105,7 @@ export default function Shell({ children }) {
       ? { href: "/admin", label: "My Tasks", shortLabel: "Tasks", active: path === "/admin" }
       : null,
     isStaffUser
-      ? { href: "/staff", label: "Participants", shortLabel: "People", active: path === "/staff" }
+      ? { href: "/staff", label: "Workers", shortLabel: "People", active: path === "/staff" }
       : null,
     isStaffUser
       ? { href: "/recruiting", label: "Recruiting", shortLabel: "Recruit", active: path === "/recruiting" }

@@ -79,14 +79,14 @@ a:hover{text-decoration:underline}
 }
 .recruitingCompactTable th,
 .recruitingCompactTable td{
-  padding:6px 8px;
-  font-size:12px;
-  line-height:1.25;
+  padding:5px 6px;
+  font-size:11px;
+  line-height:1.15;
   vertical-align:top;
   white-space:nowrap;
 }
 .recruitingCompactTable th{
-  font-size:11px;
+  font-size:10px;
   letter-spacing:.04em;
   text-transform:uppercase;
 }
@@ -108,17 +108,34 @@ a:hover{text-decoration:underline}
   overflow:hidden;
   white-space:normal;
 }
+.recruitingInlineNoteInput{
+  min-height:58px;
+  padding:6px 7px;
+  font-size:11px;
+  line-height:1.2;
+  border-radius:10px;
+  resize:vertical;
+}
+.recruitingSnapshotText{
+  white-space:normal;
+  line-height:1.2;
+}
+.recruitingLastContactCell{
+  font-weight:700;
+  white-space:normal;
+  line-height:1.2;
+}
 .recruitingFitActionRow{
-  gap:4px;
+  gap:3px;
   flex-wrap:wrap;
   justify-content:flex-start;
 }
 .recruitingFitActionRow .btn{
-  padding:5px 7px;
-  font-size:11px;
+  padding:4px 6px;
+  font-size:10px;
 }
 .recruitingActionRow{
-  gap:4px;
+  gap:3px;
   flex-wrap:nowrap;
 }
 .recruitingActionRow.recruitingFitActionRow{
@@ -126,9 +143,9 @@ a:hover{text-decoration:underline}
   justify-content:flex-start;
 }
 .recruitingActionRow .btn{
-  padding:6px 8px;
-  border-radius:10px;
-  font-size:12px;
+  padding:4px 6px;
+  border-radius:9px;
+  font-size:10px;
   white-space:nowrap;
 }
 .recruitingExpandedRow td{

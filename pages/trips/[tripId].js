@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import {
+  assignWorkerByEmailToTrip,
   getTripForCurrentUser,
   listTripParticipants,
   saveTripParticipantDocumentTypes,
@@ -294,6 +295,9 @@ export default function TripPage() {
   const [isEditingRoster, setIsEditingRoster] = useState(false);
   const [rosterDraft, setRosterDraft] = useState([]);
   const [rosterStatus, setRosterStatus] = useState("");
+  const [isAddingWorker, setIsAddingWorker] = useState(false);
+  const [newWorkerEmail, setNewWorkerEmail] = useState("");
+  const [workerAddStatus, setWorkerAddStatus] = useState("");
 
   const [trip, setTrip] = useState(null);
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
@@ -2557,6 +2561,8 @@ function parseDateSafe(dateStr) {
   function handleStartRosterEdit() {
     setRosterDraft((trip?.teamMembers || []).length > 0 ? trip.teamMembers : [createEmptyRosterMember()]);
     setRosterStatus("");
+    setWorkerAddStatus("");
+    setIsAddingWorker(false);
     setIsEditingRoster(true);
   }
 
@@ -2564,6 +2570,20 @@ function parseDateSafe(dateStr) {
     setRosterDraft(trip?.teamMembers || []);
     setRosterStatus("");
     setIsEditingRoster(false);
+  }
+
+  function handleStartAddWorker() {
+    setIsEditingRoster(false);
+    setRosterStatus("");
+    setNewWorkerEmail("");
+    setWorkerAddStatus("");
+    setIsAddingWorker(true);
+  }
+
+  function handleCancelAddWorker() {
+    setNewWorkerEmail("");
+    setWorkerAddStatus("");
+    setIsAddingWorker(false);
   }
 
   function handleAddRosterMember() {
@@ -2587,6 +2607,32 @@ function parseDateSafe(dateStr) {
     } catch (error) {
       console.error("Unable to save team roster", error);
       setRosterStatus(error.message || "Unable to save team roster.");
+    }
+  }
+
+  async function handleAddWorkerToTrip() {
+    if (!trip?.id) return;
+
+    try {
+      setWorkerAddStatus("Adding...");
+      const result = await assignWorkerByEmailToTrip({
+        workerEmail: newWorkerEmail,
+        tripId: trip.id,
+      });
+
+      if (result.status !== "assigned") {
+        setWorkerAddStatus(result.message || "Unable to add worker.");
+        return;
+      }
+
+      const nextParticipants = await listTripParticipants(trip.id);
+      setTrip((current) => (current ? { ...current, participants: nextParticipants } : current));
+      setWorkerAddStatus("Worker added and linked to this trip.");
+      setNewWorkerEmail("");
+      setIsAddingWorker(false);
+    } catch (error) {
+      console.error("Unable to add worker to trip", error);
+      setWorkerAddStatus(error.message || "Unable to add worker.");
     }
   }
 
@@ -3258,7 +3304,7 @@ function parseDateSafe(dateStr) {
     };
   }, [trip, canViewAllParticipantData, currentParticipant, referenceEmails]);
 
-  const overviewTaskLabel = canViewAllParticipantData ? "Participant Tasks" : "My Tasks";
+  const overviewTaskLabel = canViewAllParticipantData ? "Worker Tasks" : "My Tasks";
   const overviewTaskPct = canViewAllParticipantData
     ? participantTaskPct
     : currentParticipantProgress?.percent || 0;
@@ -3321,7 +3367,7 @@ function parseDateSafe(dateStr) {
     : trip?.teamFundraisingUrl
       ? "Shared Neon page is ready for the full team."
       : canViewAllParticipantData
-        ? `${savedFundraisingLinksCount} participant links saved.`
+        ? `${savedFundraisingLinksCount} worker links saved.`
         : currentParticipant?.fundraisingUrl
         ? "Your personal Neon page is available."
         : "No personal Neon page added yet.";
@@ -3501,7 +3547,7 @@ function parseDateSafe(dateStr) {
     trip,
   ]);
 
-  const participantDocumentsTabLabel = canViewAllParticipantData ? "Participant Docs" : "My Documents";
+  const participantDocumentsTabLabel = canViewAllParticipantData ? "Worker Docs" : "My Documents";
   const tripDocumentsTabLabel = "Trip Documents";
 
   const tabs = 
@@ -3565,11 +3611,11 @@ function parseDateSafe(dateStr) {
               ))}
             </select>
             {isPreviewingParticipant && (
-              <span className="badge">Previewing participant view</span>
+              <span className="badge">Previewing worker view</span>
             )}
           </div>
         )}
-        <div className="badge">{trip.participants.length} participants</div>
+        <div className="badge">{trip.participants.length} workers</div>
       </div>
 
       <div className="row" style={{ marginBottom: 14 }}>
@@ -3988,19 +4034,62 @@ function parseDateSafe(dateStr) {
         <div style={{ display: "grid", gap: 16 }}>
           <div className="card pad">
             <div className="row" style={{ marginBottom: 10, alignItems: "center" }}>
-              <div style={{ fontWeight: 900 }}>Team Members</div>
+              <div style={{ fontWeight: 900 }}>Workers</div>
               <div className="spacer" />
+              {workerAddStatus ? (
+                <div className="small" style={{ alignSelf: "center", marginRight: 8 }}>
+                  {workerAddStatus}
+                </div>
+              ) : null}
               {rosterStatus ? (
                 <div className="small" style={{ alignSelf: "center", marginRight: 8 }}>
                   {rosterStatus}
                 </div>
               ) : null}
-              {canViewAllParticipantData && !isEditingRoster ? (
-                <button className="btn" type="button" onClick={handleStartRosterEdit}>
-                  Edit Roster
-                </button>
+              {canViewAllParticipantData && !isEditingRoster && !isAddingWorker ? (
+                <>
+                  <button className="btn" type="button" onClick={handleStartAddWorker}>
+                    Add Worker
+                  </button>
+                  <button className="btn" type="button" onClick={handleStartRosterEdit}>
+                    Edit Roster
+                  </button>
+                </>
               ) : null}
             </div>
+
+            {canViewAllParticipantData && isAddingWorker ? (
+              <div
+                style={{
+                  display: "grid",
+                  gap: 10,
+                  padding: 12,
+                  marginBottom: 12,
+                  borderRadius: 14,
+                  border: "1px solid var(--border)",
+                  background: "#fff",
+                }}
+              >
+                <div className="small">
+                  Add a worker account by email. This links an existing worker profile to this trip.
+                </div>
+                <input
+                  className="input"
+                  type="email"
+                  value={newWorkerEmail}
+                  onChange={(event) => setNewWorkerEmail(event.target.value)}
+                  placeholder="worker@email.com"
+                />
+                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <button className="btn btnPrimary" type="button" onClick={handleAddWorkerToTrip}>
+                    Save Worker
+                  </button>
+                  <button className="btn" type="button" onClick={handleCancelAddWorker}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             {canViewAllParticipantData && isEditingRoster ? (
               <div style={{ display: "grid", gap: 12 }}>
@@ -4056,7 +4145,7 @@ function parseDateSafe(dateStr) {
 
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                   <button className="btn" type="button" onClick={handleAddRosterMember}>
-                    Add Member
+                    Add Worker
                   </button>
                   <button className="btn btnPrimary" type="button" onClick={handleSaveRoster}>
                     Save Roster
@@ -4095,7 +4184,7 @@ function parseDateSafe(dateStr) {
                               {member.role}
                             </span>
                           ) : (
-                            <span className="small">Team Member</span>
+                            <span className="small">Worker</span>
                           )}
                         </td>
                         <td>{member.email || "Not set"}</td>
@@ -4105,7 +4194,7 @@ function parseDateSafe(dateStr) {
                   ) : (
                     <tr>
                       <td colSpan={4} className="small">
-                        No team members added yet.
+                        No workers added yet.
                       </td>
                     </tr>
                   )}
@@ -5985,7 +6074,7 @@ function parseDateSafe(dateStr) {
             <div className="row" style={{ marginBottom: 10 }}>
               <div>
                 <div style={{ fontWeight: 900 }}>
-                  {canViewAllParticipantData ? "Participant Uploads" : "My Documents"}
+                  {canViewAllParticipantData ? "Worker Uploads" : "My Documents"}
                 </div>
               </div>
               <div className="spacer" />

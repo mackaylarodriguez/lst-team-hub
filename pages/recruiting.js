@@ -295,6 +295,30 @@ function formatCompactDateTime(value) {
   });
 }
 
+function formatMonthDay(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-US", {
+    month: "numeric",
+    day: "numeric",
+  });
+}
+
+function formatContactActionLabel(actionType) {
+  if (actionType === "email") return "Emailed";
+  if (actionType === "call") return "Called";
+  if (actionType === "text") return "Texted";
+  return String(actionType || "").trim();
+}
+
+function formatLastContactSummary(record) {
+  if (!record?.lastContactedAt) return "-";
+  const dateLabel = formatMonthDay(record.lastContactedAt);
+  const actionLabel = formatContactActionLabel(record.lastContactMethod);
+  return actionLabel && dateLabel ? `${actionLabel} ${dateLabel}` : dateLabel || actionLabel || "-";
+}
+
 function isOlderThanDays(value, days) {
   if (!value) return false;
   const date = new Date(value);
@@ -1422,6 +1446,10 @@ export default function RecruitingPage() {
     );
   }
 
+  function updateRecordLesleeNotes(recordId, value) {
+    updateRecordField(recordId, "lesleeNotes", value);
+  }
+
   function updateRecordHandoffSummary(recordId, value) {
     setRecords((current) =>
       current.map((record) =>
@@ -1533,38 +1561,33 @@ export default function RecruitingPage() {
   }
 
   async function handleQuickContact(record, actionType) {
-    const summary = window.prompt(`${actionType === "email" ? "Email" : actionType === "call" ? "Call" : actionType === "text" ? "Text" : "Note"} notes`);
-    if (summary === null) return;
+    const defaultDate = new Date().toISOString().slice(0, 10);
+    const actionLabel = formatContactActionLabel(actionType);
+    const dateInput = window.prompt(`${actionLabel} date (YYYY-MM-DD)`, defaultDate);
+    if (dateInput === null) return;
+
+    const trimmedDateInput = String(dateInput || "").trim() || defaultDate;
+    const parsedActionDate = /^\d{4}-\d{2}-\d{2}$/.test(trimmedDateInput)
+      ? new Date(`${trimmedDateInput}T12:00:00`)
+      : new Date(trimmedDateInput);
+
+    if (Number.isNaN(parsedActionDate.getTime())) {
+      setError("Enter a valid action date.");
+      return;
+    }
+    const actionDate = parsedActionDate.toISOString();
+
+    const summary = window.prompt(`${actionLabel} notes (optional)`, "") || "";
 
     await logRecruitingCycleContactAction({
       record,
       actionType,
-      actionDate: new Date().toISOString(),
+      actionDate,
       staffMember: session?.name || session?.email || "Staff",
       summary,
       stage: actionType === "email" || actionType === "call" || actionType === "text"
         ? Math.max(record.stage, 1)
         : undefined,
-    });
-
-    await refreshCurrentYear();
-    await ensureRecordHistoryLoaded(record.id, { force: true });
-  }
-
-  async function handleAttendedInfoMeeting(record) {
-    const summary = window.prompt(
-      "Info meeting notes",
-      "Attended info meeting"
-    );
-    if (summary === null) return;
-
-    await logRecruitingCycleContactAction({
-      record,
-      actionType: "info meeting",
-      actionDate: new Date().toISOString(),
-      staffMember: session?.name || session?.email || "Staff",
-      summary: String(summary || "").trim() || "Attended info meeting",
-      stage: Math.max(record.stage, 1),
     });
 
     await refreshCurrentYear();
@@ -1595,13 +1618,15 @@ export default function RecruitingPage() {
       <DraggableTable>
         <table className="table recruitingCompactTable recruitingFitTable">
           <colgroup>
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "14%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "13%" }} />
             <col style={{ width: "10%" }} />
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "15%" }} />
             <col style={{ width: "11%" }} />
-            <col style={{ width: "19%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "19%" }} />
-            <col style={{ width: "20%" }} />
           </colgroup>
           <thead>
             <tr>
@@ -1609,8 +1634,10 @@ export default function RecruitingPage() {
               <th>Last Name</th>
               <th>Email</th>
               <th>Male/Female</th>
+              <th>Trip Details</th>
               <th>Last Contacted</th>
-              <th>Notes</th>
+              <th>Mackayla Notes</th>
+              <th>Leslee Notes</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -1628,14 +1655,18 @@ export default function RecruitingPage() {
                   <td>{record.contact?.firstName || "-"}</td>
                   <td>{record.contact?.lastName || "-"}</td>
                   <td className="recruitingFitEmailCell">
-                    <div>{record.contact?.email || "-"}</div>
-                    {record.contact?.phone ? (
-                      <div className="small">{record.contact.phone}</div>
-                    ) : null}
+                    <div>{record.contact?.email || record.contact?.phone || "-"}</div>
                     {renderDuplicateNotice(duplicateInfo, { compact: true })}
                   </td>
                   <td>
                     <div>{record.contact?.gender || "-"}</div>
+                  </td>
+                  <td>
+                    <div className="recruitingSnapshotText">
+                      {[record.site, record.projectDates, record.departureDate ? `Departs ${formatFlexibleDepartureDate(record.departureDate)}` : ""]
+                        .filter(Boolean)
+                        .join(" | ") || "-"}
+                    </div>
                     {attention ? (
                       <span className={`badge ${attention.badgeClass}`} style={{ marginTop: 4 }}>
                         {attention.label}
@@ -1643,24 +1674,34 @@ export default function RecruitingPage() {
                     ) : null}
                   </td>
                   <td title={record.lastContactedAt ? formatDateTime(record.lastContactedAt) : ""}>
-                    {record.lastContactedAt ? formatCompactDateTime(record.lastContactedAt) : "-"}
+                    <div className="recruitingLastContactCell">{formatLastContactSummary(record)}</div>
                   </td>
-                  <td>
-                    <div
-                      className="recruitingFitNotesText"
-                      title={stripHandoffSummary(record.mackaylaNotes) || ""}
-                    >
-                      {stripHandoffSummary(record.mackaylaNotes) || "-"}
-                    </div>
+                  <td onClick={(event) => event.stopPropagation()}>
+                    <textarea
+                      className="input recruitingInlineNoteInput"
+                      rows={3}
+                      value={stripHandoffSummary(record.mackaylaNotes)}
+                      onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      placeholder="Add Mackayla notes"
+                    />
+                  </td>
+                  <td onClick={(event) => event.stopPropagation()}>
+                    <textarea
+                      className="input recruitingInlineNoteInput"
+                      rows={3}
+                      value={record.lesleeNotes || ""}
+                      onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      placeholder="Add Leslee notes"
+                    />
                   </td>
                   <td onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow recruitingFitActionRow">
                       <button className="btn" type="button" onClick={() => handleQuickContact(record, "email")}>Emailed</button>
                       <button className="btn" type="button" onClick={() => handleQuickContact(record, "call")}>Called</button>
                       <button className="btn" type="button" onClick={() => handleQuickContact(record, "text")}>Texted</button>
-                      <button className="btn" type="button" onClick={() => handleAttendedInfoMeeting(record)}>Info Meeting</button>
-                      <button className="btn" type="button" onClick={() => handleQuickContact(record, "note")}>Note</button>
-                      <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
+                      <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
                     </div>
                   </td>
                 </tr>
@@ -2438,11 +2479,6 @@ export default function RecruitingPage() {
                       <button className="btn btnPrimary" type="button" onClick={() => handleSaveRecord()}>
                         {isSavingNotes ? "Saving..." : "Save Record"}
                       </button>
-                      {activeTab === "outreach" ? (
-                        <button className="btn" type="button" onClick={() => handleAttendedInfoMeeting(selectedRecord)}>
-                          Attended Info Meeting
-                        </button>
-                      ) : null}
                       {activeTab === "outreach" ? (
                         <button className="btn" type="button" onClick={() => handlePromote(selectedRecord)}>
                           Promote To Potential Teams
