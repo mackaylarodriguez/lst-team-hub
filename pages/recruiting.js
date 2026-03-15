@@ -436,13 +436,14 @@ function extractHandoffSummary(notes) {
 function stripHandoffSummary(notes) {
   return String(notes || "")
     .replace(/\[HANDOFF SUMMARY\]\s*[\s\S]*?\s*\[\/HANDOFF SUMMARY\]/i, "")
-    .trim();
+    .replace(/^\n+/, "")
+    .replace(/\n+$/, "");
 }
 
 function buildMackaylaNotes(baseNotes, handoffSummary) {
-  const cleanNotes = String(baseNotes || "").trim();
+  const cleanNotes = String(baseNotes || "");
   const cleanSummary = String(handoffSummary || "").trim();
-  return [cleanSummary ? `${HANDOFF_SUMMARY_START}\n${cleanSummary}\n${HANDOFF_SUMMARY_END}` : "", cleanNotes]
+  return [cleanSummary ? `${HANDOFF_SUMMARY_START}\n${cleanSummary}\n${HANDOFF_SUMMARY_END}` : "", cleanNotes.trim() ? cleanNotes : ""]
     .filter(Boolean)
     .join("\n\n");
 }
