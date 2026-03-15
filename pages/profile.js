@@ -89,6 +89,7 @@ export default function Profile() {
       if (!session) return;
 
       const canManageProfiles = isManagerRole(session.permissionRole || session.role);
+      const canViewPrivateStaffSections = canManageProfiles && !session.isImpersonating;
       const targetProfileId =
         canManageProfiles && participantId ? String(participantId) : session.profileId || session.id;
 
@@ -158,8 +159,8 @@ export default function Profile() {
 
         const [nextDocuments, nextNotes, nextRecruitingRecords] = await Promise.all([
           listProfileDocuments(targetProfileId),
-          canManageProfiles ? listProfileStaffNotes(targetProfileId) : Promise.resolve([]),
-          canManageProfiles && displayProfile.email
+          canViewPrivateStaffSections ? listProfileStaffNotes(targetProfileId) : Promise.resolve([]),
+          canViewPrivateStaffSections && displayProfile.email
             ? listRecruitingCycleContactsByEmail(displayProfile.email)
             : Promise.resolve([]),
         ]);
@@ -196,6 +197,7 @@ export default function Profile() {
   }, [participantId, router.isReady, session]);
 
   const canManageProfiles = isManagerRole(session?.permissionRole || session?.role);
+  const canViewPrivateStaffSections = canManageProfiles && !session?.isImpersonating;
   const groupedDocuments = useMemo(() => {
     const groups = new Map();
 
@@ -390,7 +392,7 @@ export default function Profile() {
           )}
         </div>
 
-        {canManageProfiles && profile ? (
+        {canViewPrivateStaffSections && profile ? (
           <div style={{ display: "grid", gap: 16 }}>
             <div className="card pad">
               <div className="row" style={{ marginBottom: 10 }}>
