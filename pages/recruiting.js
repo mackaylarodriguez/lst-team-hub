@@ -622,7 +622,7 @@ export default function RecruitingPage() {
   const [filterConfig, setFilterConfig] = useState(DEFAULT_FILTER_CONFIG);
   const [activeFilterId, setActiveFilterId] = useState("all");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
-  const [tableFontSize, setTableFontSize] = useState("small");
+  const [tableFontSize, setTableFontSize] = useState("medium");
   const [activeTab, setActiveTab] = useState("outreach");
   const [selectedRecordId, setSelectedRecordId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
