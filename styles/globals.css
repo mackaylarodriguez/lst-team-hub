@@ -277,6 +277,18 @@ a:hover{text-decoration:underline}
   white-space:normal;
   line-height:1.2;
 }
+.recruitingContactHistoryList{
+  display:grid;
+  gap:6px;
+}
+.recruitingContactHistoryItem{
+  padding-bottom:6px;
+  border-bottom:1px solid rgba(15,23,42,.08);
+}
+.recruitingContactHistoryItem:last-child{
+  padding-bottom:0;
+  border-bottom:none;
+}
 .recruitingFitActionRow{
   gap:3px;
   flex-wrap:wrap;
@@ -373,6 +385,12 @@ a:hover{text-decoration:underline}
   border:1px solid var(--border);
   border-radius:14px;
   background:rgba(244,248,252,.7);
+}
+.recruitingMinorName{
+  color:#b45309;
+}
+.recruitingMinorLabel{
+  color:#b45309;
 }
 .progress{height:10px; background:var(--primarySoft); border:1px solid rgba(47,73,147,.16); border-radius:999px; overflow:hidden}
 .progress > div{height:100%; background:linear-gradient(90deg,var(--primary),var(--primary2))}

@@ -13,6 +13,7 @@ import {
   getRecruitingStageLabel,
   importRecruitingContacts,
   listRecruitingActivityLogs,
+  listRecruitingContactActivityByIds,
   listLatestRecruitingActivityByIds,
   listRecruitingCycleContacts,
   listRecruitingYears,
@@ -99,30 +100,37 @@ function parseTeamMemberEntries(value) {
     const trimmedEntry = String(entry || "").trim();
     if (!trimmedEntry) return null;
 
-    const angleMatch = trimmedEntry.match(/^(.*?)\s*<([^>]+)>$/);
+    const minorMatch = trimmedEntry.match(/^\[minor\]\s*/i);
+    const isMinor = Boolean(minorMatch);
+    const withoutMinorLabel = trimmedEntry.replace(/^\[minor\]\s*/i, "").trim();
+
+    const angleMatch = withoutMinorLabel.match(/^(.*?)\s*<([^>]+)>$/);
     if (angleMatch) {
       return {
         raw: trimmedEntry,
         name: String(angleMatch[1] || "").trim(),
         email: normalizeEmailValue(angleMatch[2]),
+        isMinor,
       };
     }
 
-    const emailMatch = trimmedEntry.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    const emailMatch = withoutMinorLabel.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
     if (emailMatch) {
       const email = normalizeEmailValue(emailMatch[0]);
-      const name = trimmedEntry.replace(emailMatch[0], "").replace(/[<>()-]/g, " ").trim();
+      const name = withoutMinorLabel.replace(emailMatch[0], "").replace(/[<>()-]/g, " ").trim();
       return {
         raw: trimmedEntry,
         name,
         email,
+        isMinor,
       };
     }
 
     return {
       raw: trimmedEntry,
-      name: trimmedEntry,
+      name: withoutMinorLabel,
       email: "",
+      isMinor,
     };
   }).filter(Boolean);
 }
@@ -130,8 +138,9 @@ function parseTeamMemberEntries(value) {
 function formatTeamMemberEntry(person) {
   const name = String(person?.name || "").trim();
   const email = normalizeEmailValue(person?.email);
-  if (name && email) return `${name} <${email}>`;
-  return name || email || "";
+  const minorPrefix = person?.isMinor ? "[Minor] " : "";
+  if (name && email) return `${minorPrefix}${name} <${email}>`;
+  return `${minorPrefix}${name || email || ""}`.trim();
 }
 
 function buildTeamMembersText(people) {
@@ -312,6 +321,8 @@ function formatContactActionLabel(actionType) {
   if (actionType === "email") return "Emailed";
   if (actionType === "call") return "Called";
   if (actionType === "text") return "Texted";
+  if (actionType === "bulk email") return "Bulk Emailed";
+  if (actionType === "bulk text") return "Bulk Texted";
   return String(actionType || "").trim();
 }
 
@@ -320,6 +331,18 @@ function formatLastContactSummary(record) {
   const dateLabel = formatMonthDay(record.lastContactedAt);
   const actionLabel = formatContactActionLabel(record.lastContactMethod);
   return actionLabel && dateLabel ? `${actionLabel} ${dateLabel}` : dateLabel || actionLabel || "-";
+}
+
+function isContactActionType(actionType) {
+  return ["email", "call", "text", "bulk email", "bulk text"].includes(
+    String(actionType || "").trim().toLowerCase()
+  );
+}
+
+function formatContactHistorySummary(entry) {
+  const actionLabel = formatContactActionLabel(entry?.actionType);
+  const dateLabel = formatMonthDay(entry?.actionDate || entry?.createdAt);
+  return [actionLabel, dateLabel].filter(Boolean).join(" ");
 }
 
 function formatRecruitingUpdateMeta(record, latestActivity) {
@@ -639,6 +662,7 @@ export default function RecruitingPage() {
   const [historyByRecordId, setHistoryByRecordId] = useState({});
   const [historyLoadingByRecordId, setHistoryLoadingByRecordId] = useState({});
   const [latestActivityByRecordId, setLatestActivityByRecordId] = useState({});
+  const [contactActivityByRecordId, setContactActivityByRecordId] = useState({});
   const [error, setError] = useState("");
   const [pageStatus, setPageStatus] = useState("");
   const [filterConfig, setFilterConfig] = useState(DEFAULT_FILTER_CONFIG);
@@ -659,7 +683,7 @@ export default function RecruitingPage() {
     teamMembers: "",
     assignedTo: "",
   });
-  const [newContactPersonDraft, setNewContactPersonDraft] = useState({ name: "", email: "" });
+  const [newContactPersonDraft, setNewContactPersonDraft] = useState({ name: "", email: "", isMinor: false });
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importPreviewRows, setImportPreviewRows] = useState([]);
   const [importSummary, setImportSummary] = useState("");
@@ -674,14 +698,22 @@ export default function RecruitingPage() {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [deletingDuplicateRecordId, setDeletingDuplicateRecordId] = useState("");
   const [mergingDuplicateRecordId, setMergingDuplicateRecordId] = useState("");
+  const [contactActionModalOpen, setContactActionModalOpen] = useState(false);
+  const [isSavingContactAction, setIsSavingContactAction] = useState(false);
   const [promoteModalOpen, setPromoteModalOpen] = useState(false);
   const [recordDetailsModalOpen, setRecordDetailsModalOpen] = useState(false);
   const [recordDetailsMode, setRecordDetailsMode] = useState("details");
   const [promoteDraft, setPromoteDraft] = useState(() => buildPromoteDraft(null));
-  const [recordPersonDraft, setRecordPersonDraft] = useState({ name: "", email: "" });
-  const [promotePersonDraft, setPromotePersonDraft] = useState({ name: "", email: "" });
+  const [recordPersonDraft, setRecordPersonDraft] = useState({ name: "", email: "", isMinor: false });
+  const [promotePersonDraft, setPromotePersonDraft] = useState({ name: "", email: "", isMinor: false });
   const [formTeamModalOpen, setFormTeamModalOpen] = useState(false);
   const [teamFormDraft, setTeamFormDraft] = useState(() => buildTeamFormDraft(null));
+  const [contactActionDraft, setContactActionDraft] = useState({
+    recordId: "",
+    actionType: "email",
+    actionDate: new Date().toISOString().slice(0, 10),
+    summary: "",
+  });
   const importInputRef = useRef(null);
   const historyCacheRef = useRef({});
   const loadingHistoryRef = useRef({});
@@ -736,12 +768,14 @@ export default function RecruitingPage() {
           listRecruitingCycleContacts(selectedYear),
           listTripTeamMembersForDuplicateCheck(),
         ]);
-        const nextLatestActivity = await listLatestRecruitingActivityByIds(
-          nextRecords.map((record) => record.id)
-        );
+        const [nextLatestActivity, nextContactActivity] = await Promise.all([
+          listLatestRecruitingActivityByIds(nextRecords.map((record) => record.id)),
+          listRecruitingContactActivityByIds(nextRecords.map((record) => record.id)),
+        ]);
         setRecords(nextRecords);
         setTripTeamMembers(nextTripTeamMembers);
         setLatestActivityByRecordId(nextLatestActivity);
+        setContactActivityByRecordId(nextContactActivity);
         setError("");
       } catch (loadError) {
         console.error("Unable to load recruiting records", loadError);
@@ -771,6 +805,7 @@ export default function RecruitingPage() {
     setHistoryByRecordId({});
     setHistoryLoadingByRecordId({});
     setLatestActivityByRecordId({});
+    setContactActivityByRecordId({});
   }, [selectedYear]);
 
   const filteredRecords = useMemo(() => {
@@ -920,12 +955,14 @@ export default function RecruitingPage() {
       listRecruitingCycleContacts(selectedYear),
       listTripTeamMembersForDuplicateCheck(),
     ]);
-    const nextLatestActivity = await listLatestRecruitingActivityByIds(
-      nextRecords.map((record) => record.id)
-    );
+    const [nextLatestActivity, nextContactActivity] = await Promise.all([
+      listLatestRecruitingActivityByIds(nextRecords.map((record) => record.id)),
+      listRecruitingContactActivityByIds(nextRecords.map((record) => record.id)),
+    ]);
     setRecords(nextRecords);
     setTripTeamMembers(nextTripTeamMembers);
     setLatestActivityByRecordId(nextLatestActivity);
+    setContactActivityByRecordId(nextContactActivity);
   }
 
   const duplicateSourceLookup = useMemo(() => {
@@ -1106,6 +1143,10 @@ export default function RecruitingPage() {
         ...current,
         [recordId]: rows[0] || current[recordId] || null,
       }));
+      setContactActivityByRecordId((current) => ({
+        ...current,
+        [recordId]: rows.filter((entry) => isContactActionType(entry.actionType)),
+      }));
       return rows;
     } catch (loadError) {
       console.error("Unable to load recruiting history", loadError);
@@ -1194,7 +1235,7 @@ export default function RecruitingPage() {
         teamMembers: "",
         assignedTo: "",
       });
-      setNewContactPersonDraft({ name: "", email: "" });
+      setNewContactPersonDraft({ name: "", email: "", isMinor: false });
       setAddContactModalOpen(false);
       setError("");
       await refreshCurrentYear();
@@ -1232,7 +1273,7 @@ export default function RecruitingPage() {
   function handlePromote(record) {
     setSelectedRecordId(record.id);
     setPromoteDraft(buildPromoteDraft(record));
-    setPromotePersonDraft({ name: "", email: "" });
+    setPromotePersonDraft({ name: "", email: "", isMinor: false });
     setPromoteModalOpen(true);
     setError("");
   }
@@ -1301,7 +1342,7 @@ export default function RecruitingPage() {
     setSelectedRecordId(recordId);
     setRecordDetailsMode(mode);
     setRecordDetailsModalOpen(true);
-    setRecordPersonDraft({ name: "", email: "" });
+    setRecordPersonDraft({ name: "", email: "", isMinor: false });
     await ensureRecordHistoryLoaded(recordId);
   }
 
@@ -1591,6 +1632,7 @@ export default function RecruitingPage() {
     const nextEntry = {
       name: recordPersonDraft.name,
       email: recordPersonDraft.email,
+      isMinor: recordPersonDraft.isMinor,
     };
     const formattedEntry = formatTeamMemberEntry(nextEntry);
     if (!formattedEntry) return;
@@ -1599,7 +1641,7 @@ export default function RecruitingPage() {
       "teamMembers",
       buildTeamMembersText([...selectedRecordPeople, nextEntry])
     );
-    setRecordPersonDraft({ name: "", email: "" });
+    setRecordPersonDraft({ name: "", email: "", isMinor: false });
   }
 
   function handleRemovePersonFromSelectedRecord(indexToRemove) {
@@ -1617,6 +1659,7 @@ export default function RecruitingPage() {
     const nextEntry = {
       name: newContactPersonDraft.name,
       email: newContactPersonDraft.email,
+      isMinor: newContactPersonDraft.isMinor,
     };
     const formattedEntry = formatTeamMemberEntry(nextEntry);
     if (!formattedEntry) return;
@@ -1625,7 +1668,7 @@ export default function RecruitingPage() {
       ...current,
       teamMembers: buildTeamMembersText([...parseTeamMemberEntries(current.teamMembers), nextEntry]),
     }));
-    setNewContactPersonDraft({ name: "", email: "" });
+    setNewContactPersonDraft({ name: "", email: "", isMinor: false });
   }
 
   function handleRemovePersonFromNewContact(indexToRemove) {
@@ -1641,6 +1684,7 @@ export default function RecruitingPage() {
     const nextEntry = {
       name: promotePersonDraft.name,
       email: promotePersonDraft.email,
+      isMinor: promotePersonDraft.isMinor,
     };
     const formattedEntry = formatTeamMemberEntry(nextEntry);
     if (!formattedEntry) return;
@@ -1649,7 +1693,7 @@ export default function RecruitingPage() {
       ...current,
       teamMembers: buildTeamMembersText([...promotePeople, nextEntry]),
     }));
-    setPromotePersonDraft({ name: "", email: "" });
+    setPromotePersonDraft({ name: "", email: "", isMinor: false });
   }
 
   function handleRemovePersonFromPromoteDraft(indexToRemove) {
@@ -1661,13 +1705,22 @@ export default function RecruitingPage() {
     }));
   }
 
-  async function handleQuickContact(record, actionType) {
-    const defaultDate = new Date().toISOString().slice(0, 10);
-    const actionLabel = formatContactActionLabel(actionType);
-    const dateInput = window.prompt(`${actionLabel} date (YYYY-MM-DD)`, defaultDate);
-    if (dateInput === null) return;
+  function openContactActionModal(record, actionType) {
+    if (!record?.id) return;
+    setContactActionDraft({
+      recordId: record.id,
+      actionType,
+      actionDate: new Date().toISOString().slice(0, 10),
+      summary: "",
+    });
+    setContactActionModalOpen(true);
+  }
 
-    const trimmedDateInput = String(dateInput || "").trim() || defaultDate;
+  async function handleSaveContactAction() {
+    const record = records.find((entry) => entry.id === contactActionDraft.recordId);
+    if (!record) return;
+
+    const trimmedDateInput = String(contactActionDraft.actionDate || "").trim();
     const parsedActionDate = /^\d{4}-\d{2}-\d{2}$/.test(trimmedDateInput)
       ? new Date(`${trimmedDateInput}T12:00:00`)
       : new Date(trimmedDateInput);
@@ -1676,23 +1729,35 @@ export default function RecruitingPage() {
       setError("Enter a valid action date.");
       return;
     }
-    const actionDate = parsedActionDate.toISOString();
 
-    const summary = window.prompt(`${actionLabel} notes (optional)`, "") || "";
-
-    await logRecruitingCycleContactAction({
-      record,
-      actionType,
-      actionDate,
-      staffMember: session?.name || session?.email || "Staff",
-      summary,
-      stage: actionType === "email" || actionType === "call" || actionType === "text"
-        ? Math.max(record.stage, 1)
-        : undefined,
-    });
-
-    await refreshCurrentYear();
-    await ensureRecordHistoryLoaded(record.id, { force: true });
+    try {
+      setIsSavingContactAction(true);
+      await logRecruitingCycleContactAction({
+        record,
+        actionType: contactActionDraft.actionType,
+        actionDate: parsedActionDate.toISOString(),
+        staffMember: session?.name || session?.email || "Staff",
+        summary: contactActionDraft.summary,
+        stage: ["email", "call", "text"].includes(contactActionDraft.actionType)
+          ? Math.max(record.stage, 1)
+          : undefined,
+      });
+      setContactActionModalOpen(false);
+      setContactActionDraft({
+        recordId: "",
+        actionType: "email",
+        actionDate: new Date().toISOString().slice(0, 10),
+        summary: "",
+      });
+      setError("");
+      await refreshCurrentYear();
+      await ensureRecordHistoryLoaded(record.id, { force: true });
+    } catch (saveError) {
+      console.error("Unable to save recruiting contact action", saveError);
+      setError(saveError.message || "Unable to save contact action.");
+    } finally {
+      setIsSavingContactAction(false);
+    }
   }
 
   function openAddContactModal() {
@@ -1706,7 +1771,7 @@ export default function RecruitingPage() {
       teamMembers: "",
       assignedTo: "",
     });
-    setNewContactPersonDraft({ name: "", email: "" });
+    setNewContactPersonDraft({ name: "", email: "", isMinor: false });
     setAddContactModalOpen(true);
   }
 
@@ -1734,7 +1799,7 @@ export default function RecruitingPage() {
               <th>First Name</th>
               <th>Last Name</th>
               <th>Email</th>
-              <th>Male/Female</th>
+              <th>Gender</th>
               <th>Trip Details</th>
               <th>Last Contacted</th>
               <th>Mackayla Notes</th>
@@ -1748,6 +1813,7 @@ export default function RecruitingPage() {
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
               const latestActivity = latestActivityByRecordId[record.id] || null;
               const updateMeta = formatRecruitingUpdateMeta(record, latestActivity);
+              const contactActivity = contactActivityByRecordId[record.id] || [];
 
               return (
                 <tr
@@ -1784,8 +1850,27 @@ export default function RecruitingPage() {
                       </span>
                     ) : null}
                   </td>
-                  <td title={record.lastContactedAt ? formatDateTime(record.lastContactedAt) : ""}>
-                    <div className="recruitingLastContactCell">{formatLastContactSummary(record)}</div>
+                  <td>
+                    {contactActivity.length > 0 ? (
+                      <div className="recruitingContactHistoryList">
+                        {contactActivity.map((entry) => (
+                          <div
+                            key={entry.id}
+                            className="recruitingContactHistoryItem"
+                            title={entry.summary || formatDateTime(entry.actionDate)}
+                          >
+                            <div className="recruitingLastContactCell">
+                              {formatContactHistorySummary(entry)}
+                            </div>
+                            {entry.summary ? (
+                              <div className="small">{entry.summary}</div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="recruitingLastContactCell">{formatLastContactSummary(record)}</div>
+                    )}
                   </td>
                   <td onClick={(event) => event.stopPropagation()}>
                     <textarea
@@ -1809,9 +1894,9 @@ export default function RecruitingPage() {
                   </td>
                   <td onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow recruitingFitActionRow">
-                      <button className="btn" type="button" onClick={() => handleQuickContact(record, "email")}>Emailed</button>
-                      <button className="btn" type="button" onClick={() => handleQuickContact(record, "call")}>Called</button>
-                      <button className="btn" type="button" onClick={() => handleQuickContact(record, "text")}>Texted</button>
+                      <button className="btn" type="button" onClick={() => openContactActionModal(record, "email")}>Emailed</button>
+                      <button className="btn" type="button" onClick={() => openContactActionModal(record, "call")}>Called</button>
+                      <button className="btn" type="button" onClick={() => openContactActionModal(record, "text")}>Texted</button>
                       <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
                     </div>
                   </td>
@@ -2416,7 +2501,7 @@ export default function RecruitingPage() {
                       />
                     </div>
                     <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Male / Female</div>
+                      <div className="small" style={{ marginBottom: 6 }}>Gender</div>
                       <select
                         className="input"
                         value={selectedRecord.contact?.gender || ""}
@@ -2542,8 +2627,13 @@ export default function RecruitingPage() {
                                 >
                                   <div className="row" style={{ alignItems: "flex-start" }}>
                                     <div style={{ flex: 1 }}>
-                                      <div style={{ fontWeight: 700 }}>{person.name || "Unnamed person"}</div>
+                                      <div className={person.isMinor ? "recruitingMinorName" : ""} style={{ fontWeight: 700 }}>
+                                        {person.name || "Unnamed person"}
+                                      </div>
                                       <div className="small">{person.email || "No email added"}</div>
+                                      {person.isMinor ? (
+                                        <div className="small recruitingMinorLabel">Minor</div>
+                                      ) : null}
                                       {renderDuplicateNotice(duplicateInfo)}
                                     </div>
                                     <button
@@ -2558,12 +2648,12 @@ export default function RecruitingPage() {
                               );
                             })
                           ) : (
-                            <div className="small">No team members added yet.</div>
+                            <div className="small">Add additional team members here.</div>
                           )}
                           <div
                             style={{
                               display: "grid",
-                              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                               gap: 8,
                               alignItems: "end",
                             }}
@@ -2596,6 +2686,19 @@ export default function RecruitingPage() {
                                 placeholder="person@email.com"
                               />
                             </div>
+                            <label className="small" style={{ display: "grid", gap: 6 }}>
+                              <span>Minor</span>
+                              <input
+                                type="checkbox"
+                                checked={recordPersonDraft.isMinor}
+                                onChange={(event) =>
+                                  setRecordPersonDraft((current) => ({
+                                    ...current,
+                                    isMinor: event.target.checked,
+                                  }))
+                                }
+                              />
+                            </label>
                             <button className="btn" type="button" onClick={handleAddPersonToSelectedRecord}>
                               Add Person
                             </button>
@@ -2870,8 +2973,13 @@ export default function RecruitingPage() {
                         >
                           <div className="row" style={{ alignItems: "flex-start" }}>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 700 }}>{person.name || "Unnamed person"}</div>
+                              <div className={person.isMinor ? "recruitingMinorName" : ""} style={{ fontWeight: 700 }}>
+                                {person.name || "Unnamed person"}
+                              </div>
                               <div className="small">{person.email || "No email added"}</div>
+                              {person.isMinor ? (
+                                <div className="small recruitingMinorLabel">Minor</div>
+                              ) : null}
                               {renderDuplicateNotice(duplicateInfo)}
                             </div>
                             <button
@@ -2886,12 +2994,12 @@ export default function RecruitingPage() {
                       );
                     })
                   ) : (
-                    <div className="small">No extra team members added yet.</div>
+                    <div className="small">Add additional team members here.</div>
                   )}
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                       gap: 8,
                       alignItems: "end",
                     }}
@@ -2924,6 +3032,19 @@ export default function RecruitingPage() {
                         placeholder="person@email.com"
                       />
                     </div>
+                    <label className="small" style={{ display: "grid", gap: 6 }}>
+                      <span>Minor</span>
+                      <input
+                        type="checkbox"
+                        checked={promotePersonDraft.isMinor}
+                        onChange={(event) =>
+                          setPromotePersonDraft((current) => ({
+                            ...current,
+                            isMinor: event.target.checked,
+                          }))
+                        }
+                      />
+                    </label>
                     <button className="btn" type="button" onClick={handleAddPersonToPromoteDraft}>
                       Add Person
                     </button>
@@ -2987,7 +3108,7 @@ export default function RecruitingPage() {
                   />
                 </div>
                 <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Male / Female</div>
+                  <div className="small" style={{ marginBottom: 6 }}>Gender</div>
                   <select
                     className="input"
                     value={promoteDraft.gender}
@@ -3005,6 +3126,71 @@ export default function RecruitingPage() {
                 Save And Move To Potential Teams
               </button>
               <button className="btn" type="button" onClick={() => setPromoteModalOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {contactActionModalOpen ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 50,
+          }}
+        >
+          <div className="card pad" style={{ width: "min(520px, 100%)" }}>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 900 }}>
+                {formatContactActionLabel(contactActionDraft.actionType)}
+              </div>
+              <div className="spacer" />
+              <button className="btn" type="button" onClick={() => setContactActionModalOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Date</div>
+                <input
+                  className="input"
+                  type="date"
+                  value={contactActionDraft.actionDate}
+                  onChange={(event) =>
+                    setContactActionDraft((current) => ({
+                      ...current,
+                      actionDate: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Notes</div>
+                <textarea
+                  className="input"
+                  rows={4}
+                  value={contactActionDraft.summary}
+                  onChange={(event) =>
+                    setContactActionDraft((current) => ({
+                      ...current,
+                      summary: event.target.value,
+                    }))
+                  }
+                  placeholder="Add anything you want to remember"
+                />
+              </div>
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+              <button className="btn btnPrimary" type="button" onClick={() => void handleSaveContactAction()}>
+                {isSavingContactAction ? "Saving..." : "Save Contact"}
+              </button>
+              <button className="btn" type="button" onClick={() => setContactActionModalOpen(false)}>
                 Cancel
               </button>
             </div>
@@ -3087,7 +3273,7 @@ export default function RecruitingPage() {
                   setNewContactDraft((current) => ({ ...current, gender: event.target.value }))
                 }
               >
-                <option value="">Male / Female</option>
+                <option value="">Gender</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
               </select>
@@ -3125,8 +3311,13 @@ export default function RecruitingPage() {
                       >
                         <div className="row" style={{ alignItems: "flex-start" }}>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 700 }}>{person.name || "Unnamed person"}</div>
+                            <div className={person.isMinor ? "recruitingMinorName" : ""} style={{ fontWeight: 700 }}>
+                              {person.name || "Unnamed person"}
+                            </div>
                             <div className="small">{person.email || "No email added"}</div>
+                            {person.isMinor ? (
+                              <div className="small recruitingMinorLabel">Minor</div>
+                            ) : null}
                             {renderDuplicateNotice(duplicateInfo)}
                           </div>
                           <button
@@ -3141,12 +3332,12 @@ export default function RecruitingPage() {
                     );
                   })
                 ) : (
-                  <div className="small">No extra team members added yet.</div>
+                  <div className="small">Add additional team members here.</div>
                 )}
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                     gap: 8,
                     alignItems: "end",
                   }}
@@ -3179,6 +3370,19 @@ export default function RecruitingPage() {
                       placeholder="person@email.com"
                     />
                   </div>
+                  <label className="small" style={{ display: "grid", gap: 6 }}>
+                    <span>Minor</span>
+                    <input
+                      type="checkbox"
+                      checked={newContactPersonDraft.isMinor}
+                      onChange={(event) =>
+                        setNewContactPersonDraft((current) => ({
+                          ...current,
+                          isMinor: event.target.checked,
+                        }))
+                      }
+                    />
+                  </label>
                   <button className="btn" type="button" onClick={handleAddPersonToNewContact}>
                     Add Person
                   </button>
