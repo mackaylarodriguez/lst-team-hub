@@ -1916,17 +1916,17 @@ export default function RecruitingPage() {
       <DraggableTable>
         <table className={`table recruitingCompactTable recruitingFitTable recruitingFont-${tableFontSize}`}>
           <colgroup>
-            <col style={{ width: "12%" }} />
             <col style={{ width: "11%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "13%" }} />
-            <col style={{ width: "7%" }} />
+            <col style={{ width: "8%" }} />
             <col style={{ width: "9%" }} />
+            <col style={{ width: "15%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "11%" }} />
             <col style={{ width: "12%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "10%" }} />
           </colgroup>
           <thead>
             <tr>
@@ -2005,15 +2005,25 @@ export default function RecruitingPage() {
                         {record.departureDate ? `Departs ${formatFlexibleDepartureDate(record.departureDate)}` : "No departure yet"}
                       </div>
                     </td>
-                    <td>
-                      <div className="recruitingFitNotesText" title={stripHandoffSummary(record.mackaylaNotes) || ""}>
-                        {stripHandoffSummary(record.mackaylaNotes) || "-"}
-                      </div>
+                    <td onClick={(event) => event.stopPropagation()}>
+                      <textarea
+                        className="input recruitingInlineNoteInput"
+                        rows={3}
+                        value={stripHandoffSummary(record.mackaylaNotes)}
+                        onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
+                        onBlur={() => void handleSaveRecord(record.id)}
+                        placeholder="Add Mackayla notes"
+                      />
                     </td>
-                    <td>
-                      <div className="recruitingFitNotesText" title={record.lesleeNotes || ""}>
-                        {record.lesleeNotes || "-"}
-                      </div>
+                    <td onClick={(event) => event.stopPropagation()}>
+                      <textarea
+                        className="input recruitingInlineNoteInput"
+                        rows={3}
+                        value={record.lesleeNotes || ""}
+                        onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
+                        onBlur={() => void handleSaveRecord(record.id)}
+                        placeholder="Add Leslee notes"
+                      />
                     </td>
                     <td onClick={(event) => event.stopPropagation()}>
                       <div className="row recruitingActionRow recruitingFitActionRow">
