@@ -618,9 +618,11 @@ export default function RecruitingPage() {
   const [historyByRecordId, setHistoryByRecordId] = useState({});
   const [historyLoadingByRecordId, setHistoryLoadingByRecordId] = useState({});
   const [error, setError] = useState("");
+  const [pageStatus, setPageStatus] = useState("");
   const [filterConfig, setFilterConfig] = useState(DEFAULT_FILTER_CONFIG);
   const [activeFilterId, setActiveFilterId] = useState("all");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [tableFontSize, setTableFontSize] = useState("small");
   const [activeTab, setActiveTab] = useState("outreach");
   const [selectedRecordId, setSelectedRecordId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
@@ -1410,6 +1412,12 @@ export default function RecruitingPage() {
       await saveRecruitingCycleContact(buildRecruitingRecordPayload(recordToSave));
       await refreshCurrentYear();
       await ensureRecordHistoryLoaded(recordId, { force: true });
+      setRecordDetailsModalOpen(false);
+      setError("");
+      setPageStatus("Saved.");
+    } catch (saveError) {
+      console.error("Unable to save recruiting record", saveError);
+      setError(saveError.message || "Unable to save record.");
     } finally {
       setIsSavingNotes(false);
     }
@@ -1616,7 +1624,7 @@ export default function RecruitingPage() {
 
     return (
       <DraggableTable>
-        <table className="table recruitingCompactTable recruitingFitTable">
+        <table className={`table recruitingCompactTable recruitingFitTable recruitingFont-${tableFontSize}`}>
           <colgroup>
             <col style={{ width: "8%" }} />
             <col style={{ width: "8%" }} />
@@ -1718,7 +1726,7 @@ export default function RecruitingPage() {
 
     return (
       <DraggableTable>
-        <table className="table recruitingCompactTable recruitingFitTable">
+        <table className={`table recruitingCompactTable recruitingFitTable recruitingFont-${tableFontSize}`}>
           <colgroup>
             <col style={{ width: "12%" }} />
             <col style={{ width: "11%" }} />
@@ -1832,7 +1840,7 @@ export default function RecruitingPage() {
 
     return (
       <DraggableTable>
-        <table className="table recruitingCompactTable" style={{ minWidth: 760 }}>
+        <table className={`table recruitingCompactTable recruitingFont-${tableFontSize}`} style={{ minWidth: 760 }}>
           <thead>
             <tr>
               <th>Team Name</th>
@@ -1895,6 +1903,16 @@ export default function RecruitingPage() {
         <button className="btn" type="button" onClick={openAddContactModal}>
           Add Contact
         </button>
+        <select
+          className="input"
+          value={tableFontSize}
+          onChange={(event) => setTableFontSize(event.target.value)}
+          style={{ width: 132 }}
+        >
+          <option value="small">Font: Small</option>
+          <option value="medium">Font: Medium</option>
+          <option value="large">Font: Large</option>
+        </select>
         <button className={`btn ${filterPanelOpen ? "btnPrimary" : ""}`} type="button" onClick={() => setFilterPanelOpen((current) => !current)}>
           {filterPanelOpen ? "Hide Search & Filters" : "Search & Filters"}
           {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
@@ -1914,6 +1932,12 @@ export default function RecruitingPage() {
       {error ? (
         <div className="card pad" style={{ marginBottom: 14, color: "var(--danger)" }}>
           {error}
+        </div>
+      ) : null}
+
+      {pageStatus ? (
+        <div className="card pad" style={{ marginBottom: 14, color: "var(--primary)" }}>
+          {pageStatus}
         </div>
       ) : null}
 
