@@ -486,6 +486,18 @@ export default function Admin() {
     handleCancelTitleEdit();
   }
 
+  function handleOpenTask(task) {
+    if (!task?.tripId || task.isMiscTask) return;
+
+    void router.push({
+      pathname: `/trips/${encodeURIComponent(task.tripId)}`,
+      query: {
+        tab: "staff-tasks",
+        staffTaskId: task.id,
+      },
+    });
+  }
+
   return (
     <Shell>
       <h1 className="h1">My Tasks</h1>
@@ -654,6 +666,7 @@ export default function Admin() {
         onTaskNotesChange={handleTaskNotesChange}
         onTaskNotesBlur={flushTaskNotesSave}
         onDeleteTask={handleDeleteTask}
+        onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
       />
 
@@ -670,6 +683,7 @@ export default function Admin() {
         onTaskNotesChange={handleTaskNotesChange}
         onTaskNotesBlur={flushTaskNotesSave}
         onDeleteTask={handleDeleteTask}
+        onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
       />
 
@@ -686,6 +700,7 @@ export default function Admin() {
         onTaskNotesChange={handleTaskNotesChange}
         onTaskNotesBlur={flushTaskNotesSave}
         onDeleteTask={handleDeleteTask}
+        onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
       />
     </Shell>
@@ -705,6 +720,7 @@ function TaskSection({
   onTaskNotesChange,
   onTaskNotesBlur,
   onDeleteTask,
+  onOpenTask,
   staffTaskRowStatus,
 }) {
   return (
@@ -748,9 +764,19 @@ function TaskSection({
                         onChange={(e) => onTitleDraftChange(e.target.value)}
                       />
                     ) : (
-                      <span style={{ fontWeight: 600 }}>
-                        {task.taskName || task.title || "-"}
-                      </span>
+                      task.isMiscTask ? (
+                        <span style={{ fontWeight: 600 }}>
+                          {task.taskName || task.title || "-"}
+                        </span>
+                      ) : (
+                        <button
+                          className="overviewTaskJumpButton adminTaskJumpButton"
+                          type="button"
+                          onClick={() => onOpenTask(task)}
+                        >
+                          {task.taskName || task.title || "-"}
+                        </button>
+                      )
                     )}
                   </td>
                   <td>

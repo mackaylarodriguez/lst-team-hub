@@ -370,6 +370,10 @@ a:hover{text-decoration:underline}
 .overviewTaskJumpButton:focus-visible{
   outline:none;
 }
+.adminTaskJumpButton{
+  font-size:12px;
+  font-weight:700;
+}
 .adminTaskSummary{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
