@@ -2054,7 +2054,7 @@ export default function RecruitingPage() {
                       ) : null}
                     </td>
                     <td className="recruitingFitEmailCell">
-                      <div>{record.contact?.email || "-"}</div>
+                      <div className="recruitingPotentialEmail">{record.contact?.email || "-"}</div>
                       {record.contact?.phone ? (
                         <div className="small">{record.contact.phone}</div>
                       ) : null}
