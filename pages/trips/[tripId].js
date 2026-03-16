@@ -105,6 +105,8 @@ function getWorkerConnectionStatus(member) {
       accountLabel: "Account Linked",
       accountBadgeClass: "badgeSuccess",
       canInvite: false,
+      inviteLabel: "Account Created",
+      inviteTitle: "Account created",
     };
   }
 
@@ -115,6 +117,8 @@ function getWorkerConnectionStatus(member) {
       accountLabel: "Needs Account",
       accountBadgeClass: "badgeWarn",
       canInvite: true,
+      inviteLabel: "Resend Invite",
+      inviteTitle: "Send a new invite email",
     };
   }
 
@@ -124,6 +128,8 @@ function getWorkerConnectionStatus(member) {
     accountLabel: "No Email Yet",
     accountBadgeClass: "",
     canInvite: false,
+    inviteLabel: "Resend Invite",
+    inviteTitle: "Add an email before sending an invite",
   };
 }
 
@@ -244,7 +250,6 @@ function createEmptyWorkerDraft() {
     lastName: "",
     email: "",
     assignmentMode: "unassigned",
-    inviteOnSave: true,
   };
 }
 
@@ -2802,10 +2807,6 @@ function parseDateSafe(dateStr) {
         }
       }
 
-      const inviteWasSent = newWorkerDraft.inviteOnSave
-        ? await sendWorkerInvite(email)
-        : false;
-
       setTrip((current) => (current
         ? {
             ...current,
@@ -2813,9 +2814,7 @@ function parseDateSafe(dateStr) {
             participants: nextParticipants,
           }
         : current));
-      setWorkerAddStatus(
-        inviteWasSent ? `${statusMessage.replace(/\.$/, "")}. Invite sent.` : statusMessage
-      );
+      setWorkerAddStatus(statusMessage);
       setNewWorkerDraft(createEmptyWorkerDraft());
       setIsAddingWorker(false);
     } catch (error) {
@@ -4298,17 +4297,9 @@ function parseDateSafe(dateStr) {
                     <option value="assigned">Assign To This Trip</option>
                   </select>
                 </div>
-                <label className="small" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={newWorkerDraft.inviteOnSave}
-                    onChange={(event) => updateNewWorkerDraft("inviteOnSave", event.target.checked)}
-                  />
-                  Send invite after saving
-                </label>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                   <button className="btn btnPrimary" type="button" onClick={handleAddWorkerToTrip}>
-                    {newWorkerDraft.inviteOnSave ? "Save And Invite" : "Save Worker"}
+                    Save Worker
                   </button>
                   <button className="btn" type="button" onClick={handleCancelAddWorker}>
                     Cancel
@@ -4428,18 +4419,18 @@ function parseDateSafe(dateStr) {
                         <td>{formatTripDateRange(member.startDate, member.endDate)}</td>
                         {canViewAllParticipantData ? (
                           <td>
-                            {connectionStatus.canInvite ? (
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={() => void handleInviteWorker(member)}
-                                disabled={invitingWorkerEmail === normalizeEmail(member.email)}
-                              >
-                                {invitingWorkerEmail === normalizeEmail(member.email) ? "Opening..." : "Invite"}
-                              </button>
-                            ) : (
-                              <span className="small">-</span>
-                            )}
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => void handleInviteWorker(member)}
+                              disabled={!connectionStatus.canInvite || invitingWorkerEmail === normalizeEmail(member.email)}
+                              title={connectionStatus.inviteTitle}
+                              style={!connectionStatus.canInvite ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
+                            >
+                              {invitingWorkerEmail === normalizeEmail(member.email)
+                                ? "Sending..."
+                                : connectionStatus.inviteLabel}
+                            </button>
                           </td>
                         ) : null}
                       </tr>

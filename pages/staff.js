@@ -516,6 +516,7 @@ function WorkerSection({
             <tr>
               <th>Worker</th>
               <th>Assigned Trips</th>
+              <th>Invite</th>
               <th>Assign Trip</th>
               <th />
             </tr>
@@ -542,6 +543,17 @@ function WorkerSection({
                         ))}
                       </div>
                     )}
+                </td>
+                <td>
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled
+                    title="Account created"
+                    style={{ opacity: 0.55, cursor: "not-allowed" }}
+                  >
+                    Account Created
+                  </button>
                 </td>
                 <td style={{ width: 280 }}>
                   <select
