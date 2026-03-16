@@ -2551,6 +2551,18 @@ export default function RecruitingPage() {
                   : "Edit Details"}
               </div>
               <div className="spacer" />
+              {selectedRecord && recordDetailsMode !== "history" && activeTab === "outreach" && !selectedRecord.isConvertedToTeam ? (
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => void handleMoveRecordToNextYear(selectedRecord.id)}
+                  disabled={isSavingNotes || selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR}
+                >
+                  {selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR
+                    ? `Already on ${NEXT_RECRUITING_YEAR}`
+                    : `Move to ${NEXT_RECRUITING_YEAR} Chart`}
+                </button>
+              ) : null}
               <button className="btn" type="button" onClick={() => setRecordDetailsModalOpen(false)}>
                 Close
               </button>
@@ -2624,20 +2636,6 @@ export default function RecruitingPage() {
                       </select>
                     </div>
                     </div>
-                ) : null}
-                {recordDetailsMode !== "history" && activeTab === "outreach" && !selectedRecord.isConvertedToTeam ? (
-                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => void handleMoveRecordToNextYear(selectedRecord.id)}
-                      disabled={isSavingNotes || selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR}
-                    >
-                      {selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR
-                        ? `Already on ${NEXT_RECRUITING_YEAR}`
-                        : `Move to ${NEXT_RECRUITING_YEAR} Chart`}
-                    </button>
-                  </div>
                 ) : null}
                 {recordDetailsMode !== "history" ? (
                   <>

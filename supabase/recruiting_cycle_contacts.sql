@@ -71,6 +71,35 @@ create table if not exists public.recruiting_cycle_contacts (
   unique (contact_id, recruiting_year)
 );
 
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'recruiting_contacts'
+      and column_name = 'departure_date'
+      and data_type = 'date'
+  ) then
+    alter table public.recruiting_contacts
+      alter column departure_date type text
+      using departure_date::text;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'recruiting_cycle_contacts'
+      and column_name = 'departure_date'
+      and data_type = 'date'
+  ) then
+    alter table public.recruiting_cycle_contacts
+      alter column departure_date type text
+      using departure_date::text;
+  end if;
+end $$;
+
 alter table public.recruiting_cycle_contacts
   add column if not exists is_potential_team boolean not null default false;
 
