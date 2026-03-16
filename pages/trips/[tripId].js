@@ -9,6 +9,7 @@ import {
   deleteTrip,
   getTripForCurrentUser,
   listTripParticipants,
+  removeTripAssignment,
   saveTripParticipantDocumentTypes,
   updateTripForCurrentUser,
 } from "@/lib/trips";
@@ -238,6 +239,9 @@ function buildTripSetupDraft(trip) {
 function createEmptyRosterMember() {
   return {
     id: "",
+    assignmentId: "",
+    profileId: "",
+    connected: false,
     firstName: "",
     lastName: "",
     email: "",
@@ -2691,7 +2695,21 @@ function parseDateSafe(dateStr) {
   }
 
   function handleStartRosterEdit() {
-    setRosterDraft((trip?.teamMembers || []).length > 0 ? trip.teamMembers : [createEmptyRosterMember()]);
+    setRosterDraft(
+      teamTabMembers.length > 0
+        ? teamTabMembers.map((member) => ({
+            id: member.id || "",
+            assignmentId: member.assignmentId || "",
+            profileId: member.profileId || "",
+            connected: !!member.connected,
+            firstName: member.firstName || "",
+            lastName: member.lastName || "",
+            email: member.email || "",
+            startDate: member.startDate || "",
+            endDate: member.endDate || "",
+          }))
+        : [createEmptyRosterMember()]
+    );
     setRosterStatus("");
     setWorkerAddStatus("");
     setIsAddingWorker(false);
@@ -2794,8 +2812,33 @@ function parseDateSafe(dateStr) {
 
     try {
       setRosterStatus("Saving...");
+      const removedAssignmentIds = teamTabMembers
+        .filter(
+          (member) =>
+            member.assignmentId &&
+            !rosterDraft.some(
+              (draftMember) =>
+                String(draftMember.assignmentId || "") === String(member.assignmentId || "")
+            )
+        )
+        .map((member) => member.assignmentId);
       const savedMembers = await saveTripTeamMembers(trip.id, rosterDraft);
-      setTrip((current) => (current ? { ...current, teamMembers: savedMembers } : current));
+
+      if (removedAssignmentIds.length > 0) {
+        await Promise.all(removedAssignmentIds.map((assignmentId) => removeTripAssignment(assignmentId)));
+      }
+
+      setTrip((current) =>
+        current
+          ? {
+              ...current,
+              teamMembers: savedMembers,
+              participants: (current.participants || []).filter(
+                (participant) => !removedAssignmentIds.includes(participant.assignmentId)
+              ),
+            }
+          : current
+      );
       setRosterDraft(savedMembers);
       setIsEditingRoster(false);
       setRosterStatus("Saved.");
@@ -3457,7 +3500,10 @@ function parseDateSafe(dateStr) {
 
       membersByKey.set(key, {
         key,
+        id: member.id || "",
         name: member.name || "Unnamed member",
+        firstName: member.firstName || "",
+        lastName: member.lastName || "",
         role: "",
         email,
         fundraisingUrl: "",
@@ -3474,13 +3520,17 @@ function parseDateSafe(dateStr) {
 
       membersByKey.set(key, {
         key,
+        id: existing?.id || "",
         name: participant.name || existing?.name || "Unnamed member",
+        firstName: participant.firstName || existing?.firstName || "",
+        lastName: participant.lastName || existing?.lastName || "",
         role: participant.role || existing?.role || "",
         email: participant.email || existing?.email || "",
         fundraisingUrl: participant.fundraisingUrl || existing?.fundraisingUrl || "",
         startDate: existing?.startDate || trip.startDate || "",
         endDate: existing?.endDate || trip.endDate || "",
         connected: true,
+        assignmentId: participant.assignmentId || existing?.assignmentId || "",
         profileId: participant.id || existing?.profileId || "",
       });
     });
@@ -4554,7 +4604,7 @@ function parseDateSafe(dateStr) {
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Status</th>
+                    <th>Role</th>
                     <th>Account</th>
                     <th>Email</th>
                     <th>Project Dates</th>
@@ -4577,16 +4627,7 @@ function parseDateSafe(dateStr) {
                             member.name
                           )}
                         </td>
-                        <td>
-                          <span className={`badge ${connectionStatus.statusBadgeClass}`.trim()}>
-                            {connectionStatus.statusLabel}
-                          </span>
-                          {member.role ? (
-                            <div className="small" style={{ marginTop: 4 }}>
-                              {member.role}
-                            </div>
-                          ) : null}
-                        </td>
+                        <td>{member.role || "Worker"}</td>
                         <td>
                           <span className={`badge ${connectionStatus.accountBadgeClass}`.trim()}>
                             {connectionStatus.accountLabel}

@@ -30,6 +30,16 @@ function formatProfileRole(role) {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
+function formatGender(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+
+  const compact = normalized.toLowerCase();
+  if (compact === "f" || compact === "female") return "Female";
+  if (compact === "m" || compact === "male") return "Male";
+  return normalized;
+}
+
 function extractHandoffSummary(notes) {
   const match = String(notes || "").match(
     /\[HANDOFF SUMMARY\]\s*([\s\S]*?)\s*\[\/HANDOFF SUMMARY\]/i
@@ -99,7 +109,7 @@ export default function Profile() {
 
         const { data: profileRow, error: profileError } = await supabase
           .from("profiles")
-          .select("id, email, role, first_name, last_name")
+          .select("id, email, role, first_name, last_name, gender")
           .eq("id", targetProfileId)
           .maybeSingle();
 
@@ -115,6 +125,7 @@ export default function Profile() {
           id: profileRow.id,
           email: profileRow.email || "",
           role: profileRow.role || "",
+          gender: formatGender(profileRow.gender),
           name:
             [profileRow.first_name, profileRow.last_name].filter(Boolean).join(" ").trim() ||
             profileRow.email ||
@@ -318,6 +329,9 @@ export default function Profile() {
             <div style={{ height: 10 }} />
             <div className="small">Role</div>
             <span className="badge">{formatProfileRole(profile?.role)}</span>
+            <div style={{ height: 10 }} />
+            <div className="small">Gender</div>
+            <div style={{ fontWeight: 800 }}>{profile?.gender || "-"}</div>
           </div>
 
           <div className="card pad">
