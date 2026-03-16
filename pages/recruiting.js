@@ -495,14 +495,21 @@ function parseImportRows(file) {
   return file.arrayBuffer().then((buffer) => {
     const workbook = XLSX.read(buffer, { type: "array" });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+    const rows = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
+      defval: "",
+      blankrows: false,
+    });
 
-    return rows.map((row) => {
-      const normalizedEntries = Object.entries(row).map(([key, value]) => [
-        normalizeHeader(key),
-        value,
-      ]);
-      const values = Object.fromEntries(normalizedEntries);
+    if (!rows.length) return [];
+
+    const headerRow = rows[0].map((value) => normalizeHeader(value));
+    const dataRows = rows.slice(1);
+
+    return dataRows.map((row) => {
+      const values = Object.fromEntries(
+        headerRow.map((header, index) => [header, row[index]])
+      );
       const parsedYear = Number(
         values.year ||
         values.recruitingyear ||
