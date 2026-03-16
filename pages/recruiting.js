@@ -469,6 +469,13 @@ function parseImportRows(file) {
         value,
       ]);
       const values = Object.fromEntries(normalizedEntries);
+      const parsedYear = Number(
+        values.year ||
+        values.recruitingyear ||
+        values.recruitingcycleyear ||
+        ""
+      );
+      const recruitingYear = parsedYear === 2027 ? 2027 : 2026;
 
       return {
         firstName: String(
@@ -481,7 +488,19 @@ function parseImportRows(file) {
           values.last ||
           ""
         ).trim(),
-        email: String(values.email || "").trim().toLowerCase(),
+        email: String(values.email || values.emails || "").trim().toLowerCase(),
+        gender: String(values.gender || "").trim(),
+        recruitingYear,
+        mackaylaNotes: String(
+          values.mackaylanotes ||
+          values.mackaylanote ||
+          ""
+        ).trim(),
+        lesleeNotes: String(
+          values.lesleenotes ||
+          values.lesleenote ||
+          ""
+        ).trim(),
       };
     });
   });
@@ -1565,7 +1584,11 @@ export default function RecruitingPage() {
   }
 
   function handleDownloadTemplate() {
-    const csv = "First Name,Last Name,Email\nJohn,Smith,john@email.com\nSarah,Lee,sarah@email.com\n";
+    const csv = [
+      "First Name,Last Name,Email,Gender,Year,Mackayla Notes,Leslee Notes",
+      'John,Smith,john@email.com,Male,2027,"Interested in summer project","Follow up after spring break"',
+      'Sarah,Lee,sarah@email.com,Female,,"Alumni referral","Prefers email contact"',
+    ].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -3063,6 +3086,10 @@ export default function RecruitingPage() {
                   <th>First Name</th>
                   <th>Last Name</th>
                   <th>Email</th>
+                  <th>Gender</th>
+                  <th>Year</th>
+                  <th>Mackayla Notes</th>
+                  <th>Leslee Notes</th>
                 </tr>
               </thead>
               <tbody>
@@ -3071,6 +3098,10 @@ export default function RecruitingPage() {
                     <td>{row.firstName}</td>
                     <td>{row.lastName}</td>
                     <td>{row.email}</td>
+                    <td>{row.gender}</td>
+                    <td>{row.recruitingYear}</td>
+                    <td>{row.mackaylaNotes}</td>
+                    <td>{row.lesleeNotes}</td>
                   </tr>
                 ))}
               </tbody>
@@ -3087,7 +3118,7 @@ export default function RecruitingPage() {
               </select>
             </div>
             <div className="small" style={{ marginTop: 10 }}>
-              Clicking `Save Imported Contacts` saves these rows into {importDestination === "potential" ? "Potential Teams" : "Recruiting"} for {selectedYear}.
+              Clicking `Save Imported Contacts` saves each row into {importDestination === "potential" ? "Potential Teams" : "Recruiting"} for its import year. Blank year values default to 2026.
             </div>
             <div className="row" style={{ marginTop: 12 }}>
               <button className="btn btnPrimary" type="button" onClick={handleConfirmImport}>
