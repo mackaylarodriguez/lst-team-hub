@@ -129,7 +129,7 @@ function getWorkerConnectionStatus(member) {
 
 function buildWorkerInvitePayload(email, trip) {
   const loginUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/login`
+    ? `${window.location.origin}/login?next=${encodeURIComponent(`/trips/${trip?.id || ""}`)}`
     : "/login";
   const tripName = trip?.name || "your LST team";
   const site = trip?.location ? ` for ${trip.location}` : "";
@@ -2674,21 +2674,50 @@ function parseDateSafe(dateStr) {
 
     try {
       setInvitingWorkerEmail(normalizedWorkerEmail);
-      const { subject, body } = buildWorkerInvitePayload(normalizedWorkerEmail, trip);
-      const mailtoUrl = `mailto:${encodeURIComponent(normalizedWorkerEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      const response = await fetch("/api/trip-invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recipientEmail: normalizedWorkerEmail,
+          recipientName: trip?.teamMembers?.find(
+            (member) => normalizeEmail(member.email) === normalizedWorkerEmail
+          )?.name || "",
+          senderEmail: session?.email || "",
+          senderName: session?.name || session?.email || "LST staff",
+          tripId: trip?.id || "",
+          tripName: trip?.name || "",
+          tripLocation: trip?.location || "",
+          tripDates: trip?.dates || "",
+        }),
+      });
 
-      if (typeof window !== "undefined") {
-        window.location.href = mailtoUrl;
-      }
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        const { subject, body } = buildWorkerInvitePayload(normalizedWorkerEmail, trip);
 
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(`${subject}\n\n${body}`);
+        if (typeof window !== "undefined") {
+          const mailtoUrl = `mailto:${encodeURIComponent(normalizedWorkerEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+          window.location.href = mailtoUrl;
+        }
+
+        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(`${subject}\n\n${body}`);
+        }
+
+        setWorkerAddStatus(
+          result?.error
+            ? `${result.error} Opened a draft invite instead.`
+            : "Trip invite email is not configured yet. Opened a draft invite instead."
+        );
+        return true;
       }
 
       return true;
     } catch (error) {
       console.error("Unable to prepare worker invite", error);
-      setWorkerAddStatus("Invite text could not be prepared.");
+      setWorkerAddStatus("Invite could not be sent.");
       return false;
     } finally {
       setInvitingWorkerEmail("");
@@ -2785,7 +2814,7 @@ function parseDateSafe(dateStr) {
           }
         : current));
       setWorkerAddStatus(
-        inviteWasSent ? `${statusMessage.replace(/\.$/, "")}. Invite opened.` : statusMessage
+        inviteWasSent ? `${statusMessage.replace(/\.$/, "")}. Invite sent.` : statusMessage
       );
       setNewWorkerDraft(createEmptyWorkerDraft());
       setIsAddingWorker(false);
@@ -2799,7 +2828,7 @@ function parseDateSafe(dateStr) {
     const email = normalizeEmail(member?.email);
     const inviteWasSent = await sendWorkerInvite(email);
     if (inviteWasSent) {
-      setWorkerAddStatus(`Invite opened for ${email}.`);
+      setWorkerAddStatus(`Invite sent for ${email}.`);
     }
   }
 

@@ -8,6 +8,9 @@ import {
 
 export default function Login() {
   const router = useRouter();
+  const nextPath = typeof router.query.next === "string" && router.query.next.startsWith("/")
+    ? router.query.next
+    : "/trips";
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,7 +24,7 @@ export default function Login() {
     async function loadSession() {
       const session = await getSession();
       if (!cancelled && session) {
-        router.replace("/trips");
+        router.replace(nextPath);
       }
     }
 
@@ -30,7 +33,7 @@ export default function Login() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [nextPath, router]);
 
   async function onSubmit(e){
     e.preventDefault();
@@ -42,7 +45,7 @@ export default function Login() {
       if (mode === "signup") {
         const session = await signUpWithPassword({ email, password });
         if (session) {
-          router.push("/trips");
+          router.push(nextPath);
           return;
         }
 
@@ -53,7 +56,7 @@ export default function Login() {
       }
 
       await signInWithPassword({ email, password });
-      router.push("/trips");
+      router.push(nextPath);
     } catch (error) {
       setErr(
         error.message || (mode === "signup" ? "Unable to create account." : "Unable to sign in.")

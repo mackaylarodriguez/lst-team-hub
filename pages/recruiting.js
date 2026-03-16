@@ -457,6 +457,15 @@ function normalizeHeader(value) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+function normalizeImportedGender(value) {
+  const normalized = String(value || "").trim();
+  const compact = normalized.toLowerCase();
+  if (!compact) return "";
+  if (compact === "f" || compact === "female") return "Female";
+  if (compact === "m" || compact === "male") return "Male";
+  return normalized;
+}
+
 function parseImportRows(file) {
   return file.arrayBuffer().then((buffer) => {
     const workbook = XLSX.read(buffer, { type: "array" });
@@ -489,7 +498,7 @@ function parseImportRows(file) {
           ""
         ).trim(),
         email: String(values.email || values.emails || "").trim().toLowerCase(),
-        gender: String(values.gender || "").trim(),
+        gender: normalizeImportedGender(values.gender),
         recruitingYear,
         mackaylaNotes: String(
           values.mackaylanotes ||
