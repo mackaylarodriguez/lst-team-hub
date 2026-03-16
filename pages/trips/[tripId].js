@@ -100,9 +100,9 @@ function normalizeEmail(value) {
 function getWorkerConnectionStatus(member) {
   if (member?.connected) {
     return {
-      statusLabel: "Assigned",
+      statusLabel: "Ready",
       statusBadgeClass: "badgeSuccess",
-      accountLabel: "Account Linked",
+      accountLabel: "Joined",
       accountBadgeClass: "badgeSuccess",
       canInvite: false,
       inviteLabel: "Account Created",
@@ -112,9 +112,9 @@ function getWorkerConnectionStatus(member) {
 
   if (member?.email) {
     return {
-      statusLabel: "Pending Account",
+      statusLabel: "Invitable",
       statusBadgeClass: "badgeWarn",
-      accountLabel: "Needs Account",
+      accountLabel: "Not Joined",
       accountBadgeClass: "badgeWarn",
       canInvite: true,
       inviteLabel: "Resend Invite",
@@ -123,9 +123,9 @@ function getWorkerConnectionStatus(member) {
   }
 
   return {
-    statusLabel: "Unassigned",
+    statusLabel: "Missing Email",
     statusBadgeClass: "",
-    accountLabel: "No Email Yet",
+    accountLabel: "Cannot Invite",
     accountBadgeClass: "",
     canInvite: false,
     inviteLabel: "Resend Invite",

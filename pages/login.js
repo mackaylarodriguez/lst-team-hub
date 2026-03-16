@@ -4,16 +4,21 @@ import {
   getSession,
   signInWithPassword,
   signUpWithPassword,
+  updatePassword,
 } from "@/lib/auth";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export default function Login() {
   const router = useRouter();
   const nextPath = typeof router.query.next === "string" && router.query.next.startsWith("/")
     ? router.query.next
     : "/trips";
+  const isResetMode = router.query.mode === "reset";
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [confirmResetPassword, setConfirmResetPassword] = useState("");
   const [err, setErr] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -35,6 +40,31 @@ export default function Login() {
     };
   }, [nextPath, router]);
 
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setMode("reset");
+        setMessage("Enter a new password for this account.");
+        setErr("");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isResetMode) {
+      setMode("forgot");
+      setErr("");
+      setMessage("Check your email for the reset link, or enter your email below to send another one.");
+    }
+  }, [isResetMode]);
+
   async function onSubmit(e){
     e.preventDefault();
     setErr("");
@@ -42,6 +72,44 @@ export default function Login() {
     setSubmitting(true);
 
     try {
+      if (mode === "forgot") {
+        const response = await fetch("/api/password-reset", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        });
+        const result = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(result?.error || "Unable to send password reset email.");
+        }
+
+        setMessage("Password reset email sent.");
+        return;
+      }
+
+      if (mode === "reset") {
+        if (!resetPassword) {
+          setErr("Enter a new password.");
+          return;
+        }
+
+        if (resetPassword !== confirmResetPassword) {
+          setErr("Passwords do not match.");
+          return;
+        }
+
+        await updatePassword({ password: resetPassword });
+        setMessage("Password updated. You can sign in now.");
+        setMode("signin");
+        setPassword("");
+        setResetPassword("");
+        setConfirmResetPassword("");
+        return;
+      }
+
       if (mode === "signup") {
         const session = await signUpWithPassword({ email, password });
         if (session) {
@@ -84,6 +152,10 @@ export default function Login() {
           <div className="small">
             {mode === "signin"
               ? "Sign in with your LST app account."
+              : mode === "forgot"
+                ? "Enter your email and we'll send a password reset link from your custom email setup."
+                : mode === "reset"
+                  ? "Set a new password for your LST app account."
               : "Create your LST app account here. If your email already matches a worker on a trip, we will link it automatically."}
           </div>
         </div>
@@ -96,15 +168,30 @@ export default function Login() {
               value={email}
               onChange={(e)=>setEmail(e.target.value)}
               placeholder="you@org.org"
+              disabled={mode === "reset"}
             />
           </div>
-          <div>
-            <div className="small" style={{ marginBottom: 6 }}>Password</div>
-            <input className="input" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••" />
-          </div>
+          {mode === "signin" || mode === "signup" ? (
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Password</div>
+              <input className="input" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••" />
+            </div>
+          ) : null}
+          {mode === "reset" ? (
+            <>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>New Password</div>
+                <input className="input" type="password" value={resetPassword} onChange={(e)=>setResetPassword(e.target.value)} placeholder="••••••••" />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Confirm Password</div>
+                <input className="input" type="password" value={confirmResetPassword} onChange={(e)=>setConfirmResetPassword(e.target.value)} placeholder="••••••••" />
+              </div>
+            </>
+          ) : null}
           {message && <div className="small" style={{ color:"var(--success)" }}>{message}</div>}
           {err && <div className="small" style={{ color:"var(--danger)" }}>{err}</div>}
-          <div className="row" style={{ gap: 8 }}>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             <button
               className={mode === "signin" ? "btn btnPrimary" : "btn"}
               type="submit"
@@ -129,6 +216,32 @@ export default function Login() {
             >
               {submitting && mode === "signup" ? "Creating Account..." : "Create Account"}
             </button>
+            <button
+              className={mode === "forgot" ? "btn btnPrimary" : "btn"}
+              type="submit"
+              disabled={submitting}
+              onClick={() => {
+                setMode("forgot");
+                setErr("");
+                setMessage("");
+              }}
+            >
+              {submitting && mode === "forgot" ? "Sending..." : "Forgot Password"}
+            </button>
+            {mode === "reset" ? (
+              <button
+                className="btn btnPrimary"
+                type="submit"
+                disabled={submitting}
+                onClick={() => {
+                  setMode("reset");
+                  setErr("");
+                  setMessage("");
+                }}
+              >
+                {submitting ? "Updating Password..." : "Save New Password"}
+              </button>
+            ) : null}
           </div>
         </form>
       </div>
