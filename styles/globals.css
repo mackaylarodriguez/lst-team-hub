@@ -249,6 +249,27 @@ a:hover{text-decoration:underline}
 .recruitingFitEmailCell{
   overflow-wrap:anywhere;
 }
+.recruitingPotentialTeamName{
+  font-size:10px;
+  line-height:1.15;
+}
+.recruitingOwnerBadge{
+  width:100%;
+  justify-content:center;
+  padding:4px 8px;
+  font-size:10px;
+  line-height:1.15;
+  text-align:center;
+  white-space:normal;
+}
+.recruitingStageBadge{
+  justify-content:center;
+  min-width:100%;
+  padding:4px 8px;
+  font-size:10px;
+  line-height:1.15;
+  text-align:center;
+}
 .recruitingFitNotesText{
   display:-webkit-box;
   -webkit-box-orient:vertical;
@@ -277,9 +298,20 @@ a:hover{text-decoration:underline}
   white-space:normal;
   line-height:1.2;
 }
+.recruitingLastContactWrap{
+  display:grid;
+  gap:4px;
+}
 .recruitingContactHistoryList{
   display:grid;
   gap:6px;
+}
+.recruitingContactHistoryList.isCollapsed{
+  max-height:3.8em;
+  overflow:hidden;
+}
+.recruitingContactHistoryList.isExpanded{
+  max-height:none;
 }
 .recruitingContactHistoryItem{
   padding-bottom:6px;
@@ -288,6 +320,19 @@ a:hover{text-decoration:underline}
 .recruitingContactHistoryItem:last-child{
   padding-bottom:0;
   border-bottom:none;
+}
+.recruitingLastContactToggle{
+  align-self:flex-start;
+  padding:0;
+  border:none;
+  background:none;
+  color:#1d4ed8;
+  font-size:11px;
+  font-weight:700;
+  cursor:pointer;
+}
+.recruitingLastContactToggle:hover{
+  text-decoration:underline;
 }
 .recruitingFitActionRow{
   gap:3px;

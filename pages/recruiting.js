@@ -345,6 +345,25 @@ function formatContactHistorySummary(entry) {
   return [actionLabel, dateLabel].filter(Boolean).join(" ");
 }
 
+function shouldShowLastContactToggle(record, contactActivity) {
+  if (contactActivity.length > 1) return true;
+  if (contactActivity.length === 1) {
+    const entry = contactActivity[0];
+    const combinedText = [formatContactHistorySummary(entry), entry?.summary].filter(Boolean).join(" ");
+    return combinedText.length > 90;
+  }
+
+  return formatLastContactSummary(record).length > 90;
+}
+
+function getRecruitingStageBadgeClass(record) {
+  if (isReadyForBoss(record)) return "badgeInfo";
+  if (record?.stage === 3) return "badgeSuccess";
+  if (record?.stage === 2) return "badgeWarn";
+  if (record?.stage === 1) return "badgeInfo";
+  return "badgeDanger";
+}
+
 function formatRecruitingUpdateMeta(record, latestActivity) {
   if (latestActivity?.staffMember || latestActivity?.actionDate) {
     const dateLabel = formatCompactDateTime(latestActivity.actionDate || latestActivity.createdAt);
@@ -672,6 +691,7 @@ export default function RecruitingPage() {
   const [activeTab, setActiveTab] = useState("outreach");
   const [selectedRecordId, setSelectedRecordId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
+  const [expandedLastContactById, setExpandedLastContactById] = useState({});
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [newContactDraft, setNewContactDraft] = useState({
     firstName: "",
@@ -1775,6 +1795,13 @@ export default function RecruitingPage() {
     setAddContactModalOpen(true);
   }
 
+  function toggleLastContactExpanded(recordId) {
+    setExpandedLastContactById((current) => ({
+      ...current,
+      [recordId]: !current[recordId],
+    }));
+  }
+
   function renderOutreachTable(recordsToRender) {
     if (recordsToRender.length === 0) {
       return <div className="small">No contacts in this view.</div>;
@@ -1814,6 +1841,8 @@ export default function RecruitingPage() {
               const latestActivity = latestActivityByRecordId[record.id] || null;
               const updateMeta = formatRecruitingUpdateMeta(record, latestActivity);
               const contactActivity = contactActivityByRecordId[record.id] || [];
+              const isLastContactExpanded = Boolean(expandedLastContactById[record.id]);
+              const showLastContactToggle = shouldShowLastContactToggle(record, contactActivity);
 
               return (
                 <tr
@@ -1852,21 +1881,39 @@ export default function RecruitingPage() {
                   </td>
                   <td>
                     {contactActivity.length > 0 ? (
-                      <div className="recruitingContactHistoryList">
-                        {contactActivity.map((entry) => (
-                          <div
-                            key={entry.id}
-                            className="recruitingContactHistoryItem"
-                            title={entry.summary || formatDateTime(entry.actionDate)}
-                          >
-                            <div className="recruitingLastContactCell">
-                              {formatContactHistorySummary(entry)}
+                      <div className="recruitingLastContactWrap">
+                        <div
+                          className={`recruitingContactHistoryList ${
+                            isLastContactExpanded ? "isExpanded" : "isCollapsed"
+                          }`}
+                        >
+                          {contactActivity.map((entry) => (
+                            <div
+                              key={entry.id}
+                              className="recruitingContactHistoryItem"
+                              title={entry.summary || formatDateTime(entry.actionDate)}
+                            >
+                              <div className="recruitingLastContactCell">
+                                {formatContactHistorySummary(entry)}
+                              </div>
+                              {entry.summary ? (
+                                <div className="small">{entry.summary}</div>
+                              ) : null}
                             </div>
-                            {entry.summary ? (
-                              <div className="small">{entry.summary}</div>
-                            ) : null}
-                          </div>
-                        ))}
+                          ))}
+                        </div>
+                        {showLastContactToggle ? (
+                          <button
+                            className="recruitingLastContactToggle"
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleLastContactExpanded(record.id);
+                            }}
+                          >
+                            {isLastContactExpanded ? "See less" : "See more"}
+                          </button>
+                        ) : null}
                       </div>
                     ) : (
                       <div className="recruitingLastContactCell">{formatLastContactSummary(record)}</div>
@@ -1916,11 +1963,11 @@ export default function RecruitingPage() {
       <DraggableTable>
         <table className={`table recruitingCompactTable recruitingFitTable recruitingFont-${tableFontSize}`}>
           <colgroup>
-            <col style={{ width: "11%" }} />
+            <col style={{ width: "9%" }} />
             <col style={{ width: "8%" }} />
             <col style={{ width: "9%" }} />
             <col style={{ width: "15%" }} />
-            <col style={{ width: "6%" }} />
+            <col style={{ width: "9%" }} />
             <col style={{ width: "8%" }} />
             <col style={{ width: "10%" }} />
             <col style={{ width: "9%" }} />
@@ -1947,8 +1994,7 @@ export default function RecruitingPage() {
             {recordsToRender.map((record) => {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-              const latestActivity = latestActivityByRecordId[record.id] || null;
-              const updateMeta = formatRecruitingUpdateMeta(record, latestActivity);
+              const stageLabel = isReadyForBoss(record) ? "Ready for Boss" : record.stageLabel;
 
               return (
                 <tr
@@ -1956,17 +2002,11 @@ export default function RecruitingPage() {
                   onClick={() => setSelectedRecordId(record.id)}
                   style={getRecordRowStyle(record, record.id === selectedRecordId)}
                 >
-                    <td>{record.teamName || "-"}</td>
+                    <td>
+                      <div className="recruitingPotentialTeamName">{record.teamName || "-"}</div>
+                    </td>
                     <td>
                       <div>{formatContactName(record)}</div>
-                      {updateMeta ? (
-                        <div
-                          className="small recruitingUpdatedMeta"
-                          title={latestActivity?.summary || updateMeta}
-                        >
-                          {updateMeta}
-                        </div>
-                      ) : null}
                     </td>
                     <td>
                       <div>{getRecordPeopleCount(record)} people</div>
@@ -1980,10 +2020,12 @@ export default function RecruitingPage() {
                       {renderDuplicateNotice(duplicateInfo, { compact: true })}
                     </td>
                     <td>
-                      <span className="badge badgeInfo">{record.assignedTo || PRIMARY_OWNER}</span>
+                      <span className="badge badgeInfo recruitingOwnerBadge">{record.assignedTo || PRIMARY_OWNER}</span>
                     </td>
                     <td>
-                      <div>{isReadyForBoss(record) ? "Ready for Boss" : record.stageLabel}</div>
+                      <span className={`badge ${getRecruitingStageBadgeClass(record)} recruitingStageBadge`}>
+                        {stageLabel}
+                      </span>
                       {attention ? (
                         <span className={`badge ${attention.badgeClass}`} style={{ marginTop: 4 }}>
                           {attention.label}
