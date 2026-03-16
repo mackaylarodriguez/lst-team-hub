@@ -4569,99 +4569,126 @@ function parseDateSafe(dateStr) {
 
       {tab === "Fundraising" && (
         <div style={{ display: "grid", gap: 16 }}>
-          <div className="card pad">
-            <div className="cardSectionPill" style={{ marginBottom: 14 }}>Fundraising Deadlines</div>
-            <div className="small" style={{ marginBottom: 12 }}>
-              These dates are automatically based on the trip start date.
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 4fr) minmax(220px, 1fr)",
+              gap: 16,
+              alignItems: "stretch",
+            }}
+          >
+            <div className="card pad">
+              <div className="cardSectionPill" style={{ marginBottom: 14 }}>Fundraising Deadlines</div>
+              <div className="small" style={{ marginBottom: 12 }}>
+                These dates are automatically based on the trip start date.
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                  gap: 16,
+                }}
+              >
+                <div
+                  className="card pad"
+                  style={{
+                    boxShadow: "none",
+                    background: "linear-gradient(180deg, rgba(255,244,223,.95), #ffffff 72%)",
+                    borderColor: "rgba(249,157,42,.22)",
+                  }}
+                >
+                  <div className="small" style={{ marginBottom: 6 }}>90 Days Before Trip</div>
+                  <div style={{ fontWeight: 900, fontSize: 24, letterSpacing: "-.03em" }}>
+                    {formatMoney(fundraisingFirstDeadlineAmount)}
+                  </div>
+                  <div className="small" style={{ marginTop: 8 }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        fontSize: 17,
+                        fontWeight: 800,
+                        color: "var(--text)",
+                      }}
+                    >
+                      Due by {formatDeadlineDate(fundraisingFirstDeadlineDate)}
+                    </span>
+                  </div>
+                  <div className="small" style={{ marginTop: 8 }}>
+                    {formatMoney(2000)} per worker for {fundraisingWorkerCount} worker{fundraisingWorkerCount === 1 ? "" : "s"}.
+                  </div>
+                </div>
+                <div
+                  className="card pad"
+                  style={{
+                    boxShadow: "none",
+                    background: "linear-gradient(180deg, rgba(234,242,255,.95), #ffffff 72%)",
+                    borderColor: "rgba(47,73,147,.18)",
+                  }}
+                >
+                  <div className="small" style={{ marginBottom: 6 }}>30 Days Before Trip</div>
+                  <div style={{ fontWeight: 900, fontSize: 24, letterSpacing: "-.03em" }}>
+                    {formatMoney(fundraisingSecondDeadlineAmount)}
+                  </div>
+                  <div className="small" style={{ marginTop: 8 }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        fontSize: 17,
+                        fontWeight: 800,
+                        color: "var(--text)",
+                      }}
+                    >
+                      Due by {formatDeadlineDate(fundraisingSecondDeadlineDate)}
+                    </span>
+                  </div>
+                  <div className="small" style={{ marginTop: 8 }}>
+                    Remaining total amount due after the 90-day deadline.
+                  </div>
+                </div>
+              </div>
+              {fundraisingGoalAmount > 0 ? (
+                <div className="small" style={{ marginTop: 12 }}>
+                  Total needed for this trip: {formatMoney(fundraisingGoalAmount)}
+                </div>
+              ) : (
+                <div className="small" style={{ marginTop: 12 }}>
+                  Staff can set the total fundraising amount above.
+                </div>
+              )}
             </div>
+
             <div
+              className="card pad"
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                gap: 16,
+                background: "linear-gradient(180deg, rgba(234,242,255,.8), rgba(255,255,255,1) 72%)",
+                borderColor: "rgba(47,73,147,.18)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
               }}
             >
-              <div
-                className="card pad"
-                style={{
-                  boxShadow: "none",
-                  background: "linear-gradient(180deg, rgba(255,244,223,.95), #ffffff 72%)",
-                  borderColor: "rgba(249,157,42,.22)",
-                }}
-              >
-                <div className="small" style={{ marginBottom: 6 }}>90 Days Before Trip</div>
-                <div style={{ fontWeight: 900, fontSize: 24, letterSpacing: "-.03em" }}>
-                  {formatMoney(fundraisingFirstDeadlineAmount)}
-                </div>
-                <div className="small" style={{ marginTop: 8 }}>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      fontSize: 17,
-                      fontWeight: 800,
-                      color: "var(--text)",
-                    }}
-                  >
-                    Due by {formatDeadlineDate(fundraisingFirstDeadlineDate)}
-                  </span>
-                </div>
-                <div className="small" style={{ marginTop: 8 }}>
-                  {formatMoney(2000)} per worker for {fundraisingWorkerCount} worker{fundraisingWorkerCount === 1 ? "" : "s"}.
+              <div>
+                <div className="cardSectionPill" style={{ marginBottom: 14 }}>Resources</div>
+                <div style={{ fontWeight: 900, marginBottom: 8 }}>General Financial Information</div>
+                <div className="small" style={{ marginBottom: 14 }}>
+                  Quick access to the main fundraising and financial guidance for this team.
                 </div>
               </div>
-              <div
-                className="card pad"
-                style={{
-                  boxShadow: "none",
-                  background: "linear-gradient(180deg, rgba(234,242,255,.95), #ffffff 72%)",
-                  borderColor: "rgba(47,73,147,.18)",
-                }}
+              <a
+                className="btn btnPrimary"
+                href={generalFinancialInformationUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ width: "100%", justifyContent: "center" }}
               >
-                <div className="small" style={{ marginBottom: 6 }}>30 Days Before Trip</div>
-                <div style={{ fontWeight: 900, fontSize: 24, letterSpacing: "-.03em" }}>
-                  {formatMoney(fundraisingSecondDeadlineAmount)}
-                </div>
-                <div className="small" style={{ marginTop: 8 }}>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      fontSize: 17,
-                      fontWeight: 800,
-                      color: "var(--text)",
-                    }}
-                  >
-                    Due by {formatDeadlineDate(fundraisingSecondDeadlineDate)}
-                  </span>
-                </div>
-                <div className="small" style={{ marginTop: 8 }}>
-                  Remaining total amount due after the 90-day deadline.
-                </div>
-              </div>
+                Open Resource
+              </a>
             </div>
-            {fundraisingGoalAmount > 0 ? (
-              <div className="small" style={{ marginTop: 12 }}>
-                Total needed for this trip: {formatMoney(fundraisingGoalAmount)}
-              </div>
-            ) : (
-              <div className="small" style={{ marginTop: 12 }}>
-                Staff can set the total fundraising amount above.
-              </div>
-            )}
           </div>
 
           <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 14 }}>
               {canViewAllParticipantData ? "Fundraising Pages" : "My Fundraising"}
-            </div>
-            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-              <a
-                className="btn"
-                href={generalFinancialInformationUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                General Financial Information
-              </a>
             </div>
             <div style={{ height: 4 }} />
 
