@@ -276,6 +276,16 @@ a:hover{text-decoration:underline}
   text-align:center;
   white-space:normal;
 }
+.recruitingOwnerBadgePrimary{
+  border-color:rgba(60,170,225,.28);
+  color:#0f6e91;
+  background:var(--skySoft);
+}
+.recruitingOwnerBadgeBoss{
+  border-color:rgba(249,157,42,.28);
+  color:#b45309;
+  background:var(--goldSoft);
+}
 .recruitingStageBadge{
   justify-content:center;
   min-width:100%;
@@ -308,7 +318,7 @@ a:hover{text-decoration:underline}
   line-height:1.2;
 }
 .recruitingLastContactCell{
-  font-weight:700;
+  font-weight:400;
   white-space:normal;
   line-height:1.2;
 }

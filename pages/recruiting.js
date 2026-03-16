@@ -364,6 +364,13 @@ function getRecruitingStageBadgeClass(record) {
   return "badgeDanger";
 }
 
+function getRecruitingOwnerBadgeClass(owner) {
+  const normalizedOwner = normalizeOwnerName(owner);
+  if (normalizedOwner === normalizeOwnerName(PRIMARY_OWNER)) return "recruitingOwnerBadgePrimary";
+  if (normalizedOwner === normalizeOwnerName(BOSS_OWNER)) return "recruitingOwnerBadgeBoss";
+  return "badgeInfo";
+}
+
 function formatRecruitingUpdateMeta(record, latestActivity) {
   if (latestActivity?.staffMember || latestActivity?.actionDate) {
     const dateLabel = formatCompactDateTime(latestActivity.actionDate || latestActivity.createdAt);
@@ -2052,7 +2059,9 @@ export default function RecruitingPage() {
                       {renderDuplicateNotice(duplicateInfo, { compact: true })}
                     </td>
                     <td>
-                      <span className="badge badgeInfo recruitingOwnerBadge">{record.assignedTo || PRIMARY_OWNER}</span>
+                      <span className={`badge recruitingOwnerBadge ${getRecruitingOwnerBadgeClass(record.assignedTo || PRIMARY_OWNER)}`}>
+                        {record.assignedTo || PRIMARY_OWNER}
+                      </span>
                     </td>
                     <td>
                       <span className={`badge ${getRecruitingStageBadgeClass(record)} recruitingStageBadge`}>

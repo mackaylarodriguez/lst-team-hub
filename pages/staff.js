@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import {
+  createWorkerProfile,
   assignWorkerByEmailToTrip,
   listTripsForCurrentUser,
   listWorkerAssignmentSummary,
@@ -11,6 +12,15 @@ import {
 } from "@/lib/trips";
 import { isStaffRole } from "@/lib/roles";
 import { listStaffParticipantOverview } from "@/lib/staffOverview";
+
+function createEmptyWorkerDraft() {
+  return {
+    firstName: "",
+    lastName: "",
+    email: "",
+    tripId: "",
+  };
+}
 
 export default function StaffAssignments() {
   const router = useRouter();
@@ -22,6 +32,8 @@ export default function StaffAssignments() {
   const [selectedTripByWorker, setSelectedTripByWorker] = useState({});
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [isAddingWorker, setIsAddingWorker] = useState(false);
+  const [newWorkerDraft, setNewWorkerDraft] = useState(() => createEmptyWorkerDraft());
 
   useEffect(() => {
     let cancelled = false;
@@ -168,6 +180,55 @@ export default function StaffAssignments() {
     }
   }
 
+  async function handleAddWorker() {
+    try {
+      const createResult = await createWorkerProfile(newWorkerDraft);
+
+      if (createResult.status === "invalid_role") {
+        setError(createResult.message);
+        setMessage("");
+        return;
+      }
+
+      let nextMessage = createResult.message;
+
+      if (newWorkerDraft.tripId) {
+        const assignResult = await assignWorkerByEmailToTrip({
+          workerEmail: newWorkerDraft.email,
+          tripId: newWorkerDraft.tripId,
+        });
+
+        if (assignResult.status === "assigned" || assignResult.status === "duplicate") {
+          nextMessage =
+            createResult.status === "duplicate"
+              ? "Worker already existed and is assigned to that trip."
+              : "Worker created and assigned to trip.";
+        } else {
+          setError(assignResult.message);
+          setMessage("");
+          return;
+        }
+      } else if (createResult.status === "duplicate") {
+        nextMessage = "That worker already exists.";
+      }
+
+      const [nextWorkers, nextOverview] = await Promise.all([
+        listWorkerAssignmentSummary(),
+        listStaffParticipantOverview(),
+      ]);
+      setWorkers(nextWorkers);
+      setParticipantOverview(nextOverview);
+      setNewWorkerDraft(createEmptyWorkerDraft());
+      setIsAddingWorker(false);
+      setMessage(nextMessage);
+      setError("");
+    } catch (addError) {
+      console.error("Unable to add worker", addError);
+      setError(addError.message || "Unable to add worker.");
+      setMessage("");
+    }
+  }
+
   return (
     <Shell>
       <h1 className="h1">Workers</h1>
@@ -190,9 +251,26 @@ export default function StaffAssignments() {
       )}
 
       <div className="card pad" style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 900, marginBottom: 6 }}>Search Workers</div>
-        <div className="small" style={{ marginBottom: 10 }}>
-          Search by worker name, email, or trip.
+        <div className="row" style={{ marginBottom: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>Search Workers</div>
+            <div className="small">
+              Search by worker name, email, or trip.
+            </div>
+          </div>
+          <div className="spacer" />
+          <button
+            className="btn"
+            type="button"
+            onClick={() => {
+              setIsAddingWorker((current) => !current);
+              setMessage("");
+              setError("");
+              setNewWorkerDraft(createEmptyWorkerDraft());
+            }}
+          >
+            {isAddingWorker ? "Cancel" : "Add Worker"}
+          </button>
         </div>
         <input
           className="input"
@@ -200,6 +278,79 @@ export default function StaffAssignments() {
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Search workers or trips"
         />
+        {isAddingWorker ? (
+          <div
+            style={{
+              display: "grid",
+              gap: 10,
+              marginTop: 12,
+              padding: 12,
+              borderRadius: 14,
+              border: "1px solid var(--border)",
+              background: "#fff",
+            }}
+          >
+            <div className="small">
+              Create a worker profile here, then optionally assign them to a trip right away.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+              <input
+                className="input"
+                value={newWorkerDraft.firstName}
+                onChange={(event) =>
+                  setNewWorkerDraft((current) => ({ ...current, firstName: event.target.value }))
+                }
+                placeholder="First name"
+              />
+              <input
+                className="input"
+                value={newWorkerDraft.lastName}
+                onChange={(event) =>
+                  setNewWorkerDraft((current) => ({ ...current, lastName: event.target.value }))
+                }
+                placeholder="Last name"
+              />
+              <input
+                className="input"
+                type="email"
+                value={newWorkerDraft.email}
+                onChange={(event) =>
+                  setNewWorkerDraft((current) => ({ ...current, email: event.target.value }))
+                }
+                placeholder="worker@email.com"
+              />
+              <select
+                className="input"
+                value={newWorkerDraft.tripId}
+                onChange={(event) =>
+                  setNewWorkerDraft((current) => ({ ...current, tripId: event.target.value }))
+                }
+              >
+                <option value="">No trip yet</option>
+                {trips.map((trip) => (
+                  <option key={trip.id} value={trip.id}>
+                    {trip.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <button className="btn btnPrimary" type="button" onClick={() => void handleAddWorker()}>
+                Save Worker
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  setIsAddingWorker(false);
+                  setNewWorkerDraft(createEmptyWorkerDraft());
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="card pad" style={{ marginBottom: 16 }}>
