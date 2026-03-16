@@ -544,6 +544,7 @@ function parseImportRows(file) {
         })
       );
       const importedGender = normalizeImportedGender(
+        values.gender ||
         findImportedColumnValue(values, {
           exactKeys: ["gender", "genders", "g", "sex", "mf", "morf", "genderidentity"],
           includesKeys: ["gender", "sex", "mf", "malefemale"],
@@ -1727,8 +1728,8 @@ export default function RecruitingPage() {
   function handleDownloadTemplate() {
     const csv = [
       "First Name,Last Name,Email,Gender,Year,Mackayla Notes,Leslee Notes",
-      'John,Smith,john@email.com,Male,2027,"Interested in summer project","Follow up after spring break"',
-      'Sarah,Lee,sarah@email.com,Female,,"Alumni referral","Prefers email contact"',
+      'John,Smith,john@email.com,M,2027,"Interested in summer project","Follow up after spring break"',
+      'Sarah,Lee,sarah@email.com,F,,"Alumni referral","Prefers email contact"',
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
