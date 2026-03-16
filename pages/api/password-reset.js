@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { createClient } from "@supabase/supabase-js";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -6,15 +7,6 @@ function normalizeText(value) {
 
 function normalizeEmail(value) {
   return normalizeText(value).toLowerCase();
-}
-
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 function getBaseUrl(req) {
@@ -28,21 +20,22 @@ function getBaseUrl(req) {
   return host ? `${protocol}://${host}` : "";
 }
 
-function buildResetEmailHtml({ email, resetUrl }) {
-  const safeEmail = escapeHtml(email || "");
-  const safeResetUrl = escapeHtml(resetUrl || "");
+function getPublicSupabaseClient() {
+  const supabaseUrl = normalizeText(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const supabaseAnonKey = normalizeText(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
-  return `
-    <div style="font-family: Georgia, 'Times New Roman', serif; color: #1f2937; line-height: 1.6; max-width: 640px; margin: 0 auto; padding: 24px;">
-      <h1 style="font-size: 28px; margin: 0 0 16px; color: #0f172a;">Reset your password</h1>
-      <p style="margin: 0 0 12px;">A password reset was requested for <strong>${safeEmail}</strong>.</p>
-      <p style="margin: 0 0 12px;">Click the button below to choose a new password.</p>
-      <p style="margin: 24px 0;">
-        <a href="${safeResetUrl}" style="display: inline-block; padding: 12px 18px; border-radius: 999px; background: #0f766e; color: #ffffff; text-decoration: none; font-weight: 700;">Reset Password</a>
-      </p>
-      <p style="margin: 0 0 12px;">If you did not request this, you can ignore this email.</p>
-    </div>
-  `;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      "Missing Supabase public environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 function isAuthUserMissingError(error) {
@@ -93,15 +86,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed." });
   }
 
-  const resendApiKey = normalizeText(process.env.RESEND_API_KEY);
-  const fromEmail = normalizeText(process.env.RESEND_FROM_EMAIL);
-
-  if (!resendApiKey || !fromEmail) {
-    return res.status(500).json({
-      error: "Password reset email is not configured. Add RESEND_API_KEY and RESEND_FROM_EMAIL.",
-    });
-  }
-
   const email = normalizeEmail(req.body?.email);
   if (!email) {
     return res.status(400).json({ error: "Missing email." });
@@ -109,66 +93,44 @@ export default async function handler(req, res) {
 
   try {
     const supabaseAdmin = getSupabaseAdminClient();
+    const supabasePublic = getPublicSupabaseClient();
     const baseUrl = getBaseUrl(req);
     const redirectTo = `${baseUrl}/login?mode=reset`;
-    let { data, error } = await supabaseAdmin.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: {
-        redirectTo,
-      },
-    });
 
-    if (error && isAuthUserMissingError(error)) {
-      await ensureAuthUserExists(supabaseAdmin, email);
-      ({ data, error } = await supabaseAdmin.auth.admin.generateLink({
-        type: "recovery",
-        email,
-        options: {
-          redirectTo,
-        },
-      }));
+    const { data: authUsers, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listUsersError) {
+      console.error("Unable to load auth users for password reset", listUsersError);
+      throw listUsersError;
     }
+
+    const authUserExists = (authUsers?.users || []).some(
+      (user) => normalizeEmail(user.email) === email
+    );
+
+    if (!authUserExists) {
+      await ensureAuthUserExists(supabaseAdmin, email);
+    }
+
+    const { error } = await supabasePublic.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
 
     if (error) {
-      console.error("Unable to generate password reset link", error);
-      throw error;
-    }
+      console.error("Unable to send password reset email", error);
 
-    const resetUrl = data?.properties?.action_link;
-    if (!resetUrl) {
-      return res.status(500).json({ error: "Unable to create password reset link." });
-    }
+      if (isAuthUserMissingError(error)) {
+        await ensureAuthUserExists(supabaseAdmin, email);
+        const retry = await supabasePublic.auth.resetPasswordForEmail(email, {
+          redirectTo,
+        });
 
-    const payload = {
-      from: fromEmail,
-      to: [email],
-      subject: "Reset your password",
-      html: buildResetEmailHtml({ email, resetUrl }),
-      text: [
-        `A password reset was requested for ${email}.`,
-        "",
-        `Reset your password here: ${resetUrl}`,
-        "",
-        "If you did not request this, you can ignore this email.",
-      ].join("\n"),
-    };
-
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const responseData = await response.json().catch(() => null);
-    if (!response.ok) {
-      console.error("Unable to send password reset email", responseData || response.statusText);
-      return res.status(502).json({
-        error: responseData?.message || "Unable to send password reset email.",
-      });
+        if (retry.error) {
+          console.error("Unable to send password reset email after creating auth user", retry.error);
+          throw retry.error;
+        }
+      } else {
+        throw error;
+      }
     }
 
     return res.status(200).json({ ok: true });

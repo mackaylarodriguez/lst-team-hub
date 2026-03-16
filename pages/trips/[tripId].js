@@ -2898,7 +2898,7 @@ function parseDateSafe(dateStr) {
           nextParticipants = await listTripParticipants(trip.id);
           statusMessage = "Worker added and assigned to this trip.";
         } else {
-          statusMessage = "Worker saved as unassigned. Assign them after an account exists for that email.";
+          statusMessage = result.message || "Worker saved as unassigned.";
         }
       }
 
