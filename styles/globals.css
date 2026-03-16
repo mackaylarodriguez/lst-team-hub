@@ -247,6 +247,10 @@ a:hover{text-decoration:underline}
   vertical-align:top;
   white-space:nowrap;
 }
+.recruitingCompactTable .small{
+  font-size:inherit;
+  line-height:inherit;
+}
 .recruitingCompactTable th{
   font-size:10px;
   letter-spacing:.04em;
@@ -264,23 +268,23 @@ a:hover{text-decoration:underline}
   overflow-wrap:anywhere;
 }
 .recruitingPotentialTeamName{
-  font-size:11px;
-  line-height:1.2;
+  font-size:inherit;
+  line-height:inherit;
 }
 .recruitingPotentialEmail{
-  font-size:11px;
-  line-height:1.2;
+  font-size:inherit;
+  line-height:inherit;
 }
 .recruitingPotentialPrimaryContact{
   margin-top:2px;
-  font-size:11px;
+  font-size:inherit;
   color:var(--text);
-  line-height:1.2;
+  line-height:inherit;
 }
 .recruitingPotentialSecondaryPeople{
   margin-top:2px;
-  font-size:11px;
-  line-height:1.2;
+  font-size:inherit;
+  line-height:inherit;
 }
 .recruitingFundingInput{
   color:var(--muted);
