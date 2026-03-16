@@ -1994,7 +1994,6 @@ export default function RecruitingPage() {
                       <button className="btn" type="button" onClick={() => openContactActionModal(record, "email")}>Emailed</button>
                       <button className="btn" type="button" onClick={() => openContactActionModal(record, "call")}>Called</button>
                       <button className="btn" type="button" onClick={() => openContactActionModal(record, "text")}>Texted</button>
-                      <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>View History</button>
                       <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
                     </div>
                   </td>
