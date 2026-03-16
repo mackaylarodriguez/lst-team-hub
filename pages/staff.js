@@ -66,15 +66,33 @@ export default function StaffAssignments() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [nextTrips, nextWorkers, nextOverview] = await Promise.all([
+        const [tripsResult, workersResult, overviewResult] = await Promise.allSettled([
           listTripsForCurrentUser(),
           listWorkerAssignmentSummary(),
           listStaffParticipantOverview(),
         ]);
 
-        setTrips(nextTrips);
-        setWorkers(nextWorkers);
-        setParticipantOverview(nextOverview);
+        if (tripsResult.status === "fulfilled") {
+          setTrips(tripsResult.value);
+        }
+
+        if (workersResult.status === "fulfilled") {
+          setWorkers(workersResult.value);
+        }
+
+        if (overviewResult.status === "fulfilled") {
+          setParticipantOverview(overviewResult.value);
+        }
+
+        const firstError = [tripsResult, workersResult, overviewResult].find(
+          (result) => result.status === "rejected"
+        );
+
+        if (firstError?.reason) {
+          throw firstError.reason;
+        }
+
+        setError("");
       } catch (loadError) {
         console.error("Unable to load staff assignments", loadError);
         setError(loadError.message || "Unable to load worker assignments.");

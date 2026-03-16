@@ -45,6 +45,48 @@ function buildResetEmailHtml({ email, resetUrl }) {
   `;
 }
 
+function isAuthUserMissingError(error) {
+  const message = String(error?.message || error?.details || "").toLowerCase();
+  return message.includes("user not found") || message.includes("email not found");
+}
+
+function buildTemporaryPassword() {
+  return `Tmp-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
+}
+
+async function ensureAuthUserExists(supabaseAdmin, email) {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id, email, role, first_name, last_name")
+    .ilike("email", email)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Unable to load profile for password reset", error);
+    throw error;
+  }
+
+  const profile = data || null;
+
+  const { error: createError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password: buildTemporaryPassword(),
+    email_confirm: true,
+    user_metadata: {
+      role: String(profile?.role || "").trim().toLowerCase() || undefined,
+      name: [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim() || undefined,
+    },
+  });
+
+  if (createError) {
+    const message = String(createError.message || "").toLowerCase();
+    if (!message.includes("already") && !message.includes("exists")) {
+      console.error("Unable to create auth user for password reset", createError);
+      throw createError;
+    }
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -69,13 +111,24 @@ export default async function handler(req, res) {
     const supabaseAdmin = getSupabaseAdminClient();
     const baseUrl = getBaseUrl(req);
     const redirectTo = `${baseUrl}/login?mode=reset`;
-    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+    let { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",
       email,
       options: {
         redirectTo,
       },
     });
+
+    if (error && isAuthUserMissingError(error)) {
+      await ensureAuthUserExists(supabaseAdmin, email);
+      ({ data, error } = await supabaseAdmin.auth.admin.generateLink({
+        type: "recovery",
+        email,
+        options: {
+          redirectTo,
+        },
+      }));
+    }
 
     if (error) {
       console.error("Unable to generate password reset link", error);
