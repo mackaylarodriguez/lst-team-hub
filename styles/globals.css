@@ -191,6 +191,18 @@ a:hover{text-decoration:underline}
 .tabs{display:flex; gap:8px; flex-wrap:wrap}
 .tab{padding:8px 10px; border:1px solid var(--border); border-radius:999px; background:#fff; color:var(--muted); font-weight:800; font-size:13px; cursor:pointer}
 .tabActive{background:var(--primary); border-color:var(--primary); color:#fff}
+.tripPageTabs{
+  position:sticky;
+  top:0;
+  z-index:12;
+  margin:0 -2px 14px -2px;
+  padding:8px 2px 10px 2px;
+  background:linear-gradient(180deg, rgba(244,248,252,.96), rgba(244,248,252,.82));
+  backdrop-filter:blur(10px);
+}
+.tripPageTabs .tab{
+  flex:0 0 auto;
+}
 .table{width:100%; border-collapse:collapse}
 .table th,.table td{padding:10px; border-bottom:1px solid var(--border); text-align:left}
 .table th{font-size:12px; color:var(--muted)}
@@ -601,8 +613,23 @@ a:hover{text-decoration:underline}
     overflow-x:auto;
     padding-bottom:4px;
     scrollbar-width:none;
+    scroll-snap-type:x proximity;
   }
   .tabs::-webkit-scrollbar{display:none}
+  .tabs .tab{
+    scroll-snap-align:start;
+  }
+  .tripPageTabs{
+    margin-left:-4px;
+    margin-right:-4px;
+    padding-left:4px;
+    padding-right:4px;
+  }
+  .tripPageTabs .tab{
+    min-height:42px;
+    padding:10px 14px;
+    font-size:13px;
+  }
   .table{
     display:block;
     overflow-x:auto;
@@ -638,6 +665,10 @@ a:hover{text-decoration:underline}
     display:grid;
     grid-template-columns:42px 1fr;
     align-items:center;
+  }
+  .tripPageTabs{
+    position:sticky;
+    top:72px;
   }
 }
 .staffTaskSectionHeader{

@@ -3935,7 +3935,7 @@ function parseDateSafe(dateStr) {
         </div>
       </div>
 
-      <div className="tabs" style={{ marginBottom: 14 }}>
+      <div className="tabs tripPageTabs" style={{ marginBottom: 14 }}>
         {tabs.map(t => (
           <button
             key={t}
