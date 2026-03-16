@@ -296,9 +296,9 @@ a:hover{text-decoration:underline}
   background:var(--skySoft);
 }
 .recruitingOwnerBadgeBoss{
-  border-color:rgba(249,157,42,.28);
-  color:#b45309;
-  background:var(--goldSoft);
+  border-color:rgba(60,170,225,.28);
+  color:var(--success);
+  background:rgba(60,170,225,.12);
 }
 .recruitingStageBadge{
   justify-content:center;
