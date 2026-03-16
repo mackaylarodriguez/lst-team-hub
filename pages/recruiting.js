@@ -1898,8 +1898,6 @@ export default function RecruitingPage() {
             {recordsToRender.map((record) => {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-              const latestActivity = latestActivityByRecordId[record.id] || null;
-              const updateMeta = formatRecruitingUpdateMeta(record, latestActivity);
               const contactActivity = contactActivityByRecordId[record.id] || [];
               const isLastContactExpanded = Boolean(expandedLastContactById[record.id]);
               const showLastContactToggle = shouldShowLastContactToggle(record, contactActivity);
@@ -1925,14 +1923,6 @@ export default function RecruitingPage() {
                         .filter(Boolean)
                         .join(" | ") || "-"}
                     </div>
-                    {updateMeta ? (
-                      <div
-                        className="small recruitingUpdatedMeta"
-                        title={latestActivity?.summary || updateMeta}
-                      >
-                        {updateMeta}
-                      </div>
-                    ) : null}
                     {attention ? (
                       <span className={`badge ${attention.badgeClass}`} style={{ marginTop: 4 }}>
                         {attention.label}
