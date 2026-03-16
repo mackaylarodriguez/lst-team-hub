@@ -653,16 +653,9 @@ export default function Trips() {
       <div style={{ display: "grid", gap: 24 }}>
         <div>
           <div style={{ fontWeight: 900, marginBottom: 12 }}>Active</div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 280px))",
-              gap: 14,
-              justifyContent: "start",
-            }}
-          >
+          <div className="tripListGrid">
             {activeTrips.map((trip) => (
-              <div key={trip.id || trip.name} className="card pad" style={{ minHeight: 0 }}>
+              <div key={trip.id || trip.name} className="card pad tripListCard">
                 <div style={{ fontWeight: 900, fontSize: 16 }}>{trip.name}</div>
                 <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
                 <div className="small">{trip.dates}</div>
@@ -737,16 +730,9 @@ export default function Trips() {
 
         <div>
           <div style={{ fontWeight: 900, marginBottom: 12 }}>Past</div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 280px))",
-              gap: 14,
-              justifyContent: "start",
-            }}
-          >
+          <div className="tripListGrid">
             {finishedTrips.length > 0 ? finishedTrips.map((trip) => (
-              <div key={trip.id || trip.name} className="card pad" style={{ minHeight: 0 }}>
+              <div key={trip.id || trip.name} className="card pad tripListCard">
                 <div style={{ fontWeight: 900, fontSize: 16 }}>{trip.name}</div>
                 <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
                 <div className="small">{trip.dates}</div>
@@ -819,16 +805,9 @@ export default function Trips() {
         {canManageTrips && (
           <div>
             <div style={{ fontWeight: 900, marginBottom: 12 }}>Archived</div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 280px))",
-                gap: 14,
-                justifyContent: "start",
-              }}
-            >
+            <div className="tripListGrid">
               {archivedTrips.length > 0 ? archivedTrips.map((trip) => (
-                <div key={trip.id || trip.name} className="card pad" style={{ minHeight: 0 }}>
+                <div key={trip.id || trip.name} className="card pad tripListCard">
                   <div style={{ fontWeight: 900, fontSize: 16 }}>{trip.name}</div>
                   <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
                   <div className="small">{trip.dates}</div>

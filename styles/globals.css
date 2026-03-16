@@ -36,6 +36,7 @@ a:hover{text-decoration:underline}
 .btnPrimary:hover{background:var(--primary2)}
 .tripCardActionRow{
   align-items:stretch;
+  margin-top:auto;
 }
 .tripCardActionButton{
   display:inline-flex;
@@ -45,6 +46,19 @@ a:hover{text-decoration:underline}
   font-size:14px;
   line-height:1.2;
   text-align:center;
+}
+.tripListGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(240px, 280px));
+  gap:14px;
+  justify-content:start;
+  align-items:stretch;
+}
+.tripListCard{
+  min-height:0;
+  height:100%;
+  display:flex;
+  flex-direction:column;
 }
 .input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:12px; font-size:14px}
 .input:focus{outline:none; border-color:rgba(60,170,225,.7); box-shadow:0 0 0 4px rgba(60,170,225,.12)}
@@ -524,6 +538,9 @@ a:hover{text-decoration:underline}
   font-size:12px;
   vertical-align:top;
 }
+.adminTasksTable{
+  table-layout:fixed;
+}
 .adminTasksTable .input,
 .adminTasksTable .statusSelect{
   min-height:30px;
@@ -542,6 +559,9 @@ a:hover{text-decoration:underline}
 .staffTaskRowActions{
   display:flex;
   justify-content:flex-end;
+  align-items:flex-start;
+  min-height:32px;
+  flex-wrap:wrap;
   gap:6px;
   opacity:0;
   pointer-events:none;

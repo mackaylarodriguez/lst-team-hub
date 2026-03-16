@@ -476,6 +476,8 @@ const RECRUITING_TABS = [
   { id: "converted", label: "Converted Teams" },
 ];
 
+const NEXT_RECRUITING_YEAR = 2027;
+
 const PRIMARY_OWNER = "Mackayla";
 const BOSS_OWNER = "Leslee";
 const OWNER_OPTIONS = [PRIMARY_OWNER, BOSS_OWNER];
@@ -1577,6 +1579,36 @@ export default function RecruitingPage() {
     }
   }
 
+  async function handleMoveRecordToNextYear(recordId = selectedRecordId) {
+    const recordToMove = records.find((record) => record.id === recordId);
+    if (!recordToMove) return;
+
+    try {
+      setIsSavingNotes(true);
+      await saveRecruitingCycleContact(
+        buildRecruitingRecordPayload(recordToMove, {
+          recruitingYear: NEXT_RECRUITING_YEAR,
+        })
+      );
+      await logRecruitingActivity({
+        recruitingCycleContactId: recordId,
+        actionType: "update",
+        actionDate: new Date().toISOString(),
+        staffMember: session?.name || session?.email || "Staff",
+        summary: `Moved recruiting record to ${NEXT_RECRUITING_YEAR}.`,
+      });
+      await refreshCurrentYear();
+      setRecordDetailsModalOpen(false);
+      setError("");
+      setPageStatus(`Moved to ${NEXT_RECRUITING_YEAR}.`);
+    } catch (moveError) {
+      console.error(`Unable to move recruiting record to ${NEXT_RECRUITING_YEAR}`, moveError);
+      setError(moveError.message || `Unable to move record to ${NEXT_RECRUITING_YEAR}.`);
+    } finally {
+      setIsSavingNotes(false);
+    }
+  }
+
   function updateRecordField(recordId, field, value) {
     setRecords((current) =>
       current.map((record) =>
@@ -2564,6 +2596,20 @@ export default function RecruitingPage() {
                         <option value="Female">Female</option>
                       </select>
                     </div>
+                    </div>
+                ) : null}
+                {recordDetailsMode !== "history" && activeTab === "outreach" && !selectedRecord.isConvertedToTeam ? (
+                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => void handleMoveRecordToNextYear(selectedRecord.id)}
+                      disabled={isSavingNotes || selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR}
+                    >
+                      {selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR
+                        ? `Already on ${NEXT_RECRUITING_YEAR}`
+                        : `Move to ${NEXT_RECRUITING_YEAR} Chart`}
+                    </button>
                   </div>
                 ) : null}
                 {recordDetailsMode !== "history" ? (
