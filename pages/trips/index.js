@@ -108,6 +108,7 @@ export default function Trips() {
   const [tripDraft, setTripDraft] = useState(createInitialTripDraft);
   const [submitError, setSubmitError] = useState("");
   const [tripMetricsById, setTripMetricsById] = useState({});
+  const [confirmingDeleteTripId, setConfirmingDeleteTripId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -272,14 +273,13 @@ export default function Trips() {
   }
 
   async function handleDeleteTrip(tripId) {
-    const confirmed = window.confirm("Delete this trip permanently?");
-    if (!confirmed) return;
-
     try {
       await deleteTrip(tripId);
+      setConfirmingDeleteTripId("");
       setSubmitError("");
     } catch (error) {
       setSubmitError(error.message || "Unable to delete trip.");
+      setConfirmingDeleteTripId("");
     }
   }
 
@@ -714,9 +714,15 @@ export default function Trips() {
                     <button
                       className="btn tripCardActionButton"
                       type="button"
-                      onClick={() => handleDeleteTrip(trip.id)}
+                      onClick={() => {
+                        if (confirmingDeleteTripId === trip.id) {
+                          void handleDeleteTrip(trip.id);
+                          return;
+                        }
+                        setConfirmingDeleteTripId(trip.id);
+                      }}
                     >
-                      Delete
+                      {confirmingDeleteTripId === trip.id ? "Confirm Delete" : "Delete"}
                     </button>
                   )}
                 </div>
@@ -789,9 +795,15 @@ export default function Trips() {
                     <button
                       className="btn tripCardActionButton"
                       type="button"
-                      onClick={() => handleDeleteTrip(trip.id)}
+                      onClick={() => {
+                        if (confirmingDeleteTripId === trip.id) {
+                          void handleDeleteTrip(trip.id);
+                          return;
+                        }
+                        setConfirmingDeleteTripId(trip.id);
+                      }}
                     >
-                      Delete
+                      {confirmingDeleteTripId === trip.id ? "Confirm Delete" : "Delete"}
                     </button>
                   )}
                 </div>
@@ -861,9 +873,15 @@ export default function Trips() {
                       <button
                         className="btn tripCardActionButton"
                         type="button"
-                        onClick={() => handleDeleteTrip(trip.id)}
+                        onClick={() => {
+                          if (confirmingDeleteTripId === trip.id) {
+                            void handleDeleteTrip(trip.id);
+                            return;
+                          }
+                          setConfirmingDeleteTripId(trip.id);
+                        }}
                       >
-                        Delete
+                        {confirmingDeleteTripId === trip.id ? "Confirm Delete" : "Delete"}
                       </button>
                     )}
                   </div>

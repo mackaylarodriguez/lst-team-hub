@@ -744,6 +744,7 @@ export default function RecruitingPage() {
   const [bulkAssignedTo, setBulkAssignedTo] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [deletingDuplicateRecordId, setDeletingDuplicateRecordId] = useState("");
+  const [confirmingDeleteDuplicateRecordId, setConfirmingDeleteDuplicateRecordId] = useState("");
   const [mergingDuplicateRecordId, setMergingDuplicateRecordId] = useState("");
   const [contactActionModalOpen, setContactActionModalOpen] = useState(false);
   const [isSavingContactAction, setIsSavingContactAction] = useState(false);
@@ -1389,6 +1390,7 @@ export default function RecruitingPage() {
     setSelectedRecordId(recordId);
     setRecordDetailsMode(mode);
     setRecordDetailsModalOpen(true);
+    setPageStatus("");
     setRecordPersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
     await ensureRecordHistoryLoaded(recordId);
   }
@@ -1413,11 +1415,6 @@ export default function RecruitingPage() {
   async function handleDeleteDuplicateRecord(record) {
     if (!record?.id) return;
 
-    const confirmed = window.confirm(
-      `Remove duplicate recruiting row for ${formatContactName(record)}?`
-    );
-    if (!confirmed) return;
-
     try {
       setDeletingDuplicateRecordId(record.id);
       await deleteRecruitingCycleContact(record.id);
@@ -1425,6 +1422,7 @@ export default function RecruitingPage() {
         setSelectedRecordId("");
       }
       setError("");
+      setConfirmingDeleteDuplicateRecordId("");
       await refreshCurrentYear();
     } catch (deleteError) {
       console.error("Unable to delete duplicate recruiting row", deleteError);
@@ -2354,10 +2352,20 @@ export default function RecruitingPage() {
                       <button
                         className="btn"
                         type="button"
-                        onClick={() => void handleDeleteDuplicateRecord(record)}
+                        onClick={() => {
+                          if (confirmingDeleteDuplicateRecordId === record.id) {
+                            void handleDeleteDuplicateRecord(record);
+                            return;
+                          }
+                          setConfirmingDeleteDuplicateRecordId(record.id);
+                        }}
                         disabled={deletingDuplicateRecordId === record.id}
                       >
-                        {deletingDuplicateRecordId === record.id ? "Removing..." : "Remove Extra Row"}
+                        {deletingDuplicateRecordId === record.id
+                          ? "Removing..."
+                          : confirmingDeleteDuplicateRecordId === record.id
+                          ? "Confirm Delete"
+                          : "Remove Extra Row"}
                       </button>
                     </div>
                   ))}
@@ -2557,6 +2565,11 @@ export default function RecruitingPage() {
             </div>
             {selectedRecord ? (
               <div style={{ display: "grid", gap: 12 }}>
+                {recordDetailsMode !== "history" && (isSavingNotes || pageStatus) ? (
+                  <div className="small" style={{ color: isSavingNotes ? "var(--primary)" : "var(--muted)" }}>
+                    {isSavingNotes ? "Saving changes..." : pageStatus}
+                  </div>
+                ) : null}
                 <div>
                   <div style={{ fontWeight: 800 }}>{formatContactName(selectedRecord)}</div>
                   <div className="small">{selectedRecord.contact?.email}</div>
@@ -2571,13 +2584,15 @@ export default function RecruitingPage() {
                   )}
                 </div>
                 {recordDetailsMode !== "history" && !selectedRecord.isConvertedToTeam ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                      gap: 10,
-                    }}
-                  >
+                  <>
+                    <div className="small" style={{ fontWeight: 900, letterSpacing: ".04em", textTransform: "uppercase" }}>Contact Info</div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                        gap: 10,
+                      }}
+                    >
                     <div>
                       <div className="small" style={{ marginBottom: 6 }}>First Name</div>
                       <input
@@ -2624,9 +2639,11 @@ export default function RecruitingPage() {
                       </select>
                     </div>
                     </div>
+                  </>
                 ) : null}
                 {recordDetailsMode !== "history" ? (
                   <>
+                    <div className="small" style={{ fontWeight: 900, letterSpacing: ".04em", textTransform: "uppercase" }}>Trip Details</div>
                     {!selectedRecord.isConvertedToTeam ? (
                       <div>
                         <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
@@ -2834,6 +2851,7 @@ export default function RecruitingPage() {
                         </div>
                       </div>
                     ) : null}
+                    <div className="small" style={{ fontWeight: 900, letterSpacing: ".04em", textTransform: "uppercase" }}>Notes</div>
                     <div>
                       <div className="small" style={{ marginBottom: 6 }}>Mackayla Notes</div>
                       <textarea
@@ -2852,6 +2870,7 @@ export default function RecruitingPage() {
                         onChange={(event) => updateSelectedRecord("lesleeNotes", event.target.value)}
                       />
                     </div>
+                    <div className="small" style={{ fontWeight: 900, letterSpacing: ".04em", textTransform: "uppercase" }}>Actions</div>
                     <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                       <button className="btn btnPrimary" type="button" onClick={() => handleSaveRecord()}>
                         {isSavingNotes ? "Saving..." : "Save Record"}

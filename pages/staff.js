@@ -201,15 +201,17 @@ export default function StaffAssignments() {
         if (assignResult.status === "assigned" || assignResult.status === "duplicate") {
           nextMessage =
             createResult.status === "duplicate"
-              ? "Worker already existed and is assigned to that trip."
-              : "Worker created and assigned to trip.";
+              ? "Worker already existed and is assigned to that trip. They can now create an account with this same email."
+              : "Worker created and assigned to trip. They can now create an account with this same email.";
         } else {
           setError(assignResult.message);
           setMessage("");
           return;
         }
       } else if (createResult.status === "duplicate") {
-        nextMessage = "That worker already exists.";
+        nextMessage = "That worker already exists. They should create an account with this same email if they have not yet.";
+      } else {
+        nextMessage = "Worker created. They can now create an account with this same email.";
       }
 
       const [nextWorkers, nextOverview] = await Promise.all([

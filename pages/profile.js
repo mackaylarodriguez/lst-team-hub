@@ -64,6 +64,7 @@ export default function Profile() {
   const [noteDraft, setNoteDraft] = useState("");
   const [editingNoteId, setEditingNoteId] = useState("");
   const [noteStatus, setNoteStatus] = useState("");
+  const [confirmingDeleteNote, setConfirmingDeleteNote] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -269,9 +270,6 @@ export default function Profile() {
   async function handleDeleteNote() {
     if (!editingNoteId) return;
 
-    const confirmed = window.confirm("Delete this staff note?");
-    if (!confirmed) return;
-
     try {
       setNoteStatus("Deleting...");
       await deleteProfileStaffNote(editingNoteId);
@@ -279,9 +277,11 @@ export default function Profile() {
       setEditingNoteId("");
       setNoteDraft("");
       setNoteStatus("Deleted.");
+      setConfirmingDeleteNote(false);
     } catch (error) {
       console.error("Unable to delete profile staff note", error);
       setNoteStatus(error.message || "Unable to delete note.");
+      setConfirmingDeleteNote(false);
     }
   }
 
@@ -502,8 +502,18 @@ export default function Profile() {
                       Cancel
                     </button>
                     {editingNoteId ? (
-                      <button className="btn" type="button" onClick={handleDeleteNote}>
-                        Delete
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          if (confirmingDeleteNote) {
+                            void handleDeleteNote();
+                            return;
+                          }
+                          setConfirmingDeleteNote(true);
+                        }}
+                      >
+                        {confirmingDeleteNote ? "Confirm Delete" : "Delete"}
                       </button>
                     ) : null}
                     {noteStatus ? (

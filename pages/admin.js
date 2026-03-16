@@ -62,6 +62,7 @@ export default function Admin() {
   const staffTasksByTripRef = useRef({});
   const miscTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
+  const [confirmingDeleteTaskKey, setConfirmingDeleteTaskKey] = useState("");
   const staffTaskRowTimeoutsRef = useRef({});
   const staffTaskNoteSaveTimeoutsRef = useRef({});
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
@@ -411,6 +412,7 @@ export default function Admin() {
       setMiscTasks((current) => current.filter((entry) => entry.id !== task.id));
       miscTasksRef.current = miscTasksRef.current.filter((entry) => entry.id !== task.id);
       setStaffTaskStatus("Deleted.");
+      setConfirmingDeleteTaskKey("");
     } catch (error) {
       console.error("Unable to delete misc task", error);
       if (isMissingStaffMiscTasksTableError(error)) {
@@ -420,6 +422,7 @@ export default function Admin() {
       } else {
         setStaffTaskStatus("Could not delete task.");
       }
+      setConfirmingDeleteTaskKey("");
     }
   }
 
@@ -701,6 +704,8 @@ export default function Admin() {
         onDeleteTask={handleDeleteTask}
         onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
+        confirmingDeleteTaskKey={confirmingDeleteTaskKey}
+        onRequestDeleteTask={setConfirmingDeleteTaskKey}
         personalTaskCategoryOptions={personalTaskCategoryOptions}
       />
 
@@ -719,6 +724,8 @@ export default function Admin() {
         onDeleteTask={handleDeleteTask}
         onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
+        confirmingDeleteTaskKey={confirmingDeleteTaskKey}
+        onRequestDeleteTask={setConfirmingDeleteTaskKey}
         personalTaskCategoryOptions={personalTaskCategoryOptions}
       />
 
@@ -737,6 +744,8 @@ export default function Admin() {
         onDeleteTask={handleDeleteTask}
         onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
+        confirmingDeleteTaskKey={confirmingDeleteTaskKey}
+        onRequestDeleteTask={setConfirmingDeleteTaskKey}
         personalTaskCategoryOptions={personalTaskCategoryOptions}
       />
     </Shell>
@@ -758,6 +767,8 @@ function TaskSection({
   onDeleteTask,
   onOpenTask,
   staffTaskRowStatus,
+  confirmingDeleteTaskKey,
+  onRequestDeleteTask,
   personalTaskCategoryOptions,
 }) {
   return (
@@ -912,9 +923,15 @@ function TaskSection({
                             <button
                               className="btn"
                               type="button"
-                              onClick={() => void onDeleteTask(task)}
+                              onClick={() => {
+                                if (confirmingDeleteTaskKey === taskKey) {
+                                  void onDeleteTask(task);
+                                  return;
+                                }
+                                onRequestDeleteTask(taskKey);
+                              }}
                             >
-                              Delete
+                              {confirmingDeleteTaskKey === taskKey ? "Confirm Delete" : "Delete"}
                             </button>
                           ) : null}
                         </>
