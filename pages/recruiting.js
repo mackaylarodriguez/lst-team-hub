@@ -336,11 +336,12 @@ function formatMonthDay(value) {
 }
 
 function formatContactActionLabel(actionType) {
-  if (actionType === "email") return "Emailed";
-  if (actionType === "call") return "Called";
-  if (actionType === "text") return "Texted";
-  if (actionType === "bulk email") return "Bulk Emailed";
-  if (actionType === "bulk text") return "Bulk Texted";
+  const normalizedAction = String(actionType || "").trim().toLowerCase();
+  if (normalizedAction === "email") return "Emailed";
+  if (normalizedAction === "call") return "Called";
+  if (normalizedAction === "text") return "Texted";
+  if (normalizedAction === "bulk email") return "Bulk Emailed";
+  if (normalizedAction === "bulk text") return "Bulk Texted";
   return String(actionType || "").trim();
 }
 
@@ -361,6 +362,16 @@ function formatContactHistorySummary(entry) {
   const actionLabel = formatContactActionLabel(entry?.actionType);
   const dateLabel = formatMonthDay(entry?.actionDate || entry?.createdAt);
   return [actionLabel, dateLabel].filter(Boolean).join(" ");
+}
+
+function formatPreviousContactLabel(entry) {
+  const normalizedAction = String(entry?.actionType || "").trim().toLowerCase();
+  if (normalizedAction === "email") return "Emailed previously";
+  if (normalizedAction === "call") return "Called previously";
+  if (normalizedAction === "text") return "Texted previously";
+  if (normalizedAction === "bulk email") return "Bulk emailed previously";
+  if (normalizedAction === "bulk text") return "Bulk texted previously";
+  return `${formatContactActionLabel(entry?.actionType) || "Contacted"} previously`;
 }
 
 function shouldShowLastContactToggle(record, contactActivity) {
@@ -719,6 +730,7 @@ export default function RecruitingPage() {
   const [selectedRecordId, setSelectedRecordId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [expandedLastContactById, setExpandedLastContactById] = useState({});
+  const [expandedContactHistoryById, setExpandedContactHistoryById] = useState({});
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [newContactDraft, setNewContactDraft] = useState({
     firstName: "",
@@ -733,6 +745,7 @@ export default function RecruitingPage() {
   const [newContactPersonDraft, setNewContactPersonDraft] = useState({ name: "", email: "", isMinor: false, minorAge: "" });
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importPreviewRows, setImportPreviewRows] = useState([]);
+  const [importDestination, setImportDestination] = useState("outreach");
   const [importSummary, setImportSummary] = useState("");
   const [importDuplicates, setImportDuplicates] = useState([]);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -978,9 +991,20 @@ export default function RecruitingPage() {
     () => (selectedRecordId ? historyByRecordId[selectedRecordId] || [] : []),
     [historyByRecordId, selectedRecordId]
   );
+  const currentContactHistory = useMemo(
+    () => currentHistory.filter((entry) => isContactActionType(entry.actionType)),
+    [currentHistory]
+  );
   const isCurrentHistoryLoading = selectedRecordId
     ? Boolean(historyLoadingByRecordId[selectedRecordId])
     : false;
+  const isCurrentContactHistoryExpanded = selectedRecordId
+    ? Boolean(expandedContactHistoryById[selectedRecordId])
+    : false;
+  const visibleCurrentContactHistory = isCurrentContactHistoryExpanded
+    ? currentContactHistory
+    : currentContactHistory.slice(0, 3);
+  const showCurrentContactHistoryToggle = currentContactHistory.length > 3;
 
   useEffect(() => {
     if (recordsForActiveTab.length === 0) {
@@ -1216,6 +1240,7 @@ export default function RecruitingPage() {
     try {
       const parsedRows = await parseImportRows(file);
       setImportPreviewRows(parsedRows);
+      setImportDestination("outreach");
       setImportSummary("");
       setImportDuplicates([]);
       setImportModalOpen(true);
@@ -1232,6 +1257,7 @@ export default function RecruitingPage() {
     const result = await importRecruitingContacts({
       recruitingYear: selectedYear,
       rows: importPreviewRows,
+      destination: importDestination,
       staffMember: session?.name || session?.email || "Staff",
     });
 
@@ -1245,6 +1271,7 @@ export default function RecruitingPage() {
     ].join(" | "));
     setImportDuplicates(result.duplicates);
     setImportPreviewRows([]);
+    setImportDestination("outreach");
     setImportModalOpen(false);
     await refreshCurrentYear();
   }
@@ -1828,6 +1855,7 @@ export default function RecruitingPage() {
         summary: "",
       });
       setError("");
+      setPageStatus("Contact saved.");
       await refreshCurrentYear();
       await ensureRecordHistoryLoaded(record.id, { force: true });
     } catch (saveError) {
@@ -1855,6 +1883,13 @@ export default function RecruitingPage() {
 
   function toggleLastContactExpanded(recordId) {
     setExpandedLastContactById((current) => ({
+      ...current,
+      [recordId]: !current[recordId],
+    }));
+  }
+
+  function toggleContactHistoryExpanded(recordId) {
+    setExpandedContactHistoryById((current) => ({
       ...current,
       [recordId]: !current[recordId],
     }));
@@ -2848,28 +2883,60 @@ export default function RecruitingPage() {
                         </div>
                       </div>
                     ) : null}
-                    {activeTab === "potential" ? (
+                    {!selectedRecord.isConvertedToTeam ? (
                       <>
                         <div className="small" style={{ fontWeight: 900, letterSpacing: ".04em", textTransform: "uppercase" }}>Contact History</div>
                         {isCurrentHistoryLoading ? (
                           <div className="small">Loading history...</div>
-                        ) : currentHistory.length > 0 ? (
+                        ) : currentContactHistory.length > 0 ? (
                           <div style={{ display: "grid", gap: 10 }}>
-                            {currentHistory.map((entry) => (
+                            {visibleCurrentContactHistory.map((entry) => (
                               <div
                                 key={entry.id}
                                 style={{ paddingBottom: 10, borderBottom: "1px solid var(--border)" }}
                               >
-                                <div>{entry.summary || getRecruitingStageLabel(selectedRecord.stage)}</div>
+                                <div style={{ fontWeight: 700 }}>{formatPreviousContactLabel(entry)}</div>
+                                {entry.summary ? (
+                                  <div style={{ marginTop: 4 }}>{entry.summary}</div>
+                                ) : null}
                                 <div className="small" style={{ marginTop: 4 }}>
                                   {entry.staffMember ? `${entry.staffMember} | ` : ""}
                                   {formatDateTime(entry.actionDate)}
                                 </div>
                               </div>
                             ))}
+                            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                              {showCurrentContactHistoryToggle ? (
+                                <button
+                                  className="recruitingLastContactToggle"
+                                  type="button"
+                                  onClick={() => toggleContactHistoryExpanded(selectedRecord.id)}
+                                >
+                                  {isCurrentContactHistoryExpanded ? "See less" : "See more"}
+                                </button>
+                              ) : null}
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={() => openContactActionModal(selectedRecord, "email")}
+                              >
+                                Add Contact
+                              </button>
+                            </div>
                           </div>
                         ) : (
-                          <div className="small">No activity logged yet.</div>
+                          <div style={{ display: "grid", gap: 8 }}>
+                            <div className="small">No contact history logged yet.</div>
+                            <div>
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={() => openContactActionModal(selectedRecord, "email")}
+                              >
+                                Add Contact
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </>
                     ) : null}
@@ -3008,8 +3075,19 @@ export default function RecruitingPage() {
                 ))}
               </tbody>
             </table>
+            <div style={{ marginTop: 12, maxWidth: 320 }}>
+              <div className="small" style={{ marginBottom: 6 }}>Send imported contacts to</div>
+              <select
+                className="input"
+                value={importDestination}
+                onChange={(event) => setImportDestination(event.target.value)}
+              >
+                <option value="outreach">Recruiting</option>
+                <option value="potential">Potential Teams</option>
+              </select>
+            </div>
             <div className="small" style={{ marginTop: 10 }}>
-              Clicking `Save Imported Contacts` saves these rows into the recruiting database for {selectedYear}.
+              Clicking `Save Imported Contacts` saves these rows into {importDestination === "potential" ? "Potential Teams" : "Recruiting"} for {selectedYear}.
             </div>
             <div className="row" style={{ marginTop: 12 }}>
               <button className="btn btnPrimary" type="button" onClick={handleConfirmImport}>
@@ -3340,6 +3418,23 @@ export default function RecruitingPage() {
               </button>
             </div>
             <div style={{ display: "grid", gap: 10 }}>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Type</div>
+                <select
+                  className="input"
+                  value={contactActionDraft.actionType}
+                  onChange={(event) =>
+                    setContactActionDraft((current) => ({
+                      ...current,
+                      actionType: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="email">Email</option>
+                  <option value="call">Call</option>
+                  <option value="text">Text</option>
+                </select>
+              </div>
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>Date</div>
                 <input
