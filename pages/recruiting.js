@@ -463,6 +463,8 @@ function normalizeImportedGender(value) {
   if (!compact) return "";
   if (compact === "f" || compact === "female") return "Female";
   if (compact === "m" || compact === "male") return "Male";
+  if (compact === "woman" || compact === "girl") return "Female";
+  if (compact === "man" || compact === "boy") return "Male";
   return normalized;
 }
 
@@ -532,8 +534,8 @@ function parseImportRows(file) {
       );
       const importedGender = normalizeImportedGender(
         findImportedColumnValue(values, {
-          exactKeys: ["gender", "genders", "sex", "genderidentity"],
-          includesKeys: ["gender", "sex"],
+          exactKeys: ["gender", "genders", "g", "sex", "mf", "morf", "genderidentity"],
+          includesKeys: ["gender", "sex", "mf", "malefemale"],
         })
       );
 
