@@ -2316,6 +2316,14 @@ export default function RecruitingPage() {
                             : `Move to ${NEXT_RECRUITING_YEAR}`}
                         </button>
                         <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>Form Team</button>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => void handleDeleteRecord(record.id)}
+                          disabled={deletingRecordId === record.id}
+                        >
+                          {deletingRecordId === record.id ? "Deleting..." : "Delete"}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -2396,6 +2404,14 @@ export default function RecruitingPage() {
                 </button>
                 <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>
                   Form Team
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => void handleDeleteRecord(record.id)}
+                  disabled={deletingRecordId === record.id}
+                >
+                  {deletingRecordId === record.id ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
@@ -2873,6 +2889,16 @@ export default function RecruitingPage() {
                   {selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR
                     ? `Already on ${NEXT_RECRUITING_YEAR}`
                     : `Move to ${NEXT_RECRUITING_YEAR} Chart`}
+                </button>
+              ) : null}
+              {selectedRecord && recordDetailsMode !== "history" ? (
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => void handleDeleteRecord(selectedRecord.id)}
+                  disabled={deletingRecordId === selectedRecord.id}
+                >
+                  {deletingRecordId === selectedRecord.id ? "Deleting..." : "Delete"}
                 </button>
               ) : null}
               <button className="btn" type="button" onClick={() => setRecordDetailsModalOpen(false)}>
