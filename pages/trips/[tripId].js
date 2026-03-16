@@ -4001,11 +4001,6 @@ function parseDateSafe(dateStr) {
               </div>
               <h1 className="h1" style={{ marginBottom: 4 }}>{trip.name}</h1>
               <div className="small">{trip.location} • {trip.dates}</div>
-              <div className="tripDetailMetaRow">
-                <span className="badge tripPageHeaderBadge">{trip.participants.length} workers</span>
-                <span className="badge">{trip.projectType || trip.siteType || "Trip"}</span>
-                <span className="badge">{countdownSummary.label}</span>
-              </div>
             </div>
             <div className="spacer" />
             {canManageTrips && (
