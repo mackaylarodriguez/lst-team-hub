@@ -1,4 +1,6 @@
 import Shell from "@/components/Shell";
+import AppIcon from "@/components/AppIcon";
+import EmptyState from "@/components/EmptyState";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
@@ -450,6 +452,10 @@ export default function Trips() {
     <Shell>
       <div className="row" style={{ marginBottom: 14 }}>
         <div>
+          <div className="pageEyebrow">
+            <AppIcon name="spark" className="pageEyebrowIcon" />
+            Trip Dashboard
+          </div>
           <h1 className="h1">My Trips</h1>
           <p className="p">Everything you need for your team, in one place.</p>
         </div>
@@ -807,7 +813,16 @@ export default function Trips() {
 
       <div style={{ display: "grid", gap: 24 }}>
         <div>
-          <div style={{ fontWeight: 900, marginBottom: 12 }}>Active</div>
+          <div className="sectionHeader">
+            <div className="sectionHeaderMain">
+              <div className="sectionTitleRow">
+                <AppIcon name="active" className="sectionHeaderIcon" />
+                <div className="sectionTitle">Active</div>
+                <span className="badge">{activeTrips.length}</span>
+              </div>
+              <div className="sectionDescription">Teams currently in motion or still upcoming.</div>
+            </div>
+          </div>
           <div className="tripListGrid">
             {activeTrips.map((trip) =>
               renderTripCard({
@@ -824,13 +839,26 @@ export default function Trips() {
               })
             )}
             {activeTrips.length === 0 && (
-              <div className="small">No active trips yet.</div>
+              <EmptyState
+                icon="active"
+                title="No active trips yet"
+                description="Once a team is created and active, it will show up here with its latest progress."
+              />
             )}
           </div>
         </div>
 
         <div>
-          <div style={{ fontWeight: 900, marginBottom: 12 }}>Past</div>
+          <div className="sectionHeader">
+            <div className="sectionHeaderMain">
+              <div className="sectionTitleRow">
+                <AppIcon name="past" className="sectionHeaderIcon" />
+                <div className="sectionTitle">Past</div>
+                <span className="badge">{finishedTrips.length}</span>
+              </div>
+              <div className="sectionDescription">Completed trips you may still want to review or archive.</div>
+            </div>
+          </div>
           <div className="tripListGrid">
             {finishedTrips.length > 0 ? finishedTrips.map((trip) =>
               renderTripCard({
@@ -846,14 +874,27 @@ export default function Trips() {
                 setSubmitError,
               })
             ) : (
-              <div className="small">No finished trips yet.</div>
+              <EmptyState
+                icon="past"
+                title="No finished trips yet"
+                description="Completed trips will land here once their dates have passed."
+              />
             )}
           </div>
         </div>
 
         {canManageTrips && (
           <div>
-            <div style={{ fontWeight: 900, marginBottom: 12 }}>Archived</div>
+            <div className="sectionHeader">
+              <div className="sectionHeaderMain">
+                <div className="sectionTitleRow">
+                  <AppIcon name="archived" className="sectionHeaderIcon" />
+                  <div className="sectionTitle">Archived</div>
+                  <span className="badge">{archivedTrips.length}</span>
+                </div>
+                <div className="sectionDescription">Older teams you’ve intentionally tucked away from the main view.</div>
+              </div>
+            </div>
             <div className="tripListGrid">
               {archivedTrips.length > 0 ? archivedTrips.map((trip) =>
                 renderTripCard({
@@ -869,7 +910,11 @@ export default function Trips() {
                   setSubmitError,
                 })
               ) : (
-                <div className="small">No archived trips.</div>
+                <EmptyState
+                  icon="archived"
+                  title="No archived trips"
+                  description="Archived teams will show up here when you move them out of the active workflow."
+                />
               )}
             </div>
           </div>

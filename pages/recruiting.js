@@ -1,4 +1,6 @@
 import Shell from "@/components/Shell";
+import AppIcon from "@/components/AppIcon";
+import EmptyState from "@/components/EmptyState";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
@@ -2124,7 +2126,13 @@ export default function RecruitingPage() {
 
   function renderOutreachTable(recordsToRender) {
     if (recordsToRender.length === 0) {
-      return <div className="small">No contacts in this view.</div>;
+      return (
+        <EmptyState
+          icon="recruiting"
+          title="No contacts in this view"
+          description="Once recruiting rows match this view, they’ll show up here with notes, outreach, and follow-up details."
+        />
+      );
     }
 
     return (
@@ -2268,7 +2276,13 @@ export default function RecruitingPage() {
 
   function renderOutreachCards(recordsToRender) {
     if (recordsToRender.length === 0) {
-      return <div className="small">No contacts in this view.</div>;
+      return (
+        <EmptyState
+          icon="recruiting"
+          title="No contacts in this view"
+          description="Once recruiting rows match this view, they’ll show up here with notes, outreach, and follow-up details."
+        />
+      );
     }
 
     return (
@@ -2342,7 +2356,15 @@ export default function RecruitingPage() {
   }
 
   function renderPotentialTable(recordsToRender) {
-    if (recordsToRender.length === 0) return <div className="small">No potential teams yet.</div>;
+    if (recordsToRender.length === 0) {
+      return (
+        <EmptyState
+          icon="spark"
+          title="No potential teams yet"
+          description="Qualified contacts and teams will appear here once they move beyond early outreach."
+        />
+      );
+    }
 
     return (
       <DraggableTable>
@@ -2479,7 +2501,15 @@ export default function RecruitingPage() {
   }
 
   function renderPotentialCards(recordsToRender) {
-    if (recordsToRender.length === 0) return <div className="small">No potential teams yet.</div>;
+    if (recordsToRender.length === 0) {
+      return (
+        <EmptyState
+          icon="spark"
+          title="No potential teams yet"
+          description="Qualified contacts and teams will appear here once they move beyond early outreach."
+        />
+      );
+    }
 
     return (
       <div className="recruitingMobileCards">
@@ -2557,7 +2587,15 @@ export default function RecruitingPage() {
   }
 
   function renderConvertedTable(recordsToRender) {
-    if (recordsToRender.length === 0) return <div className="small">No converted teams yet.</div>;
+    if (recordsToRender.length === 0) {
+      return (
+        <EmptyState
+          icon="archived"
+          title="No converted teams yet"
+          description="Converted teams will show up here once they’ve been formed into real trips."
+        />
+      );
+    }
 
     return (
       <DraggableTable>
@@ -2614,7 +2652,15 @@ export default function RecruitingPage() {
   }
 
   function renderConvertedCards(recordsToRender) {
-    if (recordsToRender.length === 0) return <div className="small">No converted teams yet.</div>;
+    if (recordsToRender.length === 0) {
+      return (
+        <EmptyState
+          icon="archived"
+          title="No converted teams yet"
+          description="Converted teams will show up here once they’ve been formed into real trips."
+        />
+      );
+    }
 
     return (
       <div className="recruitingMobileCards">
@@ -2655,6 +2701,10 @@ export default function RecruitingPage() {
     <Shell>
       <div className="recruitingHeaderStack" style={{ display: "grid", gap: 12, marginBottom: 14 }}>
         <div>
+          <div className="pageEyebrow">
+            <AppIcon name="recruiting" className="pageEyebrowIcon" />
+            Recruiting Pipeline
+          </div>
           <h1 className="h1" style={{ marginBottom: 4 }}>Recruiting</h1>
           <div className="small">Yearly recruiting cycles, import, queue management, and contact history.</div>
         </div>

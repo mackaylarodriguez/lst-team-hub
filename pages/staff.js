@@ -1,4 +1,6 @@
 import Shell from "@/components/Shell";
+import AppIcon from "@/components/AppIcon";
+import EmptyState from "@/components/EmptyState";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
@@ -312,6 +314,10 @@ export default function StaffAssignments() {
 
   return (
     <Shell>
+      <div className="pageEyebrow">
+        <AppIcon name="workers" className="pageEyebrowIcon" />
+        Worker Hub
+      </div>
       <h1 className="h1">Workers</h1>
       <p className="p">
         Review worker progress across trips, then manage assignments underneath.
@@ -606,7 +612,11 @@ function WorkerSection({
       </div>
 
       {workers.length === 0 ? (
-        <div className="small">No workers in this section.</div>
+        <EmptyState
+          icon="workers"
+          title={`No ${title.toLowerCase()} workers yet`}
+          description={description}
+        />
       ) : (
         <table className="table">
           <thead>
