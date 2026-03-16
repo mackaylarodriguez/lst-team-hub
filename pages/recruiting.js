@@ -730,7 +730,7 @@ export default function RecruitingPage() {
     teamMembers: "",
     assignedTo: "",
   });
-  const [newContactPersonDraft, setNewContactPersonDraft] = useState({ name: "", email: "", isMinor: false });
+  const [newContactPersonDraft, setNewContactPersonDraft] = useState({ name: "", email: "", isMinor: false, minorAge: "" });
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importPreviewRows, setImportPreviewRows] = useState([]);
   const [importSummary, setImportSummary] = useState("");
@@ -751,8 +751,8 @@ export default function RecruitingPage() {
   const [recordDetailsModalOpen, setRecordDetailsModalOpen] = useState(false);
   const [recordDetailsMode, setRecordDetailsMode] = useState("details");
   const [promoteDraft, setPromoteDraft] = useState(() => buildPromoteDraft(null));
-  const [recordPersonDraft, setRecordPersonDraft] = useState({ name: "", email: "", isMinor: false });
-  const [promotePersonDraft, setPromotePersonDraft] = useState({ name: "", email: "", isMinor: false });
+  const [recordPersonDraft, setRecordPersonDraft] = useState({ name: "", email: "", isMinor: false, minorAge: "" });
+  const [promotePersonDraft, setPromotePersonDraft] = useState({ name: "", email: "", isMinor: false, minorAge: "" });
   const [formTeamModalOpen, setFormTeamModalOpen] = useState(false);
   const [teamFormDraft, setTeamFormDraft] = useState(() => buildTeamFormDraft(null));
   const [contactActionDraft, setContactActionDraft] = useState({
@@ -1282,7 +1282,7 @@ export default function RecruitingPage() {
         teamMembers: "",
         assignedTo: "",
       });
-      setNewContactPersonDraft({ name: "", email: "", isMinor: false });
+      setNewContactPersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
       setAddContactModalOpen(false);
       setError("");
       await refreshCurrentYear();
@@ -1320,7 +1320,7 @@ export default function RecruitingPage() {
   function handlePromote(record) {
     setSelectedRecordId(record.id);
     setPromoteDraft(buildPromoteDraft(record));
-    setPromotePersonDraft({ name: "", email: "", isMinor: false });
+    setPromotePersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
     setPromoteModalOpen(true);
     setError("");
   }
@@ -1389,7 +1389,7 @@ export default function RecruitingPage() {
     setSelectedRecordId(recordId);
     setRecordDetailsMode(mode);
     setRecordDetailsModalOpen(true);
-    setRecordPersonDraft({ name: "", email: "", isMinor: false });
+    setRecordPersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
     await ensureRecordHistoryLoaded(recordId);
   }
 
@@ -1718,7 +1718,7 @@ export default function RecruitingPage() {
       "teamMembers",
       buildTeamMembersText([...selectedRecordPeople, nextEntry])
     );
-    setRecordPersonDraft({ name: "", email: "", isMinor: false });
+    setRecordPersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
   }
 
   function handleRemovePersonFromSelectedRecord(indexToRemove) {
@@ -1745,7 +1745,7 @@ export default function RecruitingPage() {
       ...current,
       teamMembers: buildTeamMembersText([...parseTeamMemberEntries(current.teamMembers), nextEntry]),
     }));
-    setNewContactPersonDraft({ name: "", email: "", isMinor: false });
+    setNewContactPersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
   }
 
   function handleRemovePersonFromNewContact(indexToRemove) {
@@ -1770,7 +1770,7 @@ export default function RecruitingPage() {
       ...current,
       teamMembers: buildTeamMembersText([...promotePeople, nextEntry]),
     }));
-    setPromotePersonDraft({ name: "", email: "", isMinor: false });
+    setPromotePersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
   }
 
   function handleRemovePersonFromPromoteDraft(indexToRemove) {
@@ -1848,7 +1848,7 @@ export default function RecruitingPage() {
       teamMembers: "",
       assignedTo: "",
     });
-    setNewContactPersonDraft({ name: "", email: "", isMinor: false });
+    setNewContactPersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
     setAddContactModalOpen(true);
   }
 
