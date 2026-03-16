@@ -498,8 +498,10 @@ function normalizeImportedEmail(value) {
 function normalizeImportedRecruitingYear(value) {
   const normalized = String(value || "").trim();
   if (!normalized) return 2026;
-  const yearMatch = normalized.match(/20\d{2}/);
-  const parsed = Number(yearMatch ? yearMatch[0] : normalized);
+  const yearMatch = normalized.match(/(?:20)?(26|27)/);
+  const parsed = Number(yearMatch ? yearMatch[1] : normalized);
+  if (parsed === 27) return 2027;
+  if (parsed === 26) return 2026;
   return parsed === 2027 ? 2027 : 2026;
 }
 
@@ -524,8 +526,8 @@ function parseImportRows(file) {
       );
       const recruitingYear = normalizeImportedRecruitingYear(
         findImportedColumnValue(values, {
-          exactKeys: ["year", "years", "recruitingyear", "recruitingcycleyear", "chartyear"],
-          includesKeys: ["year", "chart"],
+          exactKeys: ["year", "years", "yr", "recruitingyear", "recruitingcycleyear", "chartyear", "boardyear"],
+          includesKeys: ["year", "chart", "board"],
         })
       );
       const importedEmail = normalizeImportedEmail(

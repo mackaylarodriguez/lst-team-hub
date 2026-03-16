@@ -161,7 +161,7 @@ function renderTripCard({
           {canManageTrips ? (
             <Link
               className="tripCardEditButton"
-              href={`/trips/${encodeURIComponent(trip.id)}`}
+              href={`/trips/${encodeURIComponent(trip.id)}?edit=setup#trip-setup`}
               title="Open trip to edit"
               aria-label={`Edit ${trip.name}`}
             >

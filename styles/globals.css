@@ -178,8 +178,8 @@ a:hover{text-decoration:underline}
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  margin-bottom:12px;
-  padding-top:6px;
+  margin-bottom:8px;
+  padding-top:2px;
 }
 .tripCardHeaderActions{
   display:flex;
@@ -239,15 +239,15 @@ a:hover{text-decoration:underline}
   height:16px;
 }
 .tripCardTitle{
-  font-size:19px;
+  font-size:17px;
   line-height:1.15;
   font-weight:900;
   letter-spacing:-.03em;
-  margin-bottom:12px;
+  margin-bottom:8px;
 }
 .tripCardMetaStack{
   display:grid;
-  gap:8px;
+  gap:6px;
 }
 .tripCardMetaLine{
   display:grid;
@@ -261,31 +261,31 @@ a:hover{text-decoration:underline}
   color:var(--muted);
 }
 .tripCardCountdown{
-  margin-top:14px;
-  margin-bottom:14px;
-  padding:10px 12px;
+  margin-top:10px;
+  margin-bottom:10px;
+  padding:8px 10px;
   border-radius:14px;
   background:rgba(255,255,255,.78);
   border:1px solid rgba(50,84,163,.10);
-  font-size:13px;
+  font-size:12px;
   font-weight:800;
   color:var(--text);
 }
 .tripMetricsGrid{
   display:grid;
   grid-template-columns:repeat(3, minmax(0, 1fr));
-  gap:10px;
+  gap:8px;
 }
 .tripMetricTile{
   display:grid;
   justify-items:center;
   align-content:center;
-  padding:10px 10px 12px 10px;
+  padding:8px;
   border-radius:14px;
   border:1px solid rgba(15,23,42,.06);
   background:#fff;
   text-align:center;
-  min-height:88px;
+  min-height:68px;
 }
 .tripMetricTilePrimary{
   background:linear-gradient(180deg, rgba(50,84,163,.10), rgba(255,255,255,.96));
@@ -305,8 +305,8 @@ a:hover{text-decoration:underline}
   text-align:center;
 }
 .tripMetricValue{
-  margin-top:6px;
-  font-size:22px;
+  margin-top:4px;
+  font-size:19px;
   font-weight:900;
   letter-spacing:-.04em;
   text-align:center;

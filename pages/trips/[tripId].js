@@ -5,12 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import {
   assignWorkerByEmailToTrip,
+  deleteTrip,
   getTripForCurrentUser,
   listTripParticipants,
   saveTripParticipantDocumentTypes,
   updateTripForCurrentUser,
 } from "@/lib/trips";
-import { isManagerRole } from "@/lib/roles";
+import { isAdminRole, isManagerRole } from "@/lib/roles";
 import { listTripTeamMembers, saveTripTeamMembers } from "@/lib/tripTeamMembers";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import {
