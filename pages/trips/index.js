@@ -456,8 +456,7 @@ export default function Trips() {
             <AppIcon name="spark" className="pageEyebrowIcon" />
             Trip Dashboard
           </div>
-          <h1 className="h1">My Trips</h1>
-          <p className="p">Everything you need for your team, in one place.</p>
+          <h1 className="h1" style={{ fontSize: 36, marginBottom: 0 }}>My Dashboard</h1>
         </div>
         <div className="spacer" />
         {canManageTrips && (
@@ -820,7 +819,6 @@ export default function Trips() {
                 <div className="sectionTitle">Active</div>
                 <span className="badge">{activeTrips.length}</span>
               </div>
-              <div className="sectionDescription">Teams currently in motion or still upcoming.</div>
             </div>
           </div>
           <div className="tripListGrid">
@@ -856,7 +854,6 @@ export default function Trips() {
                 <div className="sectionTitle">Past</div>
                 <span className="badge">{finishedTrips.length}</span>
               </div>
-              <div className="sectionDescription">Completed trips you may still want to review or archive.</div>
             </div>
           </div>
           <div className="tripListGrid">
@@ -892,7 +889,6 @@ export default function Trips() {
                   <div className="sectionTitle">Archived</div>
                   <span className="badge">{archivedTrips.length}</span>
                 </div>
-                <div className="sectionDescription">Older teams you’ve intentionally tucked away from the main view.</div>
               </div>
             </div>
             <div className="tripListGrid">

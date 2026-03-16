@@ -1,4 +1,5 @@
 import Shell from "@/components/Shell";
+import AppIcon from "@/components/AppIcon";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -362,6 +363,7 @@ export default function TripPage() {
   const [tripSetupDraft, setTripSetupDraft] = useState(() => buildTripSetupDraft(null));
   const [tripSetupStatus, setTripSetupStatus] = useState("");
   const [isCustomSiteInput, setIsCustomSiteInput] = useState(false);
+  const [isConfirmingTripDelete, setIsConfirmingTripDelete] = useState(false);
   const [isEditingRoster, setIsEditingRoster] = useState(false);
   const [rosterDraft, setRosterDraft] = useState([]);
   const [rosterStatus, setRosterStatus] = useState("");
@@ -393,6 +395,7 @@ export default function TripPage() {
   const staffTaskRowTimeoutsRef = useRef({});
   const staffTaskNoteSaveTimeoutsRef = useRef({});
   const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
+  const isAdminUser = isAdminRole(session?.actualRole || session?.role);
   const isPreviewingParticipant = canManageTrips && !!previewParticipantId;
   const canViewAllParticipantData = canManageTrips && !isPreviewingParticipant;
 
@@ -429,6 +432,20 @@ export default function TripPage() {
       setWorkerAddStatus("");
     }
   }, [router.query.addWorker, router.query.staffTaskId, router.query.tab]);
+
+  useEffect(() => {
+    const requestedEdit = Array.isArray(router.query.edit) ? router.query.edit[0] : router.query.edit;
+    if (String(requestedEdit || "").toLowerCase() !== "setup") return;
+    if (!trip?.id || !canViewAllParticipantData || isEditingTripSetup) return;
+
+    handleStartTripSetupEdit();
+
+    if (typeof window !== "undefined") {
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete("edit");
+      window.history.replaceState({}, "", nextUrl.toString());
+    }
+  }, [router.query.edit, trip?.id, canViewAllParticipantData, isEditingTripSetup]);
   const trainingAccessUrl = "https://lst365.sharepoint.com/Training/Forms/AllItems.aspx?id=%2FTraining%2FLST%20International%20Projects%20Training%2FTeam%20Training%2FCurrent%20LST%20Team%20Training%20Components%2FNew%2DRevised%20Version%20of%20Team%20Training%2FInstructions%20on%20Accessing%20Online%20LST%20Team%20Training%2Epdf&parent=%2FTraining%2FLST%20International%20Projects%20Training%2FTeam%20Training%2FCurrent%20LST%20Team%20Training%20Components%2FNew%2DRevised%20Version%20of%20Team%20Training&p=true&ga=1";
   const basicTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=134&";
   const gatewayTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=136&";
@@ -2576,6 +2593,7 @@ function parseDateSafe(dateStr) {
   function handleStartTripSetupEdit() {
     setTripSetupDraft(buildTripSetupDraft(trip));
     setIsCustomSiteInput(false);
+    setIsConfirmingTripDelete(false);
     setTripSetupStatus("");
     setIsEditingTripSetup(true);
   }
@@ -2583,6 +2601,7 @@ function parseDateSafe(dateStr) {
   function handleCancelTripSetupEdit() {
     setTripSetupDraft(buildTripSetupDraft(trip));
     setIsCustomSiteInput(false);
+    setIsConfirmingTripDelete(false);
     setTripSetupStatus("");
     setIsEditingTripSetup(false);
   }
@@ -2624,10 +2643,42 @@ function parseDateSafe(dateStr) {
       setTripSetupDraft(buildTripSetupDraft(savedTrip));
       setIsEditingTripSetup(false);
       setIsCustomSiteInput(false);
+      setIsConfirmingTripDelete(false);
       setTripSetupStatus("Saved.");
     } catch (error) {
       console.error("Unable to save trip details", error);
       setTripSetupStatus(error.message || "Unable to save trip details.");
+    }
+  }
+
+  async function handleDeleteTripFromSetup() {
+    if (!trip?.id || !isAdminUser) return;
+
+    if (!isConfirmingTripDelete) {
+      setIsConfirmingTripDelete(true);
+      setTripSetupStatus("Click confirm delete to permanently remove this trip.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${trip.name || "this trip"}? This cannot be undone.`
+    );
+
+    if (!confirmed) {
+      setIsConfirmingTripDelete(false);
+      setTripSetupStatus("");
+      return;
+    }
+
+    try {
+      setTripSetupStatus("Deleting trip...");
+      await deleteTrip(trip.id);
+      setIsConfirmingTripDelete(false);
+      await router.push("/trips");
+    } catch (error) {
+      console.error("Unable to delete trip", error);
+      setTripSetupStatus(error.message || "Unable to delete trip.");
+      setIsConfirmingTripDelete(false);
     }
   }
 
@@ -2834,7 +2885,7 @@ function parseDateSafe(dateStr) {
 
   function renderTripSetupCard() {
     return (
-      <div className="card pad" style={{ gridColumn: "1 / -1" }}>
+      <div id="trip-setup" className="card pad" style={{ gridColumn: "1 / -1" }}>
         <div className="row" style={{ marginBottom: 14 }}>
           <div style={{ fontWeight: 900 }}>Trip Setup</div>
           <div className="spacer" />
@@ -3227,6 +3278,47 @@ function parseDateSafe(dateStr) {
             </div>
           ) : null}
         </div>
+        {isEditingTripSetup && isAdminUser ? (
+          <div
+            style={{
+              marginTop: 18,
+              paddingTop: 18,
+              borderTop: "1px solid rgba(239,68,68,.18)",
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            <div className="small" style={{ color: "var(--danger)" }}>
+              Delete this trip if it should be removed entirely from the dashboard.
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <button
+                className="btn"
+                type="button"
+                onClick={handleDeleteTripFromSetup}
+                style={{
+                  color: "#fff",
+                  background: isConfirmingTripDelete ? "#b91c1c" : "var(--danger)",
+                  borderColor: isConfirmingTripDelete ? "#b91c1c" : "var(--danger)",
+                }}
+              >
+                {isConfirmingTripDelete ? "Confirm Delete Trip" : "Delete Trip"}
+              </button>
+              {isConfirmingTripDelete ? (
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    setIsConfirmingTripDelete(false);
+                    setTripSetupStatus("");
+                  }}
+                >
+                  Cancel Delete
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -3745,11 +3837,75 @@ function parseDateSafe(dateStr) {
 
   const participantDocumentsTabLabel = canViewAllParticipantData ? "Worker Docs" : "My Documents";
   const tripDocumentsTabLabel = "Trip Documents";
+  const tripTabMeta = {
+    Overview: {
+      icon: "spark",
+      title: "Overview",
+      description: "Big-picture trip health, highlights, and key next steps.",
+    },
+    Team: {
+      icon: "workers",
+      title: "Team",
+      description: "Roster, account status, invites, and references in one place.",
+    },
+    Fundraising: {
+      icon: "active",
+      title: "Fundraising",
+      description: "Deadlines, team giving progress, and support-raising resources.",
+    },
+    Training: {
+      icon: "active",
+      title: "Training",
+      description: "Core links, module progress, and completion across the team.",
+    },
+    Tasks: {
+      icon: "duplicate",
+      title: "Tasks",
+      description: "Worker tasks, quick adds, and what still needs attention.",
+    },
+    [tripDocumentsTabLabel]: {
+      icon: "archived",
+      title: tripDocumentsTabLabel,
+      description: "Trip-wide resources, links, PDFs, and participant visibility controls.",
+    },
+    [participantDocumentsTabLabel]: {
+      icon: "archived",
+      title: participantDocumentsTabLabel,
+      description: canViewAllParticipantData
+        ? "Uploads for each worker, with quick review and replacement controls."
+        : "Your uploads and document slots for this trip.",
+    },
+    "Staff Tasks": {
+      icon: "recruiting",
+      title: "Staff Tasks",
+      description: "Internal planning tasks and assignment progress for staff only.",
+    },
+  };
 
   const tabs = 
     canManageTrips
       ? ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel, ...(isPreviewingParticipant ? [] : ["Staff Tasks"])]
       : ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel];
+
+  function renderTripTabIntro(tabName) {
+    const meta = tripTabMeta[tabName] || {
+      icon: "spark",
+      title: tabName,
+      description: "Everything you need for this section.",
+    };
+
+    return (
+      <div className="sectionHeader tripTabIntro">
+        <div className="sectionHeaderMain">
+          <div className="sectionTitleRow">
+            <AppIcon name={meta.icon} className="sectionHeaderIcon" />
+            <div className="sectionTitle">{meta.title}</div>
+          </div>
+          <div className="sectionDescription">{meta.description}</div>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (!tabs.includes(tab)) {
@@ -3785,44 +3941,60 @@ function parseDateSafe(dateStr) {
 
   return (
     <Shell>
-      <div className="row tripPageHeader" style={{ marginBottom: 10 }}>
-        <div className="tripPageHeaderTitle">
-          <h1 className="h1" style={{ marginBottom: 2 }}>{trip.name}</h1>
-          <div className="small">{trip.location} • {trip.dates}</div>
-        </div>
-        <div className="spacer" />
-        {canManageTrips && (
-          <div className="row tripPageHeaderActions" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <select
-              className="input tripPagePreviewSelect"
-              value={previewParticipantId}
-              onChange={(event) => setPreviewParticipantId(event.target.value)}
-              style={{ minWidth: 220 }}
-            >
-              <option value="">Staff view</option>
-              {(trip.participants || []).map((participant) => (
-                <option key={participant.id} value={participant.id}>
-                  View as {participant.name}
-                </option>
-              ))}
-            </select>
-            {isPreviewingParticipant && (
-              <span className="badge">Previewing worker view</span>
+      <div className="tripDetailPage">
+        <div className="tripDetailHero card pad">
+          <div className="row tripPageHeader tripDetailHeroTop">
+            <div className="tripPageHeaderTitle">
+              <div className="pageEyebrow">
+                <AppIcon name="spark" className="pageEyebrowIcon" />
+                Trip Workspace
+              </div>
+              <h1 className="h1" style={{ marginBottom: 4 }}>{trip.name}</h1>
+              <div className="small">{trip.location} • {trip.dates}</div>
+              <div className="tripDetailMetaRow">
+                <span className="badge tripPageHeaderBadge">{trip.participants.length} workers</span>
+                <span className="badge">{trip.projectType || trip.siteType || "Trip"}</span>
+                <span className="badge">{countdownSummary.label}</span>
+              </div>
+            </div>
+            <div className="spacer" />
+            {canManageTrips && (
+              <div className="row tripPageHeaderActions" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <select
+                  className="input tripPagePreviewSelect"
+                  value={previewParticipantId}
+                  onChange={(event) => setPreviewParticipantId(event.target.value)}
+                  style={{ minWidth: 220 }}
+                >
+                  <option value="">Staff view</option>
+                  {(trip.participants || []).map((participant) => (
+                    <option key={participant.id} value={participant.id}>
+                      View as {participant.name}
+                    </option>
+                  ))}
+                </select>
+                {isPreviewingParticipant && (
+                  <span className="badge">Previewing worker view</span>
+                )}
+              </div>
             )}
           </div>
-        )}
-        <div className="badge tripPageHeaderBadge">{trip.participants.length} workers</div>
-      </div>
 
-      <div className="row" style={{ marginBottom: 14 }}>
-        <div style={{ flex: 1 }}>
-          <div className="small" style={{ marginBottom: 8 }}>Trip completion</div>
-          <div className="progress"><div style={{ width: `${pct}%` }} /></div>
-          <div className="small" style={{ marginTop: 6 }}>{pct}% complete</div>
+          <div className="tripDetailProgressRow">
+            <div className="tripDetailProgressBlock">
+              <div className="small tripDetailProgressLabel">Trip completion</div>
+              <div className="progress"><div style={{ width: `${pct}%` }} /></div>
+              <div className="small tripDetailProgressNote">{pct}% complete</div>
+            </div>
+            <div className="tripDetailMiniCard">
+              <div className="small tripDetailMiniLabel">Next countdown</div>
+              <div className="tripDetailMiniValue">{countdownSummary.label}</div>
+              <div className="small">{countdownSummary.detail}</div>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="tripOverviewHighlights" style={{ marginBottom: 14 }}>
+        <div className="tripOverviewHighlights" style={{ marginBottom: 14 }}>
         <div
           className="card pad"
           style={{
@@ -3947,10 +4119,11 @@ function parseDateSafe(dateStr) {
             {t}
           </button>
         ))}
-      </div>
+        </div>
 
-      {tab === "Overview" && (
-        <div style={{ display: "grid", gap: 16 }}>
+        {tab === "Overview" && (
+          <div style={{ display: "grid", gap: 16 }}>
+            {renderTripTabIntro("Overview")}
           <div
             className="tripOverviewStatsGrid"
             style={{
@@ -4224,11 +4397,12 @@ function parseDateSafe(dateStr) {
               </div>
             ) : null}
           </div>
-        </div>
-      )}
+          </div>
+        )}
 
       {tab === "Team" && (
         <div style={{ display: "grid", gap: 16 }}>
+          {renderTripTabIntro("Team")}
           <div className="card pad">
             <div className="row" style={{ marginBottom: 10, alignItems: "center" }}>
               <div style={{ fontWeight: 900 }}>Workers</div>
@@ -4572,6 +4746,7 @@ function parseDateSafe(dateStr) {
 
       {tab === "Fundraising" && (
         <div style={{ display: "grid", gap: 16 }}>
+          {renderTripTabIntro("Fundraising")}
           <div
             className="fundraisingOverviewGrid"
             style={{
@@ -4961,6 +5136,7 @@ function parseDateSafe(dateStr) {
 
       {tab === "Training" && (
         <div style={{ display: "grid", gap: 16 }}>
+          {renderTripTabIntro("Training")}
           {canManageTrips && (
             <div className="card pad">
               <div className="row" style={{ marginBottom: 10 }}>
@@ -5285,6 +5461,7 @@ function parseDateSafe(dateStr) {
 
       {tab === "Tasks" && (
         <div style={{ display: "grid", gap: 16 }}>
+          {renderTripTabIntro("Tasks")}
           {canManageTrips && (
             <div className="card pad tripSectionCard">
               <div className="row">
@@ -5522,6 +5699,7 @@ function parseDateSafe(dateStr) {
 
       {tab === tripDocumentsTabLabel && (
         <div style={{ display: "grid", gap: 16 }}>
+          {renderTripTabIntro(tripDocumentsTabLabel)}
           <div className="card pad">
             <div className="row" style={{ marginBottom: 10 }}>
               <div>
@@ -6350,6 +6528,7 @@ function parseDateSafe(dateStr) {
       )}
       {tab === participantDocumentsTabLabel && (
         <div style={{ display: "grid", gap: 16 }}>
+          {renderTripTabIntro(participantDocumentsTabLabel)}
           <div className="card pad">
             <div className="row" style={{ marginBottom: 10 }}>
               <div>
@@ -6538,7 +6717,9 @@ function parseDateSafe(dateStr) {
         </div>
       )}
             {tab === "Staff Tasks" && canManageTrips && (
-              <div className="card pad">
+              <div style={{ display: "grid", gap: 16 }}>
+                {renderTripTabIntro("Staff Tasks")}
+                <div className="card pad">
                 <div className="row" style={{ marginBottom: 10 }}>
                   <div>
                     <div style={{ fontWeight: 900 }}>Staff Tasks</div>
@@ -6875,8 +7056,10 @@ function parseDateSafe(dateStr) {
                   Staff-only checklist for trip management tasks.
                 </div>
               </div>
+            </div>
             )}
 
+      </div>
     </Shell>
   );
 }
