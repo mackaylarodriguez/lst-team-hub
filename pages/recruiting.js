@@ -602,6 +602,21 @@ const RECRUITING_TABS = [
   { id: "converted", label: "Converted Teams" },
 ];
 
+const RECRUITING_TAB_META = {
+  outreach: {
+    description: "First touches, follow-up, and early interest.",
+    toneClass: "recruitingBoardTab recruitingBoardTabOutreach",
+  },
+  potential: {
+    description: "Qualified teams moving toward formation.",
+    toneClass: "recruitingBoardTab recruitingBoardTabPotential",
+  },
+  converted: {
+    description: "Teams already formed and linked to trips.",
+    toneClass: "recruitingBoardTab recruitingBoardTabConverted",
+  },
+};
+
 const NEXT_RECRUITING_YEAR = 2027;
 
 const PRIMARY_OWNER = "Mackayla";
@@ -686,6 +701,16 @@ function getAttentionMeta(record) {
     return { label: "Ready for Boss", badgeClass: "badgeInfo", rowAccent: "rgba(47,73,147,.12)" };
   }
   return null;
+}
+
+function getBulkActionDescription(action) {
+  if (action === "move_2027") return "Move the selected rows to the 2027 chart.";
+  if (action === "delete") return "Permanently remove the selected recruiting rows.";
+  if (action === "assign") return "Reassign the selected rows to a staff owner.";
+  if (action === "stage") return "Update the stage for all selected rows.";
+  if (action === "follow up") return "Set the same next follow-up date for all selected rows.";
+  if (action === "bulk email" || action === "bulk text") return "Log one shared outreach touch for everyone selected.";
+  return "Add one shared note or update across the selected rows.";
 }
 
 function getRecordRowStyle(record, isActive = false) {
@@ -1075,6 +1100,14 @@ export default function RecruitingPage() {
 
     return { total, noContact, contacted, interested, applied };
   }, [records]);
+  const boardCounts = useMemo(
+    () => ({
+      outreach: outreachQueue.length,
+      potential: pipelineRecords.length,
+      converted: convertedTeams.length,
+    }),
+    [convertedTeams.length, outreachQueue.length, pipelineRecords.length]
+  );
 
   const selectedRecord = useMemo(
     () => records.find((record) => record.id === selectedRecordId) || null,
@@ -2690,12 +2723,12 @@ export default function RecruitingPage() {
       ) : null}
 
       {duplicateReviewGroups.length > 0 ? (
-        <div className="card pad" style={{ marginBottom: 14 }}>
+        <div className="card pad recruitingDuplicateReviewCard" style={{ marginBottom: 14 }}>
           <div className="row" style={{ marginBottom: 10 }}>
             <div>
               <div style={{ fontWeight: 900 }}>Duplicate Review</div>
               <div className="small">
-                Review matching emails here and keep just one recruiting row where it belongs.
+                Review matching emails here, keep the best row, and clear the extras.
               </div>
             </div>
             <div className="spacer" />
@@ -2760,17 +2793,17 @@ export default function RecruitingPage() {
                           type="button"
                           onClick={() => void openRecordFromDuplicateReview(record)}
                         >
-                          Open
+                          Open Row
                         </button>
                         {group.records.length > 1 ? (
                           <button
-                            className="btn btnPrimary"
-                            type="button"
-                            onClick={() => void handleMergeDuplicateGroup(group, record)}
-                            disabled={mergingDuplicateRecordId === record.id}
-                          >
-                            {mergingDuplicateRecordId === record.id ? "Merging..." : "Keep This + Merge"}
-                          </button>
+                          className="btn btnPrimary"
+                          type="button"
+                          onClick={() => void handleMergeDuplicateGroup(group, record)}
+                          disabled={mergingDuplicateRecordId === record.id}
+                        >
+                          {mergingDuplicateRecordId === record.id ? "Merging..." : "Keep This Row"}
+                        </button>
                         ) : null}
                         <button
                           className="btn"
