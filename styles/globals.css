@@ -326,7 +326,7 @@ a:hover{text-decoration:underline}
 .recruitingInlineNoteInput{
   min-height:58px;
   padding:6px 7px;
-  font-size:11px;
+  font-size:10px;
   line-height:1.2;
   border-radius:10px;
   resize:vertical;
@@ -417,7 +417,7 @@ a:hover{text-decoration:underline}
   padding:6px 8px;
 }
 .recruitingFont-medium .recruitingInlineNoteInput{
-  font-size:14px;
+  font-size:13px;
   min-height:76px;
 }
 .recruitingFont-large th,
@@ -434,7 +434,7 @@ a:hover{text-decoration:underline}
   padding:7px 9px;
 }
 .recruitingFont-large .recruitingInlineNoteInput{
-  font-size:15px;
+  font-size:14px;
   min-height:86px;
 }
 .recruitingExpandedRow td{
