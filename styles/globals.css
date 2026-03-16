@@ -264,21 +264,22 @@ a:hover{text-decoration:underline}
   overflow-wrap:anywhere;
 }
 .recruitingPotentialTeamName{
-  font-size:9px;
-  line-height:1.1;
+  font-size:11px;
+  line-height:1.2;
 }
 .recruitingPotentialEmail{
-  font-size:12px;
+  font-size:11px;
   line-height:1.2;
 }
 .recruitingPotentialPrimaryContact{
   margin-top:2px;
-  font-size:10px;
+  font-size:11px;
   color:var(--text);
   line-height:1.2;
 }
 .recruitingPotentialSecondaryPeople{
   margin-top:2px;
+  font-size:11px;
   line-height:1.2;
 }
 .recruitingFundingInput{

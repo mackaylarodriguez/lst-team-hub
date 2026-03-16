@@ -2119,9 +2119,6 @@ export default function RecruitingPage() {
                         <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
                           Edit Details
                         </button>
-                        <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>
-                          View History
-                        </button>
                         <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>Form Team</button>
                       </div>
                     </td>
@@ -2850,6 +2847,31 @@ export default function RecruitingPage() {
                           {renderDuplicateNotice(recordPersonDuplicateInfo)}
                         </div>
                       </div>
+                    ) : null}
+                    {activeTab === "potential" ? (
+                      <>
+                        <div className="small" style={{ fontWeight: 900, letterSpacing: ".04em", textTransform: "uppercase" }}>Contact History</div>
+                        {isCurrentHistoryLoading ? (
+                          <div className="small">Loading history...</div>
+                        ) : currentHistory.length > 0 ? (
+                          <div style={{ display: "grid", gap: 10 }}>
+                            {currentHistory.map((entry) => (
+                              <div
+                                key={entry.id}
+                                style={{ paddingBottom: 10, borderBottom: "1px solid var(--border)" }}
+                              >
+                                <div>{entry.summary || getRecruitingStageLabel(selectedRecord.stage)}</div>
+                                <div className="small" style={{ marginTop: 4 }}>
+                                  {entry.staffMember ? `${entry.staffMember} | ` : ""}
+                                  {formatDateTime(entry.actionDate)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="small">No activity logged yet.</div>
+                        )}
+                      </>
                     ) : null}
                     <div className="small" style={{ fontWeight: 900, letterSpacing: ".04em", textTransform: "uppercase" }}>Notes</div>
                     <div>

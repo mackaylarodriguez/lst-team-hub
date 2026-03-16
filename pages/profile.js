@@ -229,6 +229,7 @@ export default function Profile() {
     setEditingNoteId("");
     setNoteDraft("");
     setNoteStatus("");
+    setConfirmingDeleteNote(false);
   }
 
   async function handleSaveNote() {
