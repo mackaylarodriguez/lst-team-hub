@@ -99,6 +99,144 @@ function getCountdownLabel(start, end) {
   return `${daysUntil} day${daysUntil === 1 ? "" : "s"} until trip`;
 }
 
+function getTripCardTone(section) {
+  if (section === "active") {
+    return {
+      label: "Active Team",
+      chipClass: "tripCardChip tripCardChipActive",
+      accentClass: "tripListCardAccent tripListCardAccentActive",
+    };
+  }
+
+  if (section === "past") {
+    return {
+      label: "Past Team",
+      chipClass: "tripCardChip tripCardChipPast",
+      accentClass: "tripListCardAccent tripListCardAccentPast",
+    };
+  }
+
+  return {
+    label: "Archived Team",
+    chipClass: "tripCardChip tripCardChipArchived",
+    accentClass: "tripListCardAccent tripListCardAccentArchived",
+  };
+}
+
+function renderMetricTile(label, value, toneClass) {
+  return (
+    <div className={`tripMetricTile ${toneClass}`}>
+      <div className="tripMetricLabel">{label}</div>
+      <div className="tripMetricValue">{value}</div>
+    </div>
+  );
+}
+
+function renderTripCard({
+  trip,
+  section,
+  canManageTrips,
+  isAdminUser,
+  tripMetricsById,
+  confirmingDeleteTripId,
+  setConfirmingDeleteTripId,
+  handleDeleteTrip,
+  updateLocalTripStatus,
+  setSubmitError,
+}) {
+  const tone = getTripCardTone(section);
+  const tripMetrics = tripMetricsById[trip.id] || {};
+  const countdownLabel =
+    section === "past" ? "Trip finished" : section === "archived" ? "Archived" : getCountdownLabel(trip.start, trip.end);
+
+  return (
+    <div key={trip.id || trip.name} className="card pad tripListCard">
+      <div className={tone.accentClass} />
+      <div className="tripCardEyebrowRow">
+        <span className={tone.chipClass}>{tone.label}</span>
+        <span className="tripCardMiniMeta">{trip.projectType || trip.siteType || "Trip"}</span>
+      </div>
+      <div className="tripCardTitle">{trip.name}</div>
+      <div className="tripCardMetaStack">
+        <div className="tripCardMetaLine">
+          <span className="tripCardMetaLabel">Site</span>
+          <span>{trip.location || "Site coming soon"}</span>
+        </div>
+        <div className="tripCardMetaLine">
+          <span className="tripCardMetaLabel">Dates</span>
+          <span>{trip.dates || "Dates to be confirmed"}</span>
+        </div>
+      </div>
+      <div className="tripCardCountdown">{countdownLabel}</div>
+      {canManageTrips ? (
+        <div className="tripMetricsGrid">
+          {renderMetricTile("Workers", tripMetrics.workerCount || 0, "tripMetricTilePrimary")}
+          {renderMetricTile("Training", `${tripMetrics.trainingPercent || 0}%`, "tripMetricTileSky")}
+          {renderMetricTile("Tasks", `${tripMetrics.taskPercent || 0}%`, "tripMetricTileGold")}
+        </div>
+      ) : null}
+      <div style={{ height: 12 }} />
+      <div className="row tripCardActionRow" style={{ gap: 8, flexWrap: "wrap" }}>
+        <Link
+          className="btn btnPrimary tripCardActionButton"
+          href={`/trips/${encodeURIComponent(trip.id)}`}
+        >
+          View Trip
+        </Link>
+        {canManageTrips && section !== "archived" && (
+          <button
+            className="btn tripCardActionButton"
+            type="button"
+            onClick={async () => {
+              try {
+                await archiveTrip(trip.id);
+                updateLocalTripStatus(trip.id, "archived");
+                setSubmitError("");
+              } catch (error) {
+                setSubmitError(error.message || "Unable to archive trip.");
+              }
+            }}
+          >
+            Archive
+          </button>
+        )}
+        {canManageTrips && section === "archived" && (
+          <button
+            className="btn tripCardActionButton"
+            type="button"
+            onClick={async () => {
+              try {
+                await unarchiveTrip(trip.id);
+                updateLocalTripStatus(trip.id, "active");
+                setSubmitError("");
+              } catch (error) {
+                setSubmitError(error.message || "Unable to unarchive trip.");
+              }
+            }}
+          >
+            Unarchive
+          </button>
+        )}
+        {isAdminUser && (
+          <button
+            className="btn tripCardActionButton"
+            type="button"
+            onClick={() => {
+              if (confirmingDeleteTripId === trip.id) {
+                void handleDeleteTrip(trip.id);
+                return;
+              }
+              setConfirmingDeleteTripId(trip.id);
+            }}
+          >
+            {confirmingDeleteTripId === trip.id ? "Confirm Delete" : "Delete"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Trips() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -654,80 +792,20 @@ export default function Trips() {
         <div>
           <div style={{ fontWeight: 900, marginBottom: 12 }}>Active</div>
           <div className="tripListGrid">
-            {activeTrips.map((trip) => (
-              <div key={trip.id || trip.name} className="card pad tripListCard">
-                <div style={{ fontWeight: 900, fontSize: 16 }}>{trip.name}</div>
-                <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
-                <div className="small">{trip.dates}</div>
-                <div className="small" style={{ marginTop: 4 }}>
-                  {getCountdownLabel(trip.start, trip.end)}
-                </div>
-                {canManageTrips ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                      gap: 8,
-                      marginTop: 12,
-                    }}
-                  >
-                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(47,73,147,.08)" }}>
-                      <div className="small">Workers</div>
-                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.workerCount || 0}</div>
-                    </div>
-                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(60,170,225,.10)" }}>
-                      <div className="small">Training</div>
-                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.trainingPercent || 0}%</div>
-                    </div>
-                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(249,157,42,.10)" }}>
-                      <div className="small">Tasks</div>
-                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.taskPercent || 0}%</div>
-                    </div>
-                  </div>
-                ) : null}
-                <div style={{ height: 12 }} />
-                <div className="row tripCardActionRow" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <Link
-                    className="btn btnPrimary tripCardActionButton"
-                    href={`/trips/${encodeURIComponent(trip.id)}`}
-                  >
-                    View Trip
-                  </Link>
-                  {canManageTrips && (
-                    <button
-                      className="btn tripCardActionButton"
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await archiveTrip(trip.id);
-                          updateLocalTripStatus(trip.id, "archived");
-                          setSubmitError("");
-                        } catch (error) {
-                          setSubmitError(error.message || "Unable to archive trip.");
-                        }
-                      }}
-                    >
-                      Archive
-                    </button>
-                  )}
-                  {isAdminUser && (
-                    <button
-                      className="btn tripCardActionButton"
-                      type="button"
-                      onClick={() => {
-                        if (confirmingDeleteTripId === trip.id) {
-                          void handleDeleteTrip(trip.id);
-                          return;
-                        }
-                        setConfirmingDeleteTripId(trip.id);
-                      }}
-                    >
-                      {confirmingDeleteTripId === trip.id ? "Confirm Delete" : "Delete"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+            {activeTrips.map((trip) =>
+              renderTripCard({
+                trip,
+                section: "active",
+                canManageTrips,
+                isAdminUser,
+                tripMetricsById,
+                confirmingDeleteTripId,
+                setConfirmingDeleteTripId,
+                handleDeleteTrip,
+                updateLocalTripStatus,
+                setSubmitError,
+              })
+            )}
             {activeTrips.length === 0 && (
               <div className="small">No active trips yet.</div>
             )}
@@ -737,78 +815,20 @@ export default function Trips() {
         <div>
           <div style={{ fontWeight: 900, marginBottom: 12 }}>Past</div>
           <div className="tripListGrid">
-            {finishedTrips.length > 0 ? finishedTrips.map((trip) => (
-              <div key={trip.id || trip.name} className="card pad tripListCard">
-                <div style={{ fontWeight: 900, fontSize: 16 }}>{trip.name}</div>
-                <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
-                <div className="small">{trip.dates}</div>
-                <div className="small" style={{ marginTop: 4 }}>Trip finished</div>
-                {canManageTrips ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                      gap: 8,
-                      marginTop: 12,
-                    }}
-                  >
-                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(47,73,147,.08)" }}>
-                      <div className="small">Workers</div>
-                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.workerCount || 0}</div>
-                    </div>
-                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(60,170,225,.10)" }}>
-                      <div className="small">Training</div>
-                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.trainingPercent || 0}%</div>
-                    </div>
-                    <div style={{ padding: 8, borderRadius: 12, background: "rgba(249,157,42,.10)" }}>
-                      <div className="small">Tasks</div>
-                      <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.taskPercent || 0}%</div>
-                    </div>
-                  </div>
-                ) : null}
-                <div style={{ height: 12 }} />
-                <div className="row tripCardActionRow" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <Link
-                    className="btn btnPrimary tripCardActionButton"
-                    href={`/trips/${encodeURIComponent(trip.id)}`}
-                  >
-                    View Trip
-                  </Link>
-                  {canManageTrips && (
-                    <button
-                      className="btn tripCardActionButton"
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await archiveTrip(trip.id);
-                          updateLocalTripStatus(trip.id, "archived");
-                          setSubmitError("");
-                        } catch (error) {
-                          setSubmitError(error.message || "Unable to archive trip.");
-                        }
-                      }}
-                    >
-                      Archive
-                    </button>
-                  )}
-                  {isAdminUser && (
-                    <button
-                      className="btn tripCardActionButton"
-                      type="button"
-                      onClick={() => {
-                        if (confirmingDeleteTripId === trip.id) {
-                          void handleDeleteTrip(trip.id);
-                          return;
-                        }
-                        setConfirmingDeleteTripId(trip.id);
-                      }}
-                    >
-                      {confirmingDeleteTripId === trip.id ? "Confirm Delete" : "Delete"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )) : (
+            {finishedTrips.length > 0 ? finishedTrips.map((trip) =>
+              renderTripCard({
+                trip,
+                section: "past",
+                canManageTrips,
+                isAdminUser,
+                tripMetricsById,
+                confirmingDeleteTripId,
+                setConfirmingDeleteTripId,
+                handleDeleteTrip,
+                updateLocalTripStatus,
+                setSubmitError,
+              })
+            ) : (
               <div className="small">No finished trips yet.</div>
             )}
           </div>
@@ -818,75 +838,20 @@ export default function Trips() {
           <div>
             <div style={{ fontWeight: 900, marginBottom: 12 }}>Archived</div>
             <div className="tripListGrid">
-              {archivedTrips.length > 0 ? archivedTrips.map((trip) => (
-                <div key={trip.id || trip.name} className="card pad tripListCard">
-                  <div style={{ fontWeight: 900, fontSize: 16 }}>{trip.name}</div>
-                  <div className="small" style={{ marginTop: 6 }}>{trip.location}</div>
-                  <div className="small">{trip.dates}</div>
-                  {canManageTrips ? (
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                        gap: 8,
-                        marginTop: 12,
-                      }}
-                    >
-                      <div style={{ padding: 8, borderRadius: 12, background: "rgba(47,73,147,.08)" }}>
-                        <div className="small">Workers</div>
-                        <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.workerCount || 0}</div>
-                      </div>
-                      <div style={{ padding: 8, borderRadius: 12, background: "rgba(60,170,225,.10)" }}>
-                        <div className="small">Training</div>
-                        <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.trainingPercent || 0}%</div>
-                      </div>
-                      <div style={{ padding: 8, borderRadius: 12, background: "rgba(249,157,42,.10)" }}>
-                        <div className="small">Tasks</div>
-                        <div style={{ fontWeight: 900 }}>{tripMetricsById[trip.id]?.taskPercent || 0}%</div>
-                      </div>
-                    </div>
-                  ) : null}
-                  <div style={{ height: 12 }} />
-                  <div className="row tripCardActionRow" style={{ gap: 8, flexWrap: "wrap" }}>
-                    <Link
-                      className="btn btnPrimary tripCardActionButton"
-                      href={`/trips/${encodeURIComponent(trip.id)}`}
-                    >
-                      View Trip
-                    </Link>
-                    <button
-                      className="btn tripCardActionButton"
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await unarchiveTrip(trip.id);
-                          updateLocalTripStatus(trip.id, "active");
-                          setSubmitError("");
-                        } catch (error) {
-                          setSubmitError(error.message || "Unable to unarchive trip.");
-                        }
-                      }}
-                    >
-                      Unarchive
-                    </button>
-                    {isAdminUser && (
-                      <button
-                        className="btn tripCardActionButton"
-                        type="button"
-                        onClick={() => {
-                          if (confirmingDeleteTripId === trip.id) {
-                            void handleDeleteTrip(trip.id);
-                            return;
-                          }
-                          setConfirmingDeleteTripId(trip.id);
-                        }}
-                      >
-                        {confirmingDeleteTripId === trip.id ? "Confirm Delete" : "Delete"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )) : (
+              {archivedTrips.length > 0 ? archivedTrips.map((trip) =>
+                renderTripCard({
+                  trip,
+                  section: "archived",
+                  canManageTrips,
+                  isAdminUser,
+                  tripMetricsById,
+                  confirmingDeleteTripId,
+                  setConfirmingDeleteTripId,
+                  handleDeleteTrip,
+                  updateLocalTripStatus,
+                  setSubmitError,
+                })
+              ) : (
                 <div className="small">No archived trips.</div>
               )}
             </div>
