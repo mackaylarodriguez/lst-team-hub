@@ -237,6 +237,9 @@ a:hover{text-decoration:underline}
   white-space:nowrap;
   flex:0 0 auto;
 }
+.recruitingHeaderStack{
+  position:relative;
+}
 .recruitingSearchCluster{
   flex:1 1 420px;
   display:flex;
@@ -467,6 +470,18 @@ a:hover{text-decoration:underline}
   font-size:10px;
   white-space:nowrap;
 }
+.recruitingDuplicateRow{
+  align-items:flex-start;
+}
+.recruitingDuplicateSummary{
+  min-width:0;
+}
+.recruitingDuplicateActions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
 .recruitingFont-medium th,
 .recruitingFont-medium td{
   font-size:14px;
@@ -567,7 +582,8 @@ a:hover{text-decoration:underline}
     border-right:none;
     border-bottom:1px solid var(--border);
     padding:14px 16px 12px 16px;
-    max-height:74px;
+    min-height:98px;
+    max-height:98px;
     overflow:hidden;
     width:100%;
   }
@@ -585,7 +601,7 @@ a:hover{text-decoration:underline}
   .sidebarCollapsed{padding-left:16px; padding-right:16px}
   .sidebarToggleRow{margin-bottom:8px}
   .sidebarCollapsed .sidebarToggleRow{justify-content:flex-end}
-  .brand{margin-bottom:10px}
+  .brand{margin-bottom:0}
   .sidebarCollapsed .brand{justify-content:flex-start}
   .nav{
     flex-direction:column;
@@ -642,6 +658,20 @@ a:hover{text-decoration:underline}
     white-space:nowrap;
   }
   .recruitingSearchCluster{min-width:100%}
+  .recruitingToolbar{
+    align-items:stretch;
+  }
+  .recruitingActionCard{
+    margin-left:0;
+    width:100%;
+    justify-content:space-between;
+  }
+  .recruitingTemplateButton{
+    width:100%;
+  }
+  .recruitingDuplicateActions{
+    justify-content:flex-start;
+  }
   .fundraisingOverviewGrid{
     grid-template-columns:1fr;
   }
@@ -665,6 +695,67 @@ a:hover{text-decoration:underline}
     display:grid;
     grid-template-columns:42px 1fr;
     align-items:center;
+  }
+  .recruitingYearSelect{
+    width:100%;
+    min-width:0;
+    flex:1 1 100%;
+  }
+  .recruitingSearchCluster{
+    min-width:0;
+    width:100%;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  .recruitingToolbarSearch{
+    min-width:0;
+  }
+  .recruitingActionCard{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    padding:10px;
+  }
+  .recruitingActionCard .btn{
+    width:100%;
+  }
+  .recruitingDuplicateCard{
+    padding:12px;
+  }
+  .recruitingDuplicateRow{
+    display:grid;
+    gap:10px;
+  }
+  .recruitingDuplicateActions{
+    display:grid;
+    grid-template-columns:1fr;
+    width:100%;
+  }
+  .recruitingDuplicateActions .btn{
+    width:100%;
+  }
+  .recruitingExpandedGrid{
+    grid-template-columns:1fr;
+  }
+  .recruitingExpandedCard{
+    padding:12px;
+  }
+  .recruitingFontDock{
+    right:12px;
+    bottom:12px;
+    padding:6px;
+  }
+  .recruitingFontButton{
+    width:34px;
+    height:34px;
+  }
+  .recruitingTableScroller{
+    margin:0 -6px;
+    padding:0 6px 6px 6px;
+  }
+  .recruitingCompactTable{
+    min-width:640px !important;
   }
   .tripPageTabs{
     position:sticky;

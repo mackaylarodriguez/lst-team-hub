@@ -701,6 +701,7 @@ function DraggableTable({ children }) {
     if (
       !containerRef.current ||
       event.button !== 0 ||
+      (typeof window !== "undefined" && window.innerWidth <= 720) ||
       event.target.closest("button, a, input, textarea, select, label")
     ) {
       return;
@@ -2257,7 +2258,7 @@ export default function RecruitingPage() {
 
   return (
     <Shell>
-      <div style={{ display: "grid", gap: 12, marginBottom: 14 }}>
+      <div className="recruitingHeaderStack" style={{ display: "grid", gap: 12, marginBottom: 14 }}>
         <div>
           <h1 className="h1" style={{ marginBottom: 4 }}>Recruiting</h1>
           <div className="small">Yearly recruiting cycles, import, queue management, and contact history.</div>
@@ -2344,10 +2345,11 @@ export default function RecruitingPage() {
             <div className="spacer" />
             <span className="badge">{duplicateReviewGroups.length}</span>
           </div>
-          <div style={{ display: "grid", gap: 12 }}>
+          <div className="recruitingDuplicateGroups" style={{ display: "grid", gap: 12 }}>
             {duplicateReviewGroups.map((group) => (
               <div
                 key={group.email}
+                className="recruitingDuplicateCard"
                 style={{
                   padding: "12px 14px",
                   borderRadius: 14,
@@ -2367,19 +2369,19 @@ export default function RecruitingPage() {
                     </span>
                   ) : null}
                 </div>
-                <div style={{ display: "grid", gap: 8 }}>
+                <div className="recruitingDuplicateRows" style={{ display: "grid", gap: 8 }}>
                   {group.records.map((record) => (
                     <div
                       key={record.id}
-                      className="row"
+                      className="row recruitingDuplicateRow"
                       style={{
                         gap: 10,
                         alignItems: "flex-start",
                         paddingBottom: 8,
                         borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
                       }}
-                    >
-                      <div style={{ flex: 1 }}>
+                      >
+                      <div className="recruitingDuplicateSummary" style={{ flex: 1 }}>
                         <div style={{ fontWeight: 800 }}>{record.teamName || formatContactName(record)}</div>
                         <div className="small">
                           {getWorkflowBoardLabel(record)} | {record.assignedTo || "Unassigned"} | {record.stageLabel}
@@ -2396,41 +2398,43 @@ export default function RecruitingPage() {
                           </div>
                         ) : null}
                       </div>
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={() => void openRecordFromDuplicateReview(record)}
-                      >
-                        Open
-                      </button>
-                      {group.records.length > 1 ? (
+                      <div className="recruitingDuplicateActions">
                         <button
-                          className="btn btnPrimary"
+                          className="btn"
                           type="button"
-                          onClick={() => void handleMergeDuplicateGroup(group, record)}
-                          disabled={mergingDuplicateRecordId === record.id}
+                          onClick={() => void openRecordFromDuplicateReview(record)}
                         >
-                          {mergingDuplicateRecordId === record.id ? "Merging..." : "Keep This + Merge"}
+                          Open
                         </button>
-                      ) : null}
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={() => {
-                          if (confirmingDeleteDuplicateRecordId === record.id) {
-                            void handleDeleteDuplicateRecord(record);
-                            return;
-                          }
-                          setConfirmingDeleteDuplicateRecordId(record.id);
-                        }}
-                        disabled={deletingDuplicateRecordId === record.id}
-                      >
-                        {deletingDuplicateRecordId === record.id
-                          ? "Removing..."
-                          : confirmingDeleteDuplicateRecordId === record.id
-                          ? "Confirm Delete"
-                          : "Remove Extra Row"}
-                      </button>
+                        {group.records.length > 1 ? (
+                          <button
+                            className="btn btnPrimary"
+                            type="button"
+                            onClick={() => void handleMergeDuplicateGroup(group, record)}
+                            disabled={mergingDuplicateRecordId === record.id}
+                          >
+                            {mergingDuplicateRecordId === record.id ? "Merging..." : "Keep This + Merge"}
+                          </button>
+                        ) : null}
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => {
+                            if (confirmingDeleteDuplicateRecordId === record.id) {
+                              void handleDeleteDuplicateRecord(record);
+                              return;
+                            }
+                            setConfirmingDeleteDuplicateRecordId(record.id);
+                          }}
+                          disabled={deletingDuplicateRecordId === record.id}
+                        >
+                          {deletingDuplicateRecordId === record.id
+                            ? "Removing..."
+                            : confirmingDeleteDuplicateRecordId === record.id
+                            ? "Confirm Delete"
+                            : "Remove Extra Row"}
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {group.activeTeams.length > 0 ? (
