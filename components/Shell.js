@@ -77,6 +77,7 @@ export default function Shell({ children }) {
   const [session, setSession] = useState(null);
   const [profiles, setProfiles] = useState([]);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const path = router.pathname;
 
   useEffect(() => {
@@ -120,6 +121,10 @@ export default function Shell({ children }) {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("lst-sidebar-collapsed", isSidebarCollapsed ? "true" : "false");
   }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    setIsMobileNavOpen(false);
+  }, [path]);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,14 +181,23 @@ export default function Shell({ children }) {
 
   return (
     <div className={`shell ${isSidebarCollapsed ? "shellCollapsed" : ""}`}>
-      <aside className={`sidebar ${isSidebarCollapsed ? "sidebarCollapsed" : ""}`}>
+      <aside
+        className={`sidebar ${isSidebarCollapsed ? "sidebarCollapsed" : ""} ${isMobileNavOpen ? "sidebarMobileOpen" : ""}`}
+      >
         <div className="sidebarToggleRow">
           <button
             className="sidebarToggleButton"
             type="button"
-            onClick={() => setIsSidebarCollapsed((current) => !current)}
-            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => {
+              if (typeof window !== "undefined" && window.innerWidth <= 980) {
+                setIsMobileNavOpen((current) => !current);
+                return;
+              }
+
+              setIsSidebarCollapsed((current) => !current);
+            }}
+            aria-label={isMobileNavOpen ? "Close navigation" : isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isMobileNavOpen ? "Close navigation" : isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <span className="sidebarToggleIcon" aria-hidden="true">
               <span />
@@ -213,6 +227,7 @@ export default function Shell({ children }) {
               href={item.href}
               aria-label={item.label}
               title={item.label}
+              onClick={() => setIsMobileNavOpen(false)}
             >
               <span className="sidebarNavIcon">
                 <SidebarIcon name={item.icon} />
@@ -227,6 +242,7 @@ export default function Shell({ children }) {
             title="Logout"
             onClick={async (e) => {
               e.preventDefault();
+              setIsMobileNavOpen(false);
               await clearSession();
               router.push("/login");
             }}

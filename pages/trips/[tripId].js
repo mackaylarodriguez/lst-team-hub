@@ -4570,6 +4570,7 @@ function parseDateSafe(dateStr) {
       {tab === "Fundraising" && (
         <div style={{ display: "grid", gap: 16 }}>
           <div
+            className="fundraisingOverviewGrid"
             style={{
               display: "grid",
               gridTemplateColumns: "minmax(0, 4fr) minmax(220px, 1fr)",

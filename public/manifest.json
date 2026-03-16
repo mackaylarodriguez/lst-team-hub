@@ -1,0 +1,22 @@
+{
+  "name": "LST International Projects Hub",
+  "short_name": "LST Team Hub",
+  "description": "Trips, workers, fundraising, recruiting, and training in one place.",
+  "start_url": "/trips",
+  "display": "standalone",
+  "background_color": "#f4f8fc",
+  "theme_color": "#3254a3",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
