@@ -493,6 +493,14 @@ function normalizeImportedEmail(value) {
   return normalizeEmailValue(emailMatch ? emailMatch[0] : normalized);
 }
 
+function normalizeImportedRecruitingYear(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return 2026;
+  const yearMatch = normalized.match(/20\d{2}/);
+  const parsed = Number(yearMatch ? yearMatch[0] : normalized);
+  return parsed === 2027 ? 2027 : 2026;
+}
+
 function parseImportRows(file) {
   return file.arrayBuffer().then((buffer) => {
     const workbook = XLSX.read(buffer, { type: "array" });
@@ -512,13 +520,12 @@ function parseImportRows(file) {
       const values = Object.fromEntries(
         headerRow.map((header, index) => [header, row[index]])
       );
-      const parsedYear = Number(
-        values.year ||
-        values.recruitingyear ||
-        values.recruitingcycleyear ||
-        ""
+      const recruitingYear = normalizeImportedRecruitingYear(
+        findImportedColumnValue(values, {
+          exactKeys: ["year", "years", "recruitingyear", "recruitingcycleyear", "chartyear"],
+          includesKeys: ["year", "chart"],
+        })
       );
-      const recruitingYear = parsedYear === 2027 ? 2027 : 2026;
       const importedEmail = normalizeImportedEmail(
         findImportedColumnValue(values, {
           exactKeys: [
