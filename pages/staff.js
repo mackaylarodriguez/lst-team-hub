@@ -34,6 +34,7 @@ export default function StaffAssignments() {
   const [error, setError] = useState("");
   const [isAddingWorker, setIsAddingWorker] = useState(false);
   const [newWorkerDraft, setNewWorkerDraft] = useState(() => createEmptyWorkerDraft());
+  const [invitingWorkerEmail, setInvitingWorkerEmail] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -228,6 +229,51 @@ export default function StaffAssignments() {
       console.error("Unable to add worker", addError);
       setError(addError.message || "Unable to add worker.");
       setMessage("");
+    }
+  }
+
+  async function handleInviteWorker(worker) {
+    const email = String(worker?.email || "").trim().toLowerCase();
+    const tripAssignment = (worker?.assignments || [])[0] || null;
+
+    if (!email || !tripAssignment?.tripId || !tripAssignment?.trip) {
+      setError("Add this person to a trip before sending an invite.");
+      setMessage("");
+      return;
+    }
+
+    try {
+      setInvitingWorkerEmail(email);
+      const response = await fetch("/api/trip-invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recipientEmail: email,
+          recipientName: worker?.name || "",
+          senderEmail: session?.email || "",
+          senderName: session?.name || session?.email || "LST staff",
+          tripId: tripAssignment.tripId,
+          tripName: tripAssignment.trip?.name || "",
+          tripLocation: tripAssignment.trip?.location || "",
+          tripDates: tripAssignment.trip?.dates || "",
+        }),
+      });
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Unable to send invite.");
+      }
+
+      setMessage(`Invite sent to ${email}.`);
+      setError("");
+    } catch (inviteError) {
+      console.error("Unable to send worker invite from staff page", inviteError);
+      setError(inviteError.message || "Unable to send invite.");
+      setMessage("");
+    } finally {
+      setInvitingWorkerEmail("");
     }
   }
 
@@ -473,6 +519,8 @@ export default function StaffAssignments() {
         selectedTripByWorker={selectedTripByWorker}
         onSelectTrip={updateSelectedTrip}
         onAssign={handleAssign}
+        onInvite={handleInviteWorker}
+        invitingWorkerEmail={invitingWorkerEmail}
       />
 
       <WorkerSection
@@ -483,6 +531,8 @@ export default function StaffAssignments() {
         selectedTripByWorker={selectedTripByWorker}
         onSelectTrip={updateSelectedTrip}
         onAssign={handleAssign}
+        onInvite={handleInviteWorker}
+        invitingWorkerEmail={invitingWorkerEmail}
       />
     </Shell>
   );
@@ -496,6 +546,8 @@ function WorkerSection({
   selectedTripByWorker,
   onSelectTrip,
   onAssign,
+  onInvite,
+  invitingWorkerEmail,
 }) {
   return (
     <div className="card pad" style={{ marginBottom: 16 }}>
@@ -516,6 +568,7 @@ function WorkerSection({
             <tr>
               <th>Worker</th>
               <th>Assigned Trips</th>
+              <th>Status</th>
               <th>Invite</th>
               <th>Assign Trip</th>
               <th />
@@ -545,14 +598,30 @@ function WorkerSection({
                     )}
                 </td>
                 <td>
+                  <span className={`badge ${worker.hasAccount ? "badgeSuccess" : "badgeWarn"}`.trim()}>
+                    {worker.hasAccount ? "Account Created" : "Pending Invite"}
+                  </span>
+                </td>
+                <td>
                   <button
                     className="btn"
                     type="button"
-                    disabled
-                    title="Account created"
-                    style={{ opacity: 0.55, cursor: "not-allowed" }}
+                    disabled={worker.hasAccount || !worker.assignments.length || invitingWorkerEmail === worker.email}
+                    title={
+                      worker.hasAccount
+                        ? "Account created"
+                        : worker.assignments.length
+                          ? "Send a new invite email"
+                          : "Add this person to a trip first"
+                    }
+                    style={worker.hasAccount ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
+                    onClick={() => onInvite(worker)}
                   >
-                    Account Created
+                    {invitingWorkerEmail === worker.email
+                      ? "Sending..."
+                      : worker.hasAccount
+                        ? "Account Created"
+                        : "Resend Invite"}
                   </button>
                 </td>
                 <td style={{ width: 280 }}>
