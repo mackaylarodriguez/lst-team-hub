@@ -267,6 +267,15 @@ a:hover{text-decoration:underline}
   font-size:10px;
   line-height:1.15;
 }
+.recruitingPotentialPrimaryContact{
+  margin-top:2px;
+  color:var(--text);
+  line-height:1.2;
+}
+.recruitingPotentialSecondaryPeople{
+  margin-top:2px;
+  line-height:1.2;
+}
 .recruitingOwnerBadge{
   width:100%;
   justify-content:center;

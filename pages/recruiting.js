@@ -171,6 +171,11 @@ function getRecordPeopleSummary(record, maxItems = 2) {
   return `${people.slice(0, maxItems).join(", ")} +${people.length - maxItems} more`;
 }
 
+function getAdditionalRecordPeople(record) {
+  const primaryContact = formatContactName(record);
+  return getRecordPeopleList(record).filter((person) => person && person !== primaryContact);
+}
+
 function formatDate(value) {
   if (!value) return "Not set";
   return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
@@ -2002,9 +2007,7 @@ export default function RecruitingPage() {
       <DraggableTable>
         <table className={`table recruitingCompactTable recruitingFitTable recruitingFont-${tableFontSize}`}>
           <colgroup>
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "9%" }} />
+            <col style={{ width: "20%" }} />
             <col style={{ width: "15%" }} />
             <col style={{ width: "9%" }} />
             <col style={{ width: "8%" }} />
@@ -2017,8 +2020,6 @@ export default function RecruitingPage() {
           <thead>
             <tr>
               <th>Team Name</th>
-              <th>Primary Contact</th>
-              <th>People</th>
               <th>Email</th>
               <th>Owner</th>
               <th>Stage</th>
@@ -2034,6 +2035,8 @@ export default function RecruitingPage() {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
               const stageLabel = isReadyForBoss(record) ? "Ready for Boss" : record.stageLabel;
+              const primaryContact = formatContactName(record);
+              const additionalPeople = getAdditionalRecordPeople(record);
 
               return (
                 <tr
@@ -2043,13 +2046,12 @@ export default function RecruitingPage() {
                 >
                     <td>
                       <div className="recruitingPotentialTeamName">{record.teamName || "-"}</div>
-                    </td>
-                    <td>
-                      <div>{formatContactName(record)}</div>
-                    </td>
-                    <td>
-                      <div>{getRecordPeopleCount(record)} people</div>
-                      <div className="small" style={{ marginTop: 2 }}>{getRecordPeopleSummary(record)}</div>
+                      <div className="recruitingPotentialPrimaryContact">{primaryContact}</div>
+                      {additionalPeople.length > 0 ? (
+                        <div className="small recruitingPotentialSecondaryPeople">
+                          {additionalPeople.join(", ")}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="recruitingFitEmailCell">
                       <div>{record.contact?.email || "-"}</div>
