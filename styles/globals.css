@@ -87,6 +87,134 @@ a:hover{text-decoration:underline}
   height:100%;
   display:flex;
   flex-direction:column;
+  position:relative;
+  overflow:hidden;
+  border-color:rgba(50,84,163,.14);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,248,252,.96)),
+    radial-gradient(circle at top right, rgba(67,164,213,.12), transparent 34%);
+  box-shadow:0 18px 36px rgba(15,23,42,.08);
+}
+.tripListCard:hover{
+  transform:translateY(-2px);
+  box-shadow:0 22px 42px rgba(15,23,42,.12);
+}
+.tripListCardAccent{
+  position:absolute;
+  inset:0 0 auto 0;
+  height:4px;
+}
+.tripListCardAccentActive{
+  background:linear-gradient(90deg, var(--primary), var(--primary2));
+}
+.tripListCardAccentPast{
+  background:linear-gradient(90deg, #4f6c92, #7ea5bf);
+}
+.tripListCardAccentArchived{
+  background:linear-gradient(90deg, #98a6ba, #c4d1dd);
+}
+.tripCardEyebrowRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:12px;
+  padding-top:6px;
+}
+.tripCardChip{
+  display:inline-flex;
+  align-items:center;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.tripCardChipActive{
+  background:rgba(50,84,163,.10);
+  color:var(--primary);
+}
+.tripCardChipPast{
+  background:rgba(88,112,143,.12);
+  color:#4f6c92;
+}
+.tripCardChipArchived{
+  background:rgba(148,163,184,.16);
+  color:#607086;
+}
+.tripCardMiniMeta{
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.tripCardTitle{
+  font-size:19px;
+  line-height:1.15;
+  font-weight:900;
+  letter-spacing:-.03em;
+  margin-bottom:12px;
+}
+.tripCardMetaStack{
+  display:grid;
+  gap:8px;
+}
+.tripCardMetaLine{
+  display:grid;
+  gap:2px;
+}
+.tripCardMetaLabel{
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.tripCardCountdown{
+  margin-top:14px;
+  margin-bottom:14px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(50,84,163,.10);
+  font-size:13px;
+  font-weight:800;
+  color:var(--text);
+}
+.tripMetricsGrid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:10px;
+}
+.tripMetricTile{
+  padding:10px 10px 12px 10px;
+  border-radius:14px;
+  border:1px solid rgba(15,23,42,.06);
+  background:#fff;
+}
+.tripMetricTilePrimary{
+  background:linear-gradient(180deg, rgba(50,84,163,.10), rgba(255,255,255,.96));
+}
+.tripMetricTileSky{
+  background:linear-gradient(180deg, rgba(67,164,213,.12), rgba(255,255,255,.96));
+}
+.tripMetricTileGold{
+  background:linear-gradient(180deg, rgba(249,154,27,.14), rgba(255,255,255,.96));
+}
+.tripMetricLabel{
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.tripMetricValue{
+  margin-top:6px;
+  font-size:22px;
+  font-weight:900;
+  letter-spacing:-.04em;
 }
 .input{
   width:100%;
