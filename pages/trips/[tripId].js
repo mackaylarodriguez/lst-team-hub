@@ -3784,16 +3784,16 @@ function parseDateSafe(dateStr) {
 
   return (
     <Shell>
-      <div className="row" style={{ marginBottom: 10 }}>
-        <div>
+      <div className="row tripPageHeader" style={{ marginBottom: 10 }}>
+        <div className="tripPageHeaderTitle">
           <h1 className="h1" style={{ marginBottom: 2 }}>{trip.name}</h1>
           <div className="small">{trip.location} • {trip.dates}</div>
         </div>
         <div className="spacer" />
         {canManageTrips && (
-          <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="row tripPageHeaderActions" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <select
-              className="input"
+              className="input tripPagePreviewSelect"
               value={previewParticipantId}
               onChange={(event) => setPreviewParticipantId(event.target.value)}
               style={{ minWidth: 220 }}
@@ -3810,7 +3810,7 @@ function parseDateSafe(dateStr) {
             )}
           </div>
         )}
-        <div className="badge">{trip.participants.length} workers</div>
+        <div className="badge tripPageHeaderBadge">{trip.participants.length} workers</div>
       </div>
 
       <div className="row" style={{ marginBottom: 14 }}>

@@ -203,6 +203,24 @@ a:hover{text-decoration:underline}
 .tripPageTabs .tab{
   flex:0 0 auto;
 }
+.tripPageHeader{
+  align-items:flex-start;
+}
+.tripPageHeaderTitle{
+  min-width:0;
+  flex:1 1 260px;
+}
+.tripPageHeaderActions{
+  flex:1 1 260px;
+  justify-content:flex-end;
+}
+.tripPagePreviewSelect{
+  width:100%;
+  max-width:280px;
+}
+.tripPageHeaderBadge{
+  flex:0 0 auto;
+}
 .table{width:100%; border-collapse:collapse}
 .table th,.table td{padding:10px; border-bottom:1px solid var(--border); text-align:left}
 .table th{font-size:12px; color:var(--muted)}
@@ -645,6 +663,22 @@ a:hover{text-decoration:underline}
     min-height:42px;
     padding:10px 14px;
     font-size:13px;
+  }
+  .tripPageHeader{
+    align-items:stretch;
+  }
+  .tripPageHeaderTitle,
+  .tripPageHeaderActions{
+    flex:1 1 100%;
+  }
+  .tripPageHeaderActions{
+    justify-content:flex-start;
+  }
+  .tripPagePreviewSelect{
+    max-width:none;
+  }
+  .tripPageHeaderBadge{
+    align-self:flex-start;
   }
   .table{
     display:block;
