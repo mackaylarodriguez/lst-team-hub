@@ -4450,7 +4450,6 @@ function parseDateSafe(dateStr) {
           {renderTripTabIntro("Team")}
           <div className="card pad">
             <div className="row" style={{ marginBottom: 10, alignItems: "center" }}>
-              <div style={{ fontWeight: 900 }}>Workers</div>
               <div className="spacer" />
               {workerAddStatus ? (
                 <div className="small" style={{ alignSelf: "center", marginRight: 8 }}>
@@ -5190,7 +5189,6 @@ function parseDateSafe(dateStr) {
           )}
 
           <div className="card pad">
-            <div style={{ fontWeight: 900, marginBottom: 8 }}>Training</div>
             <p className="small">
               Central place for training links and module tracking.
             </p>
@@ -6754,14 +6752,11 @@ function parseDateSafe(dateStr) {
       )}
             {tab === "Staff Tasks" && canManageTrips && (
               <div style={{ display: "grid", gap: 16 }}>
-                {renderTripTabIntro("Staff Tasks")}
-                <div className="card pad">
+            {renderTripTabIntro("Staff Tasks")}
+            <div className="card pad">
                 <div className="row" style={{ marginBottom: 10 }}>
-                  <div>
-                    <div style={{ fontWeight: 900 }}>Staff Tasks</div>
-                    <div className="small">
-                      {completedCount} of {totalCount} complete
-                    </div>
+                  <div className="small">
+                    {completedCount} of {totalCount} complete
                   </div>
 
                   <div className="spacer" />

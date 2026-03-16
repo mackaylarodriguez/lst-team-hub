@@ -60,8 +60,8 @@ a:hover{text-decoration:underline}
 }
 .pageEyebrowIcon,
 .sectionHeaderIcon{
-  width:16px;
-  height:16px;
+  width:18px;
+  height:18px;
 }
 .sectionHeader{
   display:flex;
@@ -80,7 +80,7 @@ a:hover{text-decoration:underline}
   gap:10px;
 }
 .sectionTitle{
-  font-size:18px;
+  font-size:20px;
   font-weight:900;
   letter-spacing:-.03em;
 }
