@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/auth";
 import {
   createWorkerProfile,
   assignWorkerByEmailToTrip,
+  deleteWorkerRecord,
   listTripsForCurrentUser,
   listWorkerAssignmentSummary,
   TRIPS_UPDATED_EVENT,
@@ -35,6 +36,7 @@ export default function StaffAssignments() {
   const [isAddingWorker, setIsAddingWorker] = useState(false);
   const [newWorkerDraft, setNewWorkerDraft] = useState(() => createEmptyWorkerDraft());
   const [invitingWorkerEmail, setInvitingWorkerEmail] = useState("");
+  const [deletingWorkerId, setDeletingWorkerId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -274,6 +276,43 @@ export default function StaffAssignments() {
       setMessage("");
     } finally {
       setInvitingWorkerEmail("");
+    }
+  }
+
+  async function handleDeleteWorker(worker) {
+    const label = worker?.name || worker?.email || "this worker";
+    const confirmed = window.confirm(
+      worker?.hasAccount
+        ? `Delete ${label}? This removes their worker profile and trip links from this app.`
+        : `Delete ${label}? This removes their pending worker row from trips.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setDeletingWorkerId(worker.id);
+      await deleteWorkerRecord({
+        workerId: worker.profileId || "",
+        email: worker.email,
+        hasAccount: worker.hasAccount,
+        pendingAssignmentIds: (worker.assignments || [])
+          .filter((assignment) => assignment.source === "team_member" && assignment.id)
+          .map((assignment) => assignment.id),
+      });
+
+      const [nextWorkers, nextOverview] = await Promise.all([
+        listWorkerAssignmentSummary(),
+        listStaffParticipantOverview(),
+      ]);
+      setWorkers(nextWorkers);
+      setParticipantOverview(nextOverview);
+      setMessage(`${label} deleted.`);
+      setError("");
+    } catch (deleteError) {
+      console.error("Unable to delete worker", deleteError);
+      setError(deleteError.message || "Unable to delete worker.");
+      setMessage("");
+    } finally {
+      setDeletingWorkerId("");
     }
   }
 
@@ -521,6 +560,8 @@ export default function StaffAssignments() {
         onAssign={handleAssign}
         onInvite={handleInviteWorker}
         invitingWorkerEmail={invitingWorkerEmail}
+        onDelete={handleDeleteWorker}
+        deletingWorkerId={deletingWorkerId}
       />
 
       <WorkerSection
@@ -533,6 +574,8 @@ export default function StaffAssignments() {
         onAssign={handleAssign}
         onInvite={handleInviteWorker}
         invitingWorkerEmail={invitingWorkerEmail}
+        onDelete={handleDeleteWorker}
+        deletingWorkerId={deletingWorkerId}
       />
     </Shell>
   );
@@ -548,6 +591,8 @@ function WorkerSection({
   onAssign,
   onInvite,
   invitingWorkerEmail,
+  onDelete,
+  deletingWorkerId,
 }) {
   return (
     <div className="card pad" style={{ marginBottom: 16 }}>
@@ -571,7 +616,7 @@ function WorkerSection({
               <th>Status</th>
               <th>Invite</th>
               <th>Assign Trip</th>
-              <th />
+              <th>Delete</th>
             </tr>
           </thead>
           <tbody>
@@ -646,6 +691,16 @@ function WorkerSection({
                     onClick={() => onAssign(worker.email, worker.id)}
                   >
                     Assign
+                  </button>
+                </td>
+                <td>
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => onDelete(worker)}
+                    disabled={deletingWorkerId === worker.id}
+                  >
+                    {deletingWorkerId === worker.id ? "Deleting..." : "Delete"}
                   </button>
                 </td>
               </tr>

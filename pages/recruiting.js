@@ -787,6 +787,7 @@ export default function RecruitingPage() {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [deletingDuplicateRecordId, setDeletingDuplicateRecordId] = useState("");
   const [confirmingDeleteDuplicateRecordId, setConfirmingDeleteDuplicateRecordId] = useState("");
+  const [deletingRecordId, setDeletingRecordId] = useState("");
   const [mergingDuplicateRecordId, setMergingDuplicateRecordId] = useState("");
   const [contactActionModalOpen, setContactActionModalOpen] = useState(false);
   const [isSavingContactAction, setIsSavingContactAction] = useState(false);
@@ -1488,6 +1489,32 @@ export default function RecruitingPage() {
     }
   }
 
+  async function handleDeleteRecord(recordId = selectedRecordId) {
+    const record = records.find((item) => item.id === recordId);
+    if (!record) return;
+
+    const label = record.teamName || formatContactName(record);
+    const confirmed = window.confirm(`Delete ${label}? This will remove this recruiting row.`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingRecordId(record.id);
+      await deleteRecruitingCycleContact(record.id);
+      if (selectedRecordId === record.id) {
+        setSelectedRecordId("");
+      }
+      setRecordDetailsModalOpen(false);
+      setError("");
+      setPageStatus(`${label} deleted.`);
+      await refreshCurrentYear();
+    } catch (deleteError) {
+      console.error("Unable to delete recruiting row", deleteError);
+      setError(deleteError.message || "Unable to delete recruiting row.");
+    } finally {
+      setDeletingRecordId("");
+    }
+  }
+
   async function handleMergeDuplicateGroup(group, keepRecord) {
     if (!group?.records?.length || !keepRecord?.id) return;
 
@@ -2061,6 +2088,14 @@ export default function RecruitingPage() {
                       <button className="btn" type="button" onClick={() => openContactActionModal(record, "call")}>Called</button>
                       <button className="btn" type="button" onClick={() => openContactActionModal(record, "text")}>Texted</button>
                       <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => void handleDeleteRecord(record.id)}
+                        disabled={deletingRecordId === record.id}
+                      >
+                        {deletingRecordId === record.id ? "Deleting..." : "Delete"}
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -2139,6 +2174,14 @@ export default function RecruitingPage() {
                 <button className="btn" type="button" onClick={() => openContactActionModal(record, "call")}>Called</button>
                 <button className="btn" type="button" onClick={() => openContactActionModal(record, "text")}>Texted</button>
                 <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => void handleDeleteRecord(record.id)}
+                  disabled={deletingRecordId === record.id}
+                >
+                  {deletingRecordId === record.id ? "Deleting..." : "Delete"}
+                </button>
               </div>
             </div>
           );
@@ -2225,7 +2268,7 @@ export default function RecruitingPage() {
                     <td>
                       <div>{record.site || "No site yet"}</div>
                       <div className="small" style={{ marginTop: 2 }}>
-                        {record.teamName || formatContactName(record)}
+                        {record.site ? "Site selected" : "Site still needed"}
                       </div>
                     </td>
                     <td>
@@ -2261,6 +2304,16 @@ export default function RecruitingPage() {
                       <div className="row recruitingActionRow recruitingFitActionRow">
                         <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
                           Edit Details
+                        </button>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => void handleMoveRecordToNextYear(record.id)}
+                          disabled={isSavingNotes || record.recruitingYear === NEXT_RECRUITING_YEAR}
+                        >
+                          {record.recruitingYear === NEXT_RECRUITING_YEAR
+                            ? `On ${NEXT_RECRUITING_YEAR}`
+                            : `Move to ${NEXT_RECRUITING_YEAR}`}
                         </button>
                         <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>Form Team</button>
                       </div>
@@ -2330,6 +2383,16 @@ export default function RecruitingPage() {
               <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
                 <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
                   Edit Details
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => void handleMoveRecordToNextYear(record.id)}
+                  disabled={isSavingNotes || record.recruitingYear === NEXT_RECRUITING_YEAR}
+                >
+                  {record.recruitingYear === NEXT_RECRUITING_YEAR
+                    ? `On ${NEXT_RECRUITING_YEAR}`
+                    : `Move to ${NEXT_RECRUITING_YEAR}`}
                 </button>
                 <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>
                   Form Team
@@ -2800,7 +2863,7 @@ export default function RecruitingPage() {
                   : "Edit Details"}
               </div>
               <div className="spacer" />
-              {selectedRecord && recordDetailsMode !== "history" && activeTab === "outreach" && !selectedRecord.isConvertedToTeam ? (
+              {selectedRecord && recordDetailsMode !== "history" && !selectedRecord.isConvertedToTeam ? (
                 <button
                   className="btn"
                   type="button"
