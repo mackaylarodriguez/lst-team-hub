@@ -297,8 +297,8 @@ a:hover{text-decoration:underline}
   width:100%;
   justify-content:center;
   padding:4px 8px;
-  font-size:10px;
-  line-height:1.15;
+  font-size:inherit;
+  line-height:inherit;
   text-align:center;
   white-space:normal;
 }
@@ -316,8 +316,8 @@ a:hover{text-decoration:underline}
   justify-content:center;
   min-width:100%;
   padding:4px 8px;
-  font-size:10px;
-  line-height:1.15;
+  font-size:inherit;
+  line-height:inherit;
   text-align:center;
 }
 .recruitingFitNotesText{
@@ -337,6 +337,7 @@ a:hover{text-decoration:underline}
 }
 .recruitingSnapshotText{
   white-space:normal;
+  color:var(--primary);
   line-height:1.2;
 }
 .recruitingUpdatedMeta{
