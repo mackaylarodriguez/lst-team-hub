@@ -2072,6 +2072,81 @@ export default function RecruitingPage() {
     );
   }
 
+  function renderOutreachCards(recordsToRender) {
+    if (recordsToRender.length === 0) {
+      return <div className="small">No contacts in this view.</div>;
+    }
+
+    return (
+      <div className="recruitingMobileCards">
+        {recordsToRender.map((record) => {
+          const attention = getAttentionMeta(record);
+          const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
+          const contactActivity = contactActivityByRecordId[record.id] || [];
+          const latestContact = contactActivity[0] || null;
+
+          return (
+            <div
+              key={record.id}
+              className="card pad recruitingMobileCard"
+              onClick={() => setSelectedRecordId(record.id)}
+              style={getRecordRowStyle(record, record.id === selectedRecordId)}
+            >
+              <div className="recruitingMobileCardHeader">
+                <div>
+                  <div className="recruitingMobileCardTitle">
+                    {formatContactName(record)}
+                  </div>
+                  <div className="small recruitingMobileCardEmail">
+                    {record.contact?.email || record.contact?.phone || "-"}
+                  </div>
+                </div>
+                {attention ? (
+                  <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
+                ) : null}
+              </div>
+              {renderDuplicateNotice(duplicateInfo, { compact: true })}
+              <div className="recruitingMobileMeta">
+                <span>{record.contact?.gender || "Gender not set"}</span>
+                <span>{record.site || "No site yet"}</span>
+                <span>{record.projectDates || "Timing not set"}</span>
+              </div>
+              <div className="small">
+                {latestContact ? formatContactHistorySummary(latestContact) : formatLastContactSummary(record)}
+              </div>
+              <div className="recruitingMobileNotes">
+                <textarea
+                  className="input recruitingInlineNoteInput"
+                  rows={3}
+                  value={stripHandoffSummary(record.mackaylaNotes)}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  placeholder="Add Mackayla notes"
+                />
+                <textarea
+                  className="input recruitingInlineNoteInput"
+                  rows={3}
+                  value={record.lesleeNotes || ""}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  placeholder="Add Leslee notes"
+                />
+              </div>
+              <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
+                <button className="btn" type="button" onClick={() => openContactActionModal(record, "email")}>Emailed</button>
+                <button className="btn" type="button" onClick={() => openContactActionModal(record, "call")}>Called</button>
+                <button className="btn" type="button" onClick={() => openContactActionModal(record, "text")}>Texted</button>
+                <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   function renderPotentialTable(recordsToRender) {
     if (recordsToRender.length === 0) return <div className="small">No potential teams yet.</div>;
 
@@ -2199,6 +2274,74 @@ export default function RecruitingPage() {
     );
   }
 
+  function renderPotentialCards(recordsToRender) {
+    if (recordsToRender.length === 0) return <div className="small">No potential teams yet.</div>;
+
+    return (
+      <div className="recruitingMobileCards">
+        {recordsToRender.map((record) => {
+          const attention = getAttentionMeta(record);
+          const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
+          const stageLabel = isReadyForBoss(record) ? "Ready for Boss" : record.stageLabel;
+
+          return (
+            <div
+              key={record.id}
+              className="card pad recruitingMobileCard"
+              onClick={() => setSelectedRecordId(record.id)}
+              style={getRecordRowStyle(record, record.id === selectedRecordId)}
+            >
+              <div className="recruitingMobileCardHeader">
+                <div>
+                  <div className="recruitingMobileCardTitle">{record.teamName || formatContactName(record)}</div>
+                  <div className="small recruitingMobileCardEmail">{record.contact?.email || "-"}</div>
+                </div>
+                <span className={`badge ${getRecruitingStageBadgeClass(record)}`}>{stageLabel}</span>
+              </div>
+              {renderDuplicateNotice(duplicateInfo, { compact: true })}
+              <div className="recruitingMobileMeta">
+                <span>{record.assignedTo || PRIMARY_OWNER}</span>
+                <span>{record.site || "No site yet"}</span>
+                <span>{record.projectDates || "Timing not set"}</span>
+              </div>
+              {attention ? (
+                <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
+              ) : null}
+              <div className="recruitingMobileNotes">
+                <textarea
+                  className="input recruitingInlineNoteInput"
+                  rows={3}
+                  value={stripHandoffSummary(record.mackaylaNotes)}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  placeholder="Add Mackayla notes"
+                />
+                <textarea
+                  className="input recruitingInlineNoteInput"
+                  rows={3}
+                  value={record.lesleeNotes || ""}
+                  onClick={(event) => event.stopPropagation()}
+                  onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  placeholder="Add Leslee notes"
+                />
+              </div>
+              <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
+                <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
+                  Edit Details
+                </button>
+                <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>
+                  Form Team
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   function renderConvertedTable(recordsToRender) {
     if (recordsToRender.length === 0) return <div className="small">No converted teams yet.</div>;
 
@@ -2253,6 +2396,44 @@ export default function RecruitingPage() {
           </tbody>
         </table>
       </DraggableTable>
+    );
+  }
+
+  function renderConvertedCards(recordsToRender) {
+    if (recordsToRender.length === 0) return <div className="small">No converted teams yet.</div>;
+
+    return (
+      <div className="recruitingMobileCards">
+        {recordsToRender.map((record) => (
+          <div
+            key={record.id}
+            className="card pad recruitingMobileCard"
+            onClick={() => setSelectedRecordId(record.id)}
+          >
+            <div className="recruitingMobileCardHeader">
+              <div>
+                <div className="recruitingMobileCardTitle">{record.teamName || record.linkedTrip?.name || "-"}</div>
+                <div className="small">{formatContactName(record)}</div>
+              </div>
+              <span className="badge">{record.linkedTrip?.status || "Converted"}</span>
+            </div>
+            <div className="recruitingMobileMeta">
+              <span>{record.linkedTrip?.site || record.site || "-"}</span>
+              <span>{record.linkedTrip?.departureDate ? formatDate(record.linkedTrip.departureDate) : formatFlexibleDepartureDate(record.departureDate)}</span>
+            </div>
+            <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
+              <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>
+                View History
+              </button>
+              {record.convertedTeamId ? (
+                <button className="btn btnPrimary" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
+                  Open Team
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
     );
   }
 
@@ -2562,7 +2743,8 @@ export default function RecruitingPage() {
                     <div className="small">Initial recruiting and follow-up before handoff to potential teams.</div>
                   </div>
                 </div>
-                {renderOutreachTable(outreachQueue)}
+                <div className="recruitingDesktopOnly">{renderOutreachTable(outreachQueue)}</div>
+                <div className="recruitingMobileOnly">{renderOutreachCards(outreachQueue)}</div>
               </>
             ) : null}
 
@@ -2572,7 +2754,8 @@ export default function RecruitingPage() {
                 <div className="small" style={{ marginBottom: 10 }}>
                   Curated serious leads for team formation and Leslee follow-up.
                 </div>
-                {renderPotentialTable(pipelineRecords)}
+                <div className="recruitingDesktopOnly">{renderPotentialTable(pipelineRecords)}</div>
+                <div className="recruitingMobileOnly">{renderPotentialCards(pipelineRecords)}</div>
               </>
             ) : null}
 
@@ -2582,7 +2765,8 @@ export default function RecruitingPage() {
                 <div className="small" style={{ marginBottom: 10 }}>
                   Recruiting records already turned into real teams.
                 </div>
-                {renderConvertedTable(convertedTeams)}
+                <div className="recruitingDesktopOnly">{renderConvertedTable(convertedTeams)}</div>
+                <div className="recruitingMobileOnly">{renderConvertedCards(convertedTeams)}</div>
               </>
             ) : null}
           </div>
@@ -2591,6 +2775,7 @@ export default function RecruitingPage() {
 
       {recordDetailsModalOpen ? (
         <div
+          className="appModalOverlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -2601,7 +2786,7 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad" style={{ width: "min(860px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
+          <div className="card pad appModalCard" style={{ width: "min(860px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>
                 {recordDetailsMode === "history"
@@ -3075,6 +3260,7 @@ export default function RecruitingPage() {
 
       {importModalOpen ? (
         <div
+          className="appModalOverlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -3085,7 +3271,7 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad" style={{ width: "min(900px, 100%)", maxHeight: "80vh", overflow: "auto" }}>
+          <div className="card pad appModalCard" style={{ width: "min(900px, 100%)", maxHeight: "80vh", overflow: "auto" }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>Import Preview</div>
               <div className="spacer" />
@@ -3144,6 +3330,7 @@ export default function RecruitingPage() {
 
       {promoteModalOpen ? (
         <div
+          className="appModalOverlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -3154,7 +3341,7 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad" style={{ width: "min(860px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
+          <div className="card pad appModalCard" style={{ width: "min(860px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>Promote To Potential Teams</div>
               <div className="spacer" />
@@ -3441,6 +3628,7 @@ export default function RecruitingPage() {
 
       {contactActionModalOpen ? (
         <div
+          className="appModalOverlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -3451,7 +3639,7 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad" style={{ width: "min(520px, 100%)" }}>
+          <div className="card pad appModalCard" style={{ width: "min(520px, 100%)" }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>
                 {formatContactActionLabel(contactActionDraft.actionType)}
@@ -3523,6 +3711,7 @@ export default function RecruitingPage() {
 
       {addContactModalOpen ? (
         <div
+          className="appModalOverlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -3533,7 +3722,7 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad" style={{ width: "min(620px, 100%)" }}>
+          <div className="card pad appModalCard" style={{ width: "min(620px, 100%)" }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>Add Contact Or Team</div>
               <div className="spacer" />
@@ -3738,6 +3927,7 @@ export default function RecruitingPage() {
 
       {formTeamModalOpen ? (
         <div
+          className="appModalOverlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -3748,7 +3938,7 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad" style={{ width: "min(980px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
+          <div className="card pad appModalCard" style={{ width: "min(980px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>Form Team</div>
               <div className="spacer" />
@@ -4112,6 +4302,7 @@ export default function RecruitingPage() {
 
       {bulkModalOpen ? (
         <div
+          className="appModalOverlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -4122,7 +4313,7 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad" style={{ width: "min(620px, 100%)" }}>
+          <div className="card pad appModalCard" style={{ width: "min(620px, 100%)" }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>Bulk Action</div>
               <div className="spacer" />

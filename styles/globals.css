@@ -182,6 +182,22 @@ a:hover{text-decoration:underline}
   flex-basis:20px;
 }
 .sidebarCollapsedMeta{display:flex; justify-content:center}
+.installHintBanner{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  justify-content:space-between;
+  padding:12px 14px;
+  margin-bottom:16px;
+  border:1px solid rgba(47,73,147,.18);
+  border-radius:16px;
+  background:linear-gradient(135deg, rgba(234,242,255,.95), rgba(255,255,255,1));
+  box-shadow:0 10px 24px rgba(47,73,147,.08);
+}
+.installHintTitle{
+  font-weight:900;
+  margin-bottom:4px;
+}
 .main{
   padding:26px 28px 40px 28px;
   padding-left:max(24px, env(safe-area-inset-left));
@@ -258,6 +274,8 @@ a:hover{text-decoration:underline}
 .recruitingHeaderStack{
   position:relative;
 }
+.recruitingDesktopOnly{display:block}
+.recruitingMobileOnly{display:none}
 .recruitingSearchCluster{
   flex:1 1 420px;
   display:flex;
@@ -500,6 +518,51 @@ a:hover{text-decoration:underline}
   flex-wrap:wrap;
   justify-content:flex-end;
 }
+.recruitingMobileCards{
+  display:grid;
+  gap:12px;
+}
+.recruitingMobileCard{
+  display:grid;
+  gap:10px;
+}
+.recruitingMobileCardHeader{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  justify-content:space-between;
+}
+.recruitingMobileCardTitle{
+  font-weight:900;
+  line-height:1.2;
+}
+.recruitingMobileCardEmail{
+  overflow-wrap:anywhere;
+}
+.recruitingMobileMeta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.recruitingMobileMeta span{
+  display:inline-flex;
+  align-items:center;
+  padding:5px 10px;
+  border-radius:999px;
+  border:1px solid rgba(47,73,147,.14);
+  background:rgba(234,242,255,.55);
+  font-size:12px;
+  color:var(--muted);
+}
+.recruitingMobileNotes{
+  display:grid;
+  gap:8px;
+}
+.recruitingMobileActions{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:8px;
+}
 .recruitingFont-medium th,
 .recruitingFont-medium td{
   font-size:14px;
@@ -590,6 +653,53 @@ a:hover{text-decoration:underline}
   gap:16px;
   align-items:stretch;
 }
+.tripOverviewHighlights{
+  display:grid;
+  grid-template-columns:minmax(0, 1.1fr) minmax(0, 1.4fr);
+  gap:16px;
+}
+.tripOverviewStatsGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  gap:16px;
+}
+.tripMobileFormGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  gap:10px;
+}
+.tripTrainingResourceGrid{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:16px;
+}
+.tripTrainingOptionalGrid,
+.tripTrainingParticipantGrid,
+.tripTaskSummaryGrid,
+.tripTaskParticipantGrid{
+  display:grid;
+  gap:16px;
+}
+.tripSectionCard{
+  overflow:hidden;
+}
+.tripFullSpanCard{
+  grid-column:1 / -1;
+}
+.appModalOverlay{
+  position:fixed;
+  inset:0;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:rgba(15,23,42,.45);
+  z-index:50;
+}
+.appModalCard{
+  width:min(860px, 100%);
+  max-height:85vh;
+  overflow:auto;
+}
 @media(max-width:980px){
   .shell{grid-template-columns:1fr}
   .shellCollapsed{grid-template-columns:1fr}
@@ -642,6 +752,15 @@ a:hover{text-decoration:underline}
   .main{padding:18px 16px 28px 16px}
   .container{padding:18px 16px 28px 16px}
   .tripListGrid{grid-template-columns:repeat(auto-fit, minmax(220px, 1fr))}
+  .tripOverviewHighlights{
+    grid-template-columns:1fr;
+  }
+  .tripOverviewStatsGrid{
+    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .tripTrainingResourceGrid{
+    grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+  }
   .tabs{
     flex-wrap:nowrap;
     overflow-x:auto;
@@ -720,6 +839,10 @@ a:hover{text-decoration:underline}
   .row{gap:10px}
   .btn{width:100%}
   .row .btn{width:auto}
+  .installHintBanner{
+    display:grid;
+    gap:10px;
+  }
   .tripCardActionRow .btn,
   .tripCardActionButton{width:100%}
   .sidebar{
@@ -735,6 +858,8 @@ a:hover{text-decoration:underline}
     min-width:0;
     flex:1 1 100%;
   }
+  .recruitingDesktopOnly{display:none}
+  .recruitingMobileOnly{display:block}
   .recruitingSearchCluster{
     min-width:0;
     width:100%;
@@ -790,6 +915,30 @@ a:hover{text-decoration:underline}
   }
   .recruitingCompactTable{
     min-width:640px !important;
+  }
+  .recruitingMobileActions{
+    grid-template-columns:1fr;
+  }
+  .tripOverviewStatsGrid,
+  .tripTrainingParticipantGrid,
+  .tripTaskParticipantGrid,
+  .tripTaskSummaryGrid,
+  .tripTrainingOptionalGrid,
+  .tripTrainingResourceGrid{
+    grid-template-columns:1fr;
+  }
+  .tripMobileFormGrid{
+    grid-template-columns:1fr;
+  }
+  .appModalOverlay{
+    align-items:end;
+    padding:10px;
+  }
+  .appModalCard{
+    width:100%;
+    max-height:min(92vh, 760px);
+    border-bottom-left-radius:0;
+    border-bottom-right-radius:0;
   }
   .tripPageTabs{
     position:sticky;

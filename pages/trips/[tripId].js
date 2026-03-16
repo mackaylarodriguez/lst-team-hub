@@ -3951,6 +3951,7 @@ function parseDateSafe(dateStr) {
       {tab === "Overview" && (
         <div style={{ display: "grid", gap: 16 }}>
           <div
+            className="tripOverviewStatsGrid"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -4024,7 +4025,7 @@ function parseDateSafe(dateStr) {
             }}
           >
             {canViewAllParticipantData && (
-              <div className="card pad" style={{ gridColumn: "1 / -1" }}>
+              <div className="card pad tripFullSpanCard" style={{ gridColumn: "1 / -1" }}>
                 <div style={{ fontWeight: 900, marginBottom: 8 }}>Trip Notes</div>
                 <div className="small" style={{ marginBottom: 10 }}>
                   Put obvious context here, like why the trip was archived or major team changes.
@@ -4268,7 +4269,7 @@ function parseDateSafe(dateStr) {
                 <div className="small">
                   Add a worker to this team with name and email. You can leave them unassigned or assign them to this trip now.
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                <div className="tripMobileFormGrid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
                   <input
                     className="input"
                     value={newWorkerDraft.firstName}
@@ -4313,6 +4314,7 @@ function parseDateSafe(dateStr) {
                 {rosterDraft.map((member, index) => (
                   <div
                     key={member.id || `draft-${index}`}
+                    className="tripMobileFormGrid"
                     style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
@@ -4448,7 +4450,7 @@ function parseDateSafe(dateStr) {
           </div>
 
           {canViewAllParticipantData && (
-            <div className="card pad">
+            <div className="card pad tripSectionCard">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Reference Emails</div>
               <table className="table">
                 <thead>
@@ -4578,7 +4580,7 @@ function parseDateSafe(dateStr) {
               alignItems: "stretch",
             }}
           >
-            <div className="card pad">
+            <div className="card pad tripSectionCard">
               <div className="cardSectionPill" style={{ marginBottom: 14 }}>Fundraising Deadlines</div>
               <div className="small" style={{ marginBottom: 12 }}>
                 These dates are automatically based on the trip start date.
@@ -4983,6 +4985,7 @@ function parseDateSafe(dateStr) {
             <div style={{ height: 14 }} />
 
             <div
+              className="tripTrainingResourceGrid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
@@ -5037,6 +5040,7 @@ function parseDateSafe(dateStr) {
             </div>
 
             <div
+              className="tripTrainingOptionalGrid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -5086,6 +5090,7 @@ function parseDateSafe(dateStr) {
           </div>
 
           <div
+            className="tripTrainingParticipantGrid"
             style={{
               display: "grid",
               gridTemplateColumns: canViewAllParticipantData
@@ -5280,7 +5285,7 @@ function parseDateSafe(dateStr) {
       {tab === "Tasks" && (
         <div style={{ display: "grid", gap: 16 }}>
           {canManageTrips && (
-            <div className="card pad">
+            <div className="card pad tripSectionCard">
               <div className="row">
                 <div style={{ fontWeight: 900 }}>Worker Tasks</div>
                 <div className="spacer" />
@@ -5343,7 +5348,7 @@ function parseDateSafe(dateStr) {
             </div>
           )}
 
-          <div className="card pad">
+            <div className="card pad tripSectionCard">
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>Task Progress</div>
               <div className="spacer" />
@@ -5361,6 +5366,7 @@ function parseDateSafe(dateStr) {
             </div>
 
             <div
+              className="tripTaskSummaryGrid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
@@ -5393,6 +5399,7 @@ function parseDateSafe(dateStr) {
           </div>
 
           <div
+            className="tripTaskParticipantGrid"
             style={{
               display: "grid",
               gridTemplateColumns: canViewAllParticipantData

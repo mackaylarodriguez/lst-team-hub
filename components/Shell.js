@@ -78,6 +78,8 @@ export default function Shell({ children }) {
   const [profiles, setProfiles] = useState([]);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [showInstallHint, setShowInstallHint] = useState(false);
+  const [installHintText, setInstallHintText] = useState("");
   const path = router.pathname;
 
   useEffect(() => {
@@ -125,6 +127,28 @@ export default function Shell({ children }) {
   useEffect(() => {
     setIsMobileNavOpen(false);
   }, [path]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const dismissed = window.localStorage.getItem("lst-install-hint-dismissed") === "true";
+    const isStandalone = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+    const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent || "");
+    const isAndroid = /android/i.test(window.navigator.userAgent || "");
+
+    if (dismissed || isStandalone) return;
+
+    if (isIos) {
+      setInstallHintText("Add this app to your home screen from Safari: Share -> Add to Home Screen.");
+      setShowInstallHint(true);
+      return;
+    }
+
+    if (isAndroid) {
+      setInstallHintText("Install this app from your browser menu to open it like a native app.");
+      setShowInstallHint(true);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -300,6 +324,26 @@ export default function Shell({ children }) {
       </aside>
 
       <main className="main">
+        {showInstallHint ? (
+          <div className="installHintBanner">
+            <div>
+              <div className="installHintTitle">Install LST Team Hub</div>
+              <div className="small">{installHintText}</div>
+            </div>
+            <button
+              className="btn"
+              type="button"
+              onClick={() => {
+                setShowInstallHint(false);
+                if (typeof window !== "undefined") {
+                  window.localStorage.setItem("lst-install-hint-dismissed", "true");
+                }
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        ) : null}
         {children}
       </main>
     </div>
