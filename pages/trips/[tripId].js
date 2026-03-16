@@ -402,15 +402,26 @@ export default function TripPage() {
     const requestedStaffTaskId = Array.isArray(router.query.staffTaskId)
       ? router.query.staffTaskId[0]
       : router.query.staffTaskId;
+    const requestedAddWorker = Array.isArray(router.query.addWorker)
+      ? router.query.addWorker[0]
+      : router.query.addWorker;
 
     if (String(requestedTab || "").toLowerCase() === "staff-tasks") {
       setTab("Staff Tasks");
+    }
+    if (String(requestedTab || "").toLowerCase() === "team") {
+      setTab("Team");
     }
 
     if (requestedStaffTaskId) {
       setPendingStaffTaskJumpId(String(requestedStaffTaskId));
     }
-  }, [router.query.staffTaskId, router.query.tab]);
+    if (String(requestedAddWorker || "").toLowerCase() === "1") {
+      setIsAddingWorker(true);
+      setIsEditingRoster(false);
+      setWorkerAddStatus("");
+    }
+  }, [router.query.addWorker, router.query.staffTaskId, router.query.tab]);
   const trainingAccessUrl = "https://lst365.sharepoint.com/Training/Forms/AllItems.aspx?id=%2FTraining%2FLST%20International%20Projects%20Training%2FTeam%20Training%2FCurrent%20LST%20Team%20Training%20Components%2FNew%2DRevised%20Version%20of%20Team%20Training%2FInstructions%20on%20Accessing%20Online%20LST%20Team%20Training%2Epdf&parent=%2FTraining%2FLST%20International%20Projects%20Training%2FTeam%20Training%2FCurrent%20LST%20Team%20Training%20Components%2FNew%2DRevised%20Version%20of%20Team%20Training&p=true&ga=1";
   const basicTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=134&";
   const gatewayTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=136&";
