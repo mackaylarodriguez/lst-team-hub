@@ -100,9 +100,10 @@ function parseTeamMemberEntries(value) {
     const trimmedEntry = String(entry || "").trim();
     if (!trimmedEntry) return null;
 
-    const minorMatch = trimmedEntry.match(/^\[minor\]\s*/i);
+    const minorMatch = trimmedEntry.match(/^\[minor(?::\s*(\d+))?\]\s*/i);
     const isMinor = Boolean(minorMatch);
-    const withoutMinorLabel = trimmedEntry.replace(/^\[minor\]\s*/i, "").trim();
+    const minorAge = minorMatch?.[1] ? String(minorMatch[1]).trim() : "";
+    const withoutMinorLabel = trimmedEntry.replace(/^\[minor(?::\s*\d+)?\]\s*/i, "").trim();
 
     const angleMatch = withoutMinorLabel.match(/^(.*?)\s*<([^>]+)>$/);
     if (angleMatch) {
@@ -111,6 +112,7 @@ function parseTeamMemberEntries(value) {
         name: String(angleMatch[1] || "").trim(),
         email: normalizeEmailValue(angleMatch[2]),
         isMinor,
+        minorAge,
       };
     }
 
@@ -123,6 +125,7 @@ function parseTeamMemberEntries(value) {
         name,
         email,
         isMinor,
+        minorAge,
       };
     }
 
@@ -131,14 +134,24 @@ function parseTeamMemberEntries(value) {
       name: withoutMinorLabel,
       email: "",
       isMinor,
+      minorAge,
     };
   }).filter(Boolean);
 }
 
-function formatTeamMemberEntry(person) {
+function formatPersonDisplayName(person) {
   const name = String(person?.name || "").trim();
+  const age = String(person?.minorAge || "").trim();
+  if (person?.isMinor && name && age) return `${name} (${age})`;
+  return name;
+}
+
+function formatTeamMemberEntry(person) {
+  const name = formatPersonDisplayName(person);
   const email = normalizeEmailValue(person?.email);
-  const minorPrefix = person?.isMinor ? "[Minor] " : "";
+  const minorPrefix = person?.isMinor
+    ? `[Minor${person?.minorAge ? `:${String(person.minorAge).trim()}` : ""}] `
+    : "";
   if (name && email) return `${minorPrefix}${name} <${email}>`;
   return `${minorPrefix}${name || email || ""}`.trim();
 }
