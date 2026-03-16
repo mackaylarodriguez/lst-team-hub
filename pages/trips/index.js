@@ -154,7 +154,24 @@ function renderTripCard({
       <div className={tone.accentClass} />
       <div className="tripCardEyebrowRow">
         <span className={tone.chipClass}>{tone.label}</span>
-        <span className="tripCardMiniMeta">{trip.projectType || trip.siteType || "Trip"}</span>
+        <div className="tripCardHeaderActions">
+          <span className="tripCardMiniMeta">{trip.projectType || trip.siteType || "Trip"}</span>
+          {canManageTrips ? (
+            <Link
+              className="tripCardEditButton"
+              href={`/trips/${encodeURIComponent(trip.id)}`}
+              title="Open trip to edit"
+              aria-label={`Edit ${trip.name}`}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M4 20h4l9.8-9.8-4-4L4 16v4Zm12.7-14.5 1.8-1.8a1.3 1.3 0 0 1 1.8 0l.9.9a1.3 1.3 0 0 1 0 1.8l-1.8 1.8-2.7-2.7Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </Link>
+          ) : null}
+        </div>
       </div>
       <div className="tripCardTitle">{trip.name}</div>
       <div className="tripCardMetaStack">

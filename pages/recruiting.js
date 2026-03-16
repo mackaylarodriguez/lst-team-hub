@@ -1108,6 +1108,12 @@ export default function RecruitingPage() {
     }),
     [convertedTeams.length, outreachQueue.length, pipelineRecords.length]
   );
+  const bulkActionDescription = getBulkActionDescription(bulkAction);
+  const showBulkDateField = bulkAction === "bulk email" || bulkAction === "bulk text";
+  const showBulkSummaryField = ["bulk note", "bulk email", "bulk text", "delete"].includes(bulkAction);
+  const showBulkStageField = bulkAction === "stage";
+  const showBulkFollowUpField = bulkAction === "follow up";
+  const showBulkAssignedToField = bulkAction === "assign";
 
   const selectedRecord = useMemo(
     () => records.find((record) => record.id === selectedRecordId) || null,
@@ -2921,15 +2927,21 @@ export default function RecruitingPage() {
       <div style={{ display: "grid", gap: 16 }}>
         <div style={{ display: "grid", gap: 16 }}>
           <div className="card pad">
-            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+            <div className="recruitingBoardTabs" style={{ marginBottom: 10 }}>
               {RECRUITING_TABS.map((tab) => (
                 <button
                   key={tab.id}
-                  className={`btn ${activeTab === tab.id ? "btnPrimary" : ""}`}
+                  className={`${RECRUITING_TAB_META[tab.id]?.toneClass || "recruitingBoardTab"} ${activeTab === tab.id ? "isActive" : ""}`}
                   type="button"
                   onClick={() => handleChangeTab(tab.id)}
                 >
-                  {tab.label}
+                  <span className="recruitingBoardTabLabelRow">
+                    <span>{tab.label}</span>
+                    <span className="badge">{boardCounts[tab.id] || 0}</span>
+                  </span>
+                  <span className="recruitingBoardTabDescription">
+                    {RECRUITING_TAB_META[tab.id]?.description}
+                  </span>
                 </button>
               ))}
               {selectedRecord && activeTab === "converted" ? (
@@ -4560,37 +4572,48 @@ export default function RecruitingPage() {
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
-              <input
-                className="input"
-                type="datetime-local"
-                value={bulkDate}
-                onChange={(event) => setBulkDate(event.target.value)}
-              />
-              <textarea
-                className="input"
-                rows={3}
-                value={bulkSummary}
-                onChange={(event) => setBulkSummary(event.target.value)}
-                placeholder="Summary / note"
-              />
-              <select className="input" value={bulkStage} onChange={(event) => setBulkStage(event.target.value)}>
-                <option value="">No stage change</option>
-                {RECRUITING_STAGES.map((stage) => (
-                  <option key={stage.value} value={stage.value}>{stage.label}</option>
-                ))}
-              </select>
-              <input
-                className="input"
-                type="date"
-                value={bulkNextFollowUp}
-                onChange={(event) => setBulkNextFollowUp(event.target.value)}
-              />
-              <select className="input" value={bulkAssignedTo} onChange={(event) => setBulkAssignedTo(event.target.value)}>
-                <option value="">No owner change</option>
-                {OWNER_OPTIONS.map((owner) => (
-                  <option key={owner} value={owner}>{owner}</option>
-                ))}
-              </select>
+              <div className="small">{bulkActionDescription}</div>
+              {showBulkDateField ? (
+                <input
+                  className="input"
+                  type="datetime-local"
+                  value={bulkDate}
+                  onChange={(event) => setBulkDate(event.target.value)}
+                />
+              ) : null}
+              {showBulkSummaryField ? (
+                <textarea
+                  className="input"
+                  rows={3}
+                  value={bulkSummary}
+                  onChange={(event) => setBulkSummary(event.target.value)}
+                  placeholder={bulkAction === "delete" ? "Optional note for this delete" : "Summary / note"}
+                />
+              ) : null}
+              {showBulkStageField ? (
+                <select className="input" value={bulkStage} onChange={(event) => setBulkStage(event.target.value)}>
+                  <option value="">Choose stage</option>
+                  {RECRUITING_STAGES.map((stage) => (
+                    <option key={stage.value} value={stage.value}>{stage.label}</option>
+                  ))}
+                </select>
+              ) : null}
+              {showBulkFollowUpField ? (
+                <input
+                  className="input"
+                  type="date"
+                  value={bulkNextFollowUp}
+                  onChange={(event) => setBulkNextFollowUp(event.target.value)}
+                />
+              ) : null}
+              {showBulkAssignedToField ? (
+                <select className="input" value={bulkAssignedTo} onChange={(event) => setBulkAssignedTo(event.target.value)}>
+                  <option value="">Choose owner</option>
+                  {OWNER_OPTIONS.map((owner) => (
+                    <option key={owner} value={owner}>{owner}</option>
+                  ))}
+                </select>
+              ) : null}
               <button className="btn btnPrimary" type="button" onClick={handleBulkActionSubmit}>
                 Apply to {selectedIds.length} contacts
               </button>
