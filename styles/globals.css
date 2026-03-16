@@ -281,6 +281,13 @@ a:hover{text-decoration:underline}
   margin-top:2px;
   line-height:1.2;
 }
+.recruitingFundingInput{
+  color:var(--muted);
+}
+.recruitingFundingInput::placeholder{
+  color:var(--muted);
+  opacity:1;
+}
 .recruitingOwnerBadge{
   width:100%;
   justify-content:center;

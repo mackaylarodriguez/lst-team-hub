@@ -3774,7 +3774,7 @@ export default function RecruitingPage() {
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Fundraising Goal</div>
                   <input
-                    className="input"
+                    className="input recruitingFundingInput"
                     type="number"
                     min="0"
                     step="1"
@@ -3786,7 +3786,7 @@ export default function RecruitingPage() {
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Fee</div>
                   <input
-                    className="input"
+                    className="input recruitingFundingInput"
                     type="number"
                     min="0"
                     step="1"
@@ -3798,7 +3798,7 @@ export default function RecruitingPage() {
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Materials Fee</div>
                   <input
-                    className="input"
+                    className="input recruitingFundingInput"
                     type="number"
                     min="0"
                     step="1"
@@ -3821,7 +3821,7 @@ export default function RecruitingPage() {
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Hannover Housing Fee</div>
                   <input
-                    className="input"
+                    className="input recruitingFundingInput"
                     type="number"
                     min="0"
                     step="1"
@@ -3833,7 +3833,7 @@ export default function RecruitingPage() {
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Domestic Project</div>
                   <input
-                    className="input"
+                    className="input recruitingFundingInput"
                     type="number"
                     min="0"
                     step="1"
@@ -3845,7 +3845,7 @@ export default function RecruitingPage() {
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Domestic Fee</div>
                   <input
-                    className="input"
+                    className="input recruitingFundingInput"
                     type="number"
                     min="0"
                     step="1"
@@ -3857,7 +3857,7 @@ export default function RecruitingPage() {
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Domestic Materials Fee</div>
                   <input
-                    className="input"
+                    className="input recruitingFundingInput"
                     type="number"
                     min="0"
                     step="1"
