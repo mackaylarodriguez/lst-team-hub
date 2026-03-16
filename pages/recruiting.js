@@ -466,6 +466,31 @@ function normalizeImportedGender(value) {
   return normalized;
 }
 
+function findImportedColumnValue(values, config) {
+  const entries = Object.entries(values || {});
+
+  for (const key of config.exactKeys || []) {
+    const match = entries.find(([entryKey, entryValue]) => entryKey === key && String(entryValue || "").trim());
+    if (match) return match[1];
+  }
+
+  for (const includesKey of config.includesKeys || []) {
+    const match = entries.find(([entryKey, entryValue]) =>
+      entryKey.includes(includesKey) && String(entryValue || "").trim()
+    );
+    if (match) return match[1];
+  }
+
+  return "";
+}
+
+function normalizeImportedEmail(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "";
+  const emailMatch = normalized.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return normalizeEmailValue(emailMatch ? emailMatch[0] : normalized);
+}
+
 function parseImportRows(file) {
   return file.arrayBuffer().then((buffer) => {
     const workbook = XLSX.read(buffer, { type: "array" });
@@ -485,20 +510,24 @@ function parseImportRows(file) {
         ""
       );
       const recruitingYear = parsedYear === 2027 ? 2027 : 2026;
-      const importedEmail = String(
-        values.email ||
-        values.emails ||
-        values.emailaddress ||
-        values.emailaddresses ||
-        values.primaryemail ||
-        values.emailid ||
-        ""
-      ).trim().toLowerCase();
+      const importedEmail = normalizeImportedEmail(
+        findImportedColumnValue(values, {
+          exactKeys: [
+            "email",
+            "emails",
+            "emailaddress",
+            "emailaddresses",
+            "primaryemail",
+            "emailid",
+          ],
+          includesKeys: ["email", "mail"],
+        })
+      );
       const importedGender = normalizeImportedGender(
-        values.gender ||
-        values.sex ||
-        values.genderidentity ||
-        ""
+        findImportedColumnValue(values, {
+          exactKeys: ["gender", "genders", "sex", "genderidentity"],
+          includesKeys: ["gender", "sex"],
+        })
       );
 
       return {
