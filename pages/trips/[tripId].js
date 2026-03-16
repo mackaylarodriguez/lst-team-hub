@@ -309,6 +309,7 @@ export default function TripPage() {
   const [participantDocuments, setParticipantDocuments] = useState([]);
   const [participantDocumentsError, setParticipantDocumentsError] = useState("");
   const [participantDocumentStatus, setParticipantDocumentStatus] = useState({});
+  const [confirmingParticipantDocumentDeleteId, setConfirmingParticipantDocumentDeleteId] = useState("");
   const [customParticipantDocumentLabel, setCustomParticipantDocumentLabel] = useState("");
   const [participantDocumentTypeStatus, setParticipantDocumentTypeStatus] = useState("");
   const participantDocumentInputRefs = useRef({});
@@ -1877,9 +1878,6 @@ export default function TripPage() {
   async function handleDeleteParticipantDocument(document) {
     if (!document?.id) return;
 
-    const confirmed = window.confirm("Delete this uploaded document?");
-    if (!confirmed) return;
-
     const statusKey = `${document.userId}:${document.documentType}`;
 
     try {
@@ -1893,12 +1891,14 @@ export default function TripPage() {
         ...current,
         [statusKey]: { type: "success", message: "Deleted." },
       }));
+      setConfirmingParticipantDocumentDeleteId("");
     } catch (error) {
       console.error("Unable to delete participant document", error);
       setParticipantDocumentStatus((current) => ({
         ...current,
         [statusKey]: { type: "error", message: error.message || "Delete failed." },
       }));
+      setConfirmingParticipantDocumentDeleteId("");
     }
   }
 
@@ -6440,9 +6440,18 @@ function parseDateSafe(dateStr) {
                                 <button
                                   className="btn"
                                   type="button"
-                                  onClick={() => handleDeleteParticipantDocument(document)}
+                                  onClick={() => {
+                                    if (confirmingParticipantDocumentDeleteId === document.id) {
+                                      void handleDeleteParticipantDocument(document);
+                                      return;
+                                    }
+
+                                    setConfirmingParticipantDocumentDeleteId(document.id);
+                                  }}
                                 >
-                                  Delete
+                                  {confirmingParticipantDocumentDeleteId === document.id
+                                    ? "Confirm Delete"
+                                    : "Delete"}
                                 </button>
                               ) : null}
 

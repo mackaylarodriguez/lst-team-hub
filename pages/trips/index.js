@@ -694,17 +694,6 @@ export default function Trips() {
                     View Trip
                   </Link>
                   {canManageTrips && (
-                    <Link
-                      className="btn tripCardActionButton"
-                      href={{
-                        pathname: `/trips/${encodeURIComponent(trip.id)}`,
-                        query: { tab: "Team", addWorker: "1" },
-                      }}
-                    >
-                      Add Worker
-                    </Link>
-                  )}
-                  {canManageTrips && (
                     <button
                       className="btn tripCardActionButton"
                       type="button"
