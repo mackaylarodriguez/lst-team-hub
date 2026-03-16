@@ -485,6 +485,21 @@ function parseImportRows(file) {
         ""
       );
       const recruitingYear = parsedYear === 2027 ? 2027 : 2026;
+      const importedEmail = String(
+        values.email ||
+        values.emails ||
+        values.emailaddress ||
+        values.emailaddresses ||
+        values.primaryemail ||
+        values.emailid ||
+        ""
+      ).trim().toLowerCase();
+      const importedGender = normalizeImportedGender(
+        values.gender ||
+        values.sex ||
+        values.genderidentity ||
+        ""
+      );
 
       return {
         firstName: String(
@@ -497,8 +512,8 @@ function parseImportRows(file) {
           values.last ||
           ""
         ).trim(),
-        email: String(values.email || values.emails || "").trim().toLowerCase(),
-        gender: normalizeImportedGender(values.gender),
+        email: importedEmail,
+        gender: importedGender,
         recruitingYear,
         mackaylaNotes: String(
           values.mackaylanotes ||
@@ -532,6 +547,8 @@ const BULK_ACTION_OPTIONS = [
   { value: "follow up", label: "Set Next Follow-Up Date" },
   { value: "assign", label: "Assign To Staff Member" },
   { value: "stage", label: "Change Stage" },
+  { value: "move_2027", label: "Move To 2027" },
+  { value: "delete", label: "Delete Selected" },
 ];
 
 const RECRUITING_TABS = [
@@ -1642,6 +1659,73 @@ export default function RecruitingPage() {
   }
 
   async function handleBulkActionSubmit() {
+    if (bulkAction === "move_2027") {
+      try {
+        setIsSavingNotes(true);
+        const selectedRecords = records.filter((record) => selectedIds.includes(record.id));
+
+        await Promise.all(
+          selectedRecords.map(async (record) => {
+            await saveRecruitingCycleContact(
+              buildRecruitingRecordPayload(record, {
+                recruitingYear: NEXT_RECRUITING_YEAR,
+              })
+            );
+            await logRecruitingActivity({
+              recruitingCycleContactId: record.id,
+              actionType: "update",
+              actionDate: new Date().toISOString(),
+              staffMember: session?.name || session?.email || "Staff",
+              summary: `Moved recruiting record to ${NEXT_RECRUITING_YEAR}.`,
+            });
+          })
+        );
+
+        setPageStatus(`Moved ${selectedRecords.length} contact${selectedRecords.length === 1 ? "" : "s"} to ${NEXT_RECRUITING_YEAR}.`);
+        setError("");
+      } catch (bulkError) {
+        console.error(`Unable to move recruiting records to ${NEXT_RECRUITING_YEAR}`, bulkError);
+        setError(bulkError.message || `Unable to move selected contacts to ${NEXT_RECRUITING_YEAR}.`);
+      } finally {
+        setIsSavingNotes(false);
+      }
+
+      setBulkModalOpen(false);
+      setSelectedIds([]);
+      setBulkSummary("");
+      setBulkStage("");
+      setBulkNextFollowUp("");
+      setBulkAssignedTo("");
+      await refreshCurrentYear();
+      return;
+    }
+
+    if (bulkAction === "delete") {
+      const confirmed = window.confirm(`Delete ${selectedIds.length} selected contact${selectedIds.length === 1 ? "" : "s"}?`);
+      if (!confirmed) return;
+
+      try {
+        setIsSavingNotes(true);
+        await Promise.all(selectedIds.map((id) => deleteRecruitingCycleContact(id)));
+        setPageStatus(`Deleted ${selectedIds.length} contact${selectedIds.length === 1 ? "" : "s"}.`);
+        setError("");
+      } catch (bulkError) {
+        console.error("Unable to delete selected recruiting contacts", bulkError);
+        setError(bulkError.message || "Unable to delete selected contacts.");
+      } finally {
+        setIsSavingNotes(false);
+      }
+
+      setBulkModalOpen(false);
+      setSelectedIds([]);
+      setBulkSummary("");
+      setBulkStage("");
+      setBulkNextFollowUp("");
+      setBulkAssignedTo("");
+      await refreshCurrentYear();
+      return;
+    }
+
     await bulkUpdateRecruitingCycleContacts({
       recruitingCycleContactIds: selectedIds,
       actionType: bulkAction,

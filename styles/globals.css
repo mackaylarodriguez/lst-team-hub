@@ -254,9 +254,9 @@ a:hover{text-decoration:underline}
   width:100%;
 }
 .recruitingYearSelect{
-  width:92px;
-  min-width:92px;
-  flex:0 0 92px;
+  width:118px;
+  min-width:118px;
+  flex:0 0 118px;
   padding-right:28px;
 }
 .recruitingActionCard{
@@ -277,15 +277,15 @@ a:hover{text-decoration:underline}
 .recruitingDesktopOnly{display:block}
 .recruitingMobileOnly{display:none}
 .recruitingSearchCluster{
-  flex:1 1 420px;
+  flex:1 1 320px;
   display:flex;
   align-items:center;
   gap:10px;
-  min-width:320px;
+  min-width:240px;
 }
 .recruitingToolbarSearch{
   flex:1 1 auto;
-  min-width:180px;
+  min-width:140px;
 }
 .recruitingFontButton{
   width:38px;
