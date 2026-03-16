@@ -165,7 +165,7 @@ function buildTeamMembersText(people) {
 
 function getRecordPeopleList(record) {
   const teamMembers = parseTeamMemberEntries(record?.teamMembers)
-    .map((person) => person.name || person.email || person.raw)
+    .map((person) => formatPersonDisplayName(person) || person.email || person.raw)
     .filter(Boolean);
   if (teamMembers.length > 0) return teamMembers;
   const primaryContact = formatContactName(record);
@@ -1710,6 +1710,7 @@ export default function RecruitingPage() {
       name: recordPersonDraft.name,
       email: recordPersonDraft.email,
       isMinor: recordPersonDraft.isMinor,
+      minorAge: recordPersonDraft.isMinor ? recordPersonDraft.minorAge : "",
     };
     const formattedEntry = formatTeamMemberEntry(nextEntry);
     if (!formattedEntry) return;
@@ -1737,6 +1738,7 @@ export default function RecruitingPage() {
       name: newContactPersonDraft.name,
       email: newContactPersonDraft.email,
       isMinor: newContactPersonDraft.isMinor,
+      minorAge: newContactPersonDraft.isMinor ? newContactPersonDraft.minorAge : "",
     };
     const formattedEntry = formatTeamMemberEntry(nextEntry);
     if (!formattedEntry) return;
@@ -1762,6 +1764,7 @@ export default function RecruitingPage() {
       name: promotePersonDraft.name,
       email: promotePersonDraft.email,
       isMinor: promotePersonDraft.isMinor,
+      minorAge: promotePersonDraft.isMinor ? promotePersonDraft.minorAge : "",
     };
     const formattedEntry = formatTeamMemberEntry(nextEntry);
     if (!formattedEntry) return;
@@ -2750,12 +2753,9 @@ export default function RecruitingPage() {
                                   <div className="row" style={{ alignItems: "flex-start" }}>
                                     <div style={{ flex: 1 }}>
                                       <div className={person.isMinor ? "recruitingMinorName" : ""} style={{ fontWeight: 700 }}>
-                                        {person.name || "Unnamed person"}
+                                        {formatPersonDisplayName(person) || "Unnamed person"}
                                       </div>
                                       <div className="small">{person.email || "No email added"}</div>
-                                      {person.isMinor ? (
-                                        <div className="small recruitingMinorLabel">Minor</div>
-                                      ) : null}
                                       {renderDuplicateNotice(duplicateInfo)}
                                     </div>
                                     <button
@@ -2817,10 +2817,29 @@ export default function RecruitingPage() {
                                   setRecordPersonDraft((current) => ({
                                     ...current,
                                     isMinor: event.target.checked,
+                                    minorAge: event.target.checked ? current.minorAge : "",
                                   }))
                                 }
                               />
                             </label>
+                            {recordPersonDraft.isMinor ? (
+                              <div>
+                                <div className="small" style={{ marginBottom: 6 }}>Age</div>
+                                <input
+                                  className="input"
+                                  type="number"
+                                  min="0"
+                                  value={recordPersonDraft.minorAge}
+                                  onChange={(event) =>
+                                    setRecordPersonDraft((current) => ({
+                                      ...current,
+                                      minorAge: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="14"
+                                />
+                              </div>
+                            ) : null}
                             <button className="btn" type="button" onClick={handleAddPersonToSelectedRecord}>
                               Add Person
                             </button>
@@ -3096,12 +3115,9 @@ export default function RecruitingPage() {
                           <div className="row" style={{ alignItems: "flex-start" }}>
                             <div style={{ flex: 1 }}>
                               <div className={person.isMinor ? "recruitingMinorName" : ""} style={{ fontWeight: 700 }}>
-                                {person.name || "Unnamed person"}
+                                {formatPersonDisplayName(person) || "Unnamed person"}
                               </div>
                               <div className="small">{person.email || "No email added"}</div>
-                              {person.isMinor ? (
-                                <div className="small recruitingMinorLabel">Minor</div>
-                              ) : null}
                               {renderDuplicateNotice(duplicateInfo)}
                             </div>
                             <button
@@ -3163,10 +3179,29 @@ export default function RecruitingPage() {
                           setPromotePersonDraft((current) => ({
                             ...current,
                             isMinor: event.target.checked,
+                            minorAge: event.target.checked ? current.minorAge : "",
                           }))
                         }
                       />
                     </label>
+                    {promotePersonDraft.isMinor ? (
+                      <div>
+                        <div className="small" style={{ marginBottom: 6 }}>Age</div>
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          value={promotePersonDraft.minorAge}
+                          onChange={(event) =>
+                            setPromotePersonDraft((current) => ({
+                              ...current,
+                              minorAge: event.target.value,
+                            }))
+                          }
+                          placeholder="14"
+                        />
+                      </div>
+                    ) : null}
                     <button className="btn" type="button" onClick={handleAddPersonToPromoteDraft}>
                       Add Person
                     </button>
@@ -3434,12 +3469,9 @@ export default function RecruitingPage() {
                         <div className="row" style={{ alignItems: "flex-start" }}>
                           <div style={{ flex: 1 }}>
                             <div className={person.isMinor ? "recruitingMinorName" : ""} style={{ fontWeight: 700 }}>
-                              {person.name || "Unnamed person"}
+                              {formatPersonDisplayName(person) || "Unnamed person"}
                             </div>
                             <div className="small">{person.email || "No email added"}</div>
-                            {person.isMinor ? (
-                              <div className="small recruitingMinorLabel">Minor</div>
-                            ) : null}
                             {renderDuplicateNotice(duplicateInfo)}
                           </div>
                           <button
@@ -3501,10 +3533,29 @@ export default function RecruitingPage() {
                         setNewContactPersonDraft((current) => ({
                           ...current,
                           isMinor: event.target.checked,
+                          minorAge: event.target.checked ? current.minorAge : "",
                         }))
                       }
                     />
                   </label>
+                  {newContactPersonDraft.isMinor ? (
+                    <div>
+                      <div className="small" style={{ marginBottom: 6 }}>Age</div>
+                      <input
+                        className="input"
+                        type="number"
+                        min="0"
+                        value={newContactPersonDraft.minorAge}
+                        onChange={(event) =>
+                          setNewContactPersonDraft((current) => ({
+                            ...current,
+                            minorAge: event.target.value,
+                          }))
+                        }
+                        placeholder="14"
+                      />
+                    </div>
+                  ) : null}
                   <button className="btn" type="button" onClick={handleAddPersonToNewContact}>
                     Add Person
                   </button>
