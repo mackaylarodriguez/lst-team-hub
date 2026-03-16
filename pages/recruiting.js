@@ -804,6 +804,7 @@ export default function RecruitingPage() {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [deletingDuplicateRecordId, setDeletingDuplicateRecordId] = useState("");
   const [confirmingDeleteDuplicateRecordId, setConfirmingDeleteDuplicateRecordId] = useState("");
+  const [confirmingDeleteRecordId, setConfirmingDeleteRecordId] = useState("");
   const [deletingRecordId, setDeletingRecordId] = useState("");
   const [mergingDuplicateRecordId, setMergingDuplicateRecordId] = useState("");
   const [contactActionModalOpen, setContactActionModalOpen] = useState(false);
@@ -1462,6 +1463,7 @@ export default function RecruitingPage() {
   async function openRecordDetails(recordId, mode = "details") {
     if (!recordId) return;
     setSelectedRecordId(recordId);
+    setConfirmingDeleteRecordId("");
     setRecordDetailsMode(mode);
     setRecordDetailsModalOpen(true);
     setPageStatus("");
@@ -1510,10 +1512,6 @@ export default function RecruitingPage() {
     const record = records.find((item) => item.id === recordId);
     if (!record) return;
 
-    const label = record.teamName || formatContactName(record);
-    const confirmed = window.confirm(`Delete ${label}? This will remove this recruiting row.`);
-    if (!confirmed) return;
-
     try {
       setDeletingRecordId(record.id);
       await deleteRecruitingCycleContact(record.id);
@@ -1522,7 +1520,8 @@ export default function RecruitingPage() {
       }
       setRecordDetailsModalOpen(false);
       setError("");
-      setPageStatus(`${label} deleted.`);
+      setConfirmingDeleteRecordId("");
+      setPageStatus(`${record.teamName || formatContactName(record)} deleted.`);
       await refreshCurrentYear();
     } catch (deleteError) {
       console.error("Unable to delete recruiting row", deleteError);
@@ -2172,14 +2171,6 @@ export default function RecruitingPage() {
                       <button className="btn" type="button" onClick={() => openContactActionModal(record, "call")}>Called</button>
                       <button className="btn" type="button" onClick={() => openContactActionModal(record, "text")}>Texted</button>
                       <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={() => void handleDeleteRecord(record.id)}
-                        disabled={deletingRecordId === record.id}
-                      >
-                        {deletingRecordId === record.id ? "Deleting..." : "Delete"}
-                      </button>
                     </div>
                   </td>
                 </tr>
@@ -2258,14 +2249,6 @@ export default function RecruitingPage() {
                 <button className="btn" type="button" onClick={() => openContactActionModal(record, "call")}>Called</button>
                 <button className="btn" type="button" onClick={() => openContactActionModal(record, "text")}>Texted</button>
                 <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => void handleDeleteRecord(record.id)}
-                  disabled={deletingRecordId === record.id}
-                >
-                  {deletingRecordId === record.id ? "Deleting..." : "Delete"}
-                </button>
               </div>
             </div>
           );
@@ -2400,14 +2383,6 @@ export default function RecruitingPage() {
                             : `Move to ${NEXT_RECRUITING_YEAR}`}
                         </button>
                         <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>Form Team</button>
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => void handleDeleteRecord(record.id)}
-                          disabled={deletingRecordId === record.id}
-                        >
-                          {deletingRecordId === record.id ? "Deleting..." : "Delete"}
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -2488,14 +2463,6 @@ export default function RecruitingPage() {
                 </button>
                 <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>
                   Form Team
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => void handleDeleteRecord(record.id)}
-                  disabled={deletingRecordId === record.id}
-                >
-                  {deletingRecordId === record.id ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
@@ -2979,10 +2946,25 @@ export default function RecruitingPage() {
                 <button
                   className="btn"
                   type="button"
-                  onClick={() => void handleDeleteRecord(selectedRecord.id)}
+                  onClick={() => {
+                    if (confirmingDeleteRecordId === selectedRecord.id) {
+                      void handleDeleteRecord(selectedRecord.id);
+                      return;
+                    }
+                    setConfirmingDeleteRecordId(selectedRecord.id);
+                  }}
                   disabled={deletingRecordId === selectedRecord.id}
+                  style={{
+                    borderColor: "rgba(239,68,68,.28)",
+                    color: "var(--danger)",
+                    background: "rgba(239,68,68,.08)",
+                  }}
                 >
-                  {deletingRecordId === selectedRecord.id ? "Deleting..." : "Delete"}
+                  {deletingRecordId === selectedRecord.id
+                    ? "Deleting..."
+                    : confirmingDeleteRecordId === selectedRecord.id
+                      ? "Confirm Delete"
+                      : "Delete"}
                 </button>
               ) : null}
               <button className="btn" type="button" onClick={() => setRecordDetailsModalOpen(false)}>

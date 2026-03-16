@@ -37,6 +37,7 @@ export default function StaffAssignments() {
   const [newWorkerDraft, setNewWorkerDraft] = useState(() => createEmptyWorkerDraft());
   const [invitingWorkerEmail, setInvitingWorkerEmail] = useState("");
   const [deletingWorkerId, setDeletingWorkerId] = useState("");
+  const [confirmingDeleteWorkerId, setConfirmingDeleteWorkerId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -280,14 +281,6 @@ export default function StaffAssignments() {
   }
 
   async function handleDeleteWorker(worker) {
-    const label = worker?.name || worker?.email || "this worker";
-    const confirmed = window.confirm(
-      worker?.hasAccount
-        ? `Delete ${label}? This removes their worker profile and trip links from this app.`
-        : `Delete ${label}? This removes their pending worker row from trips.`
-    );
-    if (!confirmed) return;
-
     try {
       setDeletingWorkerId(worker.id);
       await deleteWorkerRecord({
@@ -305,7 +298,7 @@ export default function StaffAssignments() {
       ]);
       setWorkers(nextWorkers);
       setParticipantOverview(nextOverview);
-      setMessage(`${label} deleted.`);
+      setMessage(`${worker?.name || worker?.email || "Worker"} deleted.`);
       setError("");
     } catch (deleteError) {
       console.error("Unable to delete worker", deleteError);
@@ -313,6 +306,7 @@ export default function StaffAssignments() {
       setMessage("");
     } finally {
       setDeletingWorkerId("");
+      setConfirmingDeleteWorkerId("");
     }
   }
 
@@ -562,6 +556,8 @@ export default function StaffAssignments() {
         invitingWorkerEmail={invitingWorkerEmail}
         onDelete={handleDeleteWorker}
         deletingWorkerId={deletingWorkerId}
+        confirmingDeleteWorkerId={confirmingDeleteWorkerId}
+        onConfirmDeleteChange={setConfirmingDeleteWorkerId}
       />
 
       <WorkerSection
@@ -576,6 +572,8 @@ export default function StaffAssignments() {
         invitingWorkerEmail={invitingWorkerEmail}
         onDelete={handleDeleteWorker}
         deletingWorkerId={deletingWorkerId}
+        confirmingDeleteWorkerId={confirmingDeleteWorkerId}
+        onConfirmDeleteChange={setConfirmingDeleteWorkerId}
       />
     </Shell>
   );
@@ -593,6 +591,8 @@ function WorkerSection({
   invitingWorkerEmail,
   onDelete,
   deletingWorkerId,
+  confirmingDeleteWorkerId,
+  onConfirmDeleteChange,
 }) {
   return (
     <div className="card pad" style={{ marginBottom: 16 }}>
@@ -616,6 +616,7 @@ function WorkerSection({
               <th>Status</th>
               <th>Invite</th>
               <th>Assign Trip</th>
+              <th>Assign</th>
               <th>Delete</th>
             </tr>
           </thead>
@@ -697,10 +698,20 @@ function WorkerSection({
                   <button
                     className="btn"
                     type="button"
-                    onClick={() => onDelete(worker)}
+                    onClick={() => {
+                      if (confirmingDeleteWorkerId === worker.id) {
+                        onDelete(worker);
+                        return;
+                      }
+                      onConfirmDeleteChange(worker.id);
+                    }}
                     disabled={deletingWorkerId === worker.id}
                   >
-                    {deletingWorkerId === worker.id ? "Deleting..." : "Delete"}
+                    {deletingWorkerId === worker.id
+                      ? "Deleting..."
+                      : confirmingDeleteWorkerId === worker.id
+                        ? "Confirm Delete"
+                        : "Delete"}
                   </button>
                 </td>
               </tr>
