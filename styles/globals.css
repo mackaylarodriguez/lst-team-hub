@@ -29,6 +29,7 @@ body{
     linear-gradient(180deg, #f6f9fc 0%, var(--bg) 100%);
   -webkit-font-smoothing:antialiased;
   text-rendering:optimizeLegibility;
+  overflow-x:hidden;
 }
 a{color:var(--primary); text-decoration:none}
 a:hover{text-decoration:underline}
@@ -556,11 +557,18 @@ a:hover{text-decoration:underline}
     padding:14px 16px 12px 16px;
     max-height:74px;
     overflow:hidden;
+    width:100%;
   }
   .sidebar.sidebarMobileOpen{
     max-height:none;
     overflow:visible;
     box-shadow:0 22px 40px rgba(15,23,42,.12);
+  }
+  .sidebar:not(.sidebarMobileOpen) .nav,
+  .sidebar:not(.sidebarMobileOpen) .small,
+  .sidebar:not(.sidebarMobileOpen) .card,
+  .sidebar:not(.sidebarMobileOpen) .sidebarCollapsedMeta{
+    display:none;
   }
   .sidebarCollapsed{padding-left:16px; padding-right:16px}
   .sidebarToggleRow{margin-bottom:8px}
@@ -568,21 +576,21 @@ a:hover{text-decoration:underline}
   .brand{margin-bottom:10px}
   .sidebarCollapsed .brand{justify-content:flex-start}
   .nav{
-    flex-direction:row;
-    overflow-x:auto;
-    padding-bottom:4px;
-    margin:6px -4px 0 -4px;
-    scrollbar-width:none;
+    flex-direction:column;
+    overflow:visible;
+    padding-bottom:0;
+    margin:10px 0 0 0;
+    width:100%;
+    gap:8px;
   }
-  .nav::-webkit-scrollbar{display:none}
   .nav a,
   .sidebarCollapsed .nav a,
   .sidebarCollapsed .sidebarNavLink{
     justify-content:flex-start;
     padding:10px 12px;
     font-size:14px;
-    flex:0 0 auto;
-    white-space:nowrap;
+    width:100%;
+    white-space:normal;
   }
   .sidebarCollapsedMeta{justify-content:flex-start}
   .main{padding:18px 16px 28px 16px}
