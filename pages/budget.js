@@ -64,6 +64,7 @@ export default function BudgetPage() {
   const [newTicketTripId, setNewTicketTripId] = useState("");
   const [tab, setTab] = useState("Housing");
   const [isEditingHousing, setIsEditingHousing] = useState(false);
+  const [housingRowsDraft, setHousingRowsDraft] = useState([]);
   const [isEditingTickets, setIsEditingTickets] = useState(false);
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
@@ -107,29 +108,36 @@ export default function BudgetPage() {
     return () => { cancelled = true; };
   }, [router]);
 
-  async function updateHousingRow(tripId, field, value) {
-    const row = housingRows.find((r) => r.tripId === tripId) || {};
-    const updated = { ...row, [field]: value };
-    setHousingRows((prev) =>
-      prev.map((r) => (r.tripId === tripId ? updated : r))
-    );
+  function updateHousingDraftRow(tripId, field, value) {
+    setHousingRowsDraft((prev) => {
+      const row = prev.find((r) => r.tripId === tripId) || {};
+      const updated = { ...row, [field]: value };
+      return prev.map((r) => (r.tripId === tripId ? updated : r));
+    });
+  }
+
+  async function saveHousingBudget() {
     try {
       setStatus("Saving...");
-      await saveTripBudget(tripId, {
-        teamName: updated.teamName,
-        projectStartDate: updated.projectStartDate,
-        projectEndDate: updated.projectEndDate,
-        siteCountry: updated.siteCountry,
-        siteCity: updated.siteCity,
-        teamAccountant: updated.teamAccountant,
-        budgetAmount: updated.budgetAmount,
-        returnedAmount: updated.returnedAmount,
-        housingAmount: updated.housingAmount,
-        notes: updated.notes,
-        numWorkers: updated.numWorkers,
-        tshirts: updated.tshirts,
-        workbooks: updated.workbooks,
-      });
+      for (const row of housingRowsDraft) {
+        await saveTripBudget(row.tripId, {
+          teamName: row.teamName,
+          projectStartDate: row.projectStartDate,
+          projectEndDate: row.projectEndDate,
+          siteCountry: row.siteCountry,
+          siteCity: row.siteCity,
+          teamAccountant: row.teamAccountant,
+          budgetAmount: row.budgetAmount,
+          returnedAmount: row.returnedAmount,
+          housingAmount: row.housingAmount,
+          notes: row.notes,
+          numWorkers: row.numWorkers,
+          tshirts: row.tshirts,
+          workbooks: row.workbooks,
+        });
+      }
+      setHousingRows(housingRowsDraft);
+      setIsEditingHousing(false);
       setStatus("Saved.");
     } catch (e) {
       setStatus(e.message || "Error saving.");
@@ -468,23 +476,42 @@ export default function BudgetPage() {
           <div className="row" style={{ marginBottom: 8, alignItems: "center" }}>
             <div style={{ fontWeight: 900 }}>Housing budget (all trips)</div>
             <div className="spacer" />
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setIsEditingHousing((current) => !current)}
-            >
-              {isEditingHousing ? "Done" : "Edit"}
-            </button>
+            {isEditingHousing ? (
+              <>
+                <button type="button" className="btn btnPrimary" onClick={() => void saveHousingBudget()}>
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    setIsEditingHousing(false);
+                  }}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  setHousingRowsDraft(housingRows.map((r) => ({ ...r })));
+                  setIsEditingHousing(true);
+                }}
+              >
+                Edit
+              </button>
+            )}
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table" style={{ minWidth: 1400, fontSize: 12 }}>
+            <table className="table" style={{ minWidth: 1300, fontSize: 12 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
                   <th>Project Start</th>
                   <th>Project End</th>
-                  <th>Site: Country</th>
-                  <th>Site: City</th>
+                  <th>Site</th>
                   <th>Team Accountant</th>
                   <th>Budget Amount</th>
                   <th>Returned Amount</th>
@@ -496,27 +523,45 @@ export default function BudgetPage() {
                 </tr>
               </thead>
               <tbody>
-                {housingRows.map((r) => (
+                {(isEditingHousing ? housingRowsDraft : housingRows).map((r) => (
                   <tr key={r.id || r.tripId}>
-                    <td><input className="input" style={{ minWidth: 120 }} value={r.teamName || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "teamName", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "teamName", e.target.value)} /></td>
-                    <td><input className="input" type="date" value={r.projectStartDate || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "projectStartDate", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "projectStartDate", e.target.value)} /></td>
-                    <td><input className="input" type="date" value={r.projectEndDate || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "projectEndDate", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "projectEndDate", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 100 }} value={r.siteCountry || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "siteCountry", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "siteCountry", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={r.siteCity || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "siteCity", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "siteCity", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 100 }} value={r.teamAccountant || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "teamAccountant", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "teamAccountant", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={r.budgetAmount || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "budgetAmount", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "budgetAmount", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={r.returnedAmount || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "returnedAmount", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "returnedAmount", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={r.housingAmount || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "housingAmount", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "housingAmount", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 120 }} value={r.notes || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "notes", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "notes", e.target.value)} /></td>
-                    <td><input className="input" type="number" style={{ width: 60 }} value={r.numWorkers ?? ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "numWorkers", e.target.value === "" ? null : parseInt(e.target.value, 10) || null)} onBlur={(e) => updateHousingRow(r.tripId, "numWorkers", e.target.value === "" ? null : parseInt(e.target.value, 10) || null)} /></td>
-                    <td><input className="input" style={{ minWidth: 70 }} value={r.tshirts || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "tshirts", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "tshirts", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 70 }} value={r.workbooks || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "workbooks", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "workbooks", e.target.value)} /></td>
+                    {isEditingHousing ? (
+                      <>
+                        <td><input className="input" style={{ minWidth: 120 }} value={r.teamName || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "teamName", e.target.value)} /></td>
+                        <td><input className="input" type="date" value={r.projectStartDate || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "projectStartDate", e.target.value)} /></td>
+                        <td><input className="input" type="date" value={r.projectEndDate || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "projectEndDate", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 100 }} value={r.siteCountry || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "siteCountry", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 100 }} value={r.teamAccountant || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "teamAccountant", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 90 }} value={r.budgetAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "budgetAmount", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 90 }} value={r.returnedAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "returnedAmount", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 90 }} value={r.housingAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "housingAmount", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 120 }} value={r.notes || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "notes", e.target.value)} /></td>
+                        <td><input className="input" type="number" style={{ width: 60 }} value={r.numWorkers ?? ""} onChange={(e) => updateHousingDraftRow(r.tripId, "numWorkers", e.target.value === "" ? null : parseInt(e.target.value, 10) || null)} /></td>
+                        <td><input className="input" style={{ minWidth: 70 }} value={r.tshirts || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "tshirts", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 70 }} value={r.workbooks || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "workbooks", e.target.value)} /></td>
+                      </>
+                    ) : (
+                      <>
+                        <td>{r.teamName || ""}</td>
+                        <td>{r.projectStartDate || ""}</td>
+                        <td>{r.projectEndDate || ""}</td>
+                        <td>{r.siteCountry || ""}</td>
+                        <td>{r.teamAccountant || ""}</td>
+                        <td>{r.budgetAmount || ""}</td>
+                        <td>{r.returnedAmount || ""}</td>
+                        <td>{r.housingAmount || ""}</td>
+                        <td>{r.notes || ""}</td>
+                        <td>{r.numWorkers != null ? r.numWorkers : ""}</td>
+                        <td>{r.tshirts || ""}</td>
+                        <td>{r.workbooks || ""}</td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {housingRows.length === 0 && <div className="small">No housing budget rows yet. Add from a trip&apos;s Housing Budget or create a trip first.</div>}
+          {housingRows.length === 0 && !isEditingHousing && <div className="small">No housing budget rows yet. Add a trip to see a row per trip, or create a trip first.</div>}
         </div>
         )}
 
