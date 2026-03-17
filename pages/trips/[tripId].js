@@ -4087,7 +4087,7 @@ function parseDateSafe(dateStr) {
   const tabs =
     canManageTrips
       ? ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel, ...(isPreviewingParticipant ? [] : ["Travel Form", "Staff Tasks"])]
-      : ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel];
+      : ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel, "Travel Form"];
 
   function renderTripTabIntro(tabName) {
     const meta = tripTabMeta[tabName] || {
@@ -6969,15 +6969,27 @@ function parseDateSafe(dateStr) {
         </div>
       )}
 
-      {tab === "Travel Form" && canManageTrips && !isPreviewingParticipant && (
+      {tab === "Travel Form" && (
         <div style={{ display: "grid", gap: 16 }}>
           {renderTripTabIntro("Travel Form")}
           <div className="card pad" style={{ overflowX: "auto" }}>
             <div className="row" style={{ marginBottom: 12, alignItems: "center" }}>
               <div className="small">
-                Team travel form responses. Rows auto-generate as workers fill out the form from the Tasks tab.
+                {canViewAllParticipantData
+                  ? "Team travel form responses. Rows auto-generate as workers fill out the form from the Tasks tab."
+                  : "Your travel form response. Fill out or update from the Tasks tab (Fill out Travel Form) or edit below."}
               </div>
               <div className="spacer" />
+              {!canViewAllParticipantData && currentParticipant && (
+                <button
+                  type="button"
+                  className="btn btnPrimary"
+                  onClick={() => openTravelFormModal(currentParticipant)}
+                >
+                  Edit my response
+                </button>
+              )}
+              {canViewAllParticipantData && (
               <button
                 type="button"
                 className="btn"
@@ -7089,6 +7101,7 @@ function parseDateSafe(dateStr) {
               >
                 Export CSV
               </button>
+              )}
             </div>
             <table className="table" style={{ minWidth: 2400, fontSize: 12 }}>
               <thead>
@@ -7124,7 +7137,7 @@ function parseDateSafe(dateStr) {
                 </tr>
               </thead>
               <tbody>
-                {(trip?.participants || []).map((p) => {
+                {(canViewAllParticipantData ? (trip?.participants || []) : (currentParticipant ? [currentParticipant] : [])).map((p) => {
                   const form = travelFormResponses.find((f) => String(f.userId) === String(p.id)) || null;
                   return (
                     <tr key={p.id}>
@@ -7161,8 +7174,11 @@ function parseDateSafe(dateStr) {
                 })}
               </tbody>
             </table>
-            {(trip?.participants || []).length === 0 && (
+            {canViewAllParticipantData && (trip?.participants || []).length === 0 && (
               <div className="small">No participants yet. Add team members in the roster.</div>
+            )}
+            {!canViewAllParticipantData && !currentParticipant && (
+              <div className="small">You are not assigned to this trip.</div>
             )}
           </div>
         </div>
