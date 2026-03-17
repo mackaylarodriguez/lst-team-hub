@@ -5994,7 +5994,7 @@ function parseDateSafe(dateStr) {
                                         </button>
                                       ) : null}
                                     </div>
-                                    {canManageTrips ? (
+                                    {canViewAllParticipantData ? (
                                       editingWorkerTaskDateId === task.id ? (
                                         <input
                                           className="input"
