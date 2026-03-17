@@ -3901,6 +3901,7 @@ function parseDateSafe(dateStr) {
         ? "Your personal Neon page is available."
         : "No personal Neon page added yet.";
   const smartsheetBudgetDoc = visibleDocs.find((doc) => doc.resourceKey === "smartsheet-budget");
+  const flightsDoc = visibleDocs.find((doc) => doc.resourceKey === "flights");
   const siteInfoDoc = docs.find((doc) => doc.resourceKey === "site-info-link");
   const visibleSiteInfoDoc = visibleDocs.find((doc) => doc.resourceKey === "site-info-link");
   const autoSiteInfoLink = AUTO_SITE_INFO_LINKS_BY_KEY.get(normalizeSiteInfoKey(trip?.location)) || "";
@@ -4028,7 +4029,6 @@ function parseDateSafe(dateStr) {
 
     const taskState = currentParticipantProgress?.taskState || {};
     const hideSectionLabelTitles = [
-      "Filled out Travel Form",
       "Proofread my tickets",
     ];
     const upcomingTasks = (trip.tasks || [])
@@ -5950,13 +5950,16 @@ function parseDateSafe(dateStr) {
                           <div style={{ display: "grid", gap: 0 }}>
                             {sectionTasks.map((task) => {
                               const done = !!taskState[task.id];
-                              const isTravelFormTask = task.title === "Fill out Travel Form" || task.title === "Filled out Travel Form";
+                              const isTravelFormTask = task.title === "Fill out Travel Form";
                               const canFillTravelForm = isTravelFormTask && String(participant.id) === String(currentParticipant?.id);
                               const workerTaskTemplate = findWorkerTaskTemplate(task);
                               const isChecklistTask = task.id === "worker-task-checklist" || task.title === "Received and has reviewed Project Management Checklist";
+                              const isTicketsTask = task.id === "worker-task-tickets" || task.title === "Proofread my tickets";
                               const taskLink = isChecklistTask
                                 ? (effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl || workerTaskTemplate?.link)
-                                : workerTaskTemplate?.link;
+                                : isTicketsTask
+                                  ? (flightsDoc?.link || flightsDoc?.pdfUrl || workerTaskTemplate?.link)
+                                  : workerTaskTemplate?.link;
                               const taskDetails = task.description || workerTaskTemplate?.details;
 
                               return (
