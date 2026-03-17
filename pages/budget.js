@@ -479,7 +479,12 @@ export default function BudgetPage() {
         {tab === "Housing" && (
         <div className="card pad" style={{ marginBottom: 24 }}>
           <div className="row" style={{ marginBottom: 8, alignItems: "center" }}>
-            <div style={{ fontWeight: 900 }}>Housing budget (all trips)</div>
+            <div>
+              <div style={{ fontWeight: 900 }}>Housing budget (all trips)</div>
+              <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                Rows are auto-generated when a trip is created.
+              </div>
+            </div>
             <div className="spacer" />
             {isEditingHousing ? (
               <>
@@ -624,8 +629,7 @@ export default function BudgetPage() {
                   <th>Team</th>
                   <th>Intl/Dom</th>
                   <th>Worker Name</th>
-                  <th>Project Country</th>
-                  <th>Project City</th>
+                  <th>Site</th>
                   <th>Departure Date</th>
                   <th>Ticket Agency</th>
                   <th>Total Ticket Cost</th>
@@ -639,6 +643,7 @@ export default function BudgetPage() {
               <tbody>
                 {ticketRows.map((t) => {
                   const isArchived = archivedTripIds.has(t.tripId);
+                  const siteDisplay = (t.projectCountry || t.projectCity || "").trim() || "";
                   return (
                   <tr
                     key={t.id}
@@ -655,18 +660,35 @@ export default function BudgetPage() {
                         {t.tripName || t.tripId?.slice(0, 8) || ""}
                       </span>
                     </td>
-                    <td><input className="input" style={{ minWidth: 60 }} value={t.intlDom || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "intlDom", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 100 }} value={t.workerName || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "workerName", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={t.projectCountry || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "projectCountry", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 80 }} value={t.projectCity || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "projectCity", e.target.value)} /></td>
-                    <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.departureDate || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "departureDate", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 100 }} value={t.ticketAgency || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "ticketAgency", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={t.totalTicketCost || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "totalTicketCost", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={t.amountWorkerPaid || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "amountWorkerPaid", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={t.totalLstCost || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "totalLstCost", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={t.hpTotalCharge || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "hpTotalCharge", e.target.value)} /></td>
-                    <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.dateApprovedToWithdraw || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "dateApprovedToWithdraw", e.target.value)} /></td>
-                    <td><button className="btn" type="button" onClick={() => confirm("Delete this ticket?") && removeTicket(t.id)}>Delete</button></td>
+                    {isEditingTickets ? (
+                      <>
+                        <td><input className="input" style={{ minWidth: 60 }} value={t.intlDom || ""} onChange={(e) => updateTicketRow(t.id, "intlDom", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 100 }} value={t.workerName || ""} onChange={(e) => updateTicketRow(t.id, "workerName", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 120 }} value={siteDisplay} onChange={(e) => updateTicketRow(t.id, "projectCountry", e.target.value)} placeholder="Site" /></td>
+                        <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.departureDate || ""} onChange={(e) => updateTicketRow(t.id, "departureDate", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 100 }} value={t.ticketAgency || ""} onChange={(e) => updateTicketRow(t.id, "ticketAgency", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 90 }} value={t.totalTicketCost || ""} onChange={(e) => updateTicketRow(t.id, "totalTicketCost", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 90 }} value={t.amountWorkerPaid || ""} onChange={(e) => updateTicketRow(t.id, "amountWorkerPaid", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 90 }} value={t.totalLstCost || ""} onChange={(e) => updateTicketRow(t.id, "totalLstCost", e.target.value)} /></td>
+                        <td><input className="input" style={{ minWidth: 90 }} value={t.hpTotalCharge || ""} onChange={(e) => updateTicketRow(t.id, "hpTotalCharge", e.target.value)} /></td>
+                        <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.dateApprovedToWithdraw || ""} onChange={(e) => updateTicketRow(t.id, "dateApprovedToWithdraw", e.target.value)} /></td>
+                        <td><button className="btn" type="button" onClick={() => confirm("Delete this ticket?") && removeTicket(t.id)}>Delete</button></td>
+                      </>
+                    ) : (
+                      <>
+                        <td>{t.intlDom || ""}</td>
+                        <td>{t.workerName || ""}</td>
+                        <td>{siteDisplay}</td>
+                        <td>{t.departureDate || ""}</td>
+                        <td>{t.ticketAgency || ""}</td>
+                        <td>{t.totalTicketCost || ""}</td>
+                        <td>{t.amountWorkerPaid || ""}</td>
+                        <td>{t.totalLstCost || ""}</td>
+                        <td>{t.hpTotalCharge || ""}</td>
+                        <td>{t.dateApprovedToWithdraw || ""}</td>
+                        <td><button className="btn" type="button" onClick={() => confirm("Delete this ticket?") && removeTicket(t.id)}>Delete</button></td>
+                      </>
+                    )}
                   </tr>
                   );
                 })}
