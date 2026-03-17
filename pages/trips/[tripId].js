@@ -7299,26 +7299,34 @@ function parseDateSafe(dateStr) {
                               </td>
 
                               <td>
-                                {editingDueDateTaskId === t.id ? (
-                                  <input
-                                    className="input"
-                                    type="date"
-                                    autoFocus
-                                    value={t.dueDate || ""}
-                                    onChange={(e) =>
-                                      handleDueDateChange(t.id, e.target.value)
-                                    }
-                                    onBlur={() => setEditingDueDateTaskId(null)}
-                                  />
-                                ) : (
-                                  <button
-                                    className="staffTaskDateButton"
-                                    type="button"
-                                    onClick={() => setEditingDueDateTaskId(t.id)}
-                                  >
-                                    {t.dueDate ? formatShortDate(t.dueDate) : "Add date"}
-                                  </button>
-                                )}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                  {editingDueDateTaskId === t.id ? (
+                                    <input
+                                      className="input"
+                                      type="date"
+                                      autoFocus
+                                      value={t.dueDate || ""}
+                                      onChange={(e) =>
+                                        handleDueDateChange(t.id, e.target.value)
+                                      }
+                                      onBlur={() => setEditingDueDateTaskId(null)}
+                                    />
+                                  ) : (
+                                    <button
+                                      className="staffTaskDateButton"
+                                      type="button"
+                                      onClick={() => setEditingDueDateTaskId(t.id)}
+                                    >
+                                      {t.dueDate ? formatShortDate(t.dueDate) : "Add date"}
+                                    </button>
+                                  )}
+                                  {t.dueDate &&
+                                    t.dueDate === computeStaffTaskDueDate(t, trip) && (
+                                      <span className="small" style={{ color: "var(--muted)" }}>
+                                        Auto
+                                      </span>
+                                    )}
+                                </div>
                               </td>
 
                               <td>
