@@ -79,7 +79,9 @@ import {
 import {
   DEFAULT_TRAINING_TIMELINE_TYPE,
   TRAINING_TIMELINE_OPTIONS,
+  findWorkerTaskTemplate,
 } from "@/lib/workerTaskTemplate";
+import { findStaffTaskTemplate } from "@/lib/staffTaskTemplate";
 import {
   EMPTY_RECORD as TRAVEL_FORM_EMPTY,
   getTravelFormForUser,
@@ -102,6 +104,13 @@ const TEAM_STATUS_OPTIONS = [
   "Complete",
   "On Hold",
 ];
+
+const TSHIRT_SIZE_OPTIONS = ["", "XS", "S", "M", "L", "XL", "XXL", "3XL"];
+function getTshirtSizeOptions(currentValue) {
+  const v = String(currentValue || "").trim();
+  if (!v || TSHIRT_SIZE_OPTIONS.includes(v)) return TSHIRT_SIZE_OPTIONS;
+  return [v, ...TSHIRT_SIZE_OPTIONS];
+}
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -3977,27 +3986,37 @@ function parseDateSafe(dateStr) {
           return leftDate - rightDate;
         })
         .slice(0, 5)
-        .map((task) => ({
-          id: task.id,
-          title: task.taskName,
-          dueDate: task.dueDate,
-          detail: task.workArea,
-          destinationTab: "Staff Tasks",
-          destinationId: task.id,
-        }));
+        .map((task) => {
+          const st = findStaffTaskTemplate(task);
+          return {
+            id: task.id,
+            title: task.taskName,
+            dueDate: task.dueDate,
+            detail: task.workArea,
+            destinationTab: "Staff Tasks",
+            destinationId: task.id,
+            link: st?.link || null,
+            details: task.notes || st?.details || null,
+          };
+        });
     }
 
     const taskState = currentParticipantProgress?.taskState || {};
     const upcomingTasks = (trip.tasks || [])
       .filter((task) => !taskState[task.id])
-      .map((task) => ({
-        id: task.id,
-        title: task.title,
-        dueDate: task.due,
-        detail: getWorkerTaskSection(task),
-        destinationTab: "Tasks",
-        destinationId: task.id,
-      }));
+      .map((task) => {
+        const wt = findWorkerTaskTemplate(task);
+        return {
+          id: task.id,
+          title: task.title,
+          dueDate: task.due,
+          detail: getWorkerTaskSection(task),
+          destinationTab: "Tasks",
+          destinationId: task.id,
+          link: wt?.link || null,
+          details: task.description || wt?.details || null,
+        };
+      });
     const currentTrainingState = currentTrainingProgress?.trainingState || {};
     const upcomingTraining = allTrainingModules
       .filter((module) => !currentTrainingState[module.id])
@@ -4084,10 +4103,31 @@ function parseDateSafe(dateStr) {
     },
   };
 
-  const tabs =
-    canManageTrips
-      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel, ...(isPreviewingParticipant ? [] : ["Travel Form", "Staff Tasks"])]
-      : ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel, "Travel Form"];
+  const workerTabList = [
+    "Overview",
+    "Team",
+    "Fundraising",
+    "Training",
+    "Tasks",
+    "Travel Form",
+    tripDocumentsTabLabel,
+    participantDocumentsTabLabel,
+  ];
+  const tabs = canManageTrips
+    ? isPreviewingParticipant
+      ? workerTabList
+      : [
+          "Overview",
+          "Team",
+          "Fundraising",
+          "Training",
+          "Tasks",
+          tripDocumentsTabLabel,
+          participantDocumentsTabLabel,
+          "Travel Form",
+          "Staff Tasks",
+        ]
+    : workerTabList;
 
   function renderTripTabIntro(tabName) {
     const meta = tripTabMeta[tabName] || {
@@ -4525,6 +4565,20 @@ function parseDateSafe(dateStr) {
                             )}`
                           : "Due when ready"}
                       </div>
+                      {task.link ? (
+                        <a
+                          href={task.link}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="small"
+                          style={{ display: "inline-block", marginTop: 4 }}
+                        >
+                          View details →
+                        </a>
+                      ) : null}
+                      {task.details && !task.link ? (
+                        <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>{task.details}</div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -4798,9 +4852,9 @@ function parseDateSafe(dateStr) {
                         <td>
                           {canEditTshirt ? (
                             <span className="row" style={{ gap: 6, alignItems: "center" }}>
-                              <input
+                              <select
                                 className="input"
-                                style={{ minWidth: 72, maxWidth: 100 }}
+                                style={{ minWidth: 88 }}
                                 value={tshirtSize}
                                 onChange={(e) => {
                                   const v = e.target.value;
@@ -4813,15 +4867,16 @@ function parseDateSafe(dateStr) {
                                     }
                                     return prev.concat([{ ...TRAVEL_FORM_EMPTY, userId: member.profileId, tshirtSize: v }]);
                                   });
-                                }}
-                                onBlur={(e) => {
-                                  const v = String(e.target.value ?? "").trim();
                                   void handleSaveTeamTabTshirt(member.profileId, v);
                                 }}
-                                onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
-                                placeholder="Size"
                                 disabled={!!isSavingTshirt}
-                              />
+                              >
+                                {getTshirtSizeOptions(tshirtSize).map((opt) => (
+                                  <option key={opt || "__empty__"} value={opt}>
+                                    {opt || "—"}
+                                  </option>
+                                ))}
+                              </select>
                               {isSavingTshirt ? <span className="small" style={{ color: "var(--muted)" }}>Saving...</span> : null}
                             </span>
                           ) : (
@@ -5106,17 +5161,26 @@ function parseDateSafe(dateStr) {
             <div style={{ height: 4 }} />
 
             {!canViewAllParticipantData && trip?.teamFundraisingUrl ? (
-              <div className="card pad" style={{ boxShadow: "none", marginBottom: 14 }}>
-                <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
-                <div className="small" style={{ marginBottom: 14 }}>
-                  Your whole team uses this one Neon page.
-                </div>
+              <div
+                className="card pad"
+                style={{
+                  boxShadow: "none",
+                  marginBottom: 14,
+                  background: "linear-gradient(180deg, rgba(234,242,255,.85), rgba(255,255,255,1) 65%)",
+                  borderColor: "rgba(47,73,147,.22)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
+                <div className="cardSectionPill" style={{ marginBottom: 4 }}>Team Page</div>
+                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>Shared Team Fundraising Page</div>
                 <a
                   className="btn btnPrimary"
                   href={trip.teamFundraisingUrl}
                   target="_blank"
                   rel="noreferrer"
-                  style={{ padding: "8px 12px", fontSize: 13, alignSelf: "flex-start" }}
+                  style={{ padding: "10px 16px", fontSize: 14, alignSelf: "flex-start" }}
                 >
                   Open Team Neon Page
                 </a>
@@ -5124,11 +5188,20 @@ function parseDateSafe(dateStr) {
             ) : null}
 
             {canViewAllParticipantData && trip?.teamFundraisingUrl && (
-              <div className="card pad" style={{ boxShadow: "none", marginBottom: 14 }}>
-                <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
-                <div className="small" style={{ marginBottom: 10 }}>
-                  Use this when the whole team shares one Neon fundraising page.
-                </div>
+              <div
+                className="card pad"
+                style={{
+                  boxShadow: "none",
+                  marginBottom: 14,
+                  background: "linear-gradient(180deg, rgba(234,242,255,.85), rgba(255,255,255,1) 65%)",
+                  borderColor: "rgba(47,73,147,.22)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
+                <div className="cardSectionPill" style={{ marginBottom: 4 }}>Team Page</div>
+                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>Shared Team Fundraising Page</div>
                 {!isEditingTeamFundraising ? (
                   <div style={{ display: "grid", gap: 10 }}>
                     {trip.teamFundraisingUrl ? (
@@ -5844,6 +5917,9 @@ function parseDateSafe(dateStr) {
                               const done = !!taskState[task.id];
                               const isTravelFormTask = task.title === "Fill out Travel Form";
                               const canFillTravelForm = isTravelFormTask && String(participant.id) === String(currentParticipant?.id);
+                              const workerTaskTemplate = findWorkerTaskTemplate(task);
+                              const taskLink = workerTaskTemplate?.link;
+                              const taskDetails = task.description || workerTaskTemplate?.details;
 
                               return (
                                 <div
@@ -5877,6 +5953,17 @@ function parseDateSafe(dateStr) {
                                       }}
                                     >
                                       {task.title}
+                                      {taskLink ? (
+                                        <a
+                                          href={taskLink}
+                                          target="_blank"
+                                          rel="noreferrer noopener"
+                                          className="btn"
+                                          style={{ marginLeft: 8, padding: "4px 10px", fontSize: 12 }}
+                                        >
+                                          View details
+                                        </a>
+                                      ) : null}
                                       {canFillTravelForm ? (
                                         <button
                                           type="button"
@@ -5924,6 +6011,11 @@ function parseDateSafe(dateStr) {
                                         {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
                                       </div>
                                     )}
+                                    {taskDetails ? (
+                                      <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                                        {taskDetails}
+                                      </div>
+                                    ) : null}
                                   </div>
                                   <span className={"badge " + (done ? "badgeSuccess" : "badgeDanger")}>
                                     {done ? "Complete" : "Not started"}
@@ -6923,7 +7015,10 @@ function parseDateSafe(dateStr) {
                                 </>
                               ) : null}
 
-                              {canViewAllParticipantData && document ? (
+                              {(document && (
+                                (canViewAllParticipantData) ||
+                                (canUploadOwnParticipantDocuments && String(participant.id) === String(currentParticipant?.id))
+                              )) ? (
                                 <button
                                   className="btn"
                                   type="button"
@@ -7424,6 +7519,9 @@ function parseDateSafe(dateStr) {
                         {tasks.map((t) => {
                           const isEditingTitle = editingStaffTaskId === t.id;
                           const rowStatus = staffTaskRowStatus[t.id];
+                          const staffTaskTpl = findStaffTaskTemplate(t);
+                          const staffTaskLink = staffTaskTpl?.link;
+                          const staffTaskDetails = staffTaskTpl?.details;
 
                           return (
                             <tr
@@ -7439,9 +7537,27 @@ function parseDateSafe(dateStr) {
                                     onChange={(e) => setStaffTaskTitleDraft(e.target.value)}
                                   />
                                 ) : (
-                                  <span style={{ fontSize: "14px", fontWeight: 600 }}>
-                                    {t.taskName || t.title || "-"}
-                                  </span>
+                                  <>
+                                    <span style={{ fontSize: "14px", fontWeight: 600 }}>
+                                      {t.taskName || t.title || "-"}
+                                    </span>
+                                    {staffTaskLink ? (
+                                      <a
+                                        href={staffTaskLink}
+                                        target="_blank"
+                                        rel="noreferrer noopener"
+                                        className="btn"
+                                        style={{ marginLeft: 8, padding: "2px 8px", fontSize: 12 }}
+                                      >
+                                        View details
+                                      </a>
+                                    ) : null}
+                                    {staffTaskDetails ? (
+                                      <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                                        {staffTaskDetails}
+                                      </div>
+                                    ) : null}
+                                  </>
                                 )}
                               </td>
 
@@ -7646,7 +7762,20 @@ function parseDateSafe(dateStr) {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
                 <div><div className="small" style={{ marginBottom: 4 }}>Official Departure Date</div><input className="input" type="date" value={travelFormDraft.departureDate} onChange={(e) => setTravelFormDraft((d) => ({ ...d, departureDate: e.target.value }))} /></div>
                 <div><div className="small" style={{ marginBottom: 4 }}>Official Return Date</div><input className="input" type="date" value={travelFormDraft.returnDate} onChange={(e) => setTravelFormDraft((d) => ({ ...d, returnDate: e.target.value }))} /></div>
-                <div><div className="small" style={{ marginBottom: 4 }}>T-shirt Size</div><input className="input" value={travelFormDraft.tshirtSize} onChange={(e) => setTravelFormDraft((d) => ({ ...d, tshirtSize: e.target.value }))} /></div>
+                <div>
+                  <div className="small" style={{ marginBottom: 4 }}>T-shirt Size</div>
+                  <select
+                    className="input"
+                    value={travelFormDraft.tshirtSize}
+                    onChange={(e) => setTravelFormDraft((d) => ({ ...d, tshirtSize: e.target.value }))}
+                  >
+                    {getTshirtSizeOptions(travelFormDraft.tshirtSize).map((opt) => (
+                      <option key={opt || "__empty__"} value={opt}>
+                        {opt || "—"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
                 <div><div className="small" style={{ marginBottom: 4 }}>Emergency Contact Name</div><input className="input" value={travelFormDraft.emergencyContactName} onChange={(e) => setTravelFormDraft((d) => ({ ...d, emergencyContactName: e.target.value }))} /></div>

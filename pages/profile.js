@@ -7,7 +7,7 @@ import { requireSession } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { isManagerRole } from "@/lib/roles";
 import { getUserDocumentTypeLabel } from "@/lib/userDocumentTypes";
-import { listProfileDocuments } from "@/lib/userDocuments";
+import { deleteUserDocument, listProfileDocuments } from "@/lib/userDocuments";
 import {
   getRecruitingStageLabel,
   listRecruitingCycleContactsByEmail,
@@ -81,6 +81,8 @@ export default function Profile() {
   const [editingNoteId, setEditingNoteId] = useState("");
   const [noteStatus, setNoteStatus] = useState("");
   const [confirmingDeleteNote, setConfirmingDeleteNote] = useState(false);
+  const [confirmingDeleteDocumentId, setConfirmingDeleteDocumentId] = useState("");
+  const [documentDeleteStatus, setDocumentDeleteStatus] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -224,6 +226,25 @@ export default function Profile() {
 
   const canManageProfiles = isManagerRole(session?.permissionRole || session?.role);
   const canViewPrivateStaffSections = canManageProfiles && !session?.isImpersonating;
+  const canDeleteDocuments =
+    !!profile && (canManageProfiles || String(profile.id) === String(session?.profileId || session?.id));
+
+  async function handleDeleteDocument(document) {
+    if (!profile || !document?.id) return;
+    try {
+      setDocumentDeleteStatus("Deleting...");
+      await deleteUserDocument(document.id);
+      const next = await listProfileDocuments(profile.id);
+      setDocuments(next);
+      setConfirmingDeleteDocumentId("");
+      setDocumentDeleteStatus("");
+    } catch (error) {
+      console.error("Unable to delete document", error);
+      setDocumentDeleteStatus(error?.message || "Unable to delete.");
+      setConfirmingDeleteDocumentId("");
+    }
+  }
+
   const groupedDocuments = useMemo(() => {
     const groups = new Map();
 
@@ -387,6 +408,11 @@ export default function Profile() {
             <span className="badge">{documents.length}</span>
           </div>
 
+          {documentDeleteStatus ? (
+            <div className="small" style={{ marginBottom: 10, color: "var(--muted)" }}>
+              {documentDeleteStatus}
+            </div>
+          ) : null}
           {groupedDocuments.length === 0 ? (
             <div className="small">No uploaded documents yet.</div>
           ) : (
@@ -415,6 +441,22 @@ export default function Profile() {
                         <a className="btn btnPrimary" href={document.fileUrl} target="_blank" rel="noreferrer">
                           Open
                         </a>
+                        {canDeleteDocuments && (
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ marginLeft: 8 }}
+                            onClick={() => {
+                              if (confirmingDeleteDocumentId === document.id) {
+                                void handleDeleteDocument(document);
+                                return;
+                              }
+                              setConfirmingDeleteDocumentId(document.id);
+                            }}
+                          >
+                            {confirmingDeleteDocumentId === document.id ? "Confirm Delete" : "Delete"}
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
