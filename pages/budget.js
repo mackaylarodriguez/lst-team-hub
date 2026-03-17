@@ -9,6 +9,7 @@ import {
   listAllTripBudgets,
   listSiteBudgetNotes,
   saveTripBudget,
+  updateSiteBudgetNote,
 } from "@/lib/tripBudget";
 import {
   listAllTripTickets,
@@ -53,6 +54,8 @@ export default function BudgetPage() {
   const [session, setSession] = useState(null);
   const [averages, setAverages] = useState(null);
   const [siteNotes, setSiteNotes] = useState([]);
+  const [editingSiteNoteId, setEditingSiteNoteId] = useState("");
+  const [siteNoteDraft, setSiteNoteDraft] = useState({ siteName: "", notes: "", workbookNotes: "" });
   const [trips, setTrips] = useState([]);
   const [housingRows, setHousingRows] = useState([]);
   const [ticketRows, setTicketRows] = useState([]);
@@ -289,28 +292,150 @@ export default function BudgetPage() {
         )}
 
         <div className="card pad" style={{ marginBottom: 24 }}>
-          <div style={{ fontWeight: 900, marginBottom: 8 }}>Site notes</div>
-          <div style={{ overflowX: "auto" }}>
-            <table className="table" style={{ minWidth: 600, fontSize: 12 }}>
-              <thead>
-                <tr>
-                  <th>Site</th>
-                  <th>Effective Date</th>
-                  <th>Notes</th>
-                  <th>Workbook Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {siteNotes.map((note) => (
-                  <tr key={note.id}>
-                    <td style={{ fontWeight: 600 }}>{note.siteName}</td>
-                    <td>{note.effectiveDate}</td>
-                    <td style={{ maxWidth: 400 }}>{note.notes}</td>
-                    <td style={{ maxWidth: 300 }}>{note.workbookNotes || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="row" style={{ marginBottom: 8, alignItems: "baseline" }}>
+            <div style={{ fontWeight: 900 }}>Site notes</div>
+            <div className="spacer" />
+            <div className="small" style={{ color: "var(--muted)" }}>
+              Effective 1/1/2025
+            </div>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: 16,
+            }}
+          >
+            {siteNotes.map((note) => {
+              const isEditing = editingSiteNoteId === note.id;
+              const workbook = note.workbookNotes || "";
+              const showWorkbook = !!workbook && note.siteName.toLowerCase().includes("buenos aires");
+
+              return (
+                <div
+                  key={note.id}
+                  className="card pad"
+                  style={{
+                    boxShadow: "none",
+                    background:
+                      "linear-gradient(180deg, rgba(248,250,252,1), rgba(255,255,255,1) 55%)",
+                    borderColor: "rgba(148,163,184,.45)",
+                    position: "relative",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: "0 auto auto 0",
+                      height: 4,
+                      width: "100%",
+                      background: "linear-gradient(90deg, var(--primary), var(--primary2))",
+                    }}
+                  />
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontWeight: 900 }}>{note.siteName}</div>
+                    {note.effectiveDate ? (
+                      <div className="small" style={{ color: "var(--muted)" }}>
+                        Effective {note.effectiveDate}
+                      </div>
+                    ) : null}
+                  </div>
+                  {isEditing ? (
+                    <div style={{ display: "grid", gap: 8 }}>
+                      <textarea
+                        className="input"
+                        rows={3}
+                        value={siteNoteDraft.notes}
+                        onChange={(e) =>
+                          setSiteNoteDraft((current) => ({ ...current, notes: e.target.value }))
+                        }
+                        placeholder="Site notes"
+                      />
+                      {showWorkbook && (
+                        <textarea
+                          className="input"
+                          rows={2}
+                          value={siteNoteDraft.workbookNotes}
+                          onChange={(e) =>
+                            setSiteNoteDraft((current) => ({
+                              ...current,
+                              workbookNotes: e.target.value,
+                            }))
+                          }
+                          placeholder="Workbook notes"
+                        />
+                      )}
+                      <div className="row" style={{ gap: 8 }}>
+                        <button
+                          type="button"
+                          className="btn btnPrimary"
+                          onClick={async () => {
+                            try {
+                              setStatus("Saving site note...");
+                              const updated = await updateSiteBudgetNote(note.id, {
+                                siteName: note.siteName,
+                                effectiveDate: note.effectiveDate,
+                                notes: siteNoteDraft.notes,
+                                workbookNotes: siteNoteDraft.workbookNotes,
+                              });
+                              setSiteNotes((current) =>
+                                current.map((n) => (n.id === note.id ? updated : n))
+                              );
+                              setStatus("Site note saved.");
+                              setEditingSiteNoteId("");
+                            } catch (e) {
+                              setStatus(e.message || "Unable to save site note.");
+                            }
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={() => {
+                            setEditingSiteNoteId("");
+                            setSiteNoteDraft({ siteName: "", notes: "", workbookNotes: "" });
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="small" style={{ whiteSpace: "pre-wrap" }}>
+                        {note.notes || "No notes yet."}
+                      </div>
+                      {showWorkbook && (
+                        <div
+                          className="small"
+                          style={{ marginTop: 8, paddingTop: 6, borderTop: "1px solid var(--border)" }}
+                        >
+                          <strong>Workbook notes:</strong> {workbook}
+                        </div>
+                      )}
+                      <div className="row" style={{ marginTop: 10 }}>
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={() => {
+                            setEditingSiteNoteId(note.id);
+                            setSiteNoteDraft({
+                              siteName: note.siteName,
+                              notes: note.notes,
+                              workbookNotes: note.workbookNotes,
+                            });
+                          }}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
