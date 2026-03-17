@@ -211,33 +211,80 @@ export default function BudgetPage() {
 
         {averages && (
           <div className="card pad" style={{ marginBottom: 24 }}>
-            <div style={{ fontWeight: 900, marginBottom: 8 }}>Budget averages</div>
-            <table className="table" style={{ maxWidth: 900, fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Average</th>
-                  <th>Note</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ fontWeight: 600 }}>Airfare</td>
-                  <td>{averages.airfare.average != null ? `$${averages.airfare.average.toLocaleString()}` : "—"}</td>
-                  <td className="small">Budget is $1,760/person. Formula is averaging cells except those that are blank or &quot;0&quot;.</td>
-                </tr>
-                <tr>
-                  <td style={{ fontWeight: 600 }}>Housing 1</td>
-                  <td>{averages.housing1.average != null ? `$${averages.housing1.average.toLocaleString()}` : "—"}</td>
-                  <td className="small">Budget is $1,000/team. Only averaging cells that aren&apos;t blank or are above 0 (sites where LST pays for housing).</td>
-                </tr>
-                <tr>
-                  <td style={{ fontWeight: 600 }}>Housing 2</td>
-                  <td>{averages.housing2.average != null ? `$${averages.housing2.average.toLocaleString()}` : "—"}</td>
-                  <td className="small">Averaging all sites that had a team. Skipping YF teams.</td>
-                </tr>
-              </tbody>
-            </table>
+            <div style={{ fontWeight: 900, marginBottom: 12 }}>Budget averages</div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 16,
+              }}
+            >
+              <div
+                className="card pad"
+                style={{
+                  boxShadow: "none",
+                  background:
+                    "linear-gradient(180deg, rgba(239,246,255,1), rgba(255,255,255,1) 55%)",
+                  borderColor: "rgba(37,99,235,.25)",
+                }}
+              >
+                <div className="small" style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: ".09em", marginBottom: 4, color: "#1d4ed8" }}>
+                  Airfare
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
+                  {averages.airfare.average != null
+                    ? `$${averages.airfare.average.toLocaleString()}`
+                    : "—"}
+                </div>
+                <div className="small" style={{ color: "var(--muted)" }}>
+                  Averaging airfare cells, skipping blanks and entries that are "0".
+                </div>
+              </div>
+
+              <div
+                className="card pad"
+                style={{
+                  boxShadow: "none",
+                  background:
+                    "linear-gradient(180deg, rgba(240,249,255,1), rgba(255,255,255,1) 55%)",
+                  borderColor: "rgba(14,116,144,.25)",
+                }}
+              >
+                <div className="small" style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: ".09em", marginBottom: 4, color: "#0f766e" }}>
+                  Housing 1
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
+                  {averages.housing1.average != null
+                    ? `$${averages.housing1.average.toLocaleString()}`
+                    : "—"}
+                </div>
+                <div className="small" style={{ color: "var(--muted)" }}>
+                  Budget is $1,000/team. Averaging sites where LST pays housing (non‑blank, above 0).
+                </div>
+              </div>
+
+              <div
+                className="card pad"
+                style={{
+                  boxShadow: "none",
+                  background:
+                    "linear-gradient(180deg, rgba(255,247,237,1), rgba(255,255,255,1) 55%)",
+                  borderColor: "rgba(234,88,12,.25)",
+                }}
+              >
+                <div className="small" style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: ".09em", marginBottom: 4, color: "#c2410c" }}>
+                  Housing 2
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
+                  {averages.housing2.average != null
+                    ? `$${averages.housing2.average.toLocaleString()}`
+                    : "—"}
+                </div>
+                <div className="small" style={{ color: "var(--muted)" }}>
+                  Averaging all sites that had a team. Skipping YF teams.
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
