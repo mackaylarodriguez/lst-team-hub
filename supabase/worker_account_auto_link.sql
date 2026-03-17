@@ -21,7 +21,7 @@ begin
   into existing_profile_id, existing_profile_role
   from public.profiles
   where lower(trim(coalesce(email, ''))) = normalized_email
-  order by case when id = new.id then 0 else 1 end, created_at asc nulls last
+  order by case when id = new.id then 0 else 1 end, id asc
   limit 1;
 
   if existing_profile_id is null then
@@ -89,7 +89,7 @@ begin
   into target_profile_id
   from public.profiles
   where lower(trim(coalesce(email, ''))) = current_email
-  order by case when id = current_user_id then 0 else 1 end, created_at asc nulls last
+  order by case when id = current_user_id then 0 else 1 end, id asc
   limit 1;
 
   if target_profile_id is null then
