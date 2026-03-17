@@ -12,7 +12,9 @@ import {
   listTripsForCurrentUser,
   TRIPS_UPDATED_EVENT,
   unarchiveTrip,
+  updateTripForCurrentUser,
 } from "@/lib/trips";
+import { listTripTeamMembers, saveTripTeamMembers } from "@/lib/tripTeamMembers";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import { listStaffTripMetrics } from "@/lib/staffOverview";
@@ -53,6 +55,44 @@ function createInitialTripDraft() {
     domesticFeeAmount: "",
     domesticMaterialsFeeAmount: "",
     teamMembers: [createEmptyTeamMember()],
+  };
+}
+
+function formatDraftAmount(value) {
+  return value === null || value === undefined || value === "" ? "" : String(value);
+}
+
+function buildTripDraftFromTrip(trip, teamMembers = []) {
+  return {
+    name: trip?.name || "",
+    location: trip?.location || "",
+    host: trip?.host || "",
+    siteType: trip?.siteType || "",
+    trainingTimelineType: trip?.trainingTimelineType || DEFAULT_TRAINING_TIMELINE_TYPE,
+    projectType: trip?.projectType || "",
+    projectLengthSummary: trip?.projectLengthSummary || "",
+    extraTravelStatus: trip?.extraTravelStatus || "no",
+    startDate: trip?.startDate || "",
+    endDate: trip?.endDate || "",
+    fundraisingGoalAmount: formatDraftAmount(trip?.fundraisingGoalAmount),
+    tripFeeAmount: formatDraftAmount(trip?.tripFeeAmount),
+    materialsFeeAmount: formatDraftAmount(trip?.materialsFeeAmount),
+    hasDeferredWorker: trip?.hasDeferredWorker ? "yes" : "no",
+    hannoverHousingFeeAmount: formatDraftAmount(trip?.hannoverHousingFeeAmount),
+    domesticProjectFeeAmount: formatDraftAmount(trip?.domesticProjectFeeAmount),
+    domesticFeeAmount: formatDraftAmount(trip?.domesticFeeAmount),
+    domesticMaterialsFeeAmount: formatDraftAmount(trip?.domesticMaterialsFeeAmount),
+    teamMembers:
+      teamMembers.length > 0
+        ? teamMembers.map((member) => ({
+            id: member.id || "",
+            firstName: member.firstName || "",
+            lastName: member.lastName || "",
+            email: member.email || "",
+            startDate: member.startDate || "",
+            endDate: member.endDate || "",
+          }))
+        : [createEmptyTeamMember()],
   };
 }
 
@@ -145,6 +185,7 @@ function renderTripCard({
   handleDeleteTrip,
   updateLocalTripStatus,
   setSubmitError,
+  handleStartEditTrip,
 }) {
   const tone = getTripCardTone(section);
   const tripMetrics = tripMetricsById[trip.id] || {};
@@ -159,9 +200,12 @@ function renderTripCard({
         <div className="tripCardHeaderActions">
           <span className="tripCardMiniMeta">{trip.projectType || trip.siteType || "Trip"}</span>
           {canManageTrips ? (
-            <Link
+            <button
               className="tripCardEditButton"
-              href={`/trips/${encodeURIComponent(trip.id)}?edit=setup#trip-setup`}
+              type="button"
+              onClick={() => {
+                void handleStartEditTrip(trip);
+              }}
               title="Open trip to edit"
               aria-label={`Edit ${trip.name}`}
             >
@@ -171,7 +215,7 @@ function renderTripCard({
                   fill="currentColor"
                 />
               </svg>
-            </Link>
+            </button>
           ) : null}
         </div>
       </div>
@@ -266,6 +310,8 @@ export default function Trips() {
   const [submitError, setSubmitError] = useState("");
   const [tripMetricsById, setTripMetricsById] = useState({});
   const [confirmingDeleteTripId, setConfirmingDeleteTripId] = useState("");
+  const [editingTripId, setEditingTripId] = useState("");
+  const [isLoadingTripForm, setIsLoadingTripForm] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -401,12 +447,14 @@ export default function Trips() {
 
   function handleCancelTripForm() {
     setShowTripForm(false);
+    setEditingTripId("");
+    setIsLoadingTripForm(false);
     setIsCustomSiteInput(false);
     setTripDraft(createInitialTripDraft());
     setSubmitError("");
   }
 
-  async function handleCreateTrip(event) {
+  async function handleSubmitTrip(event) {
     event.preventDefault();
     setSubmitError("");
 
@@ -421,11 +469,48 @@ export default function Trips() {
     }
 
     try {
+      if (editingTripId) {
+        const updatedTrip = await updateTripForCurrentUser({
+          tripId: editingTripId,
+          ...tripDraft,
+        });
+        await saveTripTeamMembers(editingTripId, tripDraft.teamMembers || []);
+
+        setTrips((current) =>
+          current.map((trip) =>
+            String(trip.id) === String(editingTripId) ? { ...trip, ...updatedTrip } : trip
+          )
+        );
+        handleCancelTripForm();
+        return;
+      }
+
       const trip = await createTripForCurrentUser(tripDraft);
       handleCancelTripForm();
       router.push(`/trips/${trip.id}`);
     } catch (error) {
-      setSubmitError(error.message || "Unable to create trip.");
+      setSubmitError(error.message || (editingTripId ? "Unable to update trip." : "Unable to create trip."));
+    }
+  }
+
+  async function handleStartEditTrip(trip) {
+    if (!trip?.id) return;
+
+    try {
+      setIsLoadingTripForm(true);
+      setSubmitError("");
+      setShowTripForm(true);
+      setEditingTripId(trip.id);
+      const teamMembers = await listTripTeamMembers(trip.id);
+      setTripDraft(buildTripDraftFromTrip(trip, teamMembers));
+      setIsCustomSiteInput(Boolean(trip?.location) && !siteOptions.includes(String(trip.location || "").trim()));
+    } catch (error) {
+      console.error("Unable to load trip for editing", error);
+      setSubmitError(error.message || "Unable to load trip details.");
+      setShowTripForm(false);
+      setEditingTripId("");
+    } finally {
+      setIsLoadingTripForm(false);
     }
   }
 
@@ -433,6 +518,10 @@ export default function Trips() {
     try {
       await deleteTrip(tripId);
       setConfirmingDeleteTripId("");
+      if (String(editingTripId) === String(tripId)) {
+        handleCancelTripForm();
+      }
+      setTrips((current) => current.filter((trip) => String(trip.id) !== String(tripId)));
       setSubmitError("");
     } catch (error) {
       setSubmitError(error.message || "Unable to delete trip.");
@@ -468,6 +557,7 @@ export default function Trips() {
                 return;
               }
 
+              setEditingTripId("");
               setShowTripForm(true);
             }}
           >
@@ -478,12 +568,19 @@ export default function Trips() {
 
       {canManageTrips && showTripForm && (
         <div className="card pad" style={{ marginBottom: 24 }}>
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>Create Trip</div>
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>
+            {editingTripId ? "Edit Trip" : "Create Trip"}
+          </div>
           <div className="small" style={{ marginBottom: 16 }}>
-            Create a team, save the roster, and assign the trip to your account.
+            {editingTripId
+              ? "Update trip details, roster, and delete the trip from this form."
+              : "Create a team, save the roster, and assign the trip to your account."}
           </div>
 
-          <form onSubmit={handleCreateTrip} style={{ display: "grid", gap: 12 }}>
+          {isLoadingTripForm ? (
+            <div className="small">Loading trip details...</div>
+          ) : (
+          <form onSubmit={handleSubmitTrip} style={{ display: "grid", gap: 12 }}>
             <div>
               <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
               <input
@@ -800,12 +897,37 @@ export default function Trips() {
               </div>
             )}
             <div className="row">
-              <button className="btn btnPrimary" type="submit">Create Trip</button>
+              <button className="btn btnPrimary" type="submit">
+                {editingTripId ? "Save Trip" : "Create Trip"}
+              </button>
               <button className="btn" type="button" onClick={handleCancelTripForm}>
                 Cancel
               </button>
+              {editingTripId && isAdminUser ? (
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    if (confirmingDeleteTripId === editingTripId) {
+                      void handleDeleteTrip(editingTripId);
+                      return;
+                    }
+
+                    setConfirmingDeleteTripId(editingTripId);
+                    setSubmitError("Click delete again to permanently remove this trip.");
+                  }}
+                  style={{
+                    color: "#fff",
+                    background: confirmingDeleteTripId === editingTripId ? "#b91c1c" : "var(--danger)",
+                    borderColor: confirmingDeleteTripId === editingTripId ? "#b91c1c" : "var(--danger)",
+                  }}
+                >
+                  {confirmingDeleteTripId === editingTripId ? "Confirm Delete Trip" : "Delete Trip"}
+                </button>
+              ) : null}
             </div>
           </form>
+          )}
         </div>
       )}
 
@@ -833,6 +955,7 @@ export default function Trips() {
                 handleDeleteTrip,
                 updateLocalTripStatus,
                 setSubmitError,
+                handleStartEditTrip,
               })
             )}
             {activeTrips.length === 0 && (
@@ -868,6 +991,7 @@ export default function Trips() {
                 handleDeleteTrip,
                 updateLocalTripStatus,
                 setSubmitError,
+                handleStartEditTrip,
               })
             ) : (
               <EmptyState
@@ -903,6 +1027,7 @@ export default function Trips() {
                   handleDeleteTrip,
                   updateLocalTripStatus,
                   setSubmitError,
+                  handleStartEditTrip,
                 })
               ) : (
                 <EmptyState
