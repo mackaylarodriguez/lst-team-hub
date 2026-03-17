@@ -40,6 +40,11 @@ function formatGender(value) {
   return normalized;
 }
 
+function isMissingGenderColumnError(error) {
+  const message = String(error?.message || error?.details || "").toLowerCase();
+  return message.includes("profiles.gender") || message.includes("column gender does not exist");
+}
+
 function extractHandoffSummary(notes) {
   const match = String(notes || "").match(
     /\[HANDOFF SUMMARY\]\s*([\s\S]*?)\s*\[\/HANDOFF SUMMARY\]/i
@@ -107,11 +112,19 @@ export default function Profile() {
       try {
         setLoadError("");
 
-        const { data: profileRow, error: profileError } = await supabase
+        let { data: profileRow, error: profileError } = await supabase
           .from("profiles")
           .select("id, email, role, first_name, last_name, gender")
           .eq("id", targetProfileId)
           .maybeSingle();
+
+        if (profileError && isMissingGenderColumnError(profileError)) {
+          ({ data: profileRow, error: profileError } = await supabase
+            .from("profiles")
+            .select("id, email, role, first_name, last_name")
+            .eq("id", targetProfileId)
+            .maybeSingle());
+        }
 
         if (profileError) {
           throw profileError;
