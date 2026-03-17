@@ -843,6 +843,7 @@ export default function RecruitingPage() {
   const [contactActivityByRecordId, setContactActivityByRecordId] = useState({});
   const [error, setError] = useState("");
   const [pageStatus, setPageStatus] = useState("");
+  const [isFormingTeam, setIsFormingTeam] = useState(false);
   const [filterConfig, setFilterConfig] = useState(DEFAULT_FILTER_CONFIG);
   const [activeFilterId, setActiveFilterId] = useState("all");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
@@ -1662,37 +1663,57 @@ export default function RecruitingPage() {
     setSelectedRecordId(record.id);
     setTeamFormDraft(buildTeamFormDraft(record));
     setFormTeamModalOpen(true);
+    setPageStatus("");
+    setError("");
   }
 
   async function handleFormTeam() {
     if (!selectedRecord) return;
 
-    await convertRecruitingCycleRecordToTrip({
-      record: selectedRecord,
-      name: teamFormDraft.name,
-      location: teamFormDraft.location,
-      host: teamFormDraft.host,
-      siteType: teamFormDraft.siteType,
-      trainingTimelineType: teamFormDraft.trainingTimelineType,
-      projectType: teamFormDraft.projectType,
-      projectLengthSummary: teamFormDraft.projectLengthSummary,
-      extraTravelStatus: teamFormDraft.extraTravelStatus,
-      startDate: teamFormDraft.startDate,
-      endDate: teamFormDraft.endDate,
-      fundraisingGoalAmount: teamFormDraft.fundraisingGoalAmount,
-      tripFeeAmount: teamFormDraft.tripFeeAmount,
-      materialsFeeAmount: teamFormDraft.materialsFeeAmount,
-      hasDeferredWorker: teamFormDraft.hasDeferredWorker,
-      hannoverHousingFeeAmount: teamFormDraft.hannoverHousingFeeAmount,
-      domesticProjectFeeAmount: teamFormDraft.domesticProjectFeeAmount,
-      domesticFeeAmount: teamFormDraft.domesticFeeAmount,
-      domesticMaterialsFeeAmount: teamFormDraft.domesticMaterialsFeeAmount,
-      ...teamFormDraft,
-    });
+    try {
+      setIsFormingTeam(true);
+      setError("");
+      setPageStatus("Adding trip...");
 
-    setFormTeamModalOpen(false);
-    handleChangeTab("converted");
-    await refreshCurrentYear();
+      const result = await convertRecruitingCycleRecordToTrip({
+        record: selectedRecord,
+        name: teamFormDraft.name,
+        location: teamFormDraft.location,
+        host: teamFormDraft.host,
+        siteType: teamFormDraft.siteType,
+        trainingTimelineType: teamFormDraft.trainingTimelineType,
+        projectType: teamFormDraft.projectType,
+        projectLengthSummary: teamFormDraft.projectLengthSummary,
+        extraTravelStatus: teamFormDraft.extraTravelStatus,
+        startDate: teamFormDraft.startDate,
+        endDate: teamFormDraft.endDate,
+        fundraisingGoalAmount: teamFormDraft.fundraisingGoalAmount,
+        tripFeeAmount: teamFormDraft.tripFeeAmount,
+        materialsFeeAmount: teamFormDraft.materialsFeeAmount,
+        hasDeferredWorker: teamFormDraft.hasDeferredWorker,
+        hannoverHousingFeeAmount: teamFormDraft.hannoverHousingFeeAmount,
+        domesticProjectFeeAmount: teamFormDraft.domesticProjectFeeAmount,
+        domesticFeeAmount: teamFormDraft.domesticFeeAmount,
+        domesticMaterialsFeeAmount: teamFormDraft.domesticMaterialsFeeAmount,
+        ...teamFormDraft,
+      });
+
+      await refreshCurrentYear();
+      setFormTeamModalOpen(false);
+      handleChangeTab("converted");
+      setSelectedRecordId(result?.record?.id || selectedRecord.id);
+      setPageStatus(
+        result?.status === "already_converted"
+          ? "Trip already added. Moved to Converted Teams."
+          : "Trip added. Moved to Converted Teams."
+      );
+    } catch (error) {
+      console.error("Unable to form team", error);
+      setError(error.message || "Unable to form team.");
+      setPageStatus("");
+    } finally {
+      setIsFormingTeam(false);
+    }
   }
 
   function updateTeamFormDraft(field, value) {
@@ -4589,8 +4610,13 @@ export default function RecruitingPage() {
               </div>
             </div>
             <div className="row" style={{ marginTop: 12 }}>
-              <button className="btn btnPrimary" type="button" onClick={handleFormTeam}>
-                Form Team
+              <button
+                className="btn btnPrimary"
+                type="button"
+                onClick={handleFormTeam}
+                disabled={isFormingTeam}
+              >
+                {isFormingTeam ? "Adding Trip..." : "Form Team"}
               </button>
             </div>
           </div>
