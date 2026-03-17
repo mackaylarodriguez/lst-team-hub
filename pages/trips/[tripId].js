@@ -79,6 +79,12 @@ import {
   DEFAULT_TRAINING_TIMELINE_TYPE,
   TRAINING_TIMELINE_OPTIONS,
 } from "@/lib/workerTaskTemplate";
+import {
+  EMPTY_RECORD as TRAVEL_FORM_EMPTY,
+  getTravelFormForUser,
+  saveTravelFormForUser,
+  listTravelFormResponsesForTrip,
+} from "@/lib/travelForm";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -393,6 +399,11 @@ export default function TripPage() {
     dueDate: "",
     notes: "",
   });
+  const [travelFormModalOpen, setTravelFormModalOpen] = useState(false);
+  const [travelFormParticipantId, setTravelFormParticipantId] = useState("");
+  const [travelFormDraft, setTravelFormDraft] = useState(() => ({ ...TRAVEL_FORM_EMPTY }));
+  const [travelFormStatus, setTravelFormStatus] = useState("");
+  const [travelFormResponses, setTravelFormResponses] = useState([]);
   const latestStaffTaskSaveRef = useRef(0);
   const editableStaffTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
@@ -725,6 +736,7 @@ export default function TripPage() {
         progressResult,
         tasksResult,
         taskProgressResult,
+        travelFormResult,
       ] =
         await Promise.allSettled([
           listTripParticipants(trip.id),
@@ -733,6 +745,7 @@ export default function TripPage() {
           listTrainingProgress(trip.id),
           listTripTasks(trip.id),
           listUserTaskProgress(trip.id),
+          listTravelFormResponsesForTrip(trip.id),
         ]);
 
       if (cancelled) return;
@@ -793,6 +806,9 @@ export default function TripPage() {
 
       setParticipantTrainingStates(nextTrainingStates);
       setParticipantTaskStates(nextTaskStates);
+
+      const travelForms = getSettledValue(travelFormResult, [], "travel form responses");
+      setTravelFormResponses(travelForms);
     }
 
     loadTripData();
@@ -1580,6 +1596,78 @@ export default function TripPage() {
       .catch((error) => {
         console.error("Unable to save user task progress", error);
       });
+  }
+
+  function openTravelFormModal(participant) {
+    if (!participant?.id || !trip?.id) return;
+    setTravelFormParticipantId(participant.id);
+    setTravelFormStatus("");
+    setTravelFormModalOpen(true);
+    getTravelFormForUser(trip.id, participant.id)
+      .then((existing) => {
+        if (existing) {
+          setTravelFormDraft({
+            teamName: existing.teamName,
+            firstNamePassport: existing.firstNamePassport,
+            middleNamePassport: existing.middleNamePassport,
+            lastNamePassport: existing.lastNamePassport,
+            suffix: existing.suffix,
+            email: existing.email,
+            birthdateMonth: existing.birthdateMonth,
+            birthdateDay: existing.birthdateDay,
+            birthdateYear: existing.birthdateYear,
+            gender: existing.gender,
+            citizenship: existing.citizenship,
+            passportNumber: existing.passportNumber,
+            passportExpirationDate: existing.passportExpirationDate,
+            passportIssuingCountry: existing.passportIssuingCountry,
+            specialTravelPreferences: existing.specialTravelPreferences,
+            frequentFlyerPrecheck: existing.frequentFlyerPrecheck,
+            siteProject: existing.siteProject,
+            gatewayCity: existing.gatewayCity,
+            departureDate: existing.departureDate,
+            returnDate: existing.returnDate,
+            tshirtSize: existing.tshirtSize,
+            emergencyContactName: existing.emergencyContactName,
+            emergencyContactEmail: existing.emergencyContactEmail,
+            emergencyContactPhone: existing.emergencyContactPhone,
+            isMinor: existing.isMinor,
+            passportValidSixMonths: existing.passportValidSixMonths,
+            baseTicketAck: existing.baseTicketAck,
+            teamTravelAck: existing.teamTravelAck,
+            endMeetingAck: existing.endMeetingAck,
+            travelInsuranceAck: existing.travelInsuranceAck,
+          });
+        } else {
+          setTravelFormDraft({
+            ...TRAVEL_FORM_EMPTY,
+            teamName: trip.name || "",
+            email: participant.email || "",
+          });
+        }
+      })
+      .catch(() => setTravelFormDraft({ ...TRAVEL_FORM_EMPTY, teamName: trip?.name || "", email: participant?.email || "" }));
+  }
+
+  async function handleSaveTravelForm() {
+    const participant = (trip?.participants || []).find((p) => String(p.id) === String(travelFormParticipantId));
+    if (!trip?.id || !participant?.id) return;
+    try {
+      setTravelFormStatus("Saving...");
+      await saveTravelFormForUser(trip.id, participant.id, {
+        ...travelFormDraft,
+        teamName: travelFormDraft.teamName || trip.name,
+      });
+      const updated = await listTravelFormResponsesForTrip(trip.id);
+      setTravelFormResponses(updated);
+      setTravelFormStatus("Saved.");
+      const travelFormTask = (trip.tasks || []).find((t) => t.title === "Fill out Travel Form");
+      if (travelFormTask && !(participantTaskStates[participant.email] || {})[travelFormTask.id]) {
+        toggleTask(travelFormTask.id, participant.email);
+      }
+    } catch (error) {
+      setTravelFormStatus(error.message || "Unable to save.");
+    }
   }
 
   async function handleCreateTask() {
@@ -3936,11 +4024,16 @@ function parseDateSafe(dateStr) {
       title: "Staff Tasks",
       description: "Internal planning tasks and assignment progress for staff only.",
     },
+    "Travel Form": {
+      icon: "archived",
+      title: "Travel Form",
+      description: "Team travel form responses in one exportable grid.",
+    },
   };
 
-  const tabs = 
+  const tabs =
     canManageTrips
-      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel, ...(isPreviewingParticipant ? [] : ["Staff Tasks"])]
+      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel, ...(isPreviewingParticipant ? [] : ["Travel Form", "Staff Tasks"])]
       : ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel];
 
   function renderTripTabIntro(tabName) {
@@ -5664,6 +5757,8 @@ function parseDateSafe(dateStr) {
                           <div style={{ display: "grid", gap: 0 }}>
                             {sectionTasks.map((task) => {
                               const done = !!taskState[task.id];
+                              const isTravelFormTask = task.title === "Fill out Travel Form";
+                              const canFillTravelForm = isTravelFormTask && String(participant.id) === String(currentParticipant?.id);
 
                               return (
                                 <div
@@ -5697,6 +5792,25 @@ function parseDateSafe(dateStr) {
                                       }}
                                     >
                                       {task.title}
+                                      {canFillTravelForm ? (
+                                        <button
+                                          type="button"
+                                          className="btn"
+                                          style={{ marginLeft: 10, padding: "4px 10px", fontSize: 12 }}
+                                          onClick={() => openTravelFormModal(participant)}
+                                        >
+                                          Fill out
+                                        </button>
+                                      ) : isTravelFormTask && canViewAllParticipantData ? (
+                                        <button
+                                          type="button"
+                                          className="btn"
+                                          style={{ marginLeft: 10, padding: "4px 10px", fontSize: 12 }}
+                                          onClick={() => openTravelFormModal(participant)}
+                                        >
+                                          View / Edit
+                                        </button>
+                                      ) : null}
                                     </div>
                                     {canManageTrips ? (
                                       editingWorkerTaskDateId === task.id ? (
@@ -6769,6 +6883,92 @@ function parseDateSafe(dateStr) {
           </div>
         </div>
       )}
+
+      {tab === "Travel Form" && canManageTrips && !isPreviewingParticipant && (
+        <div style={{ display: "grid", gap: 16 }}>
+          {renderTripTabIntro("Travel Form")}
+          <div className="card pad" style={{ overflowX: "auto" }}>
+            <div className="small" style={{ marginBottom: 12 }}>
+              Team travel form responses. Rows auto-generate as workers fill out the form from the Tasks tab.
+            </div>
+            <table className="table" style={{ minWidth: 2400, fontSize: 12 }}>
+              <thead>
+                <tr>
+                  <th>Team Name</th>
+                  <th>First Name (passport)</th>
+                  <th>Middle Name (passport)</th>
+                  <th>Last Name (passport)</th>
+                  <th>Suffix</th>
+                  <th>Email</th>
+                  <th>Birthdate (M/D/Y)</th>
+                  <th>Gender</th>
+                  <th>Citizenship</th>
+                  <th>Passport Number</th>
+                  <th>Passport Expiration</th>
+                  <th>Issuing Country</th>
+                  <th>Special Travel Preferences</th>
+                  <th>Frequent Flyer / Pre-check</th>
+                  <th>Site (city &amp; country)</th>
+                  <th>Gateway City</th>
+                  <th>Departure Date</th>
+                  <th>Return Date</th>
+                  <th>T-shirt Size</th>
+                  <th>Emergency Contact Name</th>
+                  <th>Emergency Contact Email</th>
+                  <th>Emergency Contact Phone</th>
+                  <th>Minor?</th>
+                  <th>Passport 6mo valid?</th>
+                  <th>Base Ticket Ack</th>
+                  <th>Team Travel Ack</th>
+                  <th>EndMeeting Ack</th>
+                  <th>Travel Insurance Ack</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(trip?.participants || []).map((p) => {
+                  const form = travelFormResponses.find((f) => String(f.userId) === String(p.id)) || null;
+                  return (
+                    <tr key={p.id}>
+                      <td>{form?.teamName || trip?.name || ""}</td>
+                      <td>{form?.firstNamePassport || ""}</td>
+                      <td>{form?.middleNamePassport || ""}</td>
+                      <td>{form?.lastNamePassport || ""}</td>
+                      <td>{form?.suffix || ""}</td>
+                      <td>{form?.email || p?.email || ""}</td>
+                      <td>{[form?.birthdateMonth, form?.birthdateDay, form?.birthdateYear].filter(Boolean).join("/") || ""}</td>
+                      <td>{form?.gender || ""}</td>
+                      <td>{form?.citizenship || ""}</td>
+                      <td>{form?.passportNumber || ""}</td>
+                      <td>{form?.passportExpirationDate || ""}</td>
+                      <td>{form?.passportIssuingCountry || ""}</td>
+                      <td style={{ maxWidth: 200 }}>{form?.specialTravelPreferences || ""}</td>
+                      <td>{form?.frequentFlyerPrecheck || ""}</td>
+                      <td>{form?.siteProject || ""}</td>
+                      <td>{form?.gatewayCity || ""}</td>
+                      <td>{form?.departureDate || ""}</td>
+                      <td>{form?.returnDate || ""}</td>
+                      <td>{form?.tshirtSize || ""}</td>
+                      <td>{form?.emergencyContactName || ""}</td>
+                      <td>{form?.emergencyContactEmail || ""}</td>
+                      <td>{form?.emergencyContactPhone || ""}</td>
+                      <td>{form?.isMinor || ""}</td>
+                      <td>{form?.passportValidSixMonths || ""}</td>
+                      <td>{form?.baseTicketAck || ""}</td>
+                      <td>{form?.teamTravelAck || ""}</td>
+                      <td>{form?.endMeetingAck || ""}</td>
+                      <td>{form?.travelInsuranceAck || ""}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {(trip?.participants || []).length === 0 && (
+              <div className="small">No participants yet. Add team members in the roster.</div>
+            )}
+          </div>
+        </div>
+      )}
+
             {tab === "Staff Tasks" && canManageTrips && (
               <div style={{ display: "grid", gap: 16 }}>
             {renderTripTabIntro("Staff Tasks")}
@@ -7108,6 +7308,84 @@ function parseDateSafe(dateStr) {
               </div>
             </div>
             )}
+
+      {travelFormModalOpen && (
+        <div
+          className="appModalOverlay"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 50,
+          }}
+        >
+          <div className="card pad appModalCard" style={{ width: "min(900px, 100%)", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 900 }}>Travel Form</div>
+              <div className="spacer" />
+              <button className="btn" type="button" onClick={() => setTravelFormModalOpen(false)}>Close</button>
+            </div>
+            <div className="small" style={{ marginBottom: 14 }}>
+              Complete all fields. LST uses this for ticketing and travel logistics.
+            </div>
+            {travelFormStatus ? <div className="small" style={{ marginBottom: 10 }}>{travelFormStatus}</div> : null}
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                <div><div className="small" style={{ marginBottom: 4 }}>Team Name</div><input className="input" value={travelFormDraft.teamName} onChange={(e) => setTravelFormDraft((d) => ({ ...d, teamName: e.target.value }))} placeholder="2026 Brazil Team" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>First Name (passport)</div><input className="input" value={travelFormDraft.firstNamePassport} onChange={(e) => setTravelFormDraft((d) => ({ ...d, firstNamePassport: e.target.value }))} /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Middle Name (passport)</div><input className="input" value={travelFormDraft.middleNamePassport} onChange={(e) => setTravelFormDraft((d) => ({ ...d, middleNamePassport: e.target.value }))} /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Last Name (passport)</div><input className="input" value={travelFormDraft.lastNamePassport} onChange={(e) => setTravelFormDraft((d) => ({ ...d, lastNamePassport: e.target.value }))} /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Suffix</div><input className="input" value={travelFormDraft.suffix} onChange={(e) => setTravelFormDraft((d) => ({ ...d, suffix: e.target.value }))} placeholder="Jr., Sr." /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Email</div><input className="input" type="email" value={travelFormDraft.email} onChange={(e) => setTravelFormDraft((d) => ({ ...d, email: e.target.value }))} /></div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
+                <div><div className="small" style={{ marginBottom: 4 }}>Birthdate Month</div><input className="input" value={travelFormDraft.birthdateMonth} onChange={(e) => setTravelFormDraft((d) => ({ ...d, birthdateMonth: e.target.value }))} placeholder="1-12" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Birthdate Day</div><input className="input" value={travelFormDraft.birthdateDay} onChange={(e) => setTravelFormDraft((d) => ({ ...d, birthdateDay: e.target.value }))} placeholder="1-31" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Birthdate Year</div><input className="input" value={travelFormDraft.birthdateYear} onChange={(e) => setTravelFormDraft((d) => ({ ...d, birthdateYear: e.target.value }))} placeholder="1990" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Gender</div><input className="input" value={travelFormDraft.gender} onChange={(e) => setTravelFormDraft((d) => ({ ...d, gender: e.target.value }))} /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Citizenship</div><input className="input" value={travelFormDraft.citizenship} onChange={(e) => setTravelFormDraft((d) => ({ ...d, citizenship: e.target.value }))} /></div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                <div><div className="small" style={{ marginBottom: 4 }}>Passport Number</div><input className="input" value={travelFormDraft.passportNumber} onChange={(e) => setTravelFormDraft((d) => ({ ...d, passportNumber: e.target.value }))} /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Passport Expiration (M/D/Y)</div><input className="input" value={travelFormDraft.passportExpirationDate} onChange={(e) => setTravelFormDraft((d) => ({ ...d, passportExpirationDate: e.target.value }))} placeholder="MM/DD/YYYY" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Issuing Country</div><input className="input" value={travelFormDraft.passportIssuingCountry} onChange={(e) => setTravelFormDraft((d) => ({ ...d, passportIssuingCountry: e.target.value }))} /></div>
+              </div>
+              <div><div className="small" style={{ marginBottom: 4 }}>Special travel preferences (extra travel, airline, layovers, miles, upgrades, etc. or NONE)</div><textarea className="input" rows={3} value={travelFormDraft.specialTravelPreferences} onChange={(e) => setTravelFormDraft((d) => ({ ...d, specialTravelPreferences: e.target.value }))} /></div>
+              <div><div className="small" style={{ marginBottom: 4 }}>Frequent Flyer / Known Traveler (Pre-check) number</div><input className="input" value={travelFormDraft.frequentFlyerPrecheck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, frequentFlyerPrecheck: e.target.value }))} /></div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+                <div><div className="small" style={{ marginBottom: 4 }}>Site of LST Project (city AND country)</div><input className="input" value={travelFormDraft.siteProject} onChange={(e) => setTravelFormDraft((d) => ({ ...d, siteProject: e.target.value }))} /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Gateway City (departure point)</div><input className="input" value={travelFormDraft.gatewayCity} onChange={(e) => setTravelFormDraft((d) => ({ ...d, gatewayCity: e.target.value }))} /></div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
+                <div><div className="small" style={{ marginBottom: 4 }}>Official Departure Date</div><input className="input" type="date" value={travelFormDraft.departureDate} onChange={(e) => setTravelFormDraft((d) => ({ ...d, departureDate: e.target.value }))} /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Official Return Date</div><input className="input" type="date" value={travelFormDraft.returnDate} onChange={(e) => setTravelFormDraft((d) => ({ ...d, returnDate: e.target.value }))} /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>T-shirt Size</div><input className="input" value={travelFormDraft.tshirtSize} onChange={(e) => setTravelFormDraft((d) => ({ ...d, tshirtSize: e.target.value }))} /></div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                <div><div className="small" style={{ marginBottom: 4 }}>Emergency Contact Name</div><input className="input" value={travelFormDraft.emergencyContactName} onChange={(e) => setTravelFormDraft((d) => ({ ...d, emergencyContactName: e.target.value }))} /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Emergency Contact Email</div><input className="input" type="email" value={travelFormDraft.emergencyContactEmail} onChange={(e) => setTravelFormDraft((d) => ({ ...d, emergencyContactEmail: e.target.value }))} /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Emergency Contact Phone</div><input className="input" value={travelFormDraft.emergencyContactPhone} onChange={(e) => setTravelFormDraft((d) => ({ ...d, emergencyContactPhone: e.target.value }))} /></div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+                <div><div className="small" style={{ marginBottom: 4 }}>Minor (under 18)? YES or NO</div><input className="input" value={travelFormDraft.isMinor} onChange={(e) => setTravelFormDraft((d) => ({ ...d, isMinor: e.target.value }))} placeholder="YES or NO" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Passport valid 6+ months after trip? YES or NO</div><input className="input" value={travelFormDraft.passportValidSixMonths} onChange={(e) => setTravelFormDraft((d) => ({ ...d, passportValidSixMonths: e.target.value }))} placeholder="YES or NO" /></div>
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                <div><div className="small" style={{ marginBottom: 4 }}>Base Ticket: I understand LST will book my travel from Gateway City to site and back. (Respond YES)</div><input className="input" value={travelFormDraft.baseTicketAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, baseTicketAck: e.target.value }))} placeholder="YES" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Team Travel: I understand my team must arrive same day, same airport, same time. (Respond YES)</div><input className="input" value={travelFormDraft.teamTravelAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, teamTravelAck: e.target.value }))} placeholder="YES" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>EndMeeting: I understand debriefing takes place within a week of return. (Respond YES)</div><input className="input" value={travelFormDraft.endMeetingAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, endMeetingAck: e.target.value }))} placeholder="YES" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Travel Insurance: I understand LST purchases basic plan; I can upgrade. (Respond YES)</div><input className="input" value={travelFormDraft.travelInsuranceAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, travelInsuranceAck: e.target.value }))} placeholder="YES" /></div>
+              </div>
+            </div>
+            <div className="row" style={{ marginTop: 12 }}>
+              <button className="btn btnPrimary" type="button" onClick={() => void handleSaveTravelForm()}>Save Travel Form</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
     </Shell>
