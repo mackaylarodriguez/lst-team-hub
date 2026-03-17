@@ -62,6 +62,9 @@ export default function BudgetPage() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [newTicketTripId, setNewTicketTripId] = useState("");
+  const [tab, setTab] = useState("Housing");
+  const [isEditingHousing, setIsEditingHousing] = useState(false);
+  const [isEditingTickets, setIsEditingTickets] = useState(false);
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
 
@@ -212,7 +215,24 @@ export default function BudgetPage() {
 
         {status ? <div className="small" style={{ marginBottom: 12 }}>{status}</div> : null}
 
-        {averages && (
+        <div className="tabs" style={{ marginBottom: 16 }}>
+          <button
+            type="button"
+            className={"tab " + (tab === "Housing" ? "tabActive" : "")}
+            onClick={() => setTab("Housing")}
+          >
+            Housing budget
+          </button>
+          <button
+            type="button"
+            className={"tab " + (tab === "Ticketing" ? "tabActive" : "")}
+            onClick={() => setTab("Ticketing")}
+          >
+            Ticketing
+          </button>
+        </div>
+
+        {tab === "Housing" && averages && (
           <div className="card pad" style={{ marginBottom: 24 }}>
             <div style={{ fontWeight: 900, marginBottom: 12 }}>Budget averages</div>
             <div
