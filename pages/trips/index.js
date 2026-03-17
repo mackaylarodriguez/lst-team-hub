@@ -541,7 +541,7 @@ export default function Trips() {
     <Shell>
       <div className="row" style={{ marginBottom: 14 }}>
         <div>
-          <h1 className="h1" style={{ fontSize: 36, marginBottom: 0, display: "flex", alignItems: "center", gap: 10 }}>
+          <h1 className="h1" style={{ marginBottom: 0, display: "flex", alignItems: "center", gap: 10 }}>
             <AppIcon name="spark" className="pageEyebrowIcon" />
             <span>Trip Dashboard</span>
           </h1>

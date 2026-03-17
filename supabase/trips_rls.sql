@@ -59,5 +59,5 @@ on public.trips
 for delete
 to authenticated
 using (
-  private.current_profile_role() in ('admin')
+  private.current_profile_role() in ('admin', 'staff')
 );
