@@ -513,6 +513,61 @@ export default function BudgetPage() {
                 Edit
               </button>
             )}
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                const header = [
+                  "Team Name",
+                  "Project Start",
+                  "Project End",
+                  "Site",
+                  "Team Accountant",
+                  "Budget Amount",
+                  "Returned Amount",
+                  "Housing Amount",
+                  "Notes",
+                  "# of workers",
+                  "Workbooks",
+                ];
+                const rows = (isEditingHousing ? housingRowsDraft : housingRows).map((r) => [
+                  r.teamName || "",
+                  r.projectStartDate || "",
+                  r.projectEndDate || "",
+                  r.siteCountry || "",
+                  r.teamAccountant || "",
+                  r.budgetAmount || "",
+                  r.returnedAmount || "",
+                  r.housingAmount || "",
+                  r.notes || "",
+                  r.numWorkers != null ? String(r.numWorkers) : "",
+                  r.workbooks || "",
+                ]);
+                const csvContent = [header, ...rows]
+                  .map((cols) =>
+                    cols
+                      .map((val) => {
+                        const s = String(val ?? "");
+                        if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+                        return s;
+                      })
+                      .join(",")
+                  )
+                  .join("\n");
+                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "budget-housing.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
+              style={{ marginLeft: 8 }}
+            >
+              Export CSV
+            </button>
           </div>
           <div style={{ overflowX: "auto" }}>
             <table className="table" style={{ minWidth: 1300, fontSize: 12 }}>
@@ -620,6 +675,64 @@ export default function BudgetPage() {
               style={{ marginLeft: 8 }}
             >
               {isEditingTickets ? "Done" : "Edit"}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                const header = [
+                  "Team",
+                  "Intl/Dom",
+                  "Worker Name",
+                  "Site",
+                  "Departure Date",
+                  "Ticket Agency",
+                  "Total Ticket Cost",
+                  "Amount Worker Paid",
+                  "Total LST Cost",
+                  "HP Total Charge",
+                  "Date Approved to Withdraw",
+                ];
+                const rows = ticketRows.map((t) => {
+                  const siteDisplay = (t.projectCountry || t.projectCity || "").trim() || "";
+                  return [
+                    t.tripName || t.tripId?.slice(0, 8) || "",
+                    t.intlDom || "",
+                    t.workerName || "",
+                    siteDisplay,
+                    t.departureDate || "",
+                    t.ticketAgency || "",
+                    t.totalTicketCost || "",
+                    t.amountWorkerPaid || "",
+                    t.totalLstCost || "",
+                    t.hpTotalCharge || "",
+                    t.dateApprovedToWithdraw || "",
+                  ];
+                });
+                const csvContent = [header, ...rows]
+                  .map((cols) =>
+                    cols
+                      .map((val) => {
+                        const s = String(val ?? "");
+                        if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+                        return s;
+                      })
+                      .join(",")
+                  )
+                  .join("\n");
+                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "budget-airfare.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
+              style={{ marginLeft: 8 }}
+            >
+              Export CSV
             </button>
           </div>
           <div style={{ overflowX: "auto" }}>
