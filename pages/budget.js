@@ -309,7 +309,8 @@ export default function BudgetPage() {
             {siteNotes.map((note) => {
               const isEditing = editingSiteNoteId === note.id;
               const workbook = note.workbookNotes || "";
-              const showWorkbook = !!workbook && note.siteName.toLowerCase().includes("buenos aires");
+              const isBuenosAires = note.siteName.toLowerCase().includes("buenos aires");
+              const showWorkbook = !!workbook && isBuenosAires;
 
               return (
                 <div
@@ -321,15 +322,18 @@ export default function BudgetPage() {
                       "linear-gradient(180deg, rgba(248,250,252,1), rgba(255,255,255,1) 55%)",
                     borderColor: "rgba(148,163,184,.45)",
                     position: "relative",
+                    gridColumn: isBuenosAires ? "1 / -1" : "auto",
                   }}
                 >
                   <div
                     style={{
                       position: "absolute",
-                      inset: "0 auto auto 0",
+                      inset: "0 0 auto 0",
                       height: 4,
                       width: "100%",
                       background: "linear-gradient(90deg, var(--primary), var(--primary2))",
+                      borderTopLeftRadius: 12,
+                      borderTopRightRadius: 12,
                     }}
                   />
                   <div style={{ marginBottom: 8 }}>
