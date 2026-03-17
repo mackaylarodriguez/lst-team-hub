@@ -3725,8 +3725,19 @@ function parseDateSafe(dateStr) {
 
   const visibleFundraisingParticipants = useMemo(() => {
     if (!trip) return [];
-    return trip.participants || [];
-  }, [trip]);
+
+    if (canViewAllParticipantData) {
+      return trip.participants || [];
+    }
+
+    if (!currentParticipant) {
+      return [];
+    }
+
+    return (trip.participants || []).filter(
+      (participant) => String(participant.id) === String(currentParticipant.id)
+    );
+  }, [trip, canViewAllParticipantData, currentParticipant]);
 
   const referenceReceivedProgress = useMemo(() => {
     if (!trip) {
@@ -3873,10 +3884,6 @@ function parseDateSafe(dateStr) {
     [viewerRequiredDocumentSlots]
   );
   const quickLinks = useMemo(() => {
-    const workerFundraisingUrl = trip?.teamFundraisingUrl || currentParticipant?.fundraisingUrl || "";
-    const workerFundraisingLabel = trip?.teamFundraisingUrl
-      ? "Team Fundraising Page"
-      : "My Fundraising Page";
     const links = [
       {
         label: "Canvas",
@@ -3885,19 +3892,13 @@ function parseDateSafe(dateStr) {
       },
     ];
 
-    links.push(
-      canViewAllParticipantData
-        ? {
-            label: "Fundraising",
-            url: trip?.teamFundraisingUrl || "",
-            ready: !!trip?.teamFundraisingUrl,
-          }
-        : {
-            label: trip?.teamFundraisingUrl ? "Fundraising" : "My Fundraising",
-            url: workerFundraisingUrl,
-            ready: !!workerFundraisingUrl,
-          }
-    );
+    if (trip?.teamFundraisingUrl) {
+      links.push({
+        label: "Team Fundraising",
+        url: trip.teamFundraisingUrl,
+        ready: true,
+      });
+    }
 
     links.push({
       label: "Budget",
@@ -5056,7 +5057,7 @@ function parseDateSafe(dateStr) {
               </div>
             ) : null}
 
-            {canViewAllParticipantData && (
+            {canViewAllParticipantData && trip?.teamFundraisingUrl && (
               <div className="card pad" style={{ boxShadow: "none", marginBottom: 14 }}>
                 <div style={{ fontWeight: 900, marginBottom: 8 }}>Shared Team Fundraising Page</div>
                 <div className="small" style={{ marginBottom: 10 }}>
@@ -5131,9 +5132,7 @@ function parseDateSafe(dateStr) {
             )}
 
             {visibleFundraisingParticipants.length === 0 ? (
-              !canViewAllParticipantData && trip?.teamFundraisingUrl ? null : (
-                <div className="small">No fundraising record found for this login.</div>
-              )
+              <div className="small">No fundraising record found for this login.</div>
             ) : (
               <div
                 style={{
