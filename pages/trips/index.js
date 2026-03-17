@@ -460,6 +460,15 @@ export default function Trips() {
     setSubmitError("");
   }
 
+  useEffect(() => {
+    if (!showTripForm) return;
+    function handleKeyDown(e) {
+      if (e.key === "Escape") handleCancelTripForm();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [showTripForm]);
+
   async function handleSubmitTrip(event) {
     event.preventDefault();
     setSubmitError("");
@@ -594,6 +603,9 @@ export default function Trips() {
       {canManageTrips && showTripForm && (
         <div
           className="appModalOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={editingTripId ? "Edit trip" : "Create trip"}
           style={{
             position: "fixed",
             inset: 0,

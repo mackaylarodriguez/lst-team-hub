@@ -1,6 +1,7 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
+import EmptyState from "@/components/EmptyState";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -93,6 +94,7 @@ import {
   fillTravelFormExportTemplate,
   TRAVEL_FORM_TEMPLATE_PATH,
 } from "@/lib/travelFormExport";
+import { showToast } from "@/components/Toast";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -634,6 +636,15 @@ export default function TripPage() {
       cancelled = true;
     };
   }, [router, router.isReady]);
+
+  useEffect(() => {
+    if (!travelFormModalOpen) return;
+    function handleKeyDown(e) {
+      if (e.key === "Escape") setTravelFormModalOpen(false);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [travelFormModalOpen]);
 
   useEffect(() => {
     if (!tripId) return;
@@ -4242,6 +4253,11 @@ function parseDateSafe(dateStr) {
   return (
     <Shell>
       <div className="tripDetailPage">
+        <nav className="breadcrumb" aria-label="Breadcrumb" style={{ marginBottom: 12 }}>
+          <Link href="/trips">Trips</Link>
+          <span className="small" style={{ color: "var(--muted)", margin: "0 6px" }}>/</span>
+          <span className="small" style={{ color: "var(--text)" }}>{trip.name}</span>
+        </nav>
         <div className="tripDetailHero card pad">
           <div className="row tripPageHeader tripDetailHeroTop">
             <div className="tripPageHeaderTitle">
@@ -7261,6 +7277,7 @@ function parseDateSafe(dateStr) {
                   link.click();
                   document.body.removeChild(link);
                   URL.revokeObjectURL(url);
+                  showToast(`Exported ${safeTripName || "trip"}-travel-form-responses.csv`);
                 }}
               >
                 Export CSV
@@ -7300,6 +7317,7 @@ function parseDateSafe(dateStr) {
                     link.click();
                     document.body.removeChild(link);
                     URL.revokeObjectURL(url);
+                    showToast(`Exported ${safeTripName}-travel-agency-${dateStr}.xlsx`);
                   } catch (e) {
                     setSubmitError(e?.message || "Export failed.");
                   }
@@ -7382,7 +7400,11 @@ function parseDateSafe(dateStr) {
               </tbody>
             </table>
             {canViewAllParticipantData && (trip?.participants || []).length === 0 && (
-              <div className="small">No participants yet. Add team members in the roster.</div>
+              <EmptyState
+                icon="empty"
+                title="No participants yet"
+                description="Add team members in the Team tab roster to see and export their travel form responses here."
+              />
             )}
             {!canViewAllParticipantData && !currentParticipant && (
               <div className="small">You are not assigned to this trip.</div>
@@ -7824,6 +7846,9 @@ function parseDateSafe(dateStr) {
       {travelFormModalOpen && (
         <div
           className="appModalOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Travel form"
           style={{
             position: "fixed",
             inset: 0,

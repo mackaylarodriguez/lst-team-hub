@@ -2,6 +2,8 @@ import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
 import ConfirmModal from "@/components/ConfirmModal";
+import EmptyState from "@/components/EmptyState";
+import { showToast } from "@/components/Toast";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
@@ -584,6 +586,7 @@ export default function BudgetPage() {
                 URL.revokeObjectURL(url);
                 setStatus(`Exported ${housingFilename}`);
                 setTimeout(() => setStatus(""), 4000);
+                showToast(`Exported ${housingFilename}`);
               }}
               style={{ marginLeft: 8 }}
             >
@@ -754,6 +757,7 @@ export default function BudgetPage() {
                 URL.revokeObjectURL(url);
                 setStatus(`Exported ${airfareFilename}`);
                 setTimeout(() => setStatus(""), 4000);
+                showToast(`Exported ${airfareFilename}`);
               }}
               style={{ marginLeft: 8 }}
             >
@@ -833,7 +837,13 @@ export default function BudgetPage() {
               </tbody>
             </table>
           </div>
-          {ticketRows.length === 0 && <div className="small">No tickets yet. Add tickets from a trip&apos;s Ticketing tab.</div>}
+          {ticketRows.length === 0 && (
+            <EmptyState
+              icon="empty"
+              title="No tickets yet"
+              description="Add tickets using the dropdown above, or from a trip's Ticketing tab."
+            />
+          )}
         </div>
         )}
       </div>

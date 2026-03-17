@@ -181,6 +181,8 @@ a:hover{text-decoration:underline}
 }
 .statusBannerSuccess{background:var(--skySoft); color:var(--primary); border:1px solid rgba(67,164,213,.25)}
 .statusBannerError{background:#fef2f2; color:var(--danger); border:1px solid rgba(239,68,68,.25)}
+.breadcrumb{display:flex; align-items:center; flex-wrap:wrap; font-size:13px}
+.breadcrumb a:hover{text-decoration:none; text-decoration:underline}
 .tripListCard{
   min-height:0;
   height:100%;
@@ -670,7 +672,7 @@ a:hover{text-decoration:underline}
 .table{width:100%; border-collapse:collapse}
 .table th,.table td{padding:10px; border-bottom:1px solid var(--border); text-align:left}
 .table th{font-size:12px; color:var(--muted)}
-.tableStickyHead thead th{position:sticky; top:0; background:var(--card); z-index:1; box-shadow:0 1px 0 var(--border)}
+.table thead th{position:sticky; top:0; background:var(--card); z-index:1; box-shadow:0 1px 0 var(--border)}
 .recruitingTableScroller{
   width:100%;
   overflow-x:auto;
