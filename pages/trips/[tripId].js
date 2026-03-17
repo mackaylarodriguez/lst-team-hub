@@ -405,6 +405,7 @@ export default function TripPage() {
   const [travelFormDraft, setTravelFormDraft] = useState(() => ({ ...TRAVEL_FORM_EMPTY }));
   const [travelFormStatus, setTravelFormStatus] = useState("");
   const [travelFormResponses, setTravelFormResponses] = useState([]);
+  const [teamTabTshirtSavingUserId, setTeamTabTshirtSavingUserId] = useState("");
   const latestStaffTaskSaveRef = useRef(0);
   const editableStaffTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
@@ -481,7 +482,7 @@ export default function TripPage() {
       window.history.replaceState({}, "", nextUrl.toString());
     }
   }, [router.query.edit, trip?.id, canViewAllParticipantData, isEditingTripSetup]);
-  const trainingAccessUrl = "https://lst365.sharepoint.com/Training/Forms/AllItems.aspx?id=%2FTraining%2FLST%20International%20Projects%20Training%2FTeam%20Training%2FCurrent%20LST%20Team%20Training%20Components%2FNew%2DRevised%20Version%20of%20Team%20Training%2FInstructions%20on%20Accessing%20Online%20LST%20Team%20Training%2Epdf&parent=%2FTraining%2FLST%20International%20Projects%20Training%2FTeam%20Training%2FCurrent%20LST%20Team%20Training%20Components%2FNew%2DRevised%20Version%20of%20Team%20Training&p=true&ga=1";
+  const trainingAccessUrl = "https://lst365.sharepoint.com/:b:/g/IQD0aBKBPtQsQ6oh55gqMG4IAe3aFtSVxmywEXEBasP_5jY?e=SZ9m0j";
   const basicTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=134&";
   const gatewayTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=136&";
   const generalFinancialInformationUrl = "https://lst.org/projects/general-financial-information/";
@@ -526,7 +527,7 @@ export default function TripPage() {
     {
       id: "optional",
       group: "optional",
-      title: "Optional Training",
+      title: "Advanced Training",
       description:
         "Optional workshops offered through the year, mainly for experienced Workers.",
       url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=135&",
@@ -1681,6 +1682,23 @@ export default function TripPage() {
       }
     } catch (error) {
       setTravelFormStatus(error.message || "Unable to save.");
+    }
+  }
+
+  async function handleSaveTeamTabTshirt(userId, newValue) {
+    if (!trip?.id || !userId) return;
+    const form = travelFormResponses.find((f) => String(f.userId) === String(userId)) || null;
+    const payload = { ...(form || TRAVEL_FORM_EMPTY), tshirtSize: String(newValue ?? "").trim() };
+    try {
+      setTeamTabTshirtSavingUserId(userId);
+      const saved = await saveTravelFormForUser(trip.id, userId, payload);
+      setTravelFormResponses((prev) =>
+        prev.filter((f) => String(f.userId) !== String(userId)).concat([saved])
+      );
+    } catch (error) {
+      console.error("Unable to save T-shirt size", error);
+    } finally {
+      setTeamTabTshirtSavingUserId("");
     }
   }
 
@@ -4741,6 +4759,7 @@ function parseDateSafe(dateStr) {
                     <th>Account</th>
                     <th>Email</th>
                     <th>Project Dates</th>
+                    <th>T-shirt</th>
                     {canViewAllParticipantData ? <th>Actions</th> : null}
                   </tr>
                 </thead>
@@ -4748,6 +4767,14 @@ function parseDateSafe(dateStr) {
                   {teamTabMembers.length > 0 ? (
                     teamTabMembers.map((member) => {
                       const connectionStatus = getWorkerConnectionStatus(member);
+                      const travelForm = member.profileId
+                        ? travelFormResponses.find((f) => String(f.userId) === String(member.profileId)) || null
+                        : null;
+                      const tshirtSize = travelForm?.tshirtSize ?? "";
+                      const canEditTshirt =
+                        member.profileId &&
+                        (canViewAllParticipantData || String(member.profileId) === String(currentParticipant?.id));
+                      const isSavingTshirt = String(teamTabTshirtSavingUserId) === String(member.profileId);
 
                       return (
                       <tr key={member.key}>
@@ -4768,6 +4795,39 @@ function parseDateSafe(dateStr) {
                         </td>
                         <td>{member.email || "Not set"}</td>
                         <td>{formatTripDateRange(member.startDate, member.endDate)}</td>
+                        <td>
+                          {canEditTshirt ? (
+                            <span className="row" style={{ gap: 6, alignItems: "center" }}>
+                              <input
+                                className="input"
+                                style={{ minWidth: 72, maxWidth: 100 }}
+                                value={tshirtSize}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setTravelFormResponses((prev) => {
+                                    const has = prev.some((f) => String(f.userId) === String(member.profileId));
+                                    if (has) {
+                                      return prev.map((f) =>
+                                        String(f.userId) === String(member.profileId) ? { ...f, tshirtSize: v } : f
+                                      );
+                                    }
+                                    return prev.concat([{ ...TRAVEL_FORM_EMPTY, userId: member.profileId, tshirtSize: v }]);
+                                  });
+                                }}
+                                onBlur={(e) => {
+                                  const v = String(e.target.value ?? "").trim();
+                                  void handleSaveTeamTabTshirt(member.profileId, v);
+                                }}
+                                onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+                                placeholder="Size"
+                                disabled={!!isSavingTshirt}
+                              />
+                              {isSavingTshirt ? <span className="small" style={{ color: "var(--muted)" }}>Saving...</span> : null}
+                            </span>
+                          ) : (
+                            <span style={tshirtSize ? undefined : { color: "var(--muted)" }}>{tshirtSize || "—"}</span>
+                          )}
+                        </td>
                         {canViewAllParticipantData ? (
                           <td>
                             <button
@@ -4788,7 +4848,7 @@ function parseDateSafe(dateStr) {
                     )})
                   ) : (
                     <tr>
-                      <td colSpan={canViewAllParticipantData ? 6 : 5} className="small">
+                      <td colSpan={canViewAllParticipantData ? 7 : 6} className="small">
                         No workers added yet.
                       </td>
                     </tr>
@@ -5384,7 +5444,7 @@ function parseDateSafe(dateStr) {
             <div style={{ height: 18 }} />
 
             <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
-              Optional
+              Advanced Training
             </div>
 
             <div
