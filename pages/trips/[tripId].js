@@ -449,6 +449,19 @@ export default function TripPage() {
   }, [router.query.addWorker, router.query.staffTaskId, router.query.tab]);
 
   useEffect(() => {
+    const requestedParticipantId = Array.isArray(router.query.participantId)
+      ? router.query.participantId[0]
+      : router.query.participantId;
+
+    if (!requestedParticipantId || !canManageTrips || previewParticipantId) return;
+    if (!trip || !(trip.participants || []).some((p) => String(p.id) === String(requestedParticipantId))) {
+      return;
+    }
+
+    setPreviewParticipantId(String(requestedParticipantId));
+  }, [canManageTrips, previewParticipantId, router.query.participantId, trip]);
+
+  useEffect(() => {
     const requestedEdit = Array.isArray(router.query.edit) ? router.query.edit[0] : router.query.edit;
     if (String(requestedEdit || "").toLowerCase() !== "setup") return;
     if (!trip?.id || !canViewAllParticipantData || isEditingTripSetup) return;

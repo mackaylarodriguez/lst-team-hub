@@ -499,12 +499,25 @@ export default function StaffAssignments() {
                   <td>
                     <div style={{ display: "grid", gap: 6 }}>
                       {participant.trips.map((assignment) => (
-                        <Link
+                        <div
                           key={`${participant.id}-${assignment.tripId}`}
-                          href={`/trips/${encodeURIComponent(assignment.tripId)}`}
+                          style={{ display: "flex", flexDirection: "column", gap: 2 }}
                         >
-                          {assignment.tripName}
-                        </Link>
+                          <Link href={`/trips/${encodeURIComponent(assignment.tripId)}?tab=Tasks&participantId=${encodeURIComponent(participant.id)}`}>
+                            {assignment.tripName}
+                          </Link>
+                          <button
+                            type="button"
+                            className="linkButton small"
+                            onClick={() => {
+                              window.location.href = `/trips/${encodeURIComponent(
+                                assignment.tripId
+                              )}?tab=Tasks&participantId=${encodeURIComponent(participant.id)}`;
+                            }}
+                          >
+                            View worker checklist
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </td>
