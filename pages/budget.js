@@ -1,5 +1,7 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
+import Spinner from "@/components/Spinner";
+import ConfirmModal from "@/components/ConfirmModal";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
@@ -66,6 +68,7 @@ export default function BudgetPage() {
   const [isEditingHousing, setIsEditingHousing] = useState(false);
   const [housingRowsDraft, setHousingRowsDraft] = useState([]);
   const [isEditingTickets, setIsEditingTickets] = useState(false);
+  const [ticketToDeleteId, setTicketToDeleteId] = useState(null);
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
 
@@ -208,7 +211,8 @@ export default function BudgetPage() {
   if (!session || loading) {
     return (
       <Shell>
-        <div className="card pad">
+        <div className="card pad" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <Spinner size={40} />
           <div style={{ fontWeight: 900 }}>{loading ? "Loading budget..." : "Redirecting..."}</div>
         </div>
       </Shell>
@@ -217,6 +221,19 @@ export default function BudgetPage() {
 
   return (
     <Shell>
+      <ConfirmModal
+        open={!!ticketToDeleteId}
+        title="Delete ticket?"
+        message="This ticket row will be permanently removed."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          if (ticketToDeleteId) removeTicket(ticketToDeleteId);
+          setTicketToDeleteId(null);
+        }}
+        onCancel={() => setTicketToDeleteId(null)}
+      />
       <div className="budgetPage">
         <h1 className="h1" style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
           <AppIcon name="active" className="pageEyebrowIcon" />
@@ -807,7 +824,7 @@ export default function BudgetPage() {
                         <td>{t.totalLstCost || ""}</td>
                         <td>{t.hpTotalCharge || ""}</td>
                         <td>{t.dateApprovedToWithdraw || ""}</td>
-                        <td><button className="btn" type="button" onClick={() => confirm("Delete this ticket?") && removeTicket(t.id)}>Delete</button></td>
+                        <td><button className="btn" type="button" onClick={() => setTicketToDeleteId(t.id)}>Delete</button></td>
                       </>
                     )}
                   </tr>

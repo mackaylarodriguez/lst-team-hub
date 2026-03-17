@@ -1,5 +1,6 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
+import Spinner from "@/components/Spinner";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -4205,13 +4206,21 @@ function parseDateSafe(dateStr) {
   }, [tab, tabs]);
 
   if (!router.isReady || !tripId) {
-    return <p>Loading...</p>;
+    return (
+      <Shell>
+        <div className="card pad" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <Spinner size={40} />
+          <div style={{ fontWeight: 900 }}>Loading...</div>
+        </div>
+      </Shell>
+    );
   }
 
   if (!trip) {
     return (
       <Shell>
-        <div className="card pad">
+        <div className="card pad" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          {!tripLoadComplete && <Spinner size={40} />}
           <div style={{ fontWeight: 900 }}>
             {tripLoadComplete ? "Trip not found" : "Loading trip..."}
           </div>

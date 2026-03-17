@@ -1,6 +1,8 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import EmptyState from "@/components/EmptyState";
+import Spinner from "@/components/Spinner";
+import ConfirmModal from "@/components/ConfirmModal";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
@@ -546,8 +548,22 @@ export default function Trips() {
     );
   }
 
+  const tripToDelete = confirmingDeleteTripId ? trips.find((t) => String(t.id) === String(confirmingDeleteTripId)) : null;
+
   return (
     <Shell>
+      <ConfirmModal
+        open={!!confirmingDeleteTripId}
+        title="Delete trip?"
+        message={tripToDelete ? `"${tripToDelete.name || "This trip"}" will be permanently removed. This cannot be undone.` : "This trip will be permanently removed. This cannot be undone."}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          if (confirmingDeleteTripId) void handleDeleteTrip(confirmingDeleteTripId);
+        }}
+        onCancel={() => setConfirmingDeleteTripId("")}
+      />
       <div className="row" style={{ marginBottom: 14 }}>
         <div>
           <h1 className="h1" style={{ marginBottom: 0, display: "flex", alignItems: "center", gap: 10 }}>
@@ -603,7 +619,10 @@ export default function Trips() {
             </div>
 
             {isLoadingTripForm ? (
-            <div className="small">Loading trip details...</div>
+            <div className="row" style={{ alignItems: "center", gap: 12 }}>
+              <Spinner size={28} />
+              <span className="small">Loading trip details...</span>
+            </div>
           ) : (
           <form onSubmit={handleSubmitTrip} style={{ display: "grid", gap: 16 }}>
             <div
@@ -1005,24 +1024,11 @@ export default function Trips() {
               </button>
               {editingTripId && canManageTrips ? (
                 <button
-                  className="btn"
+                  className="btn btnDanger"
                   type="button"
-                  onClick={() => {
-                    if (confirmingDeleteTripId === editingTripId) {
-                      void handleDeleteTrip(editingTripId);
-                      return;
-                    }
-
-                    setConfirmingDeleteTripId(editingTripId);
-                    setSubmitError("Click delete again to permanently remove this trip.");
-                  }}
-                  style={{
-                    color: "#fff",
-                    background: confirmingDeleteTripId === editingTripId ? "#b91c1c" : "var(--danger)",
-                    borderColor: confirmingDeleteTripId === editingTripId ? "#b91c1c" : "var(--danger)",
-                  }}
+                  onClick={() => setConfirmingDeleteTripId(editingTripId)}
                 >
-                  {confirmingDeleteTripId === editingTripId ? "Confirm Delete Trip" : "Delete Trip"}
+                  Delete Trip
                 </button>
               ) : null}
             </div>

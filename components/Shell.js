@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
+import Toast from "@/components/Toast";
 import {
   clearImpersonatedProfile,
   clearSession,
@@ -358,6 +359,7 @@ export default function Shell({ children }) {
         ) : null}
         {children}
       </main>
+      <Toast />
     </div>
   );
 }
