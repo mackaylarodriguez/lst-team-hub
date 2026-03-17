@@ -232,7 +232,7 @@ export default function BudgetPage() {
           </button>
         </div>
 
-        {tab === "Housing" && averages && (
+        {averages && (
           <div className="card pad" style={{ marginBottom: 24 }}>
             <div style={{ fontWeight: 900, marginBottom: 12 }}>Budget averages</div>
             <div
@@ -311,6 +311,7 @@ export default function BudgetPage() {
           </div>
         )}
 
+        {tab === "Housing" && (
         <div className="card pad" style={{ marginBottom: 24 }}>
           <div className="row" style={{ marginBottom: 8, alignItems: "baseline" }}>
             <div style={{ fontWeight: 900 }}>Site notes</div>
@@ -462,6 +463,7 @@ export default function BudgetPage() {
             })}
           </div>
         </div>
+        )}
 
         <div className="card pad" style={{ marginBottom: 24 }}>
           <div style={{ fontWeight: 900, marginBottom: 8 }}>Housing budget (all trips)</div>

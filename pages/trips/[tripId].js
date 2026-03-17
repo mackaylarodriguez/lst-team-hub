@@ -6913,8 +6913,122 @@ function parseDateSafe(dateStr) {
         <div style={{ display: "grid", gap: 16 }}>
           {renderTripTabIntro("Travel Form")}
           <div className="card pad" style={{ overflowX: "auto" }}>
-            <div className="small" style={{ marginBottom: 12 }}>
-              Team travel form responses. Rows auto-generate as workers fill out the form from the Tasks tab.
+            <div className="row" style={{ marginBottom: 12, alignItems: "center" }}>
+              <div className="small">
+                Team travel form responses. Rows auto-generate as workers fill out the form from the Tasks tab.
+              </div>
+              <div className="spacer" />
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  if (!trip) return;
+                  const header = [
+                    "Team Name",
+                    "First Name (passport)",
+                    "Middle Name (passport)",
+                    "Last Name (passport)",
+                    "Suffix",
+                    "Email",
+                    "Birthdate (M/D/Y)",
+                    "Gender",
+                    "Citizenship",
+                    "Passport Number",
+                    "Passport Expiration",
+                    "Issuing Country",
+                    "Special Travel Preferences",
+                    "Frequent Flyer / Pre-check",
+                    "Site (city & country)",
+                    "Gateway City",
+                    "Departure Date",
+                    "Return Date",
+                    "T-shirt Size",
+                    "Emergency Contact Name",
+                    "Emergency Contact Email",
+                    "Emergency Contact Phone",
+                    "Minor?",
+                    "Passport 6mo valid?",
+                    "Base Ticket Ack",
+                    "Team Travel Ack",
+                    "EndMeeting Ack",
+                    "Travel Insurance Ack",
+                  ];
+
+                  const rows = (trip?.participants || []).map((p) => {
+                    const form =
+                      travelFormResponses.find(
+                        (f) => String(f.userId) === String(p.id)
+                      ) || null;
+
+                    const birthdate = [form?.birthdateMonth, form?.birthdateDay, form?.birthdateYear]
+                      .filter(Boolean)
+                      .join("/");
+
+                    return [
+                      form?.teamName || trip?.name || "",
+                      form?.firstNamePassport || "",
+                      form?.middleNamePassport || "",
+                      form?.lastNamePassport || "",
+                      form?.suffix || "",
+                      form?.email || p?.email || "",
+                      birthdate || "",
+                      form?.gender || "",
+                      form?.citizenship || "",
+                      form?.passportNumber || "",
+                      form?.passportExpirationDate || "",
+                      form?.passportIssuingCountry || "",
+                      form?.specialTravelPreferences || "",
+                      form?.frequentFlyerPrecheck || "",
+                      form?.siteProject || "",
+                      form?.gatewayCity || "",
+                      form?.departureDate || "",
+                      form?.returnDate || "",
+                      form?.tshirtSize || "",
+                      form?.emergencyContactName || "",
+                      form?.emergencyContactEmail || "",
+                      form?.emergencyContactPhone || "",
+                      form?.isMinor || "",
+                      form?.passportValidSixMonths || "",
+                      form?.baseTicketAck || "",
+                      form?.teamTravelAck || "",
+                      form?.endMeetingAck || "",
+                      form?.travelInsuranceAck || "",
+                    ];
+                  });
+
+                  const csvContent = [header, ...rows]
+                    .map((cols) =>
+                      cols
+                        .map((val) => {
+                          const s = String(val ?? "");
+                          if (/[",\n]/.test(s)) {
+                            return `"${s.replace(/"/g, '""')}"`;
+                          }
+                          return s;
+                        })
+                        .join(",")
+                    )
+                    .join("\n");
+
+                  const blob = new Blob([csvContent], {
+                    type: "text/csv;charset=utf-8;",
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  const safeTripName = String(trip.name || "trip")
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "");
+                  link.download = `${safeTripName || "trip"}-travel-form-responses.csv`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                Export CSV
+              </button>
             </div>
             <table className="table" style={{ minWidth: 2400, fontSize: 12 }}>
               <thead>
