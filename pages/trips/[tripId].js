@@ -2386,6 +2386,21 @@ function parseDateSafe(dateStr) {
     });
   }
 
+  function formatRelativeToTripStart(dueDate, startDate) {
+    const due = parseDateSafe(dueDate);
+    const start = parseDateSafe(startDate);
+    if (!due || !start) return "";
+
+    const diffMs = start.getTime() - due.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) return "after trip starts";
+    if (diffDays >= 75) return "about 3 months out";
+    if (diffDays >= 45) return "about 2 months out";
+    if (diffDays >= 15) return "about 1 month out";
+    return "coming up soon";
+  }
+
   function formatTripDateRange(startDate, endDate) {
     if (!startDate && !endDate) return "Dates to be confirmed";
 
@@ -4168,20 +4183,6 @@ function parseDateSafe(dateStr) {
         <div
           className="card pad"
           style={{
-            background: "linear-gradient(135deg, #fdf2cc 0%, #fff8e6 55%, #eef8fe 100%)",
-            borderColor: "rgba(249,157,42,.3)",
-          }}
-        >
-          <div className="small" style={{ marginBottom: 8, fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", color: "#9a6700" }}>
-            Countdown
-          </div>
-          <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: "-.03em" }}>{countdownSummary.label}</div>
-          <div className="small" style={{ marginTop: 6, color: "var(--text)" }}>{countdownSummary.detail}</div>
-        </div>
-
-        <div
-          className="card pad"
-          style={{
             background: "linear-gradient(180deg, rgba(234,242,255,.95), #ffffff 42%)",
             borderColor: "rgba(47,73,147,.22)",
             position: "relative",
@@ -4491,7 +4492,12 @@ function parseDateSafe(dateStr) {
                       )}
                       <div className="small">
                         {task.detail ? `${task.detail} • ` : ""}
-                        Due {task.dueDate ? formatSingleDate(task.dueDate) : "when ready"}
+                        {task.dueDate
+                          ? `Due ${formatSingleDate(task.dueDate)} • ${formatRelativeToTripStart(
+                              task.dueDate,
+                              trip?.startDate
+                            )}`
+                          : "Due when ready"}
                       </div>
                     </div>
                   ))}
