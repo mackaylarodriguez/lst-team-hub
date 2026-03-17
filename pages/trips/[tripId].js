@@ -458,6 +458,9 @@ export default function TripPage() {
     if (String(requestedTab || "").toLowerCase() === "team") {
       setTab("Team");
     }
+    if (String(requestedTab || "").toLowerCase() === "documents" || String(requestedTab || "").toLowerCase() === "my-documents") {
+      setTab(canViewAllParticipantData ? "Worker Docs" : "My Documents");
+    }
 
     if (requestedStaffTaskId) {
       setPendingStaffTaskJumpId(String(requestedStaffTaskId));
@@ -467,7 +470,7 @@ export default function TripPage() {
       setIsEditingRoster(false);
       setWorkerAddStatus("");
     }
-  }, [router.query.addWorker, router.query.staffTaskId, router.query.tab]);
+  }, [canViewAllParticipantData, router.query.addWorker, router.query.staffTaskId, router.query.tab]);
 
   useEffect(() => {
     const requestedParticipantId = Array.isArray(router.query.participantId)
@@ -3909,7 +3912,7 @@ function parseDateSafe(dateStr) {
     autoSiteInfoLink
       ? {
           id: "auto-site-info-link",
-          title: "Site Info Link",
+          title: "Site Logistics",
           link: autoSiteInfoLink,
           pdfUrl: "",
           createdAt: "",
@@ -3966,7 +3969,7 @@ function parseDateSafe(dateStr) {
     });
 
     links.push({
-      label: "Site Info",
+      label: "Site Logistics",
       url: effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl || "",
       ready: !!(effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl),
     });
@@ -4037,9 +4040,16 @@ function parseDateSafe(dateStr) {
         const wt = findWorkerTaskTemplate(task);
         const section = getWorkerTaskSection(task);
         const isChecklistTask = task.id === "worker-task-checklist" || task.title === "Received and has reviewed Project Management Checklist";
+        const isTicketsTask = task.id === "worker-task-tickets" || task.title === "Proofread my tickets";
+        const isDocumentsTask = task.id === "worker-task-upload-passport" || task.id === "worker-task-upload-visa" || task.title === "Upload passport" || task.title === "Upload visa";
+        const documentsTabUrl = trip?.id ? `/trips/${trip.id}?tab=documents` : null;
         const link = isChecklistTask
           ? (effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl || wt?.link)
-          : (wt?.link || null);
+          : isTicketsTask
+            ? (flightsDoc?.link || flightsDoc?.pdfUrl || wt?.link)
+            : isDocumentsTask
+              ? documentsTabUrl
+              : (wt?.link || null);
         return {
           id: task.id,
           title: task.title,
@@ -4081,6 +4091,7 @@ function parseDateSafe(dateStr) {
     currentTrainingProgress?.trainingState,
     editableStaffTasks,
     effectiveSiteInfoDoc,
+    flightsDoc,
     session?.email,
     session?.name,
     trip,
@@ -4144,7 +4155,6 @@ function parseDateSafe(dateStr) {
     "Fundraising",
     "Training",
     "Tasks",
-    "Travel Form",
     tripDocumentsTabLabel,
     participantDocumentsTabLabel,
   ];
@@ -5955,11 +5965,15 @@ function parseDateSafe(dateStr) {
                               const workerTaskTemplate = findWorkerTaskTemplate(task);
                               const isChecklistTask = task.id === "worker-task-checklist" || task.title === "Received and has reviewed Project Management Checklist";
                               const isTicketsTask = task.id === "worker-task-tickets" || task.title === "Proofread my tickets";
+                              const isDocumentsTask = task.id === "worker-task-upload-passport" || task.id === "worker-task-upload-visa" || task.title === "Upload passport" || task.title === "Upload visa";
+                              const documentsTabUrl = trip?.id ? `/trips/${trip.id}?tab=documents` : null;
                               const taskLink = isChecklistTask
                                 ? (effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl || workerTaskTemplate?.link)
                                 : isTicketsTask
                                   ? (flightsDoc?.link || flightsDoc?.pdfUrl || workerTaskTemplate?.link)
-                                  : workerTaskTemplate?.link;
+                                  : isDocumentsTask
+                                    ? documentsTabUrl
+                                    : workerTaskTemplate?.link;
                               const taskDetails = task.description || workerTaskTemplate?.details;
 
                               return (
@@ -6318,19 +6332,19 @@ function parseDateSafe(dateStr) {
                 >
                   <div className="row" style={{ alignItems: "flex-start" }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 900 }}>Site-Linked Document</div>
+                      <div style={{ fontWeight: 900 }}>Site Logistics</div>
                       <div className="small" style={{ marginTop: 4 }}>
                         Assigned site: {trip?.location || "No site selected yet"}
                       </div>
                       <div className="small" style={{ marginTop: 4 }}>
                         {effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl
                           ? "This site name is linked automatically to its document."
-                          : "No matching site link yet. Add a custom site link or update the site name."}
+                          : "No matching site logistics yet. Add a custom link or update the site name."}
                       </div>
                       {canViewAllParticipantData ? (
                         <div className="small" style={{ marginTop: 4 }}>
                           {siteInfoDoc
-                            ? `Participants can ${siteInfoDoc.visibleToParticipants === false ? "not " : ""}see the saved site document.`
+                            ? `Participants can ${siteInfoDoc.visibleToParticipants === false ? "not " : ""}see the saved site logistics.`
                             : "Auto-linked site docs start visible to participants until staff switches them off."}
                         </div>
                       ) : null}
@@ -6357,7 +6371,7 @@ function parseDateSafe(dateStr) {
                         rel="noreferrer"
                         style={siteLinkActionButtonStyle}
                       >
-                        Open Site Link
+                        Open Site Logistics
                       </a>
                       {canViewAllParticipantData ? (
                         <button
@@ -6368,7 +6382,7 @@ function parseDateSafe(dateStr) {
                             handleToggleRequiredSlotVisibility(
                               {
                                 key: "site-info-link",
-                                title: "Site Info Link",
+                                title: "Site Logistics",
                                 category: "Site",
                                 kind: "link",
                                 resource: effectiveSiteInfoDoc,
@@ -6409,7 +6423,7 @@ function parseDateSafe(dateStr) {
                           onClick={() =>
                             handlePrepareRequiredLink({
                               key: "site-info-link",
-                              title: "Site Info Link",
+                              title: "Site Logistics",
                               category: "Site",
                               resource: effectiveSiteInfoDoc,
                             })
@@ -6428,13 +6442,13 @@ function parseDateSafe(dateStr) {
                         onClick={() =>
                           handlePrepareRequiredLink({
                             key: "site-info-link",
-                            title: "Site Info Link",
+                            title: "Site Logistics",
                             category: "Site",
                             resource: effectiveSiteInfoDoc,
                           })
                         }
                       >
-                        Add Site Link
+                        Add Site Logistics
                       </button>
                     </div>
                   ) : null}
