@@ -452,11 +452,10 @@ export default function Trips() {
     <Shell>
       <div className="row" style={{ marginBottom: 14 }}>
         <div>
-          <div className="pageEyebrow">
+          <h1 className="h1" style={{ fontSize: 36, marginBottom: 0, display: "flex", alignItems: "center", gap: 10 }}>
             <AppIcon name="spark" className="pageEyebrowIcon" />
-            Trip Dashboard
-          </div>
-          <h1 className="h1" style={{ fontSize: 36, marginBottom: 0 }}>My Dashboard</h1>
+            <span>Trip Dashboard</span>
+          </h1>
         </div>
         <div className="spacer" />
         {canManageTrips && (

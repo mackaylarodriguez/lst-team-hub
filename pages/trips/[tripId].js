@@ -442,9 +442,15 @@ export default function TripPage() {
     if (String(requestedEdit || "").toLowerCase() !== "setup") return;
     if (!trip?.id || !canViewAllParticipantData || isEditingTripSetup) return;
 
+    setTab("Overview");
     handleStartTripSetupEdit();
 
     if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        const element = document.getElementById("trip-setup");
+        element?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
       const nextUrl = new URL(window.location.href);
       nextUrl.searchParams.delete("edit");
       window.history.replaceState({}, "", nextUrl.toString());
