@@ -85,6 +85,17 @@ import {
   saveTravelFormForUser,
   listTravelFormResponsesForTrip,
 } from "@/lib/travelForm";
+import {
+  getTripBudget,
+  saveTripBudget,
+  listSiteBudgetNotes,
+  updateSiteBudgetNote,
+} from "@/lib/tripBudget";
+import {
+  listTripTickets,
+  saveTripTicket,
+  deleteTripTicket,
+} from "@/lib/tripTickets";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -404,6 +415,12 @@ export default function TripPage() {
   const [travelFormDraft, setTravelFormDraft] = useState(() => ({ ...TRAVEL_FORM_EMPTY }));
   const [travelFormStatus, setTravelFormStatus] = useState("");
   const [travelFormResponses, setTravelFormResponses] = useState([]);
+  const [tripBudget, setTripBudget] = useState(null);
+  const [tripBudgetDraft, setTripBudgetDraft] = useState(null);
+  const [budgetStatus, setBudgetStatus] = useState("");
+  const [siteBudgetNotes, setSiteBudgetNotes] = useState([]);
+  const [tripTickets, setTripTickets] = useState([]);
+  const [ticketsStatus, setTicketsStatus] = useState("");
   const latestStaffTaskSaveRef = useRef(0);
   const editableStaffTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
@@ -737,6 +754,9 @@ export default function TripPage() {
         tasksResult,
         taskProgressResult,
         travelFormResult,
+        budgetResult,
+        siteNotesResult,
+        ticketsResult,
       ] =
         await Promise.allSettled([
           listTripParticipants(trip.id),
@@ -746,6 +766,9 @@ export default function TripPage() {
           listTripTasks(trip.id),
           listUserTaskProgress(trip.id),
           listTravelFormResponsesForTrip(trip.id),
+          getTripBudget(trip.id),
+          listSiteBudgetNotes(),
+          listTripTickets(trip.id),
         ]);
 
       if (cancelled) return;
@@ -809,6 +832,16 @@ export default function TripPage() {
 
       const travelForms = getSettledValue(travelFormResult, [], "travel form responses");
       setTravelFormResponses(travelForms);
+
+      const budget = getSettledValue(budgetResult, null, "trip budget");
+      setTripBudget(budget);
+      setTripBudgetDraft(budget ? { ...budget } : null);
+
+      const siteNotes = getSettledValue(siteNotesResult, [], "site budget notes");
+      setSiteBudgetNotes(siteNotes);
+
+      const tickets = getSettledValue(ticketsResult, [], "trip tickets");
+      setTripTickets(tickets);
     }
 
     loadTripData();
@@ -1667,6 +1700,99 @@ export default function TripPage() {
       }
     } catch (error) {
       setTravelFormStatus(error.message || "Unable to save.");
+    }
+  }
+
+  function getBudgetDraft() {
+    if (tripBudgetDraft) return tripBudgetDraft;
+    return {
+      teamName: trip?.name || "",
+      projectStartDate: trip?.startDate || "",
+      projectEndDate: trip?.endDate || "",
+      siteCountry: trip?.location || "",
+      siteCity: "",
+      teamAccountant: "",
+      budgetAmount: "",
+      returnedAmount: "",
+      housingAmount: "",
+      notes: "",
+      numWorkers: (trip?.participants || []).length || null,
+      tshirts: "",
+      workbooks: "",
+    };
+  }
+
+  function updateBudgetDraft(field, value) {
+    setTripBudgetDraft((prev) => {
+      const base = prev ?? getBudgetDraft();
+      return { ...base, [field]: value };
+    });
+  }
+
+  async function handleSaveBudget() {
+    if (!trip?.id) return;
+    try {
+      setBudgetStatus("Saving...");
+      const saved = await saveTripBudget(trip.id, getBudgetDraft());
+      setTripBudget(saved);
+      setTripBudgetDraft({ ...saved });
+      setBudgetStatus("Saved.");
+    } catch (error) {
+      setBudgetStatus(error.message || "Unable to save.");
+    }
+  }
+
+  async function handleSaveTicket(ticket) {
+    if (!trip?.id) return;
+    try {
+      setTicketsStatus("Saving...");
+      const saved = await saveTripTicket({ ...ticket, tripId: trip.id });
+      setTripTickets((prev) => {
+        const idx = prev.findIndex((t) => t.id === saved.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = saved;
+          return next;
+        }
+        return [...prev, saved];
+      });
+      setTicketsStatus("Saved.");
+    } catch (error) {
+      setTicketsStatus(error.message || "Unable to save.");
+    }
+  }
+
+  async function handleAddTicket() {
+    if (!trip?.id) return;
+    try {
+      setTicketsStatus("Adding...");
+      const saved = await saveTripTicket({
+        tripId: trip.id,
+        intlDom: "Intl",
+        workerName: "",
+        projectCountry: trip?.location || "",
+        projectCity: "",
+        departureDate: trip?.startDate || "",
+        ticketAgency: "",
+        totalTicketCost: "",
+        amountWorkerPaid: "",
+        totalLstCost: "",
+        hpTotalCharge: "",
+        dateApprovedToWithdraw: "",
+      });
+      setTripTickets((prev) => [...prev, saved]);
+      setTicketsStatus("Ticket added.");
+    } catch (error) {
+      setTicketsStatus(error.message || "Unable to add.");
+    }
+  }
+
+  async function handleDeleteTicket(id) {
+    try {
+      await deleteTripTicket(id);
+      setTripTickets((prev) => prev.filter((t) => t.id !== id));
+    } catch (error) {
+      setTicketsStatus(error.message || "Unable to delete.");
     }
   }
 
@@ -4029,11 +4155,21 @@ function parseDateSafe(dateStr) {
       title: "Travel Form",
       description: "Team travel form responses in one exportable grid.",
     },
+    "Housing Budget": {
+      icon: "active",
+      title: "Housing Budget",
+      description: "Housing budget overview, site notes, and housing details.",
+    },
+    Ticketing: {
+      icon: "archived",
+      title: "Ticketing",
+      description: "Track ticket costs and LST payments per worker.",
+    },
   };
 
   const tabs =
     canManageTrips
-      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel, ...(isPreviewingParticipant ? [] : ["Travel Form", "Staff Tasks"])]
+      ? ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel, ...(isPreviewingParticipant ? [] : ["Travel Form", "Housing Budget", "Ticketing", "Staff Tasks"])]
       : ["Overview", "Team", "Fundraising", "Training", "Tasks", tripDocumentsTabLabel, participantDocumentsTabLabel];
 
   function renderTripTabIntro(tabName) {
@@ -6964,6 +7100,142 @@ function parseDateSafe(dateStr) {
             </table>
             {(trip?.participants || []).length === 0 && (
               <div className="small">No participants yet. Add team members in the roster.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === "Housing Budget" && canManageTrips && !isPreviewingParticipant && (
+        <div style={{ display: "grid", gap: 16 }}>
+          {renderTripTabIntro("Housing Budget")}
+          <div className="card pad">
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>Site Notes</div>
+            <div className="small" style={{ marginBottom: 12 }}>Per-site budget and housing notes. Buenos Aires workbook counts included.</div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="table" style={{ minWidth: 600, fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th>Site</th>
+                    <th>Effective Date</th>
+                    <th>Notes</th>
+                    <th>Workbook Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {siteBudgetNotes.map((note) => (
+                    <tr key={note.id}>
+                      <td style={{ fontWeight: 600 }}>{note.siteName}</td>
+                      <td>{note.effectiveDate}</td>
+                      <td style={{ maxWidth: 400 }}>{note.notes}</td>
+                      <td style={{ maxWidth: 300 }}>{note.workbookNotes || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div className="card pad">
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>Team Housing Budget</div>
+            <div className="small" style={{ marginBottom: 12 }}>Housing budget overview for this trip. Edit and save.</div>
+            {budgetStatus ? <div className="small" style={{ marginBottom: 8 }}>{budgetStatus}</div> : null}
+            <div style={{ overflowX: "auto" }}>
+              <table className="table" style={{ minWidth: 1400, fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th>Team Name</th>
+                    <th>Project Start</th>
+                    <th>Project End</th>
+                    <th>Site: Country</th>
+                    <th>Site: City</th>
+                    <th>Team Accountant</th>
+                    <th>Budget Amount</th>
+                    <th>Returned Amount</th>
+                    <th>Note – Housing Amount</th>
+                    <th>Notes</th>
+                    <th># of workers</th>
+                    <th>T-shirts</th>
+                    <th>Workbooks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><input className="input" style={{ minWidth: 120 }} value={getBudgetDraft().teamName} onChange={(e) => updateBudgetDraft("teamName", e.target.value)} /></td>
+                    <td><input className="input" type="date" value={getBudgetDraft().projectStartDate} onChange={(e) => updateBudgetDraft("projectStartDate", e.target.value)} /></td>
+                    <td><input className="input" type="date" value={getBudgetDraft().projectEndDate} onChange={(e) => updateBudgetDraft("projectEndDate", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 100 }} value={getBudgetDraft().siteCountry} onChange={(e) => updateBudgetDraft("siteCountry", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={getBudgetDraft().siteCity} onChange={(e) => updateBudgetDraft("siteCity", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 100 }} value={getBudgetDraft().teamAccountant} onChange={(e) => updateBudgetDraft("teamAccountant", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={getBudgetDraft().budgetAmount} onChange={(e) => updateBudgetDraft("budgetAmount", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={getBudgetDraft().returnedAmount} onChange={(e) => updateBudgetDraft("returnedAmount", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={getBudgetDraft().housingAmount} onChange={(e) => updateBudgetDraft("housingAmount", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 120 }} value={getBudgetDraft().notes} onChange={(e) => updateBudgetDraft("notes", e.target.value)} /></td>
+                    <td><input className="input" type="number" style={{ width: 60 }} value={getBudgetDraft().numWorkers ?? ""} onChange={(e) => { const v = e.target.value; updateBudgetDraft("numWorkers", v === "" ? null : (parseInt(v, 10) || null)); }} /></td>
+                    <td><input className="input" style={{ minWidth: 70 }} value={getBudgetDraft().tshirts} onChange={(e) => updateBudgetDraft("tshirts", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 70 }} value={getBudgetDraft().workbooks} onChange={(e) => updateBudgetDraft("workbooks", e.target.value)} /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <button className="btn btnPrimary" type="button" style={{ marginTop: 12 }} onClick={() => void handleSaveBudget()}>Save Housing Budget</button>
+          </div>
+        </div>
+      )}
+
+      {tab === "Ticketing" && canManageTrips && !isPreviewingParticipant && (
+        <div style={{ display: "grid", gap: 16 }}>
+          {renderTripTabIntro("Ticketing")}
+          <div className="card pad">
+            <div className="row" style={{ marginBottom: 12 }}>
+              <div>
+                <div style={{ fontWeight: 900 }}>Ticket costs</div>
+                <div className="small">Track ticket costs and LST payments per worker.</div>
+              </div>
+              <div className="spacer" />
+              <button className="btn btnPrimary" type="button" onClick={() => void handleAddTicket()}>Add Ticket</button>
+            </div>
+            {ticketsStatus ? <div className="small" style={{ marginBottom: 8 }}>{ticketsStatus}</div> : null}
+            <div style={{ overflowX: "auto" }}>
+              <table className="table" style={{ minWidth: 1400, fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th>Team ID</th>
+                    <th>Intl/Dom</th>
+                    <th>Worker Name</th>
+                    <th>Project Country</th>
+                    <th>Project City</th>
+                    <th>Departure Date</th>
+                    <th>Ticket Agency</th>
+                    <th>Total Ticket Cost</th>
+                    <th>Amount Worker Paid</th>
+                    <th>Total LST Cost</th>
+                    <th>HP Total Charge</th>
+                    <th>Date Approved to Withdraw</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tripTickets.map((t) => (
+                    <tr key={t.id}>
+                      <td>{trip?.name || trip?.id?.slice(0, 8) || ""}</td>
+                      <td><input className="input" style={{ minWidth: 60 }} value={t.intlDom} onChange={(e) => { const updated = { ...t, intlDom: e.target.value }; setTripTickets((prev) => prev.map((x) => x.id === t.id ? updated : x)); void handleSaveTicket(updated); }} /></td>
+                      <td><input className="input" style={{ minWidth: 100 }} value={t.workerName} onChange={(e) => { const next = { ...t, workerName: e.target.value }; setTripTickets((prev) => prev.map((x) => x.id === t.id ? next : x)); void handleSaveTicket(next); }} /></td>
+                      <td><input className="input" style={{ minWidth: 90 }} value={t.projectCountry} onChange={(e) => { const next = { ...t, projectCountry: e.target.value }; setTripTickets((prev) => prev.map((x) => x.id === t.id ? next : x)); void handleSaveTicket(next); }} /></td>
+                      <td><input className="input" style={{ minWidth: 80 }} value={t.projectCity} onChange={(e) => { const next = { ...t, projectCity: e.target.value }; setTripTickets((prev) => prev.map((x) => x.id === t.id ? next : x)); void handleSaveTicket(next); }} /></td>
+                      <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.departureDate} onChange={(e) => { const next = { ...t, departureDate: e.target.value }; setTripTickets((prev) => prev.map((x) => x.id === t.id ? next : x)); void handleSaveTicket(next); }} /></td>
+                      <td><input className="input" style={{ minWidth: 100 }} value={t.ticketAgency} onChange={(e) => { const next = { ...t, ticketAgency: e.target.value }; setTripTickets((prev) => prev.map((x) => x.id === t.id ? next : x)); void handleSaveTicket(next); }} /></td>
+                      <td><input className="input" style={{ minWidth: 90 }} value={t.totalTicketCost} onChange={(e) => { const next = { ...t, totalTicketCost: e.target.value }; setTripTickets((prev) => prev.map((x) => x.id === t.id ? next : x)); void handleSaveTicket(next); }} /></td>
+                      <td><input className="input" style={{ minWidth: 90 }} value={t.amountWorkerPaid} onChange={(e) => { const next = { ...t, amountWorkerPaid: e.target.value }; setTripTickets((prev) => prev.map((x) => x.id === t.id ? next : x)); void handleSaveTicket(next); }} /></td>
+                      <td><input className="input" style={{ minWidth: 90 }} value={t.totalLstCost} onChange={(e) => { const next = { ...t, totalLstCost: e.target.value }; setTripTickets((prev) => prev.map((x) => x.id === t.id ? next : x)); void handleSaveTicket(next); }} /></td>
+                      <td><input className="input" style={{ minWidth: 90 }} value={t.hpTotalCharge} onChange={(e) => { const next = { ...t, hpTotalCharge: e.target.value }; setTripTickets((prev) => prev.map((x) => x.id === t.id ? next : x)); void handleSaveTicket(next); }} /></td>
+                      <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.dateApprovedToWithdraw} onChange={(e) => { const next = { ...t, dateApprovedToWithdraw: e.target.value }; setTripTickets((prev) => prev.map((x) => x.id === t.id ? next : x)); void handleSaveTicket(next); }} /></td>
+                      <td><button className="btn" type="button" onClick={() => { if (confirm("Delete this ticket?")) void handleDeleteTicket(t.id); }}>Delete</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {tripTickets.length === 0 && (
+              <div className="small" style={{ marginTop: 12 }}>No tickets yet. Click Add Ticket to track costs.</div>
             )}
           </div>
         </div>
