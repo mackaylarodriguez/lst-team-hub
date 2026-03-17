@@ -18,6 +18,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [resetPassword, setResetPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [confirmResetPassword, setConfirmResetPassword] = useState("");
   const [err, setErr] = useState("");
   const [message, setMessage] = useState("");
@@ -111,6 +112,16 @@ export default function Login() {
       }
 
       if (mode === "signup") {
+        if (!password) {
+          setErr("Create a password to continue.");
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          setErr("Passwords do not match.");
+          return;
+        }
+
         const session = await signUpWithPassword({ email, password });
         if (session) {
           router.push(nextPath);
@@ -120,6 +131,7 @@ export default function Login() {
         setMessage("Account created. Check your email if confirmation is required, then sign in.");
         setMode("signin");
         setPassword("");
+        setConfirmPassword("");
         return;
       }
 
@@ -156,7 +168,7 @@ export default function Login() {
                 ? "Enter your email and we'll send a password reset link from your custom email setup."
                 : mode === "reset"
                   ? "Set a new password for your LST app account."
-              : "Create your LST app account here. If your email already matches a worker on a trip, we will link it automatically."}
+                  : "Create your LST app account here. If your email already matches a worker on a trip, we will link it automatically."}
           </div>
         </div>
 
@@ -173,8 +185,28 @@ export default function Login() {
           </div>
           {mode === "signin" || mode === "signup" ? (
             <div>
-              <div className="small" style={{ marginBottom: 6 }}>Password</div>
-              <input className="input" type="password" value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="••••••••" />
+              <div className="small" style={{ marginBottom: 6 }}>
+                {mode === "signup" ? "Create Password" : "Password"}
+              </div>
+              <input
+                className="input"
+                type="password"
+                value={password}
+                onChange={(e)=>setPassword(e.target.value)}
+                placeholder={mode === "signup" ? "Create a password" : "••••••••"}
+              />
+            </div>
+          ) : null}
+          {mode === "signup" ? (
+            <div>
+              <div className="small" style={{ marginBottom: 6 }}>Confirm Password</div>
+              <input
+                className="input"
+                type="password"
+                value={confirmPassword}
+                onChange={(e)=>setConfirmPassword(e.target.value)}
+                placeholder="Re-enter your password"
+              />
             </div>
           ) : null}
           {mode === "reset" ? (
