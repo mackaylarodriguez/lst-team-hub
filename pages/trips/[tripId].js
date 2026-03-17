@@ -2347,6 +2347,8 @@ function parseDateSafe(dateStr) {
     if (
       title.includes("$2,000 raised") ||
       title.includes("all raised") ||
+      title.includes("fundraising goal") ||
+      title.includes("fundraising funds") ||
       title.includes("donor")
     ) {
       return "Fundraising";
@@ -4014,18 +4016,27 @@ function parseDateSafe(dateStr) {
     }
 
     const taskState = currentParticipantProgress?.taskState || {};
+    const hideSectionLabelTitles = [
+      "Filled out Travel Form",
+      "Proofread my tickets",
+    ];
     const upcomingTasks = (trip.tasks || [])
       .filter((task) => !taskState[task.id])
       .map((task) => {
         const wt = findWorkerTaskTemplate(task);
+        const section = getWorkerTaskSection(task);
+        const isChecklistTask = task.id === "worker-task-checklist" || task.title === "Received and has reviewed Project Management Checklist";
+        const link = isChecklistTask
+          ? (effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl || wt?.link)
+          : (wt?.link || null);
         return {
           id: task.id,
           title: task.title,
           dueDate: task.due,
-          detail: getWorkerTaskSection(task),
+          detail: hideSectionLabelTitles.includes(task.title) ? "" : section,
           destinationTab: "Tasks",
           destinationId: task.id,
-          link: wt?.link || null,
+          link: link || null,
           details: task.description || wt?.details || null,
         };
       });
@@ -4058,6 +4069,7 @@ function parseDateSafe(dateStr) {
     currentParticipantProgress?.taskState,
     currentTrainingProgress?.trainingState,
     editableStaffTasks,
+    effectiveSiteInfoDoc,
     session?.email,
     session?.name,
     trip,
@@ -5927,10 +5939,13 @@ function parseDateSafe(dateStr) {
                           <div style={{ display: "grid", gap: 0 }}>
                             {sectionTasks.map((task) => {
                               const done = !!taskState[task.id];
-                              const isTravelFormTask = task.title === "Fill out Travel Form";
+                              const isTravelFormTask = task.title === "Fill out Travel Form" || task.title === "Filled out Travel Form";
                               const canFillTravelForm = isTravelFormTask && String(participant.id) === String(currentParticipant?.id);
                               const workerTaskTemplate = findWorkerTaskTemplate(task);
-                              const taskLink = workerTaskTemplate?.link;
+                              const isChecklistTask = task.id === "worker-task-checklist" || task.title === "Received and has reviewed Project Management Checklist";
+                              const taskLink = isChecklistTask
+                                ? (effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl || workerTaskTemplate?.link)
+                                : workerTaskTemplate?.link;
                               const taskDetails = task.description || workerTaskTemplate?.details;
 
                               return (
