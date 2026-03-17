@@ -200,6 +200,9 @@ export default function Shell({ children }) {
     isStaffUser
       ? { href: "/recruiting", label: "Recruiting", active: path === "/recruiting", icon: "recruiting" }
       : null,
+    canManageTrips
+      ? { href: "/budget", label: "Budget", active: path === "/budget", icon: "active" }
+      : null,
     { href: "/profile", label: "Profile", active: path === "/profile", icon: "profile" },
   ].filter(Boolean);
 
