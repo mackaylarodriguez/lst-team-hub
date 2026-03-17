@@ -3830,16 +3830,27 @@ function parseDateSafe(dateStr) {
   const overviewTrainingPct = canViewAllParticipantData
     ? trainingPct
     : currentTrainingProgress?.percent || 0;
-  const fundraisingGoalAmount = Number(trip?.fundraisingGoalAmount || 0);
+  const tripFundraisingGoal = Number(trip?.fundraisingGoalAmount || 0);
+  const fundraisingGoalAmount =
+    !canViewAllParticipantData &&
+    currentParticipant?.fundraisingGoalAmount != null &&
+    Number(currentParticipant.fundraisingGoalAmount) > 0
+      ? Number(currentParticipant.fundraisingGoalAmount)
+      : tripFundraisingGoal;
   const fundraisingWorkerCount = Math.max(
     (trip?.participants || []).filter((participant) =>
       String(participant?.role || "").toLowerCase() === "worker"
     ).length || (trip?.participants || []).length,
     1
   );
+  const useIndividualGoal =
+    !canViewAllParticipantData &&
+    currentParticipant?.fundraisingGoalAmount != null &&
+    Number(currentParticipant.fundraisingGoalAmount) > 0;
+  const countForDeadlines = useIndividualGoal ? 1 : fundraisingWorkerCount;
   const fundraisingFirstDeadlineAmount = Math.min(
-    2000 * fundraisingWorkerCount,
-    fundraisingGoalAmount || 2000 * fundraisingWorkerCount
+    2000 * countForDeadlines,
+    fundraisingGoalAmount || 2000 * countForDeadlines
   );
   const fundraisingSecondDeadlineTotalAmount = Math.max(
     (fundraisingGoalAmount || 0) - fundraisingFirstDeadlineAmount,

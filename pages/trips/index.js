@@ -31,6 +31,7 @@ function createEmptyTeamMember() {
     email: "",
     startDate: "",
     endDate: "",
+    fundraisingGoalAmount: "",
   };
 }
 
@@ -91,6 +92,7 @@ function buildTripDraftFromTrip(trip, teamMembers = []) {
             email: member.email || "",
             startDate: member.startDate || "",
             endDate: member.endDate || "",
+            fundraisingGoalAmount: formatDraftAmount(member.fundraisingGoalAmount),
           }))
         : [createEmptyTeamMember()],
   };
@@ -312,6 +314,7 @@ export default function Trips() {
   const [confirmingDeleteTripId, setConfirmingDeleteTripId] = useState("");
   const [editingTripId, setEditingTripId] = useState("");
   const [isLoadingTripForm, setIsLoadingTripForm] = useState(false);
+  const [useIndividualFundraisingAmounts, setUseIndividualFundraisingAmounts] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -450,6 +453,7 @@ export default function Trips() {
     setEditingTripId("");
     setIsLoadingTripForm(false);
     setIsCustomSiteInput(false);
+    setUseIndividualFundraisingAmounts(false);
     setTripDraft(createInitialTripDraft());
     setSubmitError("");
   }
@@ -503,6 +507,11 @@ export default function Trips() {
       setEditingTripId(trip.id);
       const teamMembers = await listTripTeamMembers(trip.id);
       setTripDraft(buildTripDraftFromTrip(trip, teamMembers));
+      setUseIndividualFundraisingAmounts(
+        (teamMembers || []).some(
+          (m) => m?.fundraisingGoalAmount != null && String(m.fundraisingGoalAmount).trim() !== ""
+        )
+      );
       setIsCustomSiteInput(Boolean(trip?.location) && !siteOptions.includes(String(trip.location || "").trim()));
     } catch (error) {
       console.error("Unable to load trip for editing", error);
@@ -689,93 +698,6 @@ export default function Trips() {
                 background: "rgba(255,255,255,.78)",
               }}
             >
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>Team Members</div>
-              <div className="small" style={{ marginBottom: 10 }}>
-                Add first name, last name, and email now. Per-person dates let shorter subteams stay under the same trip.
-              </div>
-              <div className="small" style={{ marginBottom: 10 }}>
-                This saves the roster. It does not create Supabase login accounts by itself.
-              </div>
-              <div style={{ display: "grid", gap: 10 }}>
-                {tripDraft.teamMembers.map((member, index) => (
-                  <div
-                    key={`team-member-${index}`}
-                    style={{
-                      border: "1px solid rgba(18, 16, 12, 0.08)",
-                      borderRadius: 14,
-                      padding: 12,
-                      background: "rgba(255,255,255,.72)",
-                    }}
-                  >
-                    <div style={{ display: "grid", gap: 10 }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-                        <input
-                          className="input"
-                          value={member.firstName}
-                          onChange={(event) => updateTeamMember(index, "firstName", event.target.value)}
-                          placeholder="First name"
-                        />
-                        <input
-                          className="input"
-                          value={member.lastName}
-                          onChange={(event) => updateTeamMember(index, "lastName", event.target.value)}
-                          placeholder="Last name"
-                        />
-                        <input
-                          className="input"
-                          type="email"
-                          value={member.email}
-                          onChange={(event) => updateTeamMember(index, "email", event.target.value)}
-                          placeholder="Email"
-                        />
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Leave Date</div>
-                          <input
-                            className="input"
-                            type="date"
-                            value={member.startDate}
-                            onChange={(event) => updateTeamMember(index, "startDate", event.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Return Date</div>
-                          <input
-                            className="input"
-                            type="date"
-                            value={member.endDate}
-                            onChange={(event) => updateTeamMember(index, "endDate", event.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div className="row">
-                        <div className="small" style={{ alignSelf: "center" }}>
-                          Leave member dates blank to use the main project dates.
-                        </div>
-                        <div className="spacer" />
-                        <button className="btn" type="button" onClick={() => removeTeamMemberRow(index)}>
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="row" style={{ marginTop: 10 }}>
-                <button className="btn" type="button" onClick={addTeamMemberRow}>
-                  Add Team Member
-                </button>
-              </div>
-            </div>
-            <div
-              style={{
-                border: "1px solid rgba(18, 16, 12, 0.08)",
-                borderRadius: 18,
-                padding: 16,
-                background: "rgba(255,255,255,.78)",
-              }}
-            >
               <div style={{ fontWeight: 900, marginBottom: 6 }}>Project Setup</div>
               <div className="small" style={{ marginBottom: 12 }}>
                 Dates, training timeline, and project settings that shape the rest of the workspace.
@@ -869,7 +791,116 @@ export default function Trips() {
                 background: "rgba(255,255,255,.78)",
               }}
             >
-              <div style={{ fontWeight: 900, marginBottom: 6 }}>Funding & Fees</div>
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Team Members</div>
+              <div className="small" style={{ marginBottom: 10 }}>
+                Add first name, last name, and email now. Per-person dates let shorter subteams stay under the same trip.
+              </div>
+              <div className="small" style={{ marginBottom: 10 }}>
+                This saves the roster. It does not create Supabase login accounts by itself.
+              </div>
+              <label className="row" style={{ alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={useIndividualFundraisingAmounts}
+                  onChange={(e) => setUseIndividualFundraisingAmounts(e.target.checked)}
+                />
+                <span className="small">Use individual fundraising amounts (different goal per person)</span>
+              </label>
+              <div style={{ display: "grid", gap: 10 }}>
+                {tripDraft.teamMembers.map((member, index) => (
+                  <div
+                    key={`team-member-${index}`}
+                    style={{
+                      border: "1px solid rgba(18, 16, 12, 0.08)",
+                      borderRadius: 14,
+                      padding: 12,
+                      background: "rgba(255,255,255,.72)",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: 10 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                        <input
+                          className="input"
+                          value={member.firstName}
+                          onChange={(event) => updateTeamMember(index, "firstName", event.target.value)}
+                          placeholder="First name"
+                        />
+                        <input
+                          className="input"
+                          value={member.lastName}
+                          onChange={(event) => updateTeamMember(index, "lastName", event.target.value)}
+                          placeholder="Last name"
+                        />
+                        <input
+                          className="input"
+                          type="email"
+                          value={member.email}
+                          onChange={(event) => updateTeamMember(index, "email", event.target.value)}
+                          placeholder="Email"
+                        />
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Leave Date</div>
+                          <input
+                            className="input"
+                            type="date"
+                            value={member.startDate}
+                            onChange={(event) => updateTeamMember(index, "startDate", event.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Return Date</div>
+                          <input
+                            className="input"
+                            type="date"
+                            value={member.endDate}
+                            onChange={(event) => updateTeamMember(index, "endDate", event.target.value)}
+                          />
+                        </div>
+                        {useIndividualFundraisingAmounts ? (
+                          <div>
+                            <div className="small" style={{ marginBottom: 6 }}>Fundraising goal</div>
+                            <input
+                              className="input"
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={member.fundraisingGoalAmount ?? ""}
+                              onChange={(event) => updateTeamMember(index, "fundraisingGoalAmount", event.target.value)}
+                              placeholder="Optional"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="row">
+                        <div className="small" style={{ alignSelf: "center" }}>
+                          Leave member dates blank to use the main project dates.
+                        </div>
+                        <div className="spacer" />
+                        <button className="btn" type="button" onClick={() => removeTeamMemberRow(index)}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="row" style={{ marginTop: 10 }}>
+                <button className="btn" type="button" onClick={addTeamMemberRow}>
+                  Add Team Member
+                </button>
+              </div>
+            </div>
+            <div
+              style={{
+                border: "1px solid rgba(18, 16, 12, 0.08)",
+                borderRadius: 18,
+                padding: 16,
+                background: "rgba(255,255,255,.78)",
+              }}
+            >
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Fundraising & Fees</div>
               <div className="small" style={{ marginBottom: 12 }}>
                 Optional fundraising targets and trip costs. Leave anything blank that does not apply.
               </div>
