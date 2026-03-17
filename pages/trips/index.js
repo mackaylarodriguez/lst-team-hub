@@ -580,17 +580,99 @@ export default function Trips() {
           {isLoadingTripForm ? (
             <div className="small">Loading trip details...</div>
           ) : (
-          <form onSubmit={handleSubmitTrip} style={{ display: "grid", gap: 12 }}>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
-              <input
-                className="input"
-                value={tripDraft.name}
-                onChange={(event) => updateTripDraft("name", event.target.value)}
-                placeholder="2026 Brazil Team"
-              />
+          <form onSubmit={handleSubmitTrip} style={{ display: "grid", gap: 16 }}>
+            <div
+              style={{
+                border: "1px solid rgba(18, 16, 12, 0.08)",
+                borderRadius: 18,
+                padding: 16,
+                background: "rgba(255,255,255,.78)",
+              }}
+            >
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Trip Basics</div>
+              <div className="small" style={{ marginBottom: 12 }}>
+                Start with the high-level team details everyone uses to recognize this trip.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
+                  <input
+                    className="input"
+                    value={tripDraft.name}
+                    onChange={(event) => updateTripDraft("name", event.target.value)}
+                    placeholder="2026 Brazil Team"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Site</div>
+                  <select
+                    className="input"
+                    value={selectedSiteValue}
+                    onChange={(event) => {
+                      if (event.target.value === CUSTOM_SITE_OPTION) {
+                        setIsCustomSiteInput(true);
+                        updateTripDraft(
+                          "location",
+                          siteOptions.includes(tripDraft.location) ? "" : tripDraft.location
+                        );
+                        return;
+                      }
+
+                      setIsCustomSiteInput(false);
+                      updateTripDraft("location", event.target.value);
+                    }}
+                  >
+                    <option value="">Select site</option>
+                    {siteOptions.map((site) => (
+                      <option key={site} value={site}>
+                        {site}
+                      </option>
+                    ))}
+                    <option value={CUSTOM_SITE_OPTION}>Other site</option>
+                  </select>
+                  {selectedSiteValue === CUSTOM_SITE_OPTION ? (
+                    <input
+                      className="input"
+                      style={{ marginTop: 10 }}
+                      value={tripDraft.location}
+                      onChange={(event) => updateTripDraft("location", event.target.value)}
+                      placeholder="Enter site"
+                    />
+                  ) : null}
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Host Name</div>
+                  <input
+                    className="input"
+                    value={tripDraft.host}
+                    onChange={(event) => updateTripDraft("host", event.target.value)}
+                    placeholder="Host name"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Site Type</div>
+                  <select
+                    className="input"
+                    value={tripDraft.siteType}
+                    onChange={(event) => updateTripDraft("siteType", event.target.value)}
+                  >
+                    <option value="">Select site type</option>
+                    <option value="partner">Partner</option>
+                    <option value="managed">Managed</option>
+                    <option value="seasonal">Seasonal</option>
+                  </select>
+                </div>
+              </div>
             </div>
-            <div>
+
+            <div
+              style={{
+                border: "1px solid rgba(18, 16, 12, 0.08)",
+                borderRadius: 18,
+                padding: 16,
+                background: "rgba(255,255,255,.78)",
+              }}
+            >
               <div style={{ fontWeight: 900, marginBottom: 6 }}>Team Members</div>
               <div className="small" style={{ marginBottom: 10 }}>
                 Add first name, last name, and email now. Per-person dates let shorter subteams stay under the same trip.
@@ -670,226 +752,197 @@ export default function Trips() {
                 </button>
               </div>
             </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Project Leave Date</div>
-              <input
-                className="input"
-                type="date"
-                value={tripDraft.startDate}
-                onChange={(event) => updateTripDraft("startDate", event.target.value)}
-              />
+            <div
+              style={{
+                border: "1px solid rgba(18, 16, 12, 0.08)",
+                borderRadius: 18,
+                padding: 16,
+                background: "rgba(255,255,255,.78)",
+              }}
+            >
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Project Setup</div>
+              <div className="small" style={{ marginBottom: 12 }}>
+                Dates, training timeline, and project settings that shape the rest of the workspace.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Project Leave Date</div>
+                  <input
+                    className="input"
+                    type="date"
+                    value={tripDraft.startDate}
+                    onChange={(event) => updateTripDraft("startDate", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Project Return Date</div>
+                  <input
+                    className="input"
+                    type="date"
+                    value={tripDraft.endDate}
+                    onChange={(event) => updateTripDraft("endDate", event.target.value)}
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Training Timeline</div>
+                  <select
+                    className="input"
+                    value={tripDraft.trainingTimelineType}
+                    onChange={(event) => updateTripDraft("trainingTimelineType", event.target.value)}
+                  >
+                    {TRAINING_TIMELINE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Type of Project</div>
+                  <select
+                    className="input"
+                    value={tripDraft.projectType}
+                    onChange={(event) => updateTripDraft("projectType", event.target.value)}
+                  >
+                    <option value="">Select project type</option>
+                    <option value="LST">LST</option>
+                    <option value="YF">YF</option>
+                    <option value="TP">TP</option>
+                  </select>
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div className="small" style={{ marginBottom: 6 }}>Length of Projects</div>
+                  <input
+                    className="input"
+                    value={tripDraft.projectLengthSummary}
+                    onChange={(event) => updateTripDraft("projectLengthSummary", event.target.value)}
+                    placeholder="6 weeks, with a 3-week subgroup"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Extra Travel</div>
+                  <select
+                    className="input"
+                    value={tripDraft.extraTravelStatus}
+                    onChange={(event) => updateTripDraft("extraTravelStatus", event.target.value)}
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                    <option value="maybe">Maybe</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Deferred Worker</div>
+                  <select
+                    className="input"
+                    value={tripDraft.hasDeferredWorker}
+                    onChange={(event) => updateTripDraft("hasDeferredWorker", event.target.value)}
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Project Return Date</div>
-              <input
-                className="input"
-                type="date"
-                value={tripDraft.endDate}
-                onChange={(event) => updateTripDraft("endDate", event.target.value)}
-              />
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Site</div>
-              <select
-                className="input"
-                value={selectedSiteValue}
-                onChange={(event) => {
-                  if (event.target.value === CUSTOM_SITE_OPTION) {
-                    setIsCustomSiteInput(true);
-                    updateTripDraft(
-                      "location",
-                      siteOptions.includes(tripDraft.location) ? "" : tripDraft.location
-                    );
-                    return;
-                  }
 
-                  setIsCustomSiteInput(false);
-                  updateTripDraft("location", event.target.value);
-                }}
-              >
-                <option value="">Select site</option>
-                {siteOptions.map((site) => (
-                  <option key={site} value={site}>
-                    {site}
-                  </option>
-                ))}
-                <option value={CUSTOM_SITE_OPTION}>Other site</option>
-              </select>
-              {selectedSiteValue === CUSTOM_SITE_OPTION ? (
-                <input
-                  className="input"
-                  style={{ marginTop: 10 }}
-                  value={tripDraft.location}
-                  onChange={(event) => updateTripDraft("location", event.target.value)}
-                  placeholder="Enter site"
-                />
-              ) : null}
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Host Name</div>
-              <input
-                className="input"
-                value={tripDraft.host}
-                onChange={(event) => updateTripDraft("host", event.target.value)}
-                placeholder="Host name"
-              />
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Site Type</div>
-              <select
-                className="input"
-                value={tripDraft.siteType}
-                onChange={(event) => updateTripDraft("siteType", event.target.value)}
-              >
-                <option value="">Select site type</option>
-                <option value="partner">Partner</option>
-                <option value="managed">Managed</option>
-                <option value="seasonal">Seasonal</option>
-              </select>
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Training Timeline</div>
-              <select
-                className="input"
-                value={tripDraft.trainingTimelineType}
-                onChange={(event) => updateTripDraft("trainingTimelineType", event.target.value)}
-              >
-                {TRAINING_TIMELINE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Length of Projects</div>
-              <input
-                className="input"
-                value={tripDraft.projectLengthSummary}
-                onChange={(event) => updateTripDraft("projectLengthSummary", event.target.value)}
-                placeholder="6 weeks, with a 3-week subgroup"
-              />
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Type of Project</div>
-              <select
-                className="input"
-                value={tripDraft.projectType}
-                onChange={(event) => updateTripDraft("projectType", event.target.value)}
-              >
-                <option value="">Select project type</option>
-                <option value="LST">LST</option>
-                <option value="YF">YF</option>
-                <option value="TP">TP</option>
-              </select>
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Extra Travel</div>
-              <select
-                className="input"
-                value={tripDraft.extraTravelStatus}
-                onChange={(event) => updateTripDraft("extraTravelStatus", event.target.value)}
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-                <option value="maybe">Maybe</option>
-              </select>
-            </div>
-            <div style={{ fontWeight: 900, marginTop: 4 }}>Funding & Fees</div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Fundraising Goal</div>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="1"
-                value={tripDraft.fundraisingGoalAmount}
-                onChange={(event) => updateTripDraft("fundraisingGoalAmount", event.target.value)}
-                placeholder="Leave blank if not needed"
-              />
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Fee</div>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="1"
-                value={tripDraft.tripFeeAmount}
-                onChange={(event) => updateTripDraft("tripFeeAmount", event.target.value)}
-                placeholder="600"
-              />
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Materials Fee</div>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="1"
-                value={tripDraft.materialsFeeAmount}
-                onChange={(event) => updateTripDraft("materialsFeeAmount", event.target.value)}
-                placeholder="250"
-              />
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Deferred Worker</div>
-              <select
-                className="input"
-                value={tripDraft.hasDeferredWorker}
-                onChange={(event) => updateTripDraft("hasDeferredWorker", event.target.value)}
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Hannover Housing Fee</div>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="1"
-                value={tripDraft.hannoverHousingFeeAmount}
-                onChange={(event) => updateTripDraft("hannoverHousingFeeAmount", event.target.value)}
-                placeholder="600"
-              />
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Domestic Project</div>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="1"
-                value={tripDraft.domesticProjectFeeAmount}
-                onChange={(event) => updateTripDraft("domesticProjectFeeAmount", event.target.value)}
-                placeholder="575"
-              />
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Domestic Fee</div>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="1"
-                value={tripDraft.domesticFeeAmount}
-                onChange={(event) => updateTripDraft("domesticFeeAmount", event.target.value)}
-                placeholder="300"
-              />
-            </div>
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Domestic Materials Fee</div>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="1"
-                value={tripDraft.domesticMaterialsFeeAmount}
-                onChange={(event) => updateTripDraft("domesticMaterialsFeeAmount", event.target.value)}
-                placeholder="225"
-              />
+            <div
+              style={{
+                border: "1px solid rgba(18, 16, 12, 0.08)",
+                borderRadius: 18,
+                padding: 16,
+                background: "rgba(255,255,255,.78)",
+              }}
+            >
+              <div style={{ fontWeight: 900, marginBottom: 6 }}>Funding & Fees</div>
+              <div className="small" style={{ marginBottom: 12 }}>
+                Optional fundraising targets and trip costs. Leave anything blank that does not apply.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Fundraising Goal</div>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={tripDraft.fundraisingGoalAmount}
+                    onChange={(event) => updateTripDraft("fundraisingGoalAmount", event.target.value)}
+                    placeholder="Leave blank if not needed"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Fee</div>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={tripDraft.tripFeeAmount}
+                    onChange={(event) => updateTripDraft("tripFeeAmount", event.target.value)}
+                    placeholder="600"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Materials Fee</div>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={tripDraft.materialsFeeAmount}
+                    onChange={(event) => updateTripDraft("materialsFeeAmount", event.target.value)}
+                    placeholder="250"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Hannover Housing Fee</div>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={tripDraft.hannoverHousingFeeAmount}
+                    onChange={(event) => updateTripDraft("hannoverHousingFeeAmount", event.target.value)}
+                    placeholder="600"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Domestic Project</div>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={tripDraft.domesticProjectFeeAmount}
+                    onChange={(event) => updateTripDraft("domesticProjectFeeAmount", event.target.value)}
+                    placeholder="575"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Domestic Fee</div>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={tripDraft.domesticFeeAmount}
+                    onChange={(event) => updateTripDraft("domesticFeeAmount", event.target.value)}
+                    placeholder="300"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Domestic Materials Fee</div>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={tripDraft.domesticMaterialsFeeAmount}
+                    onChange={(event) => updateTripDraft("domesticMaterialsFeeAmount", event.target.value)}
+                    placeholder="225"
+                  />
+                </div>
+              </div>
             </div>
             {submitError && (
               <div className="small" style={{ color: "var(--danger)" }}>
