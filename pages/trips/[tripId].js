@@ -2,6 +2,7 @@ import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
 import EmptyState from "@/components/EmptyState";
+import ConfirmModal from "@/components/ConfirmModal";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1714,12 +1715,15 @@ export default function TripPage() {
       const updated = await listTravelFormResponsesForTrip(trip.id);
       setTravelFormResponses(updated);
       setTravelFormStatus("Saved.");
+      showToast("Travel form saved.");
       const travelFormTask = (trip.tasks || []).find((t) => t.title === "Fill out Travel Form");
       if (travelFormTask && !(participantTaskStates[participant.email] || {})[travelFormTask.id]) {
         toggleTask(travelFormTask.id, participant.email);
       }
     } catch (error) {
-      setTravelFormStatus(error.message || "Unable to save.");
+      const errMsg = error.message || "Unable to save.";
+      setTravelFormStatus(errMsg);
+      showToast(errMsg, "error");
     }
   }
 
@@ -1883,11 +1887,14 @@ export default function TripPage() {
       setEditableStaffTasks(savedTasks);
       editableStaffTasksRef.current = savedTasks;
       setStaffTaskStatus("Saved.");
+      showToast("Staff tasks saved.");
       return savedTasks;
     } catch (error) {
       console.error("Unable to save staff tasks", error);
       if (latestStaffTaskSaveRef.current !== requestId) return;
-      setStaffTaskStatus("Could not save task changes.");
+      const errMsg = "Could not save task changes.";
+      setStaffTaskStatus(errMsg);
+      showToast(errMsg, "error");
       throw error;
     }
   }
@@ -2160,8 +2167,10 @@ export default function TripPage() {
         setStaffTaskStatus("");
       })
       .catch((error) => {
+        const errMsg = error.message || "Could not save task changes.";
         setStaffTaskRowFeedback(taskId, "error", "Could not save task changes.");
-        setStaffTaskStatus(error.message || "Could not save task changes.");
+        setStaffTaskStatus(errMsg);
+        showToast(errMsg, "error");
       });
   }
 
@@ -2253,7 +2262,9 @@ export default function TripPage() {
       setStaffTaskStatus("Staff task added.");
     } catch (error) {
       console.error("Unable to add staff task", error);
-      setStaffTaskStatus(error.message || "Unable to add staff task.");
+      const errMsg = error.message || "Unable to add staff task.";
+      setStaffTaskStatus(errMsg);
+      showToast(errMsg, "error");
     }
   }
 
@@ -2839,38 +2850,30 @@ function parseDateSafe(dateStr) {
       setTripSetupStatus("Saved.");
     } catch (error) {
       console.error("Unable to save trip details", error);
-      setTripSetupStatus(error.message || "Unable to save trip details.");
+      const errMsg = error.message || "Unable to save trip details.";
+      setTripSetupStatus(errMsg);
+      showToast(errMsg, "error");
     }
   }
 
-  async function handleDeleteTripFromSetup() {
+  function openDeleteTripConfirm() {
     if (!trip?.id || !canManageTrips) return;
+    setIsConfirmingTripDelete(true);
+  }
 
-    if (!isConfirmingTripDelete) {
-      setIsConfirmingTripDelete(true);
-      setTripSetupStatus("Click confirm delete to permanently remove this trip.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Delete ${trip.name || "this trip"}? This cannot be undone.`
-    );
-
-    if (!confirmed) {
-      setIsConfirmingTripDelete(false);
-      setTripSetupStatus("");
-      return;
-    }
-
+  async function handleConfirmDeleteTrip() {
+    if (!trip?.id || !canManageTrips) return;
     try {
       setTripSetupStatus("Deleting trip...");
       await deleteTrip(trip.id);
       setIsConfirmingTripDelete(false);
+      setTripSetupStatus("");
       await router.push("/trips");
     } catch (error) {
       console.error("Unable to delete trip", error);
-      setTripSetupStatus(error.message || "Unable to delete trip.");
-      setIsConfirmingTripDelete(false);
+      const msg = error.message || "Unable to delete trip.";
+      setTripSetupStatus(msg);
+      showToast(msg, "error");
     }
   }
 
@@ -3121,8 +3124,13 @@ function parseDateSafe(dateStr) {
           <div style={{ fontWeight: 900 }}>Trip Setup</div>
           <div className="spacer" />
           {tripSetupStatus ? (
-            <div className="small" style={{ alignSelf: "center" }}>
-              {tripSetupStatus}
+            <div className="row" style={{ alignSelf: "center", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span className="small" style={tripSetupStatus !== "Saving..." && tripSetupStatus !== "Saved." && tripSetupStatus !== "Deleting trip..." ? { color: "var(--danger)" } : {}}>{tripSetupStatus}</span>
+              {tripSetupStatus !== "Saving..." && tripSetupStatus !== "Saved." && tripSetupStatus !== "Deleting trip..." && isEditingTripSetup ? (
+                <button type="button" className="btn btnPrimary" onClick={() => handleSaveTripSetup()}>
+                  Try again
+                </button>
+              ) : null}
             </div>
           ) : null}
           {canViewAllParticipantData && !isEditingTripSetup ? (
@@ -3524,29 +3532,12 @@ function parseDateSafe(dateStr) {
             </div>
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
               <button
-                className="btn"
+                className="btn btnDanger"
                 type="button"
-                onClick={handleDeleteTripFromSetup}
-                style={{
-                  color: "#fff",
-                  background: isConfirmingTripDelete ? "#b91c1c" : "var(--danger)",
-                  borderColor: isConfirmingTripDelete ? "#b91c1c" : "var(--danger)",
-                }}
+                onClick={openDeleteTripConfirm}
               >
-                {isConfirmingTripDelete ? "Confirm Delete Trip" : "Delete Trip"}
+                Delete Trip
               </button>
-              {isConfirmingTripDelete ? (
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => {
-                    setIsConfirmingTripDelete(false);
-                    setTripSetupStatus("");
-                  }}
-                >
-                  Cancel Delete
-                </button>
-              ) : null}
             </div>
           </div>
         ) : null}
@@ -4252,6 +4243,19 @@ function parseDateSafe(dateStr) {
 
   return (
     <Shell>
+      <ConfirmModal
+        open={isConfirmingTripDelete}
+        title="Delete trip?"
+        message={trip?.name ? `"${trip.name}" will be permanently removed. This cannot be undone.` : "This trip will be permanently removed. This cannot be undone."}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => handleConfirmDeleteTrip()}
+        onCancel={() => {
+          setIsConfirmingTripDelete(false);
+          setTripSetupStatus("");
+        }}
+      />
       <div className="tripDetailPage">
         <nav className="breadcrumb" aria-label="Breadcrumb" style={{ marginBottom: 12 }}>
           <Link href="/trips">Trips</Link>
@@ -4272,16 +4276,11 @@ function parseDateSafe(dateStr) {
               <div className="row tripPageHeaderActions" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {canManageTrips ? (
                   <button
-                    className="btn"
+                    className="btn btnDanger"
                     type="button"
-                    onClick={handleDeleteTripFromSetup}
-                    style={{
-                      color: "#fff",
-                      background: isConfirmingTripDelete ? "#b91c1c" : "var(--danger)",
-                      borderColor: isConfirmingTripDelete ? "#b91c1c" : "var(--danger)",
-                    }}
+                    onClick={openDeleteTripConfirm}
                   >
-                    {isConfirmingTripDelete ? "Confirm Delete Trip" : "Delete Trip"}
+                    Delete Trip
                   </button>
                 ) : null}
                 <select
@@ -7291,7 +7290,9 @@ function parseDateSafe(dateStr) {
                   try {
                     const res = await fetch(TRAVEL_FORM_TEMPLATE_PATH);
                     if (!res.ok) {
-                      setSubmitError("Travel agency template not found. Add travel-form-export.xlsx to public/templates/.");
+                      const msg = "Travel agency template not found. Add travel-form-export.xlsx to public/templates/.";
+                      setSubmitError(msg);
+                      showToast(msg, "error");
                       return;
                     }
                     const ab = await res.arrayBuffer();
@@ -7301,7 +7302,9 @@ function parseDateSafe(dateStr) {
                       trip,
                     });
                     if (error) {
-                      setSubmitError(error);
+                      const msg = String(error);
+                      setSubmitError(msg);
+                      showToast(msg, "error");
                       return;
                     }
                     const url = URL.createObjectURL(blob);
@@ -7319,7 +7322,9 @@ function parseDateSafe(dateStr) {
                     URL.revokeObjectURL(url);
                     showToast(`Exported ${safeTripName}-travel-agency-${dateStr}.xlsx`);
                   } catch (e) {
-                    setSubmitError(e?.message || "Export failed.");
+                    const msg = e?.message || "Export failed.";
+                    setSubmitError(msg);
+                    showToast(msg, "error");
                   }
                 }}
               >
@@ -7509,8 +7514,13 @@ function parseDateSafe(dateStr) {
                 </div>
 
                 {staffTaskStatus ? (
-                  <div className="small" style={{ marginBottom: 12 }}>
-                    {staffTaskStatus}
+                  <div className="row" style={{ marginBottom: 12, alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span className="small" style={staffTaskStatus !== "Saving..." && staffTaskStatus !== "Saved." && staffTaskStatus !== "Staff task added." && staffTaskStatus !== "Task name is required." ? { color: "var(--danger)" } : {}}>{staffTaskStatus}</span>
+                    {staffTaskStatus !== "Saving..." && staffTaskStatus !== "Saved." && staffTaskStatus !== "Staff task added." && staffTaskStatus !== "Task name is required." ? (
+                      <button type="button" className="btn btnPrimary" onClick={() => saveStaffTasks(editableStaffTasksRef.current || [])}>
+                        Try again
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -7868,7 +7878,16 @@ function parseDateSafe(dateStr) {
             <div className="small" style={{ marginBottom: 14 }}>
               Complete all fields. LST uses this for ticketing and travel logistics.
             </div>
-            {travelFormStatus ? <div className="small" style={{ marginBottom: 10 }}>{travelFormStatus}</div> : null}
+            {travelFormStatus ? (
+              <div className="row" style={{ marginBottom: 10, alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span className="small" style={travelFormStatus !== "Saving..." && travelFormStatus !== "Saved." ? { color: "var(--danger)" } : {}}>{travelFormStatus}</span>
+                {travelFormStatus !== "Saving..." && travelFormStatus !== "Saved." ? (
+                  <button type="button" className="btn btnPrimary" onClick={() => handleSaveTravelForm()}>
+                    Try again
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <div style={{ display: "grid", gap: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
                 <div><div className="small" style={{ marginBottom: 4 }}>Team Name</div>{canViewAllParticipantData ? <input className="input" value={travelFormDraft.teamName} onChange={(e) => setTravelFormDraft((d) => ({ ...d, teamName: e.target.value }))} placeholder="2026 Brazil Team" /> : <input className="input" readOnly disabled value={travelFormDraft.teamName} style={{ opacity: 0.9, cursor: "not-allowed" }} />}</div>

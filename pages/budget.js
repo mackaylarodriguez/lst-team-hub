@@ -108,7 +108,11 @@ export default function BudgetPage() {
         setTicketRows(ticketsRes);
         if (tripsRes?.length > 0 && !newTicketTripId) setNewTicketTripId(tripsRes[0].id);
       } catch (e) {
-        if (!cancelled) setStatus(e.message || "Error loading budget data.");
+        if (!cancelled) {
+          const msg = e.message || "Error loading budget data.";
+          setStatus(msg);
+          showToast(msg, "error");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -150,7 +154,9 @@ export default function BudgetPage() {
       setIsEditingHousing(false);
       setStatus("Saved.");
     } catch (e) {
-      setStatus(e.message || "Error saving.");
+      const msg = e.message || "Error saving.";
+      setStatus(msg);
+      showToast(msg, "error");
     }
   }
 
@@ -166,7 +172,9 @@ export default function BudgetPage() {
       await saveTripTicket(updated);
       setStatus("Saved.");
     } catch (e) {
-      setStatus(e.message || "Error saving.");
+      const msg = e.message || "Error saving.";
+      setStatus(msg);
+      showToast(msg, "error");
     }
   }
 
@@ -206,7 +214,9 @@ export default function BudgetPage() {
       setTicketRows((prev) => [...prev, { ...saved, tripName: trip?.name || "" }]);
       setStatus("Ticket added.");
     } catch (e) {
-      setStatus(e.message || "Unable to add.");
+      const msg = e.message || "Unable to add.";
+      setStatus(msg);
+      showToast(msg, "error");
     }
   }
 
@@ -441,7 +451,9 @@ export default function BudgetPage() {
                               setStatus("Site note saved.");
                               setEditingSiteNoteId("");
                             } catch (e) {
-                              setStatus(e.message || "Unable to save site note.");
+                              const msg = e.message || "Unable to save site note.";
+                              setStatus(msg);
+                              showToast(msg, "error");
                             }
                           }}
                         >

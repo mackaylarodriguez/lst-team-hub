@@ -3,6 +3,7 @@ import AppIcon from "@/components/AppIcon";
 import EmptyState from "@/components/EmptyState";
 import Spinner from "@/components/Spinner";
 import ConfirmModal from "@/components/ConfirmModal";
+import { showToast } from "@/components/Toast";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
@@ -260,7 +261,9 @@ function renderTripCard({
                 updateLocalTripStatus(trip.id, "archived");
                 setSubmitError("");
               } catch (error) {
-                setSubmitError(error.message || "Unable to archive trip.");
+                const msg = error.message || "Unable to archive trip.";
+                setSubmitError(msg);
+                showToast(msg, "error");
               }
             }}
           >
@@ -277,7 +280,9 @@ function renderTripCard({
                 updateLocalTripStatus(trip.id, "active");
                 setSubmitError("");
               } catch (error) {
-                setSubmitError(error.message || "Unable to unarchive trip.");
+                const msg = error.message || "Unable to unarchive trip.";
+                setSubmitError(msg);
+                showToast(msg, "error");
               }
             }}
           >
@@ -504,7 +509,9 @@ export default function Trips() {
       handleCancelTripForm();
       router.push(`/trips/${trip.id}`);
     } catch (error) {
-      setSubmitError(error.message || (editingTripId ? "Unable to update trip." : "Unable to create trip."));
+      const msg = error.message || (editingTripId ? "Unable to update trip." : "Unable to create trip.");
+      setSubmitError(msg);
+      showToast(msg, "error");
     }
   }
 
@@ -544,7 +551,9 @@ export default function Trips() {
       setTrips((current) => current.filter((trip) => String(trip.id) !== String(tripId)));
       setSubmitError("");
     } catch (error) {
-      setSubmitError(error.message || "Unable to delete trip.");
+      const msg = error.message || "Unable to delete trip.";
+      setSubmitError(msg);
+      showToast(msg, "error");
       setConfirmingDeleteTripId("");
     }
   }
@@ -1023,8 +1032,11 @@ export default function Trips() {
               </div>
             </div>
             {submitError && (
-              <div className="small" style={{ color: "var(--danger)" }}>
-                {submitError}
+              <div className="row" style={{ alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                <span className="small" style={{ color: "var(--danger)" }}>{submitError}</span>
+                <button type="button" className="btn btnPrimary" onClick={() => handleSubmitTrip({ preventDefault: () => {} })}>
+                  Try again
+                </button>
               </div>
             )}
             <div className="row">
