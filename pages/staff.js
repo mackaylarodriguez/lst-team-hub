@@ -332,11 +332,10 @@ export default function StaffAssignments() {
 
   return (
     <Shell>
-      <div className="pageEyebrow">
+      <h1 className="h1" style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <AppIcon name="workers" className="pageEyebrowIcon" />
-        Worker Hub
-      </div>
-      <h1 className="h1">Workers</h1>
+        <span>Workers</span>
+      </h1>
       <p className="p">
         Review worker progress across trips, then manage assignments underneath.
       </p>

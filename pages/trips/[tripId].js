@@ -4001,11 +4001,10 @@ function parseDateSafe(dateStr) {
         <div className="tripDetailHero card pad">
           <div className="row tripPageHeader tripDetailHeroTop">
             <div className="tripPageHeaderTitle">
-              <div className="pageEyebrow">
+              <h1 className="h1" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 10 }}>
                 <AppIcon name="spark" className="pageEyebrowIcon" />
-                Trip Workspace
-              </div>
-              <h1 className="h1" style={{ marginBottom: 4 }}>{trip.name}</h1>
+                <span>{trip.name}</span>
+              </h1>
               <div className="small">{trip.location} • {trip.dates}</div>
             </div>
             <div className="spacer" />

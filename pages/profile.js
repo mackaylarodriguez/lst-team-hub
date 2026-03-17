@@ -1,4 +1,5 @@
 import Shell from "@/components/Shell";
+import AppIcon from "@/components/AppIcon";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
@@ -312,7 +313,10 @@ export default function Profile() {
 
   return (
     <Shell>
-      <h1 className="h1">{canManageProfiles && participantId ? "Participant Profile" : "Profile"}</h1>
+      <h1 className="h1" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <AppIcon name="profile" className="pageEyebrowIcon" />
+        <span>{canManageProfiles && participantId ? "Participant Profile" : "Profile"}</span>
+      </h1>
       <p className="p">
         Documents uploaded on trips stay attached to this participant profile so staff can review them later.
       </p>

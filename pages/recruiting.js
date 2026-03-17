@@ -2704,11 +2704,10 @@ export default function RecruitingPage() {
     <Shell>
       <div className="recruitingHeaderStack" style={{ display: "grid", gap: 12, marginBottom: 14 }}>
         <div>
-          <div className="pageEyebrow">
+          <h1 className="h1" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 10 }}>
             <AppIcon name="recruiting" className="pageEyebrowIcon" />
-            Recruiting Pipeline
-          </div>
-          <h1 className="h1" style={{ marginBottom: 4 }}>Recruiting</h1>
+            <span>Recruiting</span>
+          </h1>
           <div className="small">Yearly recruiting cycles, import, queue management, and contact history.</div>
         </div>
         <div className="recruitingToolbar">

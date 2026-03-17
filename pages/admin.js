@@ -1,4 +1,5 @@
 import Shell from "@/components/Shell";
+import AppIcon from "@/components/AppIcon";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
@@ -520,7 +521,10 @@ export default function Admin() {
 
   return (
     <Shell>
-      <h1 className="h1">My Tasks</h1>
+      <h1 className="h1" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <AppIcon name="tasks" className="pageEyebrowIcon" />
+        <span>My Tasks</span>
+      </h1>
       <p className="p">
         Track your assigned tasks across every trip.
       </p>

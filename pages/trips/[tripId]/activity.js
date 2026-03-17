@@ -75,7 +75,10 @@ export default function TripActivityPage() {
     <Shell>
       <div className="row" style={{ marginBottom: 12 }}>
         <div>
-          <h1 className="h1" style={{ marginBottom: 4 }}>Recent Activity</h1>
+          <h1 className="h1" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 10 }}>
+            <AppIcon name="active" className="pageEyebrowIcon" />
+            <span>Recent Activity</span>
+          </h1>
           <div className="small">{trip?.name || "Trip activity history"}</div>
         </div>
         <div className="spacer" />
