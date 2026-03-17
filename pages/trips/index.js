@@ -956,7 +956,7 @@ export default function Trips() {
               <button className="btn" type="button" onClick={handleCancelTripForm}>
                 Cancel
               </button>
-              {editingTripId && isAdminUser ? (
+              {editingTripId && canManageTrips ? (
                 <button
                   className="btn"
                   type="button"

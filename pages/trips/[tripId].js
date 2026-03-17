@@ -2662,7 +2662,7 @@ function parseDateSafe(dateStr) {
   }
 
   async function handleDeleteTripFromSetup() {
-    if (!trip?.id || !isAdminUser) return;
+    if (!trip?.id || !canManageTrips) return;
 
     if (!isConfirmingTripDelete) {
       setIsConfirmingTripDelete(true);
@@ -3327,7 +3327,7 @@ function parseDateSafe(dateStr) {
             </div>
           ) : null}
         </div>
-        {isEditingTripSetup && isAdminUser ? (
+        {isEditingTripSetup && canManageTrips ? (
           <div
             style={{
               marginTop: 18,
@@ -4010,7 +4010,7 @@ function parseDateSafe(dateStr) {
             <div className="spacer" />
             {canManageTrips && (
               <div className="row tripPageHeaderActions" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                {isAdminUser ? (
+                {canManageTrips ? (
                   <button
                     className="btn"
                     type="button"
