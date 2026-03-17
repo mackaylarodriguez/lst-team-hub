@@ -388,7 +388,6 @@ function shouldShowLastContactToggle(record, contactActivity) {
 }
 
 function getRecruitingStageBadgeClass(record) {
-  if (isReadyForBoss(record)) return "badgeInfo";
   if (record?.stage === 3) return "badgeSuccess";
   if (record?.stage === 2) return "badgeWarn";
   if (record?.stage === 1) return "badgeInfo";
@@ -701,9 +700,6 @@ function getAttentionMeta(record) {
   }
   if (isStaleRecord(record)) {
     return { label: "Stale", badgeClass: "badgeWarn", rowAccent: "rgba(249,157,42,.18)" };
-  }
-  if (isReadyForBoss(record)) {
-    return { label: "Ready for Boss", badgeClass: "badgeInfo", rowAccent: "rgba(47,73,147,.12)" };
   }
   return null;
 }

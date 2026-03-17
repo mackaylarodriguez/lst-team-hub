@@ -567,17 +567,33 @@ export default function Trips() {
       </div>
 
       {canManageTrips && showTripForm && (
-        <div className="card pad" style={{ marginBottom: 24 }}>
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>
-            {editingTripId ? "Edit Trip" : "Create Trip"}
-          </div>
-          <div className="small" style={{ marginBottom: 16 }}>
-            {editingTripId
-              ? "Update trip details, roster, and delete the trip from this form."
-              : "Create a team, save the roster, and assign the trip to your account."}
-          </div>
+        <div
+          className="appModalOverlay"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 50,
+          }}
+        >
+          <div className="card pad appModalCard" style={{ width: "min(980px, 100%)", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 900 }}>{editingTripId ? "Edit Trip" : "Create Trip"}</div>
+              <div className="spacer" />
+              <button className="btn" type="button" onClick={handleCancelTripForm}>
+                Close
+              </button>
+            </div>
+            <div className="small" style={{ marginBottom: 16 }}>
+              {editingTripId
+                ? "Update trip details, roster, and delete the trip from this form."
+                : "Create a team, save the roster, and assign the trip to your account."}
+            </div>
 
-          {isLoadingTripForm ? (
+            {isLoadingTripForm ? (
             <div className="small">Loading trip details...</div>
           ) : (
           <form onSubmit={handleSubmitTrip} style={{ display: "grid", gap: 16 }}>
@@ -981,6 +997,7 @@ export default function Trips() {
             </div>
           </form>
           )}
+          </div>
         </div>
       )}
 
