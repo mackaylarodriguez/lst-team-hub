@@ -7092,33 +7092,35 @@ function parseDateSafe(dateStr) {
                   if (!trip) return;
                   const header = [
                     "Team Name",
-                    "First Name (passport)",
-                    "Middle Name (passport)",
-                    "Last Name (passport)",
+                    "First Name (as it appears on your passport)",
+                    "Middle Name (as it appears on your passport)",
+                    "Last Name (as it appears on your passport)",
                     "Suffix",
-                    "Email",
-                    "Birthdate (M/D/Y)",
+                    "Your Email Address",
+                    "Birthdate-Month",
+                    "Birthdate-Day",
+                    "Birthdate-Year",
                     "Gender",
                     "Citizenship",
                     "Passport Number",
-                    "Passport Expiration",
+                    "Passport Expiration Date (month/day/year)",
                     "Issuing Country",
-                    "Special Travel Preferences",
-                    "Frequent Flyer / Pre-check",
-                    "Site (city & country)",
-                    "Gateway City",
-                    "Departure Date",
-                    "Return Date",
+                    "Special travel preferences\nPreferences may include leaving for your project early to do personal travel, staying after your project to do personal travel, flying a specific airline, needing extra time during layovers, using miles to purchase a ticket, asking LST to purchase tickets which you will then upgrade, flying home to a different city than you left from, etc..  If your preference increases the cost of the Base Ticket LST will ask you to pay the difference at the time of ticketing.\n\nRESPOND with details or \"\"NONE\"\"",
+                    "Frequent Flyer numbers or Known Pre-check number",
+                    "Site of LST Project (city AND country)",
+                    "GATEWAY CITY-Subject to LST approval, I want to leave from the following Gateway City as our project departure point (typically this is the city nearest to you with an international airport):",
+                    "Official Project Dates: DEPARTURE DATE-Please enter the date your team will depart for your project (as approved by LST).  If you plan on traveling to your site early, you may indicate that in the \"Special Travel Preferences\" field. The date you enter here, however, should be the official departure date for the project were you not doing any extra travel.",
+                    "Official Project Dates: RETURN DATE-Please enter the date you must arrive back home (as approved by LST).  If you plan on doing personal travel after your project, you may indicate that in the \"Special Travel Preferences\" field.  The date you enter here, however, should be the official return date for the project were you not doing any extra travel.",
                     "T-shirt Size",
                     "Emergency Contact Name",
                     "Emergency Contact Email",
                     "Emergency Contact Phone",
-                    "Minor?",
-                    "Passport 6mo valid?",
-                    "Base Ticket Ack",
-                    "Team Travel Ack",
-                    "EndMeeting Ack",
-                    "Travel Insurance Ack",
+                    "Are you a minor (under 18 yrs old)?\n\nRESPOND \"\"YES\"\" or \"\"NO\"\"",
+                    "Passport good for at least six months AFTER your LST trip ends?\n\nRESPOND \"\"YES\"\" or \"\"NO\"\"",
+                    "Base Ticket -I understand that LST will book my travel from a Gateway City to my site, and back to that same Gateway City.  I understand I will need to get to the Gateway City at my own expense.\n\n(RESPOND \"\"YES\"\")",
+                    "Team Travel-I understand that my entire team must arrive at our site on the same day, at the same airport, and at approximately the same time.\n\n(RESPOND \"\"YES\"\")",
+                    "EndMeeting-I understand that all LST teams participate in a period of debriefing as their project ends and that this EndMeeting for church teams normally takes place within a week of my arrival back home.\n\n(RESPOND \"\"YES\"\")",
+                    "Travel Insurance-I understand LST will purchase a basic international travel insurance plan and that you can upgrade by calling the company directly after receiving your card from LST. (www.faithventures.com/compare-plans)\n\n(RESPOND \"\"YES\"\")",
                   ];
 
                   const rows = (trip?.participants || []).map((p) => {
@@ -7127,10 +7129,6 @@ function parseDateSafe(dateStr) {
                         (f) => String(f.userId) === String(p.id)
                       ) || null;
 
-                    const birthdate = [form?.birthdateMonth, form?.birthdateDay, form?.birthdateYear]
-                      .filter(Boolean)
-                      .join("/");
-
                     return [
                       form?.teamName || trip?.name || "",
                       form?.firstNamePassport || "",
@@ -7138,7 +7136,9 @@ function parseDateSafe(dateStr) {
                       form?.lastNamePassport || "",
                       form?.suffix || "",
                       form?.email || p?.email || "",
-                      birthdate || "",
+                      form?.birthdateMonth || "",
+                      form?.birthdateDay || "",
+                      form?.birthdateYear || "",
                       form?.gender || "",
                       form?.citizenship || "",
                       form?.passportNumber || "",
