@@ -4005,6 +4005,20 @@ function parseDateSafe(dateStr) {
             <div className="spacer" />
             {canManageTrips && (
               <div className="row tripPageHeaderActions" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                {isAdminUser ? (
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={handleDeleteTripFromSetup}
+                    style={{
+                      color: "#fff",
+                      background: isConfirmingTripDelete ? "#b91c1c" : "var(--danger)",
+                      borderColor: isConfirmingTripDelete ? "#b91c1c" : "var(--danger)",
+                    }}
+                  >
+                    {isConfirmingTripDelete ? "Confirm Delete Trip" : "Delete Trip"}
+                  </button>
+                ) : null}
                 <select
                   className="input tripPagePreviewSelect"
                   value={previewParticipantId}
