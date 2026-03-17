@@ -43,6 +43,7 @@ import {
   isTaskAssignedToUser,
   saveStaffTasks as persistStaffTasks,
   sortStaffTasksByTemplate,
+  computeStaffTaskDueDate,
   STAFF_TASKS_UPDATED_EVENT,
 } from "@/lib/staffTasks";
 import {
@@ -1802,7 +1803,12 @@ export default function TripPage() {
   }
 
   async function saveStaffTasks(nextTasks) {
-    const orderedTasks = sortStaffTasksByTemplate(nextTasks);
+    const orderedTasks = sortStaffTasksByTemplate(
+      nextTasks.map((task) => ({
+        ...task,
+        dueDate: task.dueDate || computeStaffTaskDueDate(task, trip),
+      }))
+    );
     setEditableStaffTasks(orderedTasks);
     editableStaffTasksRef.current = orderedTasks;
     if (!trip) return;
@@ -7008,6 +7014,67 @@ function parseDateSafe(dateStr) {
                     }}
                   >
                     {isAddingStaffTask ? "Close" : "Add Task"}
+                  </button>
+
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => {
+                      if (!trip) return;
+                      const header = [
+                        "Trip Name",
+                        "Trip Location",
+                        "Trip Dates",
+                        "Work Area",
+                        "Sequence",
+                        "Task Name",
+                        "Assigned To",
+                        "Progress",
+                        "Due Date",
+                        "Notes",
+                      ];
+                      const rows = (editableStaffTasksRef.current || []).map((task) => [
+                        trip.name || "",
+                        trip.location || "",
+                        trip.dates || "",
+                        task.workArea || "",
+                        task.sequence ?? "",
+                        task.taskName || task.title || "",
+                        task.assignedTo || "",
+                        task.progress || "",
+                        task.dueDate || "",
+                        (task.notes || "").replace(/\r?\n/g, " "),
+                      ]);
+                      const csvContent = [header, ...rows]
+                        .map((cols) =>
+                          cols
+                            .map((val) => {
+                              const s = String(val ?? "");
+                              if (/[",\n]/.test(s)) {
+                                return `"${s.replace(/"/g, '""')}"`;
+                              }
+                              return s;
+                            })
+                            .join(",")
+                        )
+                        .join("\n");
+
+                      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      const safeTripName = String(trip.name || "trip")
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/^-+|-+$/g, "");
+                      link.download = `${safeTripName || "trip"}-staff-tasks.csv`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    Export Tasks
                   </button>
 
                   <span className="badge">{completionPct}% complete</span>
