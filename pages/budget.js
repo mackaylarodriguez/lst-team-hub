@@ -515,10 +515,9 @@ export default function BudgetPage() {
                   <th>Team Accountant</th>
                   <th>Budget Amount</th>
                   <th>Returned Amount</th>
-                  <th>Note – Housing Amount</th>
+                  <th>Housing Amount</th>
                   <th>Notes</th>
                   <th># of workers</th>
-                  <th>T-shirts</th>
                   <th>Workbooks</th>
                 </tr>
               </thead>
@@ -537,7 +536,6 @@ export default function BudgetPage() {
                         <td><input className="input" style={{ minWidth: 90 }} value={r.housingAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "housingAmount", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 120 }} value={r.notes || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "notes", e.target.value)} /></td>
                         <td><input className="input" type="number" style={{ width: 60 }} value={r.numWorkers ?? ""} onChange={(e) => updateHousingDraftRow(r.tripId, "numWorkers", e.target.value === "" ? null : parseInt(e.target.value, 10) || null)} /></td>
-                        <td><input className="input" style={{ minWidth: 70 }} value={r.tshirts || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "tshirts", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 70 }} value={r.workbooks || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "workbooks", e.target.value)} /></td>
                       </>
                     ) : (
@@ -552,7 +550,6 @@ export default function BudgetPage() {
                         <td>{r.housingAmount || ""}</td>
                         <td>{r.notes || ""}</td>
                         <td>{r.numWorkers != null ? r.numWorkers : ""}</td>
-                        <td>{r.tshirts || ""}</td>
                         <td>{r.workbooks || ""}</td>
                       </>
                     )}
