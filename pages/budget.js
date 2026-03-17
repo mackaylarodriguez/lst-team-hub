@@ -331,7 +331,6 @@ export default function BudgetPage() {
               const isEditing = editingSiteNoteId === note.id;
               const workbook = note.workbookNotes || "";
               const isBuenosAires = note.siteName.toLowerCase().includes("buenos aires");
-              const showWorkbook = !!workbook && isBuenosAires;
 
               return (
                 <div
@@ -376,7 +375,8 @@ export default function BudgetPage() {
                         }
                         placeholder="Site notes"
                       />
-                      {showWorkbook && (
+                      <div>
+                        <div className="small" style={{ marginBottom: 4, fontWeight: 600 }}>Workbook notes</div>
                         <textarea
                           className="input"
                           rows={2}
@@ -387,9 +387,9 @@ export default function BudgetPage() {
                               workbookNotes: e.target.value,
                             }))
                           }
-                          placeholder="Workbook notes"
+                          placeholder="Workbook notes for this site"
                         />
-                      )}
+                      </div>
                       <div className="row" style={{ gap: 8 }}>
                         <button
                           type="button"
@@ -432,14 +432,12 @@ export default function BudgetPage() {
                       <div className="small" style={{ whiteSpace: "pre-wrap" }}>
                         {note.notes || "No notes yet."}
                       </div>
-                      {showWorkbook && (
-                        <div
-                          className="small"
-                          style={{ marginTop: 8, paddingTop: 6, borderTop: "1px solid var(--border)" }}
-                        >
-                          <strong>Workbook notes:</strong> {workbook}
-                        </div>
-                      )}
+                      <div
+                        className="small"
+                        style={{ marginTop: 8, paddingTop: 6, borderTop: "1px solid var(--border)" }}
+                      >
+                        <strong>Workbook notes:</strong> {workbook || "No workbook notes yet."}
+                      </div>
                       <div className="row" style={{ marginTop: 10 }}>
                         <button
                           type="button"
@@ -465,8 +463,19 @@ export default function BudgetPage() {
         </div>
         )}
 
+        {tab === "Housing" && (
         <div className="card pad" style={{ marginBottom: 24 }}>
-          <div style={{ fontWeight: 900, marginBottom: 8 }}>Housing budget (all trips)</div>
+          <div className="row" style={{ marginBottom: 8, alignItems: "center" }}>
+            <div style={{ fontWeight: 900 }}>Housing budget (all trips)</div>
+            <div className="spacer" />
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setIsEditingHousing((current) => !current)}
+            >
+              {isEditingHousing ? "Done" : "Edit"}
+            </button>
+          </div>
           <div style={{ overflowX: "auto" }}>
             <table className="table" style={{ minWidth: 1400, fontSize: 12 }}>
               <thead>
@@ -489,19 +498,19 @@ export default function BudgetPage() {
               <tbody>
                 {housingRows.map((r) => (
                   <tr key={r.id || r.tripId}>
-                    <td><input className="input" style={{ minWidth: 120 }} value={r.teamName || ""} onChange={(e) => updateHousingRow(r.tripId, "teamName", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "teamName", e.target.value)} /></td>
-                    <td><input className="input" type="date" value={r.projectStartDate || ""} onChange={(e) => updateHousingRow(r.tripId, "projectStartDate", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "projectStartDate", e.target.value)} /></td>
-                    <td><input className="input" type="date" value={r.projectEndDate || ""} onChange={(e) => updateHousingRow(r.tripId, "projectEndDate", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "projectEndDate", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 100 }} value={r.siteCountry || ""} onChange={(e) => updateHousingRow(r.tripId, "siteCountry", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "siteCountry", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={r.siteCity || ""} onChange={(e) => updateHousingRow(r.tripId, "siteCity", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "siteCity", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 100 }} value={r.teamAccountant || ""} onChange={(e) => updateHousingRow(r.tripId, "teamAccountant", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "teamAccountant", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={r.budgetAmount || ""} onChange={(e) => updateHousingRow(r.tripId, "budgetAmount", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "budgetAmount", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={r.returnedAmount || ""} onChange={(e) => updateHousingRow(r.tripId, "returnedAmount", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "returnedAmount", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={r.housingAmount || ""} onChange={(e) => updateHousingRow(r.tripId, "housingAmount", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "housingAmount", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 120 }} value={r.notes || ""} onChange={(e) => updateHousingRow(r.tripId, "notes", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "notes", e.target.value)} /></td>
-                    <td><input className="input" type="number" style={{ width: 60 }} value={r.numWorkers ?? ""} onChange={(e) => updateHousingRow(r.tripId, "numWorkers", e.target.value === "" ? null : parseInt(e.target.value, 10) || null)} onBlur={(e) => updateHousingRow(r.tripId, "numWorkers", e.target.value === "" ? null : parseInt(e.target.value, 10) || null)} /></td>
-                    <td><input className="input" style={{ minWidth: 70 }} value={r.tshirts || ""} onChange={(e) => updateHousingRow(r.tripId, "tshirts", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "tshirts", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 70 }} value={r.workbooks || ""} onChange={(e) => updateHousingRow(r.tripId, "workbooks", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "workbooks", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 120 }} value={r.teamName || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "teamName", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "teamName", e.target.value)} /></td>
+                    <td><input className="input" type="date" value={r.projectStartDate || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "projectStartDate", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "projectStartDate", e.target.value)} /></td>
+                    <td><input className="input" type="date" value={r.projectEndDate || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "projectEndDate", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "projectEndDate", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 100 }} value={r.siteCountry || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "siteCountry", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "siteCountry", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={r.siteCity || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "siteCity", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "siteCity", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 100 }} value={r.teamAccountant || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "teamAccountant", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "teamAccountant", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={r.budgetAmount || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "budgetAmount", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "budgetAmount", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={r.returnedAmount || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "returnedAmount", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "returnedAmount", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={r.housingAmount || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "housingAmount", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "housingAmount", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 120 }} value={r.notes || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "notes", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "notes", e.target.value)} /></td>
+                    <td><input className="input" type="number" style={{ width: 60 }} value={r.numWorkers ?? ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "numWorkers", e.target.value === "" ? null : parseInt(e.target.value, 10) || null)} onBlur={(e) => updateHousingRow(r.tripId, "numWorkers", e.target.value === "" ? null : parseInt(e.target.value, 10) || null)} /></td>
+                    <td><input className="input" style={{ minWidth: 70 }} value={r.tshirts || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "tshirts", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "tshirts", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 70 }} value={r.workbooks || ""} disabled={!isEditingHousing} onChange={(e) => updateHousingRow(r.tripId, "workbooks", e.target.value)} onBlur={(e) => updateHousingRow(r.tripId, "workbooks", e.target.value)} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -509,9 +518,11 @@ export default function BudgetPage() {
           </div>
           {housingRows.length === 0 && <div className="small">No housing budget rows yet. Add from a trip&apos;s Housing Budget or create a trip first.</div>}
         </div>
+        )}
 
+        {tab === "Ticketing" && (
         <div className="card pad">
-          <div className="row" style={{ marginBottom: 12 }}>
+          <div className="row" style={{ marginBottom: 12, alignItems: "center" }}>
             <div style={{ fontWeight: 900 }}>Ticketing (all trips)</div>
             <div className="spacer" />
             {trips.length > 0 && (
@@ -529,6 +540,14 @@ export default function BudgetPage() {
                 <button className="btn btnPrimary" type="button" onClick={() => void handleAddTicket()}>Add Ticket</button>
               </>
             )}
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setIsEditingTickets((current) => !current)}
+              style={{ marginLeft: 8 }}
+            >
+              {isEditingTickets ? "Done" : "Edit"}
+            </button>
           </div>
           <div style={{ overflowX: "auto" }}>
             <table className="table" style={{ minWidth: 1400, fontSize: 12 }}>
@@ -553,17 +572,17 @@ export default function BudgetPage() {
                 {ticketRows.map((t) => (
                   <tr key={t.id}>
                     <td>{t.tripName || t.tripId?.slice(0, 8) || ""}</td>
-                    <td><input className="input" style={{ minWidth: 60 }} value={t.intlDom || ""} onChange={(e) => updateTicketRow(t.id, "intlDom", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 100 }} value={t.workerName || ""} onChange={(e) => updateTicketRow(t.id, "workerName", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={t.projectCountry || ""} onChange={(e) => updateTicketRow(t.id, "projectCountry", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 80 }} value={t.projectCity || ""} onChange={(e) => updateTicketRow(t.id, "projectCity", e.target.value)} /></td>
-                    <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.departureDate || ""} onChange={(e) => updateTicketRow(t.id, "departureDate", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 100 }} value={t.ticketAgency || ""} onChange={(e) => updateTicketRow(t.id, "ticketAgency", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={t.totalTicketCost || ""} onChange={(e) => updateTicketRow(t.id, "totalTicketCost", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={t.amountWorkerPaid || ""} onChange={(e) => updateTicketRow(t.id, "amountWorkerPaid", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={t.totalLstCost || ""} onChange={(e) => updateTicketRow(t.id, "totalLstCost", e.target.value)} /></td>
-                    <td><input className="input" style={{ minWidth: 90 }} value={t.hpTotalCharge || ""} onChange={(e) => updateTicketRow(t.id, "hpTotalCharge", e.target.value)} /></td>
-                    <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.dateApprovedToWithdraw || ""} onChange={(e) => updateTicketRow(t.id, "dateApprovedToWithdraw", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 60 }} value={t.intlDom || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "intlDom", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 100 }} value={t.workerName || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "workerName", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={t.projectCountry || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "projectCountry", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 80 }} value={t.projectCity || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "projectCity", e.target.value)} /></td>
+                    <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.departureDate || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "departureDate", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 100 }} value={t.ticketAgency || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "ticketAgency", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={t.totalTicketCost || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "totalTicketCost", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={t.amountWorkerPaid || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "amountWorkerPaid", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={t.totalLstCost || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "totalLstCost", e.target.value)} /></td>
+                    <td><input className="input" style={{ minWidth: 90 }} value={t.hpTotalCharge || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "hpTotalCharge", e.target.value)} /></td>
+                    <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.dateApprovedToWithdraw || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "dateApprovedToWithdraw", e.target.value)} /></td>
                     <td><button className="btn" type="button" onClick={() => confirm("Delete this ticket?") && removeTicket(t.id)}>Delete</button></td>
                   </tr>
                 ))}
@@ -572,6 +591,7 @@ export default function BudgetPage() {
           </div>
           {ticketRows.length === 0 && <div className="small">No tickets yet. Add tickets from a trip&apos;s Ticketing tab.</div>}
         </div>
+        )}
       </div>
     </Shell>
   );
