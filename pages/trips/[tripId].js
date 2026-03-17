@@ -4187,6 +4187,7 @@ function parseDateSafe(dateStr) {
             borderColor: "rgba(47,73,147,.22)",
             position: "relative",
             overflow: "hidden",
+            gridColumn: "1 / -1",
           }}
         >
           <div
