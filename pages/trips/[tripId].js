@@ -4324,7 +4324,7 @@ function parseDateSafe(dateStr) {
               </div>
             </div>
 
-            {canManageTrips && (
+            {canViewAllParticipantData && (
               <div className="card pad">
                 <div className="small" style={{ marginBottom: 8 }}>Staff Tasks</div>
                 <div style={{ fontSize: 28, fontWeight: 900 }}>{completionPct}%</div>
