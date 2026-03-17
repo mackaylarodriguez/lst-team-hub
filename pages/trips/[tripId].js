@@ -2355,7 +2355,9 @@ function parseDateSafe(dateStr) {
       title.includes("passport") ||
       title.includes("visa") ||
       title.includes("ticket") ||
-      title.includes("step")
+      title.includes("step") ||
+      title.includes("travel form") ||
+      title.includes("waiver")
     ) {
       return "Travel";
     }
@@ -2374,7 +2376,7 @@ function parseDateSafe(dateStr) {
       groups.set(section, existing);
     });
 
-    const sectionOrder = ["General", "Uploads", "Fundraising", "Travel", "Training"];
+    const sectionOrder = ["General", "Fundraising", "Training", "Travel", "Uploads"];
 
     return Array.from(groups.entries()).sort((left, right) => {
       const leftIndex = sectionOrder.indexOf(left[0]);
