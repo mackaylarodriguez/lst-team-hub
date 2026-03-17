@@ -90,6 +90,7 @@ import {
   saveTripBudget,
   listSiteBudgetNotes,
   updateSiteBudgetNote,
+  getBudgetAverages,
 } from "@/lib/tripBudget";
 import {
   listTripTickets,
@@ -421,6 +422,7 @@ export default function TripPage() {
   const [siteBudgetNotes, setSiteBudgetNotes] = useState([]);
   const [tripTickets, setTripTickets] = useState([]);
   const [ticketsStatus, setTicketsStatus] = useState("");
+  const [budgetAverages, setBudgetAverages] = useState(null);
   const latestStaffTaskSaveRef = useRef(0);
   const editableStaffTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
@@ -854,6 +856,13 @@ export default function TripPage() {
   useEffect(() => {
     editableStaffTasksRef.current = editableStaffTasks;
   }, [editableStaffTasks]);
+
+  useEffect(() => {
+    if (tab !== "Housing Budget" || !canManageTrips || isPreviewingParticipant) return;
+    getBudgetAverages()
+      .then(setBudgetAverages)
+      .catch(() => setBudgetAverages(null));
+  }, [tab, canManageTrips, isPreviewingParticipant]);
 
   useEffect(() => {
     if (tab !== "Staff Tasks" || !pendingStaffTaskJumpId) return undefined;
@@ -7108,6 +7117,38 @@ function parseDateSafe(dateStr) {
       {tab === "Housing Budget" && canManageTrips && !isPreviewingParticipant && (
         <div style={{ display: "grid", gap: 16 }}>
           {renderTripTabIntro("Housing Budget")}
+          {budgetAverages && (
+            <div className="card pad">
+              <div style={{ fontWeight: 900, marginBottom: 8 }}>Budget averages</div>
+              <div className="small" style={{ marginBottom: 12 }}>Cross-trip averages for airfare and housing.</div>
+              <table className="table" style={{ maxWidth: 900, fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Average</th>
+                    <th>Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ fontWeight: 600 }}>Airfare</td>
+                    <td>{budgetAverages.airfare.average != null ? `$${budgetAverages.airfare.average.toLocaleString()}` : "—"}</td>
+                    <td className="small">Budget is $1,760/person. Formula is averaging cells except those that are blank or &quot;0&quot;.</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 600 }}>Housing 1</td>
+                    <td>{budgetAverages.housing1.average != null ? `$${budgetAverages.housing1.average.toLocaleString()}` : "—"}</td>
+                    <td className="small">Budget is $1,000/team. Formula is only averaging cells that aren&apos;t blank or are above 0 (cost of housing at sites where LST pays for housing).</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: 600 }}>Housing 2</td>
+                    <td>{budgetAverages.housing2.average != null ? `$${budgetAverages.housing2.average.toLocaleString()}` : "—"}</td>
+                    <td className="small">Formula is averaging all sites that had a team even if we didn&apos;t pay for housing. Skipping YF teams and averaging cost of housing at any site who had a team.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
           <div className="card pad">
             <div style={{ fontWeight: 900, marginBottom: 8 }}>Site Notes</div>
             <div className="small" style={{ marginBottom: 12 }}>Per-site budget and housing notes. Buenos Aires workbook counts included.</div>
