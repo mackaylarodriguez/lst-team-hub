@@ -88,6 +88,10 @@ import {
   saveTravelFormForUser,
   listTravelFormResponsesForTrip,
 } from "@/lib/travelForm";
+import {
+  fillTravelFormExportTemplate,
+  TRAVEL_FORM_TEMPLATE_PATH,
+} from "@/lib/travelFormExport";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -7140,6 +7144,7 @@ function parseDateSafe(dateStr) {
                 </button>
               )}
               {canViewAllParticipantData && (
+              <>
               <button
                 type="button"
                 className="btn"
@@ -7251,6 +7256,49 @@ function parseDateSafe(dateStr) {
               >
                 Export CSV
               </button>
+              <button
+                type="button"
+                className="btn"
+                style={{ marginLeft: 8 }}
+                onClick={async () => {
+                  if (!trip) return;
+                  try {
+                    const res = await fetch(TRAVEL_FORM_TEMPLATE_PATH);
+                    if (!res.ok) {
+                      setSubmitError("Travel agency template not found. Add travel-form-export.xlsx to public/templates/.");
+                      return;
+                    }
+                    const ab = await res.arrayBuffer();
+                    const { blob, error } = fillTravelFormExportTemplate(ab, {
+                      participants: trip.participants || [],
+                      travelFormResponses,
+                      trip,
+                    });
+                    if (error) {
+                      setSubmitError(error);
+                      return;
+                    }
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    const safeTripName = String(trip.name || "trip")
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, "-")
+                      .replace(/^-+|-+$/g, "");
+                    const dateStr = new Date().toISOString().slice(0, 10);
+                    link.download = `${safeTripName}-travel-agency-${dateStr}.xlsx`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  } catch (e) {
+                    setSubmitError(e?.message || "Export failed.");
+                  }
+                }}
+              >
+                Export for travel agency (Excel)
+              </button>
+              </>
               )}
             </div>
             <table className="table" style={{ minWidth: 2400, fontSize: 12 }}>

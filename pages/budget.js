@@ -558,11 +558,15 @@ export default function BudgetPage() {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = url;
-                link.download = "budget-housing.csv";
+                const dateStr = new Date().toISOString().slice(0, 10);
+                const housingFilename = `budget-housing-${dateStr}.csv`;
+                link.download = housingFilename;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
+                setStatus(`Exported ${housingFilename}`);
+                setTimeout(() => setStatus(""), 4000);
               }}
               style={{ marginLeft: 8 }}
             >
@@ -724,11 +728,15 @@ export default function BudgetPage() {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = url;
-                link.download = "budget-airfare.csv";
+                const dateStr = new Date().toISOString().slice(0, 10);
+                const airfareFilename = `budget-airfare-${dateStr}.csv`;
+                link.download = airfareFilename;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
+                setStatus(`Exported ${airfareFilename}`);
+                setTimeout(() => setStatus(""), 4000);
               }}
               style={{ marginLeft: 8 }}
             >
