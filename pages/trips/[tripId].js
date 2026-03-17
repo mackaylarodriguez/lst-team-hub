@@ -112,6 +112,16 @@ function getTshirtSizeOptions(currentValue) {
   return [v, ...TSHIRT_SIZE_OPTIONS];
 }
 
+const BIRTHDATE_MONTH_OPTIONS = ["", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const BIRTHDATE_DAY_OPTIONS = ["", ...Array.from({ length: 31 }, (_, i) => String(i + 1))];
+const BIRTHDATE_YEAR_OPTIONS = (() => {
+  const end = new Date().getFullYear() + 2;
+  const start = end - 100;
+  return ["", ...Array.from({ length: end - start + 1 }, (_, i) => String(start + i))];
+})();
+const GENDER_OPTIONS = ["", "Male", "Female"];
+const YES_NO_OPTIONS = ["", "Yes", "No"];
+
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -7734,7 +7744,7 @@ function parseDateSafe(dateStr) {
             {travelFormStatus ? <div className="small" style={{ marginBottom: 10 }}>{travelFormStatus}</div> : null}
             <div style={{ display: "grid", gap: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-                <div><div className="small" style={{ marginBottom: 4 }}>Team Name</div><input className="input" value={travelFormDraft.teamName} onChange={(e) => setTravelFormDraft((d) => ({ ...d, teamName: e.target.value }))} placeholder="2026 Brazil Team" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Team Name</div>{canViewAllParticipantData ? <input className="input" value={travelFormDraft.teamName} onChange={(e) => setTravelFormDraft((d) => ({ ...d, teamName: e.target.value }))} placeholder="2026 Brazil Team" /> : <input className="input" readOnly disabled value={travelFormDraft.teamName} style={{ opacity: 0.9, cursor: "not-allowed" }} />}</div>
                 <div><div className="small" style={{ marginBottom: 4 }}>First Name (passport)</div><input className="input" value={travelFormDraft.firstNamePassport} onChange={(e) => setTravelFormDraft((d) => ({ ...d, firstNamePassport: e.target.value }))} /></div>
                 <div><div className="small" style={{ marginBottom: 4 }}>Middle Name (passport)</div><input className="input" value={travelFormDraft.middleNamePassport} onChange={(e) => setTravelFormDraft((d) => ({ ...d, middleNamePassport: e.target.value }))} /></div>
                 <div><div className="small" style={{ marginBottom: 4 }}>Last Name (passport)</div><input className="input" value={travelFormDraft.lastNamePassport} onChange={(e) => setTravelFormDraft((d) => ({ ...d, lastNamePassport: e.target.value }))} /></div>
@@ -7742,10 +7752,10 @@ function parseDateSafe(dateStr) {
                 <div><div className="small" style={{ marginBottom: 4 }}>Email</div><input className="input" type="email" value={travelFormDraft.email} onChange={(e) => setTravelFormDraft((d) => ({ ...d, email: e.target.value }))} /></div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
-                <div><div className="small" style={{ marginBottom: 4 }}>Birthdate Month</div><input className="input" value={travelFormDraft.birthdateMonth} onChange={(e) => setTravelFormDraft((d) => ({ ...d, birthdateMonth: e.target.value }))} placeholder="1-12" /></div>
-                <div><div className="small" style={{ marginBottom: 4 }}>Birthdate Day</div><input className="input" value={travelFormDraft.birthdateDay} onChange={(e) => setTravelFormDraft((d) => ({ ...d, birthdateDay: e.target.value }))} placeholder="1-31" /></div>
-                <div><div className="small" style={{ marginBottom: 4 }}>Birthdate Year</div><input className="input" value={travelFormDraft.birthdateYear} onChange={(e) => setTravelFormDraft((d) => ({ ...d, birthdateYear: e.target.value }))} placeholder="1990" /></div>
-                <div><div className="small" style={{ marginBottom: 4 }}>Gender</div><input className="input" value={travelFormDraft.gender} onChange={(e) => setTravelFormDraft((d) => ({ ...d, gender: e.target.value }))} /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Birthdate Month</div><select className="input" value={travelFormDraft.birthdateMonth} onChange={(e) => setTravelFormDraft((d) => ({ ...d, birthdateMonth: e.target.value }))}><option value="">—</option>{BIRTHDATE_MONTH_OPTIONS.filter(Boolean).map((m) => <option key={m} value={m}>{m}</option>)}</select></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Birthdate Day</div><select className="input" value={travelFormDraft.birthdateDay} onChange={(e) => setTravelFormDraft((d) => ({ ...d, birthdateDay: e.target.value }))}><option value="">—</option>{BIRTHDATE_DAY_OPTIONS.filter(Boolean).map((d) => <option key={d} value={d}>{d}</option>)}</select></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Birthdate Year</div><select className="input" value={travelFormDraft.birthdateYear} onChange={(e) => setTravelFormDraft((d) => ({ ...d, birthdateYear: e.target.value }))}><option value="">—</option>{BIRTHDATE_YEAR_OPTIONS.filter(Boolean).map((y) => <option key={y} value={y}>{y}</option>)}</select></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Gender</div><select className="input" value={travelFormDraft.gender} onChange={(e) => setTravelFormDraft((d) => ({ ...d, gender: e.target.value }))}>{GENDER_OPTIONS.map((g) => <option key={g || "__blank__"} value={g}>{g || "—"}</option>)}</select></div>
                 <div><div className="small" style={{ marginBottom: 4 }}>Citizenship</div><input className="input" value={travelFormDraft.citizenship} onChange={(e) => setTravelFormDraft((d) => ({ ...d, citizenship: e.target.value }))} /></div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
@@ -7783,14 +7793,14 @@ function parseDateSafe(dateStr) {
                 <div><div className="small" style={{ marginBottom: 4 }}>Emergency Contact Phone</div><input className="input" value={travelFormDraft.emergencyContactPhone} onChange={(e) => setTravelFormDraft((d) => ({ ...d, emergencyContactPhone: e.target.value }))} /></div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
-                <div><div className="small" style={{ marginBottom: 4 }}>Minor (under 18)? YES or NO</div><input className="input" value={travelFormDraft.isMinor} onChange={(e) => setTravelFormDraft((d) => ({ ...d, isMinor: e.target.value }))} placeholder="YES or NO" /></div>
-                <div><div className="small" style={{ marginBottom: 4 }}>Passport valid 6+ months after trip? YES or NO</div><input className="input" value={travelFormDraft.passportValidSixMonths} onChange={(e) => setTravelFormDraft((d) => ({ ...d, passportValidSixMonths: e.target.value }))} placeholder="YES or NO" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Minor (under 18)</div><select className="input" value={travelFormDraft.isMinor} onChange={(e) => setTravelFormDraft((d) => ({ ...d, isMinor: e.target.value }))}>{YES_NO_OPTIONS.map((o) => <option key={o || "__blank__"} value={o}>{o || "—"}</option>)}</select></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Passport valid 6+ months after trip</div><select className="input" value={travelFormDraft.passportValidSixMonths} onChange={(e) => setTravelFormDraft((d) => ({ ...d, passportValidSixMonths: e.target.value }))}>{YES_NO_OPTIONS.map((o) => <option key={o || "__blank__"} value={o}>{o || "—"}</option>)}</select></div>
               </div>
               <div style={{ display: "grid", gap: 8 }}>
-                <div><div className="small" style={{ marginBottom: 4 }}>Base Ticket: I understand LST will book my travel from Gateway City to site and back. (Respond YES)</div><input className="input" value={travelFormDraft.baseTicketAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, baseTicketAck: e.target.value }))} placeholder="YES" /></div>
-                <div><div className="small" style={{ marginBottom: 4 }}>Team Travel: I understand my team must arrive same day, same airport, same time. (Respond YES)</div><input className="input" value={travelFormDraft.teamTravelAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, teamTravelAck: e.target.value }))} placeholder="YES" /></div>
-                <div><div className="small" style={{ marginBottom: 4 }}>EndMeeting: I understand debriefing takes place within a week of return. (Respond YES)</div><input className="input" value={travelFormDraft.endMeetingAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, endMeetingAck: e.target.value }))} placeholder="YES" /></div>
-                <div><div className="small" style={{ marginBottom: 4 }}>Travel Insurance: I understand LST purchases basic plan; I can upgrade. (Respond YES)</div><input className="input" value={travelFormDraft.travelInsuranceAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, travelInsuranceAck: e.target.value }))} placeholder="YES" /></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Base Ticket: I understand LST will book my travel from Gateway City to site and back.</div><select className="input" value={travelFormDraft.baseTicketAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, baseTicketAck: e.target.value }))}>{YES_NO_OPTIONS.map((o) => <option key={o || "__blank__"} value={o}>{o || "—"}</option>)}</select></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Team Travel: I understand my team must arrive same day, same airport, same time.</div><select className="input" value={travelFormDraft.teamTravelAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, teamTravelAck: e.target.value }))}>{YES_NO_OPTIONS.map((o) => <option key={o || "__blank__"} value={o}>{o || "—"}</option>)}</select></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>End Meeting: I understand debriefing takes place within a week of return.</div><select className="input" value={travelFormDraft.endMeetingAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, endMeetingAck: e.target.value }))}>{YES_NO_OPTIONS.map((o) => <option key={o || "__blank__"} value={o}>{o || "—"}</option>)}</select></div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Travel Insurance: I understand LST purchases basic plan; I can upgrade.</div><select className="input" value={travelFormDraft.travelInsuranceAck} onChange={(e) => setTravelFormDraft((d) => ({ ...d, travelInsuranceAck: e.target.value }))}>{YES_NO_OPTIONS.map((o) => <option key={o || "__blank__"} value={o}>{o || "—"}</option>)}</select></div>
               </div>
             </div>
             <div className="row" style={{ marginTop: 12 }}>
