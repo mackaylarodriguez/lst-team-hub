@@ -1,7 +1,7 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
@@ -68,6 +68,11 @@ export default function BudgetPage() {
   const [isEditingTickets, setIsEditingTickets] = useState(false);
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
+
+  const archivedTripIds = useMemo(
+    () => new Set((trips || []).filter((t) => t.status === "archived").map((t) => t.id)),
+    [trips]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -522,11 +527,26 @@ export default function BudgetPage() {
                 </tr>
               </thead>
               <tbody>
-                {(isEditingHousing ? housingRowsDraft : housingRows).map((r) => (
-                  <tr key={r.id || r.tripId}>
+                {(isEditingHousing ? housingRowsDraft : housingRows).map((r) => {
+                  const isArchived = archivedTripIds.has(r.tripId);
+                  return (
+                  <tr
+                    key={r.id || r.tripId}
+                    style={
+                      isArchived
+                        ? { opacity: 0.7, backgroundColor: "var(--border)", borderLeft: "3px solid var(--muted)" }
+                        : undefined
+                    }
+                    title={isArchived ? "Archived team" : undefined}
+                  >
                     {isEditingHousing ? (
                       <>
-                        <td><input className="input" style={{ minWidth: 120 }} value={r.teamName || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "teamName", e.target.value)} /></td>
+                        <td>
+                          <span className="row" style={{ gap: 6, alignItems: "center" }}>
+                            {isArchived && <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>Archived</span>}
+                            <input className="input" style={{ minWidth: 120 }} value={r.teamName || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "teamName", e.target.value)} />
+                          </span>
+                        </td>
                         <td><input className="input" type="date" value={r.projectStartDate || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "projectStartDate", e.target.value)} /></td>
                         <td><input className="input" type="date" value={r.projectEndDate || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "projectEndDate", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 100 }} value={r.siteCountry || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "siteCountry", e.target.value)} /></td>
@@ -540,7 +560,12 @@ export default function BudgetPage() {
                       </>
                     ) : (
                       <>
-                        <td>{r.teamName || ""}</td>
+                        <td>
+                          <span className="row" style={{ gap: 6, alignItems: "center" }}>
+                            {isArchived && <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>Archived</span>}
+                            {r.teamName || ""}
+                          </span>
+                        </td>
                         <td>{r.projectStartDate || ""}</td>
                         <td>{r.projectEndDate || ""}</td>
                         <td>{r.siteCountry || ""}</td>
@@ -554,7 +579,8 @@ export default function BudgetPage() {
                       </>
                     )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -611,9 +637,24 @@ export default function BudgetPage() {
                 </tr>
               </thead>
               <tbody>
-                {ticketRows.map((t) => (
-                  <tr key={t.id}>
-                    <td>{t.tripName || t.tripId?.slice(0, 8) || ""}</td>
+                {ticketRows.map((t) => {
+                  const isArchived = archivedTripIds.has(t.tripId);
+                  return (
+                  <tr
+                    key={t.id}
+                    style={
+                      isArchived
+                        ? { opacity: 0.7, backgroundColor: "var(--border)", borderLeft: "3px solid var(--muted)" }
+                        : undefined
+                    }
+                    title={isArchived ? "Archived team" : undefined}
+                  >
+                    <td>
+                      <span className="row" style={{ gap: 6, alignItems: "center" }}>
+                        {isArchived && <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>Archived</span>}
+                        {t.tripName || t.tripId?.slice(0, 8) || ""}
+                      </span>
+                    </td>
                     <td><input className="input" style={{ minWidth: 60 }} value={t.intlDom || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "intlDom", e.target.value)} /></td>
                     <td><input className="input" style={{ minWidth: 100 }} value={t.workerName || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "workerName", e.target.value)} /></td>
                     <td><input className="input" style={{ minWidth: 90 }} value={t.projectCountry || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "projectCountry", e.target.value)} /></td>
@@ -627,7 +668,8 @@ export default function BudgetPage() {
                     <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.dateApprovedToWithdraw || ""} disabled={!isEditingTickets} onChange={(e) => updateTicketRow(t.id, "dateApprovedToWithdraw", e.target.value)} /></td>
                     <td><button className="btn" type="button" onClick={() => confirm("Delete this ticket?") && removeTicket(t.id)}>Delete</button></td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
