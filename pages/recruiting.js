@@ -2421,7 +2421,7 @@ export default function RecruitingPage() {
             {recordsToRender.map((record) => {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-              const stageLabel = isReadyForBoss(record) ? "Ready for Boss" : record.stageLabel;
+              const stageLabel = record.stageLabel;
               const primaryContact = formatContactName(record);
               const additionalPeople = getAdditionalRecordPeople(record);
 
@@ -2540,7 +2540,7 @@ export default function RecruitingPage() {
         {recordsToRender.map((record) => {
           const attention = getAttentionMeta(record);
           const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-          const stageLabel = isReadyForBoss(record) ? "Ready for Boss" : record.stageLabel;
+          const stageLabel = record.stageLabel;
 
           return (
             <div
@@ -4267,6 +4267,16 @@ export default function RecruitingPage() {
             <div className="small" style={{ marginBottom: 14 }}>
               This uses the full trip-creation setup and prefills anything we already know from recruiting.
             </div>
+            {error ? (
+              <div className="card pad" style={{ marginBottom: 14, color: "var(--danger)" }}>
+                {error}
+              </div>
+            ) : null}
+            {pageStatus ? (
+              <div className="card pad" style={{ marginBottom: 14, color: "var(--primary)" }}>
+                {pageStatus}
+              </div>
+            ) : null}
             <div style={{ display: "grid", gap: 12 }}>
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
