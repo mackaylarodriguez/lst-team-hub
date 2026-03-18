@@ -43,7 +43,7 @@ export default function ConfirmModal({
         display: "grid",
         placeItems: "center",
         padding: 20,
-        zIndex: 50,
+        zIndex: 100,
       }}
       role="dialog"
       aria-modal="true"
