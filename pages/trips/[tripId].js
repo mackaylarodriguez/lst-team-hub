@@ -1720,6 +1720,9 @@ export default function TripPage() {
       if (travelFormTask && !(participantTaskStates[participant.email] || {})[travelFormTask.id]) {
         toggleTask(travelFormTask.id, participant.email);
       }
+      setTravelFormModalOpen(false);
+      setTravelFormParticipantId("");
+      setTravelFormStatus("");
     } catch (error) {
       const errMsg = error.message || "Unable to save.";
       setTravelFormStatus(errMsg);
