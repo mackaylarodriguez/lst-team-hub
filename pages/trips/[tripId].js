@@ -7336,6 +7336,7 @@ function parseDateSafe(dateStr) {
             <table className="table" style={{ minWidth: 2400, fontSize: 12 }}>
               <thead>
                 <tr>
+                  {canViewAllParticipantData && <th>Actions</th>}
                   <th>Team Name</th>
                   <th>First Name (passport)</th>
                   <th>Middle Name (passport)</th>
@@ -7371,6 +7372,18 @@ function parseDateSafe(dateStr) {
                   const form = travelFormResponses.find((f) => String(f.userId) === String(p.id)) || null;
                   return (
                     <tr key={p.id}>
+                      {canViewAllParticipantData && (
+                        <td>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ padding: "4px 10px", fontSize: 12 }}
+                            onClick={() => openTravelFormModal(p)}
+                          >
+                            View / Edit
+                          </button>
+                        </td>
+                      )}
                       <td>{form?.teamName || trip?.name || ""}</td>
                       <td>{form?.firstNamePassport || ""}</td>
                       <td>{form?.middleNamePassport || ""}</td>

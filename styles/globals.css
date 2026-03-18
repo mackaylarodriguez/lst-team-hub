@@ -1273,33 +1273,6 @@ a:hover{text-decoration:underline}
     padding-left:4px;
     padding-right:56px;
   }
-  .tripPageTabs::before{
-    content:"Swipe";
-    position:absolute;
-    right:8px;
-    top:50%;
-    transform:translateY(-50%);
-    padding:4px 8px;
-    border-radius:999px;
-    border:1px solid rgba(50,84,163,.12);
-    background:rgba(244,248,252,.94);
-    color:var(--muted);
-    font-size:11px;
-    font-weight:800;
-    letter-spacing:.04em;
-    text-transform:uppercase;
-    pointer-events:none;
-  }
-  .tripPageTabs::after{
-    content:"";
-    position:absolute;
-    top:6px;
-    right:40px;
-    bottom:8px;
-    width:36px;
-    background:linear-gradient(90deg, rgba(244,248,252,0), rgba(244,248,252,.96));
-    pointer-events:none;
-  }
   .tripPageTabs .tab{
     min-height:42px;
     padding:10px 14px;
