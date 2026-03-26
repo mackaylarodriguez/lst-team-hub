@@ -96,6 +96,7 @@ import {
   TRAVEL_FORM_TEMPLATE_PATH,
 } from "@/lib/travelFormExport";
 import { showToast } from "@/components/Toast";
+import TripTravelSafetySection from "@/components/TripTravelSafetySection";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -4503,6 +4504,16 @@ function parseDateSafe(dateStr) {
               </div>
             </div>
           </div>
+
+          {trip?.id ? (
+            <TripTravelSafetySection
+              tripId={trip.id}
+              session={session}
+              participants={trip.participants || []}
+              canEdit={canManageTrips && !isPreviewingParticipant}
+              isPreviewingParticipant={isPreviewingParticipant}
+            />
+          ) : null}
 
           <div
             style={{
