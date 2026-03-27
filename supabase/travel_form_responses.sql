@@ -39,6 +39,24 @@ create table if not exists public.travel_form_responses (
     check ((user_id is not null and trip_team_member_id is null) or (user_id is null and trip_team_member_id is not null))
 );
 
+alter table public.travel_form_responses
+  add column if not exists trip_team_member_id uuid;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'travel_form_responses_trip_team_member_id_fkey'
+  ) then
+    alter table public.travel_form_responses
+      add constraint travel_form_responses_trip_team_member_id_fkey
+      foreign key (trip_team_member_id)
+      references public.trip_team_members(id)
+      on delete set null;
+  end if;
+end $$;
+
 create index if not exists travel_form_responses_trip_id_idx
   on public.travel_form_responses (trip_id);
 create index if not exists travel_form_responses_user_id_idx

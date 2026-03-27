@@ -101,9 +101,12 @@ import {
   TRAVEL_FORM_TEMPLATE_PATH,
 } from "@/lib/travelFormExport";
 import { showToast } from "@/components/Toast";
-import CollapsibleSection from "@/components/CollapsibleSection";
 import TripTravelSafetySection from "@/components/TripTravelSafetySection";
 import { deleteTripMeeting, listTripMeetings, saveTripMeeting } from "@/lib/tripMeetings";
+
+function CollapsibleSection({ children }) {
+  return children;
+}
 
 function toDatetimeLocalValue(iso) {
   if (!iso) return "";
