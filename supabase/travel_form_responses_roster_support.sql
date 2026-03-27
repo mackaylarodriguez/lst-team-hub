@@ -1,6 +1,9 @@
 -- Phase 1 roster-only support for travel_form_responses.
 -- Allows rows to belong to either a connected user profile OR a roster member.
 
+alter table public.travel_form_responses
+  drop constraint if exists travel_form_responses_trip_id_user_id_key;
+
 drop index if exists public.travel_form_responses_trip_id_user_id_key;
 drop index if exists public.travel_form_responses_trip_user_unique_idx;
 drop index if exists public.travel_form_responses_trip_member_unique_idx;
