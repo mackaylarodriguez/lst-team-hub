@@ -30,6 +30,7 @@ Run SQL files in **Supabase SQL Editor** in this order.
    - `supabase/trip_travel_safety_rls.sql`
 5. Travel form, tickets, and meetings
    - `supabase/travel_form_responses.sql`
+   - `supabase/travel_form_responses_roster_support.sql`
    - `supabase/travel_form_responses_rls.sql`
    - `supabase/trip_tickets.sql`
    - `supabase/trip_tickets_roster_autocreate.sql`
@@ -57,10 +58,12 @@ Run only what is missing, in this order:
 4. `supabase/trip_travel_safety.sql`
 5. `supabase/trip_travel_safety_acknowledgments.sql`
 6. `supabase/trip_travel_safety_rls.sql`
-7. `supabase/trip_meetings.sql`
-8. `supabase/trip_meetings_rls.sql`
-9. `supabase/trip_tickets_roster_autocreate.sql`
-10. `supabase/trips_delete_rls.sql`
+7. `supabase/travel_form_responses_roster_support.sql`
+8. `supabase/travel_form_responses_rls.sql`
+9. `supabase/trip_meetings.sql`
+10. `supabase/trip_meetings_rls.sql`
+11. `supabase/trip_tickets_roster_autocreate.sql`
+12. `supabase/trips_delete_rls.sql`
 
 ## E2E Smoke Test Environment Variables
 

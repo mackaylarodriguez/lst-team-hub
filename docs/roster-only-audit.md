@@ -27,9 +27,9 @@ This audit identifies trip-scoped features still keyed only by `user_id` and the
 
 Implement roster support in phases:
 
-1. Phase 1 (highest impact)
-   - `travel_form_responses`: add nullable `trip_team_member_id`, XOR check (`user_id` or `trip_team_member_id`), partial unique indexes.
-   - Update travel form UI and data layer to key rows by `user:<id>` / `roster:<tripTeamMemberId>`.
+1. Phase 1 (highest impact) - implemented
+   - `travel_form_responses`: nullable `trip_team_member_id`, XOR check (`user_id` or `trip_team_member_id`), partial unique indexes.
+   - Travel form UI and data layer now key rows by `user:<id>` / `roster:<tripTeamMemberId>`.
 2. Phase 2
    - `user_training_progress`: same dual-key pattern for roster-only progress.
 3. Phase 3
