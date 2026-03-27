@@ -91,9 +91,10 @@ import {
 import { findStaffTaskTemplate } from "@/lib/staffTaskTemplate";
 import {
   EMPTY_RECORD as TRAVEL_FORM_EMPTY,
-  getTravelFormForUser,
-  saveTravelFormForUser,
+  getTravelFormForRef,
+  saveTravelFormForRef,
   listTravelFormResponsesForTrip,
+  travelFormRowToRefKey,
 } from "@/lib/travelForm";
 import {
   fillTravelFormExportTemplate,
@@ -444,7 +445,7 @@ export default function TripPage() {
     notes: "",
   });
   const [travelFormModalOpen, setTravelFormModalOpen] = useState(false);
-  const [travelFormParticipantId, setTravelFormParticipantId] = useState("");
+  const [travelFormTargetRefKey, setTravelFormTargetRefKey] = useState("");
   const [travelFormDraft, setTravelFormDraft] = useState(() => ({ ...TRAVEL_FORM_EMPTY }));
   const [travelFormStatus, setTravelFormStatus] = useState("");
   const [travelFormResponses, setTravelFormResponses] = useState([]);
@@ -1573,6 +1574,22 @@ export default function TripPage() {
       : `user:${refKey}`;
   }
 
+  function normalizeTravelFormRefKey(refKey) {
+    if (!refKey) return "";
+    return refKey.startsWith("user:") || refKey.startsWith("roster:")
+      ? refKey
+      : `user:${refKey}`;
+  }
+
+  function getTravelFormByRefKey(refKey) {
+    const key = normalizeTravelFormRefKey(refKey);
+    return (
+      travelFormResponses.find(
+        (row) => normalizeTravelFormRefKey(travelFormRowToRefKey(row)) === key
+      ) || null
+    );
+  }
+
   function getReferenceStatus(refKey) {
     const key = normalizeReferenceRefKey(refKey);
     return (
@@ -1736,12 +1753,20 @@ export default function TripPage() {
       });
   }
 
-  function openTravelFormModal(participant) {
-    if (!participant?.id || !trip?.id) return;
-    setTravelFormParticipantId(participant.id);
+  function openTravelFormModal(target) {
+    if (!target?.refKey || !trip?.id) return;
+    const refKey = normalizeTravelFormRefKey(target.refKey);
+    const userId = refKey.startsWith("user:") ? refKey.slice(5) : "";
+    const tripTeamMemberId = refKey.startsWith("roster:") ? refKey.slice(7) : "";
+    if (!userId && !tripTeamMemberId) return;
+
+    setTravelFormTargetRefKey(refKey);
     setTravelFormStatus("");
     setTravelFormModalOpen(true);
-    getTravelFormForUser(trip.id, participant.id)
+    getTravelFormForRef(trip.id, {
+      userId: userId || undefined,
+      tripTeamMemberId: tripTeamMemberId || undefined,
+    })
       .then((existing) => {
         if (existing) {
           setTravelFormDraft({
@@ -1780,19 +1805,27 @@ export default function TripPage() {
           setTravelFormDraft({
             ...TRAVEL_FORM_EMPTY,
             teamName: trip.name || "",
-            email: participant.email || "",
+            email: target.email || "",
           });
         }
       })
-      .catch(() => setTravelFormDraft({ ...TRAVEL_FORM_EMPTY, teamName: trip?.name || "", email: participant?.email || "" }));
+      .catch(() => setTravelFormDraft({ ...TRAVEL_FORM_EMPTY, teamName: trip?.name || "", email: target?.email || "" }));
   }
 
   async function handleSaveTravelForm() {
-    const participant = (trip?.participants || []).find((p) => String(p.id) === String(travelFormParticipantId));
-    if (!trip?.id || !participant?.id) return;
+    const refKey = normalizeTravelFormRefKey(travelFormTargetRefKey);
+    const userId = refKey.startsWith("user:") ? refKey.slice(5) : "";
+    const tripTeamMemberId = refKey.startsWith("roster:") ? refKey.slice(7) : "";
+    const participant = userId
+      ? (trip?.participants || []).find((p) => String(p.id) === String(userId))
+      : null;
+    if (!trip?.id || (!userId && !tripTeamMemberId)) return;
     try {
       setTravelFormStatus("Saving...");
-      await saveTravelFormForUser(trip.id, participant.id, {
+      await saveTravelFormForRef(trip.id, {
+        userId: userId || undefined,
+        tripTeamMemberId: tripTeamMemberId || undefined,
+      }, {
         ...travelFormDraft,
         teamName: travelFormDraft.teamName || trip.name,
       });
@@ -1801,11 +1834,11 @@ export default function TripPage() {
       setTravelFormStatus("Saved.");
       showToast("Travel form saved.");
       const travelFormTask = (trip.tasks || []).find((t) => t.title === "Fill out Travel Form");
-      if (travelFormTask && !(participantTaskStates[participant.email] || {})[travelFormTask.id]) {
+      if (participant && travelFormTask && !(participantTaskStates[participant.email] || {})[travelFormTask.id]) {
         toggleTask(travelFormTask.id, participant.email);
       }
       setTravelFormModalOpen(false);
-      setTravelFormParticipantId("");
+      setTravelFormTargetRefKey("");
       setTravelFormStatus("");
     } catch (error) {
       const errMsg = error.message || "Unable to save.";
@@ -1814,15 +1847,21 @@ export default function TripPage() {
     }
   }
 
-  async function handleSaveTeamTabTshirt(userId, newValue) {
-    if (!trip?.id || !userId) return;
-    const form = travelFormResponses.find((f) => String(f.userId) === String(userId)) || null;
+  async function handleSaveTeamTabTshirt(refKey, newValue) {
+    const normalizedRefKey = normalizeTravelFormRefKey(refKey);
+    const userId = normalizedRefKey.startsWith("user:") ? normalizedRefKey.slice(5) : "";
+    const tripTeamMemberId = normalizedRefKey.startsWith("roster:") ? normalizedRefKey.slice(7) : "";
+    if (!trip?.id || (!userId && !tripTeamMemberId)) return;
+    const form = getTravelFormByRefKey(normalizedRefKey);
     const payload = { ...(form || TRAVEL_FORM_EMPTY), tshirtSize: String(newValue ?? "").trim() };
     try {
-      setTeamTabTshirtSavingUserId(userId);
-      const saved = await saveTravelFormForUser(trip.id, userId, payload);
+      setTeamTabTshirtSavingUserId(normalizedRefKey);
+      const saved = await saveTravelFormForRef(trip.id, {
+        userId: userId || undefined,
+        tripTeamMemberId: tripTeamMemberId || undefined,
+      }, payload);
       setTravelFormResponses((prev) =>
-        prev.filter((f) => String(f.userId) !== String(userId)).concat([saved])
+        prev.filter((f) => normalizeTravelFormRefKey(travelFormRowToRefKey(f)) !== normalizedRefKey).concat([saved])
       );
     } catch (error) {
       console.error("Unable to save T-shirt size", error);
@@ -3896,6 +3935,36 @@ function parseDateSafe(dateStr) {
     return rows.sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [trip]);
 
+  const travelFormTableRows = useMemo(() => {
+    if (!trip) return [];
+    const participantEmails = new Set(
+      (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+    );
+
+    const rows = (trip.participants || []).map((p) => ({
+      refKey: `user:${p.id}`,
+      id: p.id,
+      name: p.name || p.email || "Member",
+      email: p.email || "",
+      rosterOnly: false,
+    }));
+
+    for (const member of trip.teamMembers || []) {
+      if (!member?.id) continue;
+      const email = normalizeEmail(member.email);
+      if (email && participantEmails.has(email)) continue;
+      rows.push({
+        refKey: `roster:${member.id}`,
+        id: member.id,
+        name: member.name || member.email || "Roster member",
+        email: member.email || "",
+        rosterOnly: true,
+      });
+    }
+
+    return rows.sort((a, b) => a.name.localeCompare(b.name));
+  }, [trip]);
+
   const participantTaskPct = useMemo(() => {
     const totalPossible = participantTaskProgress.reduce(
       (sum, participant) => sum + participant.total,
@@ -5355,14 +5424,19 @@ function parseDateSafe(dateStr) {
                   {teamTabMembers.length > 0 ? (
                     teamTabMembers.map((member) => {
                       const connectionStatus = getWorkerConnectionStatus(member);
-                      const travelForm = member.profileId
-                        ? travelFormResponses.find((f) => String(f.userId) === String(member.profileId)) || null
-                        : null;
+                      const travelFormRefKey = member.profileId
+                        ? `user:${member.profileId}`
+                        : member.id
+                          ? `roster:${member.id}`
+                          : "";
+                      const travelForm = getTravelFormByRefKey(travelFormRefKey);
                       const tshirtSize = travelForm?.tshirtSize ?? "";
                       const canEditTshirt =
-                        member.profileId &&
+                        !!travelFormRefKey &&
                         (canViewTeamDashboard || String(member.profileId) === String(currentParticipant?.id));
-                      const isSavingTshirt = String(teamTabTshirtSavingUserId) === String(member.profileId);
+                      const isSavingTshirt =
+                        normalizeTravelFormRefKey(teamTabTshirtSavingUserId) ===
+                        normalizeTravelFormRefKey(travelFormRefKey);
 
                       return (
                       <tr key={member.key}>
@@ -5393,15 +5467,29 @@ function parseDateSafe(dateStr) {
                                 onChange={(e) => {
                                   const v = e.target.value;
                                   setTravelFormResponses((prev) => {
-                                    const has = prev.some((f) => String(f.userId) === String(member.profileId));
+                                    const has = prev.some(
+                                      (f) =>
+                                        normalizeTravelFormRefKey(travelFormRowToRefKey(f)) ===
+                                        normalizeTravelFormRefKey(travelFormRefKey)
+                                    );
                                     if (has) {
                                       return prev.map((f) =>
-                                        String(f.userId) === String(member.profileId) ? { ...f, tshirtSize: v } : f
+                                        normalizeTravelFormRefKey(travelFormRowToRefKey(f)) ===
+                                        normalizeTravelFormRefKey(travelFormRefKey)
+                                          ? { ...f, tshirtSize: v }
+                                          : f
                                       );
                                     }
-                                    return prev.concat([{ ...TRAVEL_FORM_EMPTY, userId: member.profileId, tshirtSize: v }]);
+                                    return prev.concat([
+                                      {
+                                        ...TRAVEL_FORM_EMPTY,
+                                        userId: member.profileId || "",
+                                        tripTeamMemberId: member.profileId ? "" : member.id || "",
+                                        tshirtSize: v,
+                                      },
+                                    ]);
                                   });
-                                  void handleSaveTeamTabTshirt(member.profileId, v);
+                                  void handleSaveTeamTabTshirt(travelFormRefKey, v);
                                 }}
                                 disabled={!!isSavingTshirt}
                               >
@@ -6535,6 +6623,11 @@ function parseDateSafe(dateStr) {
                               const isTicketsTask = task.id === "worker-task-tickets" || task.title === "Proofread my tickets";
                               const isDocumentsTask = task.id === "worker-task-upload-passport" || task.id === "worker-task-upload-visa" || task.title === "Upload passport" || task.title === "Upload visa";
                               const documentsTabUrl = trip?.id ? `/trips/${trip.id}?tab=documents` : null;
+                              const participantRefKey = participant.rosterOnly
+                                ? (String(participant.id || "").startsWith("roster-member-")
+                                    ? `roster:${String(participant.id).slice("roster-member-".length)}`
+                                    : "")
+                                : `user:${participant.id}`;
                               const taskLink = isChecklistTask
                                 ? (effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl || workerTaskTemplate?.link)
                                 : isTicketsTask
@@ -6592,16 +6685,16 @@ function parseDateSafe(dateStr) {
                                           type="button"
                                           className="btn"
                                           style={{ marginLeft: 10, padding: "4px 10px", fontSize: 12 }}
-                                          onClick={() => openTravelFormModal(participant)}
+                                          onClick={() => openTravelFormModal({ refKey: `user:${participant.id}`, email: participant.email || "" })}
                                         >
                                           Fill out
                                         </button>
-                                      ) : isTravelFormTask && canViewTeamDashboard ? (
+                                      ) : isTravelFormTask && canViewTeamDashboard && participantRefKey ? (
                                         <button
                                           type="button"
                                           className="btn"
                                           style={{ marginLeft: 10, padding: "4px 10px", fontSize: 12 }}
-                                          onClick={() => openTravelFormModal(participant)}
+                                          onClick={() => openTravelFormModal({ refKey: participantRefKey, email: participant.email || "" })}
                                         >
                                           View / Edit
                                         </button>
@@ -7720,7 +7813,12 @@ function parseDateSafe(dateStr) {
                 <button
                   type="button"
                   className="btn btnPrimary"
-                  onClick={() => openTravelFormModal(currentParticipant)}
+                  onClick={() =>
+                    openTravelFormModal({
+                      refKey: `user:${currentParticipant.id}`,
+                      email: currentParticipant.email || "",
+                    })
+                  }
                 >
                   Edit my response
                 </button>
@@ -7765,11 +7863,14 @@ function parseDateSafe(dateStr) {
                     "Travel Insurance-I understand LST will purchase a basic international travel insurance plan and that you can upgrade by calling the company directly after receiving your card from LST. (www.faithventures.com/compare-plans)\n\n(RESPOND \"\"YES\"\")",
                   ];
 
-                  const rows = (trip?.participants || []).map((p) => {
-                    const form =
-                      travelFormResponses.find(
-                        (f) => String(f.userId) === String(p.id)
-                      ) || null;
+                  const exportRows = canViewTeamDashboard
+                    ? travelFormTableRows
+                    : currentParticipant
+                      ? [{ ...currentParticipant, refKey: `user:${currentParticipant.id}` }]
+                      : [];
+
+                  const rows = exportRows.map((p) => {
+                    const form = getTravelFormByRefKey(p.refKey) || null;
 
                     return [
                       form?.teamName || trip?.name || "",
@@ -7854,8 +7955,13 @@ function parseDateSafe(dateStr) {
                       return;
                     }
                     const ab = await res.arrayBuffer();
+                    const exportParticipants = canViewTeamDashboard
+                      ? travelFormTableRows
+                      : currentParticipant
+                        ? [{ ...currentParticipant, refKey: `user:${currentParticipant.id}` }]
+                        : [];
                     const { blob, error } = fillTravelFormExportTemplate(ab, {
-                      participants: trip.participants || [],
+                      participants: exportParticipants,
                       travelFormResponses,
                       trip,
                     });
@@ -7926,17 +8032,22 @@ function parseDateSafe(dateStr) {
                 </tr>
               </thead>
               <tbody>
-                {(canViewTeamDashboard ? (trip?.participants || []) : (currentParticipant ? [currentParticipant] : [])).map((p) => {
-                  const form = travelFormResponses.find((f) => String(f.userId) === String(p.id)) || null;
+                {(canViewTeamDashboard
+                  ? travelFormTableRows
+                  : currentParticipant
+                    ? [{ ...currentParticipant, refKey: `user:${currentParticipant.id}` }]
+                    : []
+                ).map((p) => {
+                  const form = getTravelFormByRefKey(p.refKey) || null;
                   return (
-                    <tr key={p.id}>
+                    <tr key={p.refKey || p.id}>
                       {canViewTeamDashboard && (
                         <td>
                           <button
                             type="button"
                             className="btn"
                             style={{ padding: "4px 10px", fontSize: 12 }}
-                            onClick={() => openTravelFormModal(p)}
+                            onClick={() => openTravelFormModal({ refKey: p.refKey, email: p.email || "" })}
                           >
                             View / Edit
                           </button>
@@ -7975,7 +8086,7 @@ function parseDateSafe(dateStr) {
                 })}
               </tbody>
             </table>
-            {canViewTeamDashboard && (trip?.participants || []).length === 0 && (
+            {canViewTeamDashboard && travelFormTableRows.length === 0 && (
               <EmptyState
                 icon="empty"
                 title="No participants yet"

@@ -19,6 +19,7 @@ import {
   listAllTripTickets,
   saveTripTicket,
   deleteTripTicket,
+  syncTripTicketsFromTeamMembers,
 } from "@/lib/tripTickets";
 import { listTripsForCurrentUser } from "@/lib/trips";
 
@@ -101,11 +102,14 @@ export default function BudgetPage() {
           listAllTripTickets(),
         ]);
         if (cancelled) return;
+        await syncTripTicketsFromTeamMembers(tripsRes || []);
+        const refreshedTickets = await listAllTripTickets();
+        if (cancelled) return;
         setTrips(tripsRes || []);
         setAverages(avgRes);
         setSiteNotes(notesRes);
         setHousingRows(mergeHousingWithTrips(tripsRes, housingRes));
-        setTicketRows(ticketsRes);
+        setTicketRows(refreshedTickets.length ? refreshedTickets : ticketsRes);
         if (tripsRes?.length > 0 && !newTicketTripId) setNewTicketTripId(tripsRes[0].id);
       } catch (e) {
         if (!cancelled) {

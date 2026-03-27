@@ -9,7 +9,7 @@ set search_path = public
 as $$
   select lower(trim(p.role))
   from public.profiles as p
-  where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+  where p.id = auth.uid()
   limit 1;
 $$;
 
@@ -25,11 +25,13 @@ for select
 to authenticated
 using (
   private.current_profile_role() in ('admin', 'staff')
-  or user_id in (
-    select p.id
-    from public.profiles as p
-    where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+  or (
+    private.current_profile_role() = 'leader'
+    and trip_id in (
+      select trip_id from public.trip_assignments where user_id = auth.uid()
+    )
   )
+  or user_id = auth.uid()
 );
 
 drop policy if exists "travel_form_responses_insert_access" on public.travel_form_responses;
@@ -39,11 +41,13 @@ for insert
 to authenticated
 with check (
   private.current_profile_role() in ('admin', 'staff')
-  or user_id in (
-    select p.id
-    from public.profiles as p
-    where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+  or (
+    private.current_profile_role() = 'leader'
+    and trip_id in (
+      select trip_id from public.trip_assignments where user_id = auth.uid()
+    )
   )
+  or user_id = auth.uid()
 );
 
 drop policy if exists "travel_form_responses_update_access" on public.travel_form_responses;
@@ -53,19 +57,23 @@ for update
 to authenticated
 using (
   private.current_profile_role() in ('admin', 'staff')
-  or user_id in (
-    select p.id
-    from public.profiles as p
-    where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+  or (
+    private.current_profile_role() = 'leader'
+    and trip_id in (
+      select trip_id from public.trip_assignments where user_id = auth.uid()
+    )
   )
+  or user_id = auth.uid()
 )
 with check (
   private.current_profile_role() in ('admin', 'staff')
-  or user_id in (
-    select p.id
-    from public.profiles as p
-    where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+  or (
+    private.current_profile_role() = 'leader'
+    and trip_id in (
+      select trip_id from public.trip_assignments where user_id = auth.uid()
+    )
   )
+  or user_id = auth.uid()
 );
 
 drop policy if exists "travel_form_responses_delete_access" on public.travel_form_responses;
