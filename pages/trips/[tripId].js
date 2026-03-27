@@ -4110,7 +4110,24 @@ function parseDateSafe(dateStr) {
     if (!trip) return [];
 
     if (canViewTeamDashboard) {
-      return trip.participants || [];
+      const participantEmails = new Set(
+        (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+      );
+      const rosterOnly = (trip.teamMembers || [])
+        .filter((member) => {
+          const email = normalizeEmail(member.email);
+          return email && !participantEmails.has(email);
+        })
+        .map((member) => ({
+          id: member.id ? `roster-member-${member.id}` : `roster-${normalizeEmail(member.email)}`,
+          name: member.name || member.email || "Roster member",
+          email: member.email || "",
+          fundraisingUrl: "",
+          fundraisingGoalAmount:
+            member.fundraisingGoalAmount != null ? Number(member.fundraisingGoalAmount) : undefined,
+          rosterOnly: true,
+        }));
+      return [...(trip.participants || []), ...rosterOnly];
     }
 
     if (!currentParticipant) {
@@ -4120,6 +4137,29 @@ function parseDateSafe(dateStr) {
     return (trip.participants || []).filter(
       (participant) => String(participant.id) === String(currentParticipant.id)
     );
+  }, [trip, canViewTeamDashboard, currentParticipant]);
+
+  const workerDocumentParticipants = useMemo(() => {
+    if (!trip) return [];
+    if (!canViewTeamDashboard) {
+      return currentParticipant ? [currentParticipant] : [];
+    }
+    const participantEmails = new Set(
+      (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+    );
+    const rosterOnly = (trip.teamMembers || [])
+      .filter((member) => {
+        const email = normalizeEmail(member.email);
+        return email && !participantEmails.has(email);
+      })
+      .map((member) => ({
+        id: member.id ? `roster-member-${member.id}` : `roster-${normalizeEmail(member.email)}`,
+        profileId: "",
+        name: member.name || member.email || "Roster member",
+        email: member.email || "",
+        rosterOnly: true,
+      }));
+    return [...(trip.participants || []), ...rosterOnly];
   }, [trip, canViewTeamDashboard, currentParticipant]);
 
   const referenceReceivedProgress = useMemo(() => {
@@ -6013,9 +6053,11 @@ function parseDateSafe(dateStr) {
                   const isEditingParticipantLink =
                     editingParticipantFundraisingId === participant.id;
                   const fundraisingProgressMeta = getFundraisingProgressMeta(participant);
+                  const canEditParticipantFundraising =
+                    canViewTeamDashboard && !participant.rosterOnly;
                   return (
                     <div
-                      key={participant.email}
+                      key={participant.id || participant.email}
                       className="card pad"
                       style={{
                         boxShadow: "none",
@@ -6065,7 +6107,7 @@ function parseDateSafe(dateStr) {
                           </a>
                         ) : null}
                       </div>
-                      {canViewTeamDashboard && (
+                      {canEditParticipantFundraising && (
                         <>
                           <div style={{ height: 12 }} />
                           {!isEditingParticipantLink ? (
@@ -6156,6 +6198,11 @@ function parseDateSafe(dateStr) {
                           )}
                         </>
                       )}
+                      {canViewTeamDashboard && participant.rosterOnly ? (
+                        <div className="small" style={{ marginTop: 12, color: "var(--muted)" }}>
+                          Worker has not connected an account yet. Fundraising link can be added after signup.
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
@@ -7695,12 +7742,7 @@ function parseDateSafe(dateStr) {
                 gap: 16,
               }}
             >
-              {(canViewTeamDashboard
-                ? trip.participants || []
-                : currentParticipant
-                  ? [currentParticipant]
-                  : []
-              ).map((participant) => {
+              {workerDocumentParticipants.map((participant) => {
                 const documentSlots = participantDocumentsByUserId.get(String(participant.id)) || {};
 
                 return (
@@ -7708,12 +7750,12 @@ function parseDateSafe(dateStr) {
                     <div className="row" style={{ marginBottom: 10 }}>
                       <div>
                         <div style={{ fontWeight: 900 }}>
-                          {canViewTeamDashboard ? (
+                          {canViewTeamDashboard && !participant.rosterOnly ? (
                             <Link href={`/profile?participantId=${encodeURIComponent(participant.id)}`}>
                               {participant.name}
                             </Link>
                           ) : (
-                            "My Uploads"
+                            canViewTeamDashboard ? participant.name : "My Uploads"
                           )}
                         </div>
                       </div>
@@ -7823,6 +7865,11 @@ function parseDateSafe(dateStr) {
                                   }}
                                 >
                                   {slotStatus.message}
+                                </div>
+                              ) : null}
+                              {canViewTeamDashboard && participant.rosterOnly ? (
+                                <div className="small" style={{ color: "var(--muted)", alignSelf: "center" }}>
+                                  Waiting for worker account before upload.
                                 </div>
                               ) : null}
                             </div>
@@ -8132,7 +8179,7 @@ function parseDateSafe(dateStr) {
                 })}
               </tbody>
             </table>
-            {canViewTeamDashboard && travelFormTableRows.length === 0 && (
+            {canViewTeamDashboard && workerDocumentParticipants.length === 0 && (
               <EmptyState
                 icon="empty"
                 title="No participants yet"
