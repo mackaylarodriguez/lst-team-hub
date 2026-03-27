@@ -52,7 +52,6 @@ export default function TripTravelSafetySection({
   canEdit = false,
   isPreviewingParticipant = false,
 }) {
-  const [mainOpen, setMainOpen] = useState(false);
   const [record, setRecord] = useState(null);
   const [draft, setDraft] = useState({
     entryRequirements: "",
@@ -250,45 +249,34 @@ export default function TripTravelSafetySection({
         boxShadow: "0 8px 24px rgba(47, 73, 147, 0.06)",
       }}
     >
-      <CollapsibleSection
-        defaultOpen={false}
-        title="Travel & Safety"
-        subtitle={
-          loading
-            ? "Loading…"
-            : `Content version ${contentVersion}. Expand for entry requirements, safety, links, and acknowledgments.`
-        }
-        style={{ border: "none", background: "transparent" }}
-      >
-        <div style={{ display: "grid", gap: 12 }}>
-          {loading ? (
-            <div className="small">Loading Travel & Safety…</div>
-          ) : (
-            <>
-              <div className="small" style={{ opacity: 0.9 }}>
-                <strong>Version {contentVersion}</strong>
-                {record?.updatedAt ? (
-                  <span>
-                    {" "}
-                    · Last updated {new Date(record.updatedAt).toLocaleString()}
-                  </span>
-                ) : null}
-              </div>
+      <div style={{ display: "grid", gap: 12 }}>
+        <div>
+          <div style={{ fontWeight: 900, marginBottom: 4 }}>Travel & Safety</div>
+          {record?.updatedAt ? (
+            <div className="small" style={{ opacity: 0.9 }}>
+              Last updated {new Date(record.updatedAt).toLocaleString()}
+            </div>
+          ) : null}
+        </div>
+        {loading ? (
+          <div className="small">Loading Travel & Safety…</div>
+        ) : (
+          <>
 
-              <div style={{ display: "grid", gap: 10 }}>
-                {subsection("entry", "Entry Requirements", "entryLastVerifiedDate", "entryRequirements")}
-                {subsection("safety", "Safety & Security", "safetyLastVerifiedDate", "safetySecurity")}
-                {referenceLinksSection}
-              </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              {subsection("entry", "Entry Requirements", "entryLastVerifiedDate", "entryRequirements")}
+              {subsection("safety", "Safety & Security", "safetyLastVerifiedDate", "safetySecurity")}
+              {referenceLinksSection}
+            </div>
 
-              {canEdit ? (
-                <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <button className="btn btnPrimary" type="button" onClick={() => void handleSave()}>
-                    Save Travel & Safety
-                  </button>
-                  {saveStatus ? <span className="small">{saveStatus}</span> : null}
-                </div>
-              ) : null}
+            {canEdit ? (
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <button className="btn btnPrimary" type="button" onClick={() => void handleSave()}>
+                  Save Travel & Safety
+                </button>
+                {saveStatus ? <span className="small">{saveStatus}</span> : null}
+              </div>
+            ) : null}
 
               {!canEdit && showAckButton ? (
                 <div
@@ -405,10 +393,9 @@ export default function TripTravelSafetySection({
                   </div>
                 </div>
               ) : null}
-            </>
-          )}
-        </div>
-      </CollapsibleSection>
+          </>
+        )}
+      </div>
     </div>
   );
 }
