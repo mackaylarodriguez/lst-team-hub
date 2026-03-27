@@ -414,8 +414,8 @@ a:hover{text-decoration:underline}
 .badgeSuccess{border-color:rgba(60,170,225,.28); color:var(--success); background:var(--skySoft)}
 .badgeWarn{border-color:rgba(249,157,42,.28); color:var(--warn); background:var(--goldSoft)}
 .badgeDanger{border-color:rgba(239,68,68,.25); color:var(--danger); background:rgba(239,68,68,.08)}
-.shell{display:grid; grid-template-columns:260px 1fr; min-height:100vh}
-.shellCollapsed{grid-template-columns:112px 1fr}
+.shell{display:grid; grid-template-columns:260px minmax(0,1fr); min-height:100vh}
+.shellCollapsed{grid-template-columns:112px minmax(0,1fr)}
 .sidebar{
   position:sticky;
   top:0;
@@ -509,10 +509,17 @@ a:hover{text-decoration:underline}
   margin-bottom:4px;
 }
 .main{
+  min-width:0;
+  max-width:100%;
   padding:26px 28px 40px 28px;
   padding-left:max(24px, env(safe-area-inset-left));
   padding-right:max(24px, env(safe-area-inset-right));
   padding-bottom:max(40px, env(safe-area-inset-bottom));
+}
+.budgetPage{
+  min-width:0;
+  max-width:100%;
+  overflow-x:hidden;
 }
 .tabs{display:flex; gap:8px; flex-wrap:wrap}
 .tab{padding:8px 10px; border:1px solid var(--border); border-radius:999px; background:#fff; color:var(--muted); font-weight:800; font-size:13px; cursor:pointer}

@@ -16,7 +16,7 @@ import {
   saveTripParticipantDocumentTypes,
   updateTripForCurrentUser,
 } from "@/lib/trips";
-import { isAdminRole, isManagerRole } from "@/lib/roles";
+import { isAdminRole, isLeaderRole, isManagerRole } from "@/lib/roles";
 import { listTripTeamMembers, saveTripTeamMembers } from "@/lib/tripTeamMembers";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import {
@@ -56,7 +56,11 @@ import {
   listUserTaskProgress,
   saveUserTaskProgress,
 } from "@/lib/tripTasks";
-import { listReferenceEmails, saveReferenceEmail } from "@/lib/referenceEmails";
+import {
+  listReferenceEmails,
+  referenceRowToStateKey,
+  saveReferenceEmail,
+} from "@/lib/referenceEmails";
 import {
   deleteTripOverviewNote,
   listTripOverviewNotes,
@@ -96,7 +100,17 @@ import {
   TRAVEL_FORM_TEMPLATE_PATH,
 } from "@/lib/travelFormExport";
 import { showToast } from "@/components/Toast";
+import CollapsibleSection from "@/components/CollapsibleSection";
 import TripTravelSafetySection from "@/components/TripTravelSafetySection";
+import { deleteTripMeeting, listTripMeetings, saveTripMeeting } from "@/lib/tripMeetings";
+
+function toDatetimeLocalValue(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -434,6 +448,10 @@ export default function TripPage() {
   const [travelFormStatus, setTravelFormStatus] = useState("");
   const [travelFormResponses, setTravelFormResponses] = useState([]);
   const [teamTabTshirtSavingUserId, setTeamTabTshirtSavingUserId] = useState("");
+  const [tripMeetings, setTripMeetings] = useState([]);
+  const [meetingDraft, setMeetingDraft] = useState({ title: "", scheduledAt: "", notesAfter: "" });
+  const [editingMeetingId, setEditingMeetingId] = useState("");
+  const [meetingStatus, setMeetingStatus] = useState("");
   const latestStaffTaskSaveRef = useRef(0);
   const editableStaffTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
@@ -442,7 +460,10 @@ export default function TripPage() {
   const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
   const isPreviewingParticipant = canManageTrips && !!previewParticipantId;
-  const canViewAllParticipantData = canManageTrips && !isPreviewingParticipant;
+  const staffViewAllParticipants = canManageTrips && !isPreviewingParticipant;
+  const isLeader = isLeaderRole(session?.permissionRole || session?.role);
+  const canViewTeamDashboard = staffViewAllParticipants || (isLeader && !isPreviewingParticipant);
+  const canManageTripMeetings = staffViewAllParticipants || (isLeader && !isPreviewingParticipant);
 
   const staffList = [
     "Mackayla",
@@ -467,8 +488,11 @@ export default function TripPage() {
     if (String(requestedTab || "").toLowerCase() === "team") {
       setTab("Team");
     }
+    if (String(requestedTab || "").toLowerCase() === "travel-safety") {
+      setTab("Travel & Safety");
+    }
     if (String(requestedTab || "").toLowerCase() === "documents" || String(requestedTab || "").toLowerCase() === "my-documents") {
-      setTab(canViewAllParticipantData ? "Worker Docs" : "My Documents");
+      setTab(canViewTeamDashboard ? "Worker Docs" : "My Documents");
     }
 
     if (requestedStaffTaskId) {
@@ -479,7 +503,7 @@ export default function TripPage() {
       setIsEditingRoster(false);
       setWorkerAddStatus("");
     }
-  }, [canViewAllParticipantData, router.query.addWorker, router.query.staffTaskId, router.query.tab]);
+  }, [canViewTeamDashboard, router.query.addWorker, router.query.staffTaskId, router.query.tab]);
 
   useEffect(() => {
     const requestedParticipantId = Array.isArray(router.query.participantId)
@@ -497,7 +521,7 @@ export default function TripPage() {
   useEffect(() => {
     const requestedEdit = Array.isArray(router.query.edit) ? router.query.edit[0] : router.query.edit;
     if (String(requestedEdit || "").toLowerCase() !== "setup") return;
-    if (!trip?.id || !canViewAllParticipantData || isEditingTripSetup) return;
+    if (!trip?.id || !staffViewAllParticipants || isEditingTripSetup) return;
 
     setTab("Overview");
     handleStartTripSetupEdit();
@@ -512,7 +536,7 @@ export default function TripPage() {
       nextUrl.searchParams.delete("edit");
       window.history.replaceState({}, "", nextUrl.toString());
     }
-  }, [router.query.edit, trip?.id, canViewAllParticipantData, isEditingTripSetup]);
+  }, [router.query.edit, trip?.id, staffViewAllParticipants, isEditingTripSetup]);
   const trainingAccessUrl = "https://lst365.sharepoint.com/:b:/g/IQD0aBKBPtQsQ6oh55gqMG4IAe3aFtSVxmywEXEBasP_5jY?e=SZ9m0j";
   const basicTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=134&";
   const gatewayTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=136&";
@@ -733,6 +757,23 @@ export default function TripPage() {
 
     void loadParticipantDocuments();
 
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.id]);
+
+  useEffect(() => {
+    if (!trip?.id) return;
+    let cancelled = false;
+    async function loadMeetings() {
+      try {
+        const rows = await listTripMeetings(trip.id);
+        if (!cancelled) setTripMeetings(rows);
+      } catch (e) {
+        console.error("Unable to load meetings", e);
+      }
+    }
+    void loadMeetings();
     return () => {
       cancelled = true;
     };
@@ -1071,7 +1112,7 @@ export default function TripPage() {
   }, [trip]);
 
   useEffect(() => {
-    if (!trip) return;
+    if (!trip || !staffViewAllParticipants) return;
 
     let cancelled = false;
 
@@ -1100,7 +1141,7 @@ export default function TripPage() {
       cancelled = true;
       window.removeEventListener(STAFF_TASKS_UPDATED_EVENT, handleTaskUpdate);
     };
-  }, [trip?.id]);
+  }, [trip?.id, staffViewAllParticipants]);
 
   async function handleAddDocument(event) {
     const file = event.target.files?.[0];
@@ -1400,7 +1441,9 @@ export default function TripPage() {
 
         const next = {};
         rows.forEach((row) => {
-          next[row.userId] = {
+          const key = referenceRowToStateKey(row);
+          if (!key) return;
+          next[key] = {
             referenceName: row.referenceName,
             referenceEmail: row.referenceEmail,
             referencePhone: row.referencePhone,
@@ -1522,24 +1565,39 @@ export default function TripPage() {
     }
   }
 
-  function getReferenceStatus(userId) {
-    return referenceEmails[userId] || {
-      referenceName: "",
-      referenceEmail: "",
-      referencePhone: "",
-      sent: false,
-      received: false,
-      sentDate: "",
-    };
+  function normalizeReferenceRefKey(refKey) {
+    if (!refKey) return "";
+    return refKey.startsWith("user:") || refKey.startsWith("roster:")
+      ? refKey
+      : `user:${refKey}`;
   }
 
-  async function saveReferenceStatus(userId, nextStatus) {
-    if (!trip || !userId) return;
+  function getReferenceStatus(refKey) {
+    const key = normalizeReferenceRefKey(refKey);
+    return (
+      referenceEmails[key] || {
+        referenceName: "",
+        referenceEmail: "",
+        referencePhone: "",
+        sent: false,
+        received: false,
+        sentDate: "",
+      }
+    );
+  }
+
+  async function saveReferenceStatus(refKey, nextStatus) {
+    if (!trip || !refKey) return;
+    const rawKey = normalizeReferenceRefKey(refKey);
+    const userId = rawKey.startsWith("user:") ? rawKey.slice(5) : "";
+    const tripTeamMemberId = rawKey.startsWith("roster:") ? rawKey.slice(7) : "";
+    if (!userId && !tripTeamMemberId) return;
 
     try {
       const saved = await saveReferenceEmail({
         tripId: trip.id,
-        userId,
+        userId: userId || undefined,
+        tripTeamMemberId: tripTeamMemberId || undefined,
         referenceName: nextStatus.referenceName,
         referenceEmail: nextStatus.referenceEmail,
         referencePhone: nextStatus.referencePhone,
@@ -1548,9 +1606,12 @@ export default function TripPage() {
         sentDate: nextStatus.sentDate,
       });
 
+      const stateKey = referenceRowToStateKey(saved);
+      if (!stateKey) return;
+
       setReferenceEmails((current) => ({
         ...current,
-        [userId]: {
+        [stateKey]: {
           referenceName: saved.referenceName,
           referenceEmail: saved.referenceEmail,
           referencePhone: saved.referencePhone,
@@ -1564,8 +1625,9 @@ export default function TripPage() {
     }
   }
 
-  function toggleReferenceEmail(userId, field) {
-    const current = getReferenceStatus(userId);
+  function toggleReferenceEmail(refKey, field) {
+    const key = normalizeReferenceRefKey(refKey);
+    const current = getReferenceStatus(refKey);
     const nextValue = !current[field];
 
     const nextStatus = {
@@ -1577,13 +1639,14 @@ export default function TripPage() {
 
     setReferenceEmails((prev) => ({
       ...prev,
-      [userId]: nextStatus,
+      [key]: nextStatus,
     }));
-    void saveReferenceStatus(userId, nextStatus);
+    void saveReferenceStatus(refKey, nextStatus);
   }
 
-  function updateReferenceSentDate(userId, value) {
-    const current = getReferenceStatus(userId);
+  function updateReferenceSentDate(refKey, value) {
+    const key = normalizeReferenceRefKey(refKey);
+    const current = getReferenceStatus(refKey);
     const nextStatus = {
       ...current,
       sent: value ? true : current.sent,
@@ -1592,13 +1655,14 @@ export default function TripPage() {
 
     setReferenceEmails((prev) => ({
       ...prev,
-      [userId]: nextStatus,
+      [key]: nextStatus,
     }));
-    void saveReferenceStatus(userId, nextStatus);
+    void saveReferenceStatus(refKey, nextStatus);
   }
 
-  function updateReferenceField(userId, field, value) {
-    const current = getReferenceStatus(userId);
+  function updateReferenceField(refKey, field, value) {
+    const key = normalizeReferenceRefKey(refKey);
+    const current = getReferenceStatus(refKey);
     const nextStatus = {
       ...current,
       [field]: value,
@@ -1606,9 +1670,9 @@ export default function TripPage() {
 
     setReferenceEmails((prev) => ({
       ...prev,
-      [userId]: nextStatus,
+      [key]: nextStatus,
     }));
-    void saveReferenceStatus(userId, nextStatus);
+    void saveReferenceStatus(refKey, nextStatus);
   }
 
   function toggleTask(taskId, ownerEmail = session?.email) {
@@ -2703,6 +2767,35 @@ function parseDateSafe(dateStr) {
     setOverviewNoteStatus("");
   }
 
+  async function handleSaveTripMeeting() {
+    if (!trip?.id || !meetingDraft.scheduledAt) {
+      setMeetingStatus("Pick a date and time for the meeting.");
+      return;
+    }
+    try {
+      setMeetingStatus("Saving...");
+      const saved = await saveTripMeeting({
+        id: editingMeetingId || undefined,
+        tripId: trip.id,
+        title: meetingDraft.title,
+        scheduledAt: new Date(meetingDraft.scheduledAt).toISOString(),
+        notesAfter: meetingDraft.notesAfter,
+      });
+      setTripMeetings((prev) => {
+        const without = prev.filter((m) => m.id !== saved.id);
+        return [...without, saved].sort(
+          (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+        );
+      });
+      setMeetingDraft({ title: "", scheduledAt: "", notesAfter: "" });
+      setEditingMeetingId("");
+      setMeetingStatus("Saved.");
+    } catch (error) {
+      console.error("Unable to save meeting", error);
+      setMeetingStatus(error.message || "Unable to save meeting.");
+    }
+  }
+
   async function handleSaveAnnouncement() {
     if (!trip?.id) return;
 
@@ -3137,14 +3230,14 @@ function parseDateSafe(dateStr) {
               ) : null}
             </div>
           ) : null}
-          {canViewAllParticipantData && !isEditingTripSetup ? (
+          {staffViewAllParticipants && !isEditingTripSetup ? (
             <button className="btn" type="button" onClick={handleStartTripSetupEdit}>
               Edit Details
             </button>
           ) : null}
         </div>
         <div
-          className={`tripSetupColumns${canViewAllParticipantData ? "" : " tripSetupColumnsSingle"}`}
+          className={`tripSetupColumns${staffViewAllParticipants ? "" : " tripSetupColumnsSingle"}`}
         >
           <div className="tripSetupSection tripSetupSectionTrip">
             <div className="tripSetupSectionHeader">Trip Details</div>
@@ -3254,7 +3347,7 @@ function parseDateSafe(dateStr) {
                   </select>
                 </div>
               </div>
-            ) : canViewAllParticipantData ? (
+            ) : staffViewAllParticipants ? (
               <>
                 <div className="small">Team Name</div>
                 <div style={{ fontWeight: 800 }}>{trip.name}</div>
@@ -3311,7 +3404,7 @@ function parseDateSafe(dateStr) {
             )}
           </div>
 
-          {canViewAllParticipantData ? (
+          {staffViewAllParticipants ? (
             <div className="tripSetupSection tripSetupSectionSite">
               <div className="tripSetupSectionHeader">Site Setup</div>
               {isEditingTripSetup ? (
@@ -3389,7 +3482,7 @@ function parseDateSafe(dateStr) {
             </div>
           ) : null}
 
-          {canViewAllParticipantData ? (
+          {staffViewAllParticipants ? (
             <div className="tripSetupSection tripSetupSectionFees">
               <div className="tripSetupSectionHeader">Fees</div>
               {isEditingTripSetup ? (
@@ -3575,10 +3668,10 @@ function parseDateSafe(dateStr) {
   const selectedSiteValue = isCustomSiteInput ? CUSTOM_SITE_OPTION : tripSetupDraft.location || "";
   const visibleDocs = useMemo(
     () =>
-      canViewAllParticipantData
+      canViewTeamDashboard
         ? docs
         : (docs || []).filter((doc) => doc.visibleToParticipants !== false),
-    [canViewAllParticipantData, docs]
+    [canViewTeamDashboard, docs]
   );
   const hiddenRequiredDocumentKeys = useMemo(
     () =>
@@ -3612,7 +3705,8 @@ function parseDateSafe(dateStr) {
       );
     }
 
-    if (!session || canViewAllParticipantData) return null;
+    if (!session) return null;
+    if (staffViewAllParticipants) return null;
 
     return (
       trip.participants.find(
@@ -3620,11 +3714,11 @@ function parseDateSafe(dateStr) {
           participant.email.toLowerCase() === session.email.toLowerCase()
       ) || null
     );
-  }, [trip, session, canViewAllParticipantData, isPreviewingParticipant, previewParticipantId]);
+  }, [trip, session, staffViewAllParticipants, isPreviewingParticipant, previewParticipantId]);
 
   const activeParticipantEmail = currentParticipant?.email?.toLowerCase() || "";
   const canUploadOwnParticipantDocuments =
-    !canViewAllParticipantData && !!currentParticipant;
+    !staffViewAllParticipants && !!currentParticipant;
   const participantDocumentsByUserId = useMemo(() => {
     const grouped = new Map();
 
@@ -3647,7 +3741,7 @@ function parseDateSafe(dateStr) {
   const participantTaskProgress = useMemo(() => {
     if (!trip) return [];
 
-    return (trip.participants || []).map((participant) => {
+    const base = (trip.participants || []).map((participant) => {
       const taskState = participantTaskStates[participant.email] || {};
       const completed = trip.tasks.filter((task) => !!taskState[task.id]).length;
 
@@ -3659,7 +3753,42 @@ function parseDateSafe(dateStr) {
         percent: percentComplete(trip.tasks, taskState),
       };
     });
-  }, [trip, participantTaskStates]);
+
+    if (!canViewTeamDashboard) {
+      return base;
+    }
+
+    const participantEmails = new Set(
+      (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+    );
+    const extras = (trip.teamMembers || [])
+      .filter((m) => {
+        const e = normalizeEmail(m.email);
+        return e && !participantEmails.has(e);
+      })
+      .map((member) => {
+        const taskState = participantTaskStates[member.email] || {};
+        const completed = trip.tasks.filter((task) => !!taskState[task.id]).length;
+        return {
+          id: member.id ? `roster-member-${member.id}` : `roster-${normalizeEmail(member.email)}`,
+          assignmentId: "",
+          name: member.name || member.email || "Roster member",
+          email: member.email || "",
+          firstName: member.firstName || "",
+          lastName: member.lastName || "",
+          role: "",
+          gender: "",
+          fundraisingUrl: "",
+          taskState,
+          completed,
+          total: trip.tasks.length,
+          percent: percentComplete(trip.tasks, taskState),
+          rosterOnly: true,
+        };
+      });
+
+    return [...base, ...extras];
+  }, [trip, participantTaskStates, canViewTeamDashboard]);
 
   const currentParticipantProgress = useMemo(() => {
     if (!activeParticipantEmail) return null;
@@ -3727,6 +3856,27 @@ function parseDateSafe(dateStr) {
     });
   }, [trip]);
 
+  const referenceTableRows = useMemo(() => {
+    if (!trip) return [];
+    const participantEmails = new Set(
+      (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+    );
+    const rows = (trip.participants || []).map((p) => ({
+      refKey: `user:${p.id}`,
+      displayName: p.name || p.email || "Member",
+    }));
+    for (const m of trip.teamMembers || []) {
+      const e = normalizeEmail(m.email);
+      if (e && participantEmails.has(e)) continue;
+      if (!m.id) continue;
+      rows.push({
+        refKey: `roster:${m.id}`,
+        displayName: m.name || e || "Roster member",
+      });
+    }
+    return rows.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [trip]);
+
   const participantTaskPct = useMemo(() => {
     const totalPossible = participantTaskProgress.reduce(
       (sum, participant) => sum + participant.total,
@@ -3743,7 +3893,7 @@ function parseDateSafe(dateStr) {
   const trainingProgress = useMemo(() => {
     if (!trip) return [];
 
-    return (trip.participants || []).map((participant) => {
+    const base = (trip.participants || []).map((participant) => {
       const trainingState = participantTrainingStates[participant.email] || {};
       const completed = allTrainingModules.filter(
         (module) => !!trainingState[module.id]
@@ -3758,7 +3908,45 @@ function parseDateSafe(dateStr) {
         percent: total ? Math.round((completed / total) * 100) : 0,
       };
     });
-  }, [trip, participantTrainingStates, allTrainingModules]);
+
+    if (!canViewTeamDashboard) {
+      return base;
+    }
+
+    const participantEmails = new Set(
+      (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+    );
+    const extras = (trip.teamMembers || [])
+      .filter((m) => {
+        const e = normalizeEmail(m.email);
+        return e && !participantEmails.has(e);
+      })
+      .map((member) => {
+        const trainingState = participantTrainingStates[member.email] || {};
+        const completed = allTrainingModules.filter(
+          (module) => !!trainingState[module.id]
+        ).length;
+        const total = allTrainingModules.length;
+        return {
+          id: member.id ? `roster-member-${member.id}` : `roster-${normalizeEmail(member.email)}`,
+          assignmentId: "",
+          name: member.name || member.email || "Roster member",
+          email: member.email || "",
+          firstName: member.firstName || "",
+          lastName: member.lastName || "",
+          role: "",
+          gender: "",
+          fundraisingUrl: "",
+          trainingState,
+          completed,
+          total,
+          percent: total ? Math.round((completed / total) * 100) : 0,
+          rosterOnly: true,
+        };
+      });
+
+    return [...base, ...extras];
+  }, [trip, participantTrainingStates, allTrainingModules, canViewTeamDashboard]);
 
   const currentTrainingProgress = useMemo(() => {
     if (!activeParticipantEmail) return null;
@@ -3787,7 +3975,7 @@ function parseDateSafe(dateStr) {
   const visibleFundraisingParticipants = useMemo(() => {
     if (!trip) return [];
 
-    if (canViewAllParticipantData) {
+    if (canViewTeamDashboard) {
       return trip.participants || [];
     }
 
@@ -3798,7 +3986,7 @@ function parseDateSafe(dateStr) {
     return (trip.participants || []).filter(
       (participant) => String(participant.id) === String(currentParticipant.id)
     );
-  }, [trip, canViewAllParticipantData, currentParticipant]);
+  }, [trip, canViewTeamDashboard, currentParticipant]);
 
   const referenceReceivedProgress = useMemo(() => {
     if (!trip) {
@@ -3810,10 +3998,10 @@ function parseDateSafe(dateStr) {
       };
     }
 
-    if (canViewAllParticipantData) {
-      const total = trip.participants.length;
-      const completed = trip.participants.filter(
-        (participant) => !!getReferenceStatus(participant.id).received
+    if (canViewTeamDashboard) {
+      const total = referenceTableRows.length;
+      const completed = referenceTableRows.filter(
+        (row) => !!getReferenceStatus(row.refKey).received
       ).length;
 
       return {
@@ -3825,7 +4013,7 @@ function parseDateSafe(dateStr) {
     }
 
     const received = currentParticipant
-      ? !!getReferenceStatus(currentParticipant.id).received
+      ? !!getReferenceStatus(`user:${currentParticipant.id}`).received
       : false;
 
     return {
@@ -3834,19 +4022,19 @@ function parseDateSafe(dateStr) {
       completed: received ? 1 : 0,
       total: 1,
     };
-  }, [trip, canViewAllParticipantData, currentParticipant, referenceEmails]);
+  }, [trip, canViewTeamDashboard, currentParticipant, referenceEmails, referenceTableRows]);
 
-  const overviewTaskLabel = canViewAllParticipantData ? "Worker Tasks" : "My Tasks";
-  const overviewTaskPct = canViewAllParticipantData
+  const overviewTaskLabel = canViewTeamDashboard ? "Worker Tasks" : "My Tasks";
+  const overviewTaskPct = canViewTeamDashboard
     ? participantTaskPct
     : currentParticipantProgress?.percent || 0;
-  const overviewTrainingLabel = canViewAllParticipantData ? "Training" : "My Training";
-  const overviewTrainingPct = canViewAllParticipantData
+  const overviewTrainingLabel = canViewTeamDashboard ? "Training" : "My Training";
+  const overviewTrainingPct = canViewTeamDashboard
     ? trainingPct
     : currentTrainingProgress?.percent || 0;
   const tripFundraisingGoal = Number(trip?.fundraisingGoalAmount || 0);
   const fundraisingGoalAmount =
-    !canViewAllParticipantData &&
+    !canViewTeamDashboard &&
     currentParticipant?.fundraisingGoalAmount != null &&
     Number(currentParticipant.fundraisingGoalAmount) > 0
       ? Number(currentParticipant.fundraisingGoalAmount)
@@ -3858,7 +4046,7 @@ function parseDateSafe(dateStr) {
     1
   );
   const useIndividualGoal =
-    !canViewAllParticipantData &&
+    !canViewTeamDashboard &&
     currentParticipant?.fundraisingGoalAmount != null &&
     Number(currentParticipant.fundraisingGoalAmount) > 0;
   const countForDeadlines = useIndividualGoal ? 1 : fundraisingWorkerCount;
@@ -3891,14 +4079,14 @@ function parseDateSafe(dateStr) {
       : null;
   const overviewFundraisingLabel = trip?.teamFundraisingUrl
     ? "Team Fundraising"
-    : canViewAllParticipantData
+    : canViewTeamDashboard
       ? "Fundraising Links"
       : "My Fundraising";
   const overviewFundraisingValue = fundraisingGoalAmount
     ? formatMoney(fundraisingGoalAmount)
     : trip?.teamFundraisingUrl
       ? "Page Ready"
-      : canViewAllParticipantData
+      : canViewTeamDashboard
         ? `${savedFundraisingLinksCount} Links`
         : currentParticipant?.fundraisingUrl
           ? "Page Ready"
@@ -3909,7 +4097,7 @@ function parseDateSafe(dateStr) {
       )} by ${formatDeadlineDate(nextFundraisingDeadline.date)}.`
     : trip?.teamFundraisingUrl
       ? "Shared Neon page is ready for the full team."
-      : canViewAllParticipantData
+      : canViewTeamDashboard
         ? `${savedFundraisingLinksCount} worker links saved.`
         : currentParticipant?.fundraisingUrl
         ? "Your personal Neon page is available."
@@ -3947,10 +4135,10 @@ function parseDateSafe(dateStr) {
   );
   const viewerRequiredDocumentSlots = useMemo(
     () =>
-      canViewAllParticipantData
+      canViewTeamDashboard
         ? effectiveRequiredDocumentSlots
         : effectiveRequiredDocumentSlots.filter((slot) => !hiddenRequiredDocumentKeys.has(slot.key)),
-    [canViewAllParticipantData, effectiveRequiredDocumentSlots, hiddenRequiredDocumentKeys]
+    [canViewTeamDashboard, effectiveRequiredDocumentSlots, hiddenRequiredDocumentKeys]
   );
   const viewerMainRequiredDocumentSlots = useMemo(
     () => viewerRequiredDocumentSlots.filter((slot) => slot.key !== "site-info-link"),
@@ -3987,7 +4175,7 @@ function parseDateSafe(dateStr) {
 
     return links;
   }, [
-    canViewAllParticipantData,
+    canViewTeamDashboard,
     currentParticipant?.fundraisingUrl,
     effectiveSiteInfoDoc?.link,
     effectiveSiteInfoDoc?.pdfUrl,
@@ -3996,7 +4184,7 @@ function parseDateSafe(dateStr) {
     trainingAccessUrl,
     trip?.teamFundraisingUrl,
   ]);
-  const visibleTaskParticipants = canViewAllParticipantData
+  const visibleTaskParticipants = canViewTeamDashboard
     ? participantTaskProgress
     : currentParticipantProgress
       ? [currentParticipantProgress]
@@ -4005,7 +4193,7 @@ function parseDateSafe(dateStr) {
     () => groupWorkerTasks(trip?.tasks || []),
     [trip?.tasks]
   );
-  const visibleTrainingParticipants = canViewAllParticipantData
+  const visibleTrainingParticipants = canViewTeamDashboard
     ? trainingProgress
     : currentTrainingProgress
       ? [currentTrainingProgress]
@@ -4013,7 +4201,7 @@ function parseDateSafe(dateStr) {
   const overviewUpcomingTasks = useMemo(() => {
     if (!trip) return [];
 
-    if (canViewAllParticipantData) {
+    if (staffViewAllParticipants) {
       return (editableStaffTasks || [])
         .filter(
           (task) =>
@@ -4097,7 +4285,7 @@ function parseDateSafe(dateStr) {
       .slice(0, 5);
   }, [
     allTrainingModules,
-    canViewAllParticipantData,
+    staffViewAllParticipants,
     currentParticipantProgress?.taskState,
     currentTrainingProgress?.trainingState,
     editableStaffTasks,
@@ -4108,8 +4296,24 @@ function parseDateSafe(dateStr) {
     trip,
   ]);
 
-  const participantDocumentsTabLabel = canViewAllParticipantData ? "Worker Docs" : "My Documents";
+  const { upcomingMeetings, pastMeetings } = useMemo(() => {
+    const now = Date.now();
+    const upcoming = [];
+    const past = [];
+    for (const m of tripMeetings) {
+      const t = new Date(m.scheduledAt).getTime();
+      if (Number.isNaN(t)) continue;
+      if (t >= now) upcoming.push(m);
+      else past.push(m);
+    }
+    upcoming.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+    past.sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
+    return { upcomingMeetings: upcoming, pastMeetings: past };
+  }, [tripMeetings]);
+
+  const participantDocumentsTabLabel = canViewTeamDashboard ? "Worker Docs" : "My Documents";
   const tripDocumentsTabLabel = "Trip Documents";
+  const tripTabTravelSafety = "Travel & Safety";
   const tripTabMeta = {
     Overview: {
       icon: "spark",
@@ -4120,6 +4324,11 @@ function parseDateSafe(dateStr) {
       icon: "workers",
       title: "Team",
       description: "Roster, account status, invites, and references in one place.",
+    },
+    [tripTabTravelSafety]: {
+      icon: "archived",
+      title: tripTabTravelSafety,
+      description: "Entry requirements, safety & security, acknowledgments, and reference links.",
     },
     Fundraising: {
       icon: "active",
@@ -4144,7 +4353,7 @@ function parseDateSafe(dateStr) {
     [participantDocumentsTabLabel]: {
       icon: "archived",
       title: participantDocumentsTabLabel,
-      description: canViewAllParticipantData
+      description: canViewTeamDashboard
         ? "Uploads for each worker, with quick review and replacement controls."
         : "Your uploads and document slots for this trip.",
     },
@@ -4163,27 +4372,43 @@ function parseDateSafe(dateStr) {
   const workerTabList = [
     "Overview",
     "Team",
+    tripTabTravelSafety,
     "Fundraising",
     "Training",
     "Tasks",
     tripDocumentsTabLabel,
     participantDocumentsTabLabel,
   ];
-  const tabs = canManageTrips
-    ? isPreviewingParticipant
-      ? workerTabList
-      : [
-          "Overview",
-          "Team",
-          "Fundraising",
-          "Training",
-          "Tasks",
-          tripDocumentsTabLabel,
-          participantDocumentsTabLabel,
-          "Travel Form",
-          "Staff Tasks",
-        ]
-    : workerTabList;
+  const managerExpandedTabs = [
+    "Overview",
+    "Team",
+    tripTabTravelSafety,
+    "Fundraising",
+    "Training",
+    "Tasks",
+    tripDocumentsTabLabel,
+    participantDocumentsTabLabel,
+    "Travel Form",
+    "Staff Tasks",
+  ];
+  const leaderExpandedTabs = [
+    "Overview",
+    "Team",
+    tripTabTravelSafety,
+    "Fundraising",
+    "Training",
+    "Tasks",
+    tripDocumentsTabLabel,
+    participantDocumentsTabLabel,
+    "Travel Form",
+  ];
+  const tabs = isLeader && !isPreviewingParticipant
+    ? leaderExpandedTabs
+    : canManageTrips
+      ? isPreviewingParticipant
+        ? workerTabList
+        : managerExpandedTabs
+      : workerTabList;
 
   function renderTripTabIntro(tabName) {
     const meta = tripTabMeta[tabName] || {
@@ -4240,7 +4465,7 @@ function parseDateSafe(dateStr) {
     );
   }
 
-  const pct = canViewAllParticipantData
+  const pct = canViewTeamDashboard
     ? participantTaskPct
     : currentParticipantProgress?.percent || 0;
   const countdownSummary = getCountdownSummary(trip?.startDate);
@@ -4346,7 +4571,7 @@ function parseDateSafe(dateStr) {
               <div className="small">Staff updates for this trip.</div>
             </div>
             <div className="spacer" />
-            {canViewAllParticipantData && !isEditingAnnouncement ? (
+            {canViewTeamDashboard && !isEditingAnnouncement ? (
               <button className="btn" type="button" onClick={handleStartAnnouncement}>
                 Add Announcement
               </button>
@@ -4404,7 +4629,7 @@ function parseDateSafe(dateStr) {
                       </span>
                     ) : null}
                   </div>
-                  {canViewAllParticipantData ? (
+                  {canViewTeamDashboard ? (
                     <div className="row" style={{ marginTop: 10 }}>
                       <button className="btn" type="button" onClick={() => handleStartAnnouncement(announcement)}>
                         Edit
@@ -4438,6 +4663,11 @@ function parseDateSafe(dateStr) {
         {tab === "Overview" && (
           <div style={{ display: "grid", gap: 16 }}>
             {renderTripTabIntro("Overview")}
+          <CollapsibleSection
+            title="Progress at a glance"
+            subtitle="Task, training, fundraising, and reference completion."
+            defaultOpen
+          >
           <div
             className="tripOverviewStatsGrid"
             style={{
@@ -4453,13 +4683,13 @@ function parseDateSafe(dateStr) {
                 <div style={{ width: `${overviewTaskPct}%` }} />
               </div>
               <div className="small" style={{ marginTop: 8 }}>
-                {canViewAllParticipantData
+                {canViewTeamDashboard
                   ? "Combined completion across all participant task lists."
                   : "Your task completion progress for this trip."}
               </div>
             </div>
 
-            {canViewAllParticipantData && (
+            {staffViewAllParticipants && (
               <div className="card pad">
                 <div className="small" style={{ marginBottom: 8 }}>Staff Tasks</div>
                 <div style={{ fontSize: 28, fontWeight: 900 }}>{completionPct}%</div>
@@ -4479,7 +4709,7 @@ function parseDateSafe(dateStr) {
                 <div style={{ width: `${overviewTrainingPct}%` }} />
               </div>
               <div className="small" style={{ marginTop: 8 }}>
-                {canViewAllParticipantData
+                {canViewTeamDashboard
                   ? "Combined completion across all participant training checklists."
                   : "Your training completion progress for this trip."}
               </div>
@@ -4504,15 +4734,181 @@ function parseDateSafe(dateStr) {
               </div>
             </div>
           </div>
+          </CollapsibleSection>
 
-          {trip?.id ? (
-            <TripTravelSafetySection
-              tripId={trip.id}
-              session={session}
-              participants={trip.participants || []}
-              canEdit={canManageTrips && !isPreviewingParticipant}
-              isPreviewingParticipant={isPreviewingParticipant}
-            />
+          {canViewTeamDashboard ? (
+            <CollapsibleSection
+              title="Meetings"
+              subtitle="Upcoming and past meetings with notes."
+              defaultOpen
+            >
+            <div
+              className="card pad tripFullSpanCard"
+              style={{ gridColumn: "1 / -1", border: "1px solid rgba(47,73,147,.12)" }}
+            >
+              <div style={{ fontWeight: 900, marginBottom: 4 }}>Meetings</div>
+              <div className="small" style={{ marginBottom: 12, color: "var(--muted)" }}>
+                Upcoming and past meetings. Staff and trip leaders can schedule meetings and add notes afterward.
+              </div>
+              {canManageTripMeetings ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 10,
+                    marginBottom: 16,
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "#fafafa",
+                  }}
+                >
+                  <input
+                    className="input"
+                    placeholder="Title (optional)"
+                    value={meetingDraft.title}
+                    onChange={(e) => setMeetingDraft((d) => ({ ...d, title: e.target.value }))}
+                  />
+                  <input
+                    className="input"
+                    type="datetime-local"
+                    value={meetingDraft.scheduledAt}
+                    onChange={(e) => setMeetingDraft((d) => ({ ...d, scheduledAt: e.target.value }))}
+                  />
+                  <textarea
+                    className="input"
+                    rows={2}
+                    placeholder="Notes after the meeting"
+                    value={meetingDraft.notesAfter}
+                    onChange={(e) => setMeetingDraft((d) => ({ ...d, notesAfter: e.target.value }))}
+                  />
+                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                    <button type="button" className="btn btnPrimary" onClick={() => void handleSaveTripMeeting()}>
+                      {editingMeetingId ? "Update meeting" : "Add meeting"}
+                    </button>
+                    {editingMeetingId ? (
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => {
+                          setEditingMeetingId("");
+                          setMeetingDraft({ title: "", scheduledAt: "", notesAfter: "" });
+                          setMeetingStatus("");
+                        }}
+                      >
+                        Cancel edit
+                      </button>
+                    ) : null}
+                  </div>
+                  {meetingStatus ? <div className="small">{meetingStatus}</div> : null}
+                </div>
+              ) : null}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Upcoming</div>
+                {upcomingMeetings.length ? (
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {upcomingMeetings.map((m) => (
+                      <li key={m.id} style={{ marginBottom: 10 }}>
+                        <div style={{ fontWeight: 600 }}>{m.title || "Meeting"}</div>
+                        <div className="small">{new Date(m.scheduledAt).toLocaleString()}</div>
+                        {canManageTripMeetings ? (
+                          <div className="row" style={{ gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={() => {
+                                setEditingMeetingId(m.id);
+                                setMeetingDraft({
+                                  title: m.title,
+                                  scheduledAt: toDatetimeLocalValue(m.scheduledAt),
+                                  notesAfter: m.notesAfter || "",
+                                });
+                                setMeetingStatus("");
+                              }}
+                            >
+                              Edit
+                            </button>
+                            {staffViewAllParticipants ? (
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={() => {
+                                  if (typeof window !== "undefined" && !window.confirm("Remove this meeting?")) return;
+                                  void deleteTripMeeting(m.id).then(() =>
+                                    setTripMeetings((prev) => prev.filter((x) => x.id !== m.id))
+                                  );
+                                }}
+                              >
+                                Delete
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="small">No upcoming meetings.</div>
+                )}
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Past</div>
+                {pastMeetings.length ? (
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {pastMeetings.map((m) => (
+                      <li key={m.id} style={{ marginBottom: 10 }}>
+                        <div style={{ fontWeight: 600 }}>{m.title || "Meeting"}</div>
+                        <div className="small">{new Date(m.scheduledAt).toLocaleString()}</div>
+                        {m.notesAfter ? (
+                          <div className="small" style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>
+                            {m.notesAfter}
+                          </div>
+                        ) : (
+                          <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                            No notes yet.
+                          </div>
+                        )}
+                        {canManageTripMeetings ? (
+                          <div className="row" style={{ gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={() => {
+                                setEditingMeetingId(m.id);
+                                setMeetingDraft({
+                                  title: m.title,
+                                  scheduledAt: toDatetimeLocalValue(m.scheduledAt),
+                                  notesAfter: m.notesAfter || "",
+                                });
+                                setMeetingStatus("");
+                              }}
+                            >
+                              Edit
+                            </button>
+                            {staffViewAllParticipants ? (
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={() => {
+                                  if (typeof window !== "undefined" && !window.confirm("Remove this meeting?")) return;
+                                  void deleteTripMeeting(m.id).then(() =>
+                                    setTripMeetings((prev) => prev.filter((x) => x.id !== m.id))
+                                  );
+                                }}
+                              >
+                                Delete
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="small">No past meetings.</div>
+                )}
+              </div>
+            </div>
+            </CollapsibleSection>
           ) : null}
 
           <div
@@ -4522,8 +4918,15 @@ function parseDateSafe(dateStr) {
               gap: 16,
             }}
           >
-            {canViewAllParticipantData && (
-              <div className="card pad tripFullSpanCard" style={{ gridColumn: "1 / -1" }}>
+            {staffViewAllParticipants && (
+              <CollapsibleSection
+                title="Trip notes"
+                subtitle="Internal context for staff and leaders."
+                defaultOpen
+                className="tripFullSpanCard"
+                style={{ gridColumn: "1 / -1" }}
+              >
+              <div className="card pad tripFullSpanCard" style={{ gridColumn: "1 / -1", border: "none", boxShadow: "none", padding: 0 }}>
                 <div style={{ fontWeight: 900, marginBottom: 8 }}>Trip Notes</div>
                 <div className="small" style={{ marginBottom: 10 }}>
                   Put obvious context here, like why the trip was archived or major team changes.
@@ -4608,13 +5011,28 @@ function parseDateSafe(dateStr) {
                   ) : null}
                 </div>
               </div>
+            </CollapsibleSection>
             )}
 
-            {canViewAllParticipantData ? renderTripSetupCard() : null}
+            {staffViewAllParticipants ? (
+              <CollapsibleSection
+                title="Trip setup"
+                subtitle="Site, dates, and configuration."
+                defaultOpen
+                style={{ gridColumn: "1 / -1" }}
+              >
+                {renderTripSetupCard()}
+              </CollapsibleSection>
+            ) : null}
 
-            <div className="card pad">
+            <CollapsibleSection
+              title={staffViewAllParticipants ? "My upcoming staff tasks" : "My upcoming tasks"}
+              subtitle="Shortcuts to the next due items."
+              defaultOpen
+            >
+            <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
               <div className="cardSectionPill">
-                {canViewAllParticipantData ? "My Upcoming Staff Tasks" : "My Upcoming Tasks"}
+                {staffViewAllParticipants ? "My Upcoming Staff Tasks" : "My Upcoming Tasks"}
               </div>
               {overviewUpcomingTasks.length > 0 ? (
                 <div style={{ display: "grid", gap: 10 }}>
@@ -4626,7 +5044,7 @@ function parseDateSafe(dateStr) {
                         borderBottom: "1px solid var(--border)",
                       }}
                     >
-                      {canViewAllParticipantData ? (
+                      {canViewTeamDashboard ? (
                         <button
                           type="button"
                           onClick={() => handleJumpToStaffTask(task.id)}
@@ -4671,14 +5089,16 @@ function parseDateSafe(dateStr) {
                 </div>
               ) : (
                 <div className="small">
-                  {canViewAllParticipantData
+                  {canViewTeamDashboard
                     ? "No upcoming staff tasks assigned to you right now."
                     : "No upcoming worker tasks right now."}
                 </div>
               )}
             </div>
+            </CollapsibleSection>
 
-            <div className="card pad">
+            <CollapsibleSection title="Quick links" subtitle="Hand-picked resources for this trip." defaultOpen>
+            <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
               <div className="cardSectionPill">Quick Links</div>
               <div style={{ display: "grid", gap: 10 }}>
                 {quickLinks.map((link) => (
@@ -4706,9 +5126,11 @@ function parseDateSafe(dateStr) {
                 ))}
               </div>
             </div>
+            </CollapsibleSection>
 
-            {canViewAllParticipantData ? (
-              <div className="card pad">
+            {canViewTeamDashboard ? (
+              <CollapsibleSection title="Recent activity" subtitle="Latest updates on this trip." defaultOpen style={{ gridColumn: "1 / -1" }}>
+              <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
                 <div className="row" style={{ marginBottom: 10 }}>
                   <div className="cardSectionPill">Recent Activity</div>
                   <div className="spacer" />
@@ -4738,6 +5160,7 @@ function parseDateSafe(dateStr) {
                   <div className="small">No recent activity yet.</div>
                 )}
               </div>
+              </CollapsibleSection>
             ) : null}
           </div>
           </div>
@@ -4746,7 +5169,12 @@ function parseDateSafe(dateStr) {
       {tab === "Team" && (
         <div style={{ display: "grid", gap: 16 }}>
           {renderTripTabIntro("Team")}
-          <div className="card pad">
+          <CollapsibleSection
+            title="Roster"
+            subtitle="Members, account status, invites, and shirt sizes."
+            defaultOpen
+          >
+          <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
             <div className="row" style={{ marginBottom: 10, alignItems: "center" }}>
               <div className="spacer" />
               {workerAddStatus ? (
@@ -4759,7 +5187,7 @@ function parseDateSafe(dateStr) {
                   {rosterStatus}
                 </div>
               ) : null}
-              {canViewAllParticipantData && !isEditingRoster && !isAddingWorker ? (
+              {staffViewAllParticipants && !isEditingRoster && !isAddingWorker ? (
                 <>
                   <button className="btn" type="button" onClick={handleStartAddWorker}>
                     Add Worker
@@ -4771,7 +5199,7 @@ function parseDateSafe(dateStr) {
               ) : null}
             </div>
 
-            {canViewAllParticipantData && isAddingWorker ? (
+            {staffViewAllParticipants && isAddingWorker ? (
               <div
                 style={{
                   display: "grid",
@@ -4826,7 +5254,7 @@ function parseDateSafe(dateStr) {
               </div>
             ) : null}
 
-            {canViewAllParticipantData && isEditingRoster ? (
+            {staffViewAllParticipants && isEditingRoster ? (
               <div style={{ display: "grid", gap: 12 }}>
                 {rosterDraft.map((member, index) => (
                   <div
@@ -4901,7 +5329,7 @@ function parseDateSafe(dateStr) {
                     <th>Email</th>
                     <th>Project Dates</th>
                     <th>T-shirt</th>
-                    {canViewAllParticipantData ? <th>Actions</th> : null}
+                    {staffViewAllParticipants ? <th>Actions</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -4914,13 +5342,13 @@ function parseDateSafe(dateStr) {
                       const tshirtSize = travelForm?.tshirtSize ?? "";
                       const canEditTshirt =
                         member.profileId &&
-                        (canViewAllParticipantData || String(member.profileId) === String(currentParticipant?.id));
+                        (canViewTeamDashboard || String(member.profileId) === String(currentParticipant?.id));
                       const isSavingTshirt = String(teamTabTshirtSavingUserId) === String(member.profileId);
 
                       return (
                       <tr key={member.key}>
                         <td style={{ fontWeight: 800 }}>
-                          {canViewAllParticipantData && member.profileId ? (
+                          {canViewTeamDashboard && member.profileId ? (
                             <Link href={`/profile?participantId=${encodeURIComponent(member.profileId)}`}>
                               {member.name}
                             </Link>
@@ -4970,7 +5398,7 @@ function parseDateSafe(dateStr) {
                             <span style={tshirtSize ? undefined : { color: "var(--muted)" }}>{tshirtSize || "—"}</span>
                           )}
                         </td>
-                        {canViewAllParticipantData ? (
+                        {staffViewAllParticipants ? (
                           <td>
                             <button
                               className="btn"
@@ -4990,7 +5418,7 @@ function parseDateSafe(dateStr) {
                     )})
                   ) : (
                     <tr>
-                      <td colSpan={canViewAllParticipantData ? 7 : 6} className="small">
+                      <td colSpan={staffViewAllParticipants ? 7 : 6} className="small">
                         No workers added yet.
                       </td>
                     </tr>
@@ -4999,9 +5427,15 @@ function parseDateSafe(dateStr) {
               </table>
             )}
           </div>
+          </CollapsibleSection>
 
-          {canViewAllParticipantData && (
-            <div className="card pad tripSectionCard">
+          {canViewTeamDashboard && (
+            <CollapsibleSection
+              title="Reference emails"
+              subtitle="Track reference contacts and sent/received status."
+              defaultOpen
+            >
+            <div className="card pad tripSectionCard" style={{ border: "none", boxShadow: "none", padding: 0 }}>
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Reference Emails</div>
               <table className="table">
                 <thead>
@@ -5014,12 +5448,12 @@ function parseDateSafe(dateStr) {
                   </tr>
                 </thead>
                 <tbody>
-                  {trip.participants.map((participant) => {
-                    const referenceStatus = getReferenceStatus(participant.id);
+                  {referenceTableRows.map((refRow) => {
+                    const referenceStatus = getReferenceStatus(refRow.refKey);
 
                     return (
-                      <tr key={`${participant.email}-reference`}>
-                        <td style={{ fontWeight: 800 }}>{participant.name}</td>
+                      <tr key={refRow.refKey}>
+                        <td style={{ fontWeight: 800 }}>{refRow.displayName}</td>
                         <td style={{ minWidth: 260 }}>
                           <div style={{ display: "grid", gap: 8 }}>
                             <input
@@ -5028,7 +5462,7 @@ function parseDateSafe(dateStr) {
                               placeholder="Reference name"
                               onChange={(e) =>
                                 updateReferenceField(
-                                  participant.id,
+                                  refRow.refKey,
                                   "referenceName",
                                   e.target.value
                                 )
@@ -5041,7 +5475,7 @@ function parseDateSafe(dateStr) {
                               placeholder="Reference email"
                               onChange={(e) =>
                                 updateReferenceField(
-                                  participant.id,
+                                  refRow.refKey,
                                   "referenceEmail",
                                   e.target.value
                                 )
@@ -5054,7 +5488,7 @@ function parseDateSafe(dateStr) {
                               placeholder="Reference phone"
                               onChange={(e) =>
                                 updateReferenceField(
-                                  participant.id,
+                                  refRow.refKey,
                                   "referencePhone",
                                   e.target.value
                                 )
@@ -5071,7 +5505,7 @@ function parseDateSafe(dateStr) {
                               type="checkbox"
                               checked={!!referenceStatus.sent}
                               onChange={() =>
-                                toggleReferenceEmail(participant.id, "sent")
+                                toggleReferenceEmail(refRow.refKey, "sent")
                               }
                             />
                             <span className={"badge " + (referenceStatus.sent ? "badgeSuccess" : "")}>
@@ -5085,7 +5519,7 @@ function parseDateSafe(dateStr) {
                             type="date"
                             value={referenceStatus.sentDate || ""}
                             onChange={(e) =>
-                              updateReferenceSentDate(participant.id, e.target.value)
+                              updateReferenceSentDate(refRow.refKey, e.target.value)
                             }
                           />
                         </td>
@@ -5098,7 +5532,7 @@ function parseDateSafe(dateStr) {
                               type="checkbox"
                               checked={!!referenceStatus.received}
                               onChange={() =>
-                                toggleReferenceEmail(participant.id, "received")
+                                toggleReferenceEmail(refRow.refKey, "received")
                               }
                             />
                             <span
@@ -5116,13 +5550,34 @@ function parseDateSafe(dateStr) {
                 </tbody>
               </table>
             </div>
+            </CollapsibleSection>
           )}
+        </div>
+      )}
+
+      {tab === tripTabTravelSafety && (
+        <div style={{ display: "grid", gap: 16 }}>
+          {renderTripTabIntro(tripTabTravelSafety)}
+          {trip?.id ? (
+            <TripTravelSafetySection
+              tripId={trip.id}
+              session={session}
+              participants={trip.participants || []}
+              canEdit={staffViewAllParticipants && !isPreviewingParticipant}
+              isPreviewingParticipant={isPreviewingParticipant}
+            />
+          ) : null}
         </div>
       )}
 
       {tab === "Fundraising" && (
         <div style={{ display: "grid", gap: 16 }}>
           {renderTripTabIntro("Fundraising")}
+          <CollapsibleSection
+            title="Deadlines & resources"
+            subtitle="Timeline amounts and general financial information."
+            defaultOpen
+          >
           <div
             className="fundraisingOverviewGrid"
             style={{
@@ -5240,14 +5695,20 @@ function parseDateSafe(dateStr) {
               </a>
             </div>
           </div>
+          </CollapsibleSection>
 
-          <div className="card pad">
+          <CollapsibleSection
+            title={canViewTeamDashboard ? "Fundraising pages" : "My fundraising"}
+            subtitle="Team Neon link and per-participant pages."
+            defaultOpen
+          >
+          <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
             <div className="cardSectionPill" style={{ marginBottom: 14 }}>
-              {canViewAllParticipantData ? "Fundraising Pages" : "My Fundraising"}
+              {canViewTeamDashboard ? "Fundraising Pages" : "My Fundraising"}
             </div>
             <div style={{ height: 4 }} />
 
-            {!canViewAllParticipantData && trip?.teamFundraisingUrl ? (
+            {!canViewTeamDashboard && trip?.teamFundraisingUrl ? (
               <div
                 className="card pad"
                 style={{
@@ -5274,7 +5735,7 @@ function parseDateSafe(dateStr) {
               </div>
             ) : null}
 
-            {canViewAllParticipantData && trip?.teamFundraisingUrl && (
+            {canViewTeamDashboard && trip?.teamFundraisingUrl && (
               <div
                 className="card pad"
                 style={{
@@ -5363,10 +5824,10 @@ function parseDateSafe(dateStr) {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: canViewAllParticipantData
+                  gridTemplateColumns: canViewTeamDashboard
                     ? "repeat(auto-fit, minmax(220px, 1fr))"
                     : "repeat(auto-fit, minmax(160px, 1fr))",
-                  gap: canViewAllParticipantData ? 16 : 12,
+                  gap: canViewTeamDashboard ? 16 : 12,
                 }}
               >
                 {visibleFundraisingParticipants.map((participant) => {
@@ -5379,7 +5840,7 @@ function parseDateSafe(dateStr) {
                       className="card pad"
                       style={{
                         boxShadow: "none",
-                        minHeight: canViewAllParticipantData ? 220 : 136,
+                        minHeight: canViewTeamDashboard ? 220 : 136,
                         display: "flex",
                         flexDirection: "column",
                         justifyContent: "space-between",
@@ -5403,7 +5864,7 @@ function parseDateSafe(dateStr) {
                           <div
                             style={{
                               fontWeight: 900,
-                              fontSize: canViewAllParticipantData ? 18 : 15,
+                              fontSize: canViewTeamDashboard ? 18 : 15,
                               lineHeight: 1.2,
                             }}
                           >
@@ -5425,7 +5886,7 @@ function parseDateSafe(dateStr) {
                           </a>
                         ) : null}
                       </div>
-                      {canViewAllParticipantData && (
+                      {canViewTeamDashboard && (
                         <>
                           <div style={{ height: 12 }} />
                           {!isEditingParticipantLink ? (
@@ -5522,6 +5983,7 @@ function parseDateSafe(dateStr) {
               </div>
             )}
           </div>
+          </CollapsibleSection>
 
         </div>
       )}
@@ -5530,7 +5992,8 @@ function parseDateSafe(dateStr) {
         <div style={{ display: "grid", gap: 16 }}>
           {renderTripTabIntro("Training")}
           {canManageTrips && (
-            <div className="card pad">
+            <CollapsibleSection title="Team training progress" subtitle="Overall completion across participants." defaultOpen>
+            <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
               <div className="row" style={{ marginBottom: 10 }}>
                 <div style={{ fontWeight: 900 }}>Training Progress</div>
                 <div className="spacer" />
@@ -5543,9 +6006,15 @@ function parseDateSafe(dateStr) {
                 Overall completion across all participant training checklists.
               </div>
             </div>
+            </CollapsibleSection>
           )}
 
-          <div className="card pad">
+          <CollapsibleSection
+            title="Training resources"
+            subtitle="Required and optional links for this trip."
+            defaultOpen
+          >
+          <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
             <p className="small">
               Central place for training links and module tracking.
             </p>
@@ -5656,12 +6125,18 @@ function parseDateSafe(dateStr) {
               ))}
             </div>
           </div>
+          </CollapsibleSection>
 
+          <CollapsibleSection
+            title="Module completion"
+            subtitle="Canvas and supplemental modules per participant."
+            defaultOpen
+          >
           <div
             className="tripTrainingParticipantGrid"
             style={{
               display: "grid",
-              gridTemplateColumns: canViewAllParticipantData
+              gridTemplateColumns: canViewTeamDashboard
                 ? "repeat(auto-fit, minmax(260px, 1fr))"
                 : "1fr",
               gap: 16,
@@ -5675,7 +6150,7 @@ function parseDateSafe(dateStr) {
                   <div className="row" style={{ marginBottom: 10 }}>
                     <div>
                       <div style={{ fontWeight: 900 }}>
-                        {canViewAllParticipantData ? participant.name : "My Training"}
+                        {canViewTeamDashboard ? participant.name : "My Training"}
                       </div>
                     </div>
                     <div className="spacer" />
@@ -5700,7 +6175,7 @@ function parseDateSafe(dateStr) {
                         <div
                           key={`${participant.email}-${module.id}`}
                           id={
-                            !canViewAllParticipantData &&
+                            !canViewTeamDashboard &&
                             String(participant.id || "") === String(currentParticipant?.id || "")
                               ? buildTrainingModuleRowDomId(module.id)
                               : undefined
@@ -5772,7 +6247,7 @@ function parseDateSafe(dateStr) {
                         <div
                           key={`${participant.email}-${module.id}`}
                           id={
-                            !canViewAllParticipantData &&
+                            !canViewTeamDashboard &&
                             String(participant.id || "") === String(currentParticipant?.id || "")
                               ? buildTrainingModuleRowDomId(module.id)
                               : undefined
@@ -5844,9 +6319,10 @@ function parseDateSafe(dateStr) {
             })}
           </div>
 
-          <div className="small">
+          <div className="small" style={{ marginTop: 12 }}>
             Training progress is loaded from Supabase for each assigned user.
           </div>
+          </CollapsibleSection>
         </div>
       )}
 
@@ -5854,7 +6330,8 @@ function parseDateSafe(dateStr) {
         <div style={{ display: "grid", gap: 16 }}>
           {renderTripTabIntro("Tasks")}
           {canManageTrips && (
-            <div className="card pad tripSectionCard">
+            <CollapsibleSection title="Manage worker tasks" subtitle="Add or edit tasks for this trip." defaultOpen>
+            <div className="card pad tripSectionCard" style={{ border: "none", boxShadow: "none", padding: 0 }}>
               <div className="row">
                 <div style={{ fontWeight: 900 }}>Worker Tasks</div>
                 <div className="spacer" />
@@ -5915,9 +6392,11 @@ function parseDateSafe(dateStr) {
                 </div>
               )}
             </div>
+            </CollapsibleSection>
           )}
 
-            <div className="card pad tripSectionCard">
+            <CollapsibleSection title="Task progress" subtitle="Completion summary by participant." defaultOpen>
+            <div className="card pad tripSectionCard" style={{ border: "none", boxShadow: "none", padding: 0 }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>Task Progress</div>
               <div className="spacer" />
@@ -5929,7 +6408,7 @@ function parseDateSafe(dateStr) {
             </div>
 
             <div className="small" style={{ marginTop: 8 }}>
-              {canViewAllParticipantData
+              {canViewTeamDashboard
                 ? "Overall completion across all participant task lists."
                 : "Your current task completion for this trip."}
             </div>
@@ -5951,7 +6430,7 @@ function parseDateSafe(dateStr) {
                 >
                   <div className="row" style={{ marginBottom: 8 }}>
                     <div style={{ fontWeight: 900 }}>
-                      {canViewAllParticipantData ? participant.name : "My Tasks"}
+                      {canViewTeamDashboard ? participant.name : "My Tasks"}
                     </div>
                     <div className="spacer" />
                     <span className="badge badgeSuccess">{participant.percent}%</span>
@@ -5966,12 +6445,14 @@ function parseDateSafe(dateStr) {
               ))}
             </div>
           </div>
+          </CollapsibleSection>
 
+          <CollapsibleSection title="Checklists" subtitle="Worker tasks by section." defaultOpen>
           <div
             className="tripTaskParticipantGrid"
             style={{
               display: "grid",
-              gridTemplateColumns: canViewAllParticipantData
+              gridTemplateColumns: canViewTeamDashboard
                 ? "repeat(auto-fit, minmax(260px, 1fr))"
                 : "1fr",
               gap: 16,
@@ -5985,7 +6466,7 @@ function parseDateSafe(dateStr) {
                   <div className="row" style={{ marginBottom: 10 }}>
                     <div>
                       <div style={{ fontWeight: 900 }}>
-                        {canViewAllParticipantData ? participant.name : "My Tasks"}
+                        {canViewTeamDashboard ? participant.name : "My Tasks"}
                       </div>
                     </div>
                     <div className="spacer" />
@@ -6022,7 +6503,7 @@ function parseDateSafe(dateStr) {
                                 <div
                                   key={`${participant.email}-${task.id}`}
                                   id={
-                                    !canViewAllParticipantData &&
+                                    !canViewTeamDashboard &&
                                     String(participant.id || "") === String(currentParticipant?.id || "")
                                       ? buildWorkerTaskRowDomId(task.id)
                                       : undefined
@@ -6070,7 +6551,7 @@ function parseDateSafe(dateStr) {
                                         >
                                           Fill out
                                         </button>
-                                      ) : isTravelFormTask && canViewAllParticipantData ? (
+                                      ) : isTravelFormTask && canViewTeamDashboard ? (
                                         <button
                                           type="button"
                                           className="btn"
@@ -6081,7 +6562,7 @@ function parseDateSafe(dateStr) {
                                         </button>
                                       ) : null}
                                     </div>
-                                    {canViewAllParticipantData ? (
+                                    {canViewTeamDashboard ? (
                                       editingWorkerTaskDateId === task.id ? (
                                         <input
                                           className="input"
@@ -6132,16 +6613,22 @@ function parseDateSafe(dateStr) {
             })}
           </div>
 
-          <div className="small">
+          <div className="small" style={{ marginTop: 12 }}>
             Task progress is loaded from Supabase for each assigned user.
           </div>
+          </CollapsibleSection>
         </div>
       )}
 
       {tab === tripDocumentsTabLabel && (
         <div style={{ display: "grid", gap: 16 }}>
           {renderTripTabIntro(tripDocumentsTabLabel)}
-          <div className="card pad">
+          <CollapsibleSection
+            title="Documents & links"
+            subtitle="Trip-wide resources and visibility for participants."
+            defaultOpen
+          >
+          <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div>
                 <div style={{ fontWeight: 900 }}>Documents & Links</div>
@@ -6150,7 +6637,7 @@ function parseDateSafe(dateStr) {
                 </div>
               </div>
               <div className="spacer" />
-              {canViewAllParticipantData && (
+              {canViewTeamDashboard && (
                 <div className="row">
                   <button className="btn" type="button" onClick={handleAddLink}>
                     Add Link
@@ -6367,7 +6854,7 @@ function parseDateSafe(dateStr) {
             )}
 
             <div style={{ display: "grid", gap: 12 }}>
-              {canViewAllParticipantData || !hiddenRequiredDocumentKeys.has("site-info-link") ? (
+              {canViewTeamDashboard || !hiddenRequiredDocumentKeys.has("site-info-link") ? (
                 <div
                   className="card pad"
                   style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
@@ -6383,7 +6870,7 @@ function parseDateSafe(dateStr) {
                           ? "This site name is linked automatically to its document."
                           : "No matching site logistics yet. Add a custom link or update the site name."}
                       </div>
-                      {canViewAllParticipantData ? (
+                      {canViewTeamDashboard ? (
                         <div className="small" style={{ marginTop: 4 }}>
                           {siteInfoDoc
                             ? `Participants can ${siteInfoDoc.visibleToParticipants === false ? "not " : ""}see the saved site logistics.`
@@ -6415,7 +6902,7 @@ function parseDateSafe(dateStr) {
                       >
                         Open Site Logistics
                       </a>
-                      {canViewAllParticipantData ? (
+                      {canViewTeamDashboard ? (
                         <button
                           className="btn"
                           type="button"
@@ -6438,7 +6925,7 @@ function parseDateSafe(dateStr) {
                             : "Hide From Participants"}
                         </button>
                       ) : null}
-                      {canViewAllParticipantData && siteInfoDoc ? (
+                      {canViewTeamDashboard && siteInfoDoc ? (
                         <>
                           <button
                             className="btn"
@@ -6457,7 +6944,7 @@ function parseDateSafe(dateStr) {
                             Delete Custom Link
                           </button>
                         </>
-                      ) : canViewAllParticipantData ? (
+                      ) : canViewTeamDashboard ? (
                         <button
                           className="btn"
                           type="button"
@@ -6475,7 +6962,7 @@ function parseDateSafe(dateStr) {
                         </button>
                       ) : null}
                     </div>
-                  ) : canViewAllParticipantData ? (
+                  ) : canViewTeamDashboard ? (
                     <div className="row" style={{ marginTop: 10 }}>
                       <button
                         className="btn"
@@ -6639,7 +7126,7 @@ function parseDateSafe(dateStr) {
                             ) : (
                               <div className="small" style={{ marginTop: 4 }}>Coming soon</div>
                             )}
-                            {canViewAllParticipantData && available ? (
+                            {canViewTeamDashboard && available ? (
                               <div className="small" style={{ marginTop: 4 }}>
                                 {doc?.visibleToParticipants === false
                                   ? "Hidden from participants"
@@ -6663,7 +7150,7 @@ function parseDateSafe(dateStr) {
                           Coming soon
                         </button>
                       )}
-                      {canViewAllParticipantData && !isEditing && doc && !isAutoGenerated ? (
+                      {canViewTeamDashboard && !isEditing && doc && !isAutoGenerated ? (
                         <>
                           <button className="btn" type="button" onClick={() => handleEditDoc(doc)}>
                             Edit
@@ -6673,7 +7160,7 @@ function parseDateSafe(dateStr) {
                           </button>
                         </>
                       ) : null}
-                      {canViewAllParticipantData && (!doc || isAutoGenerated) ? (
+                      {canViewTeamDashboard && (!doc || isAutoGenerated) ? (
                         slot.kind === "pdf" ? (
                           <button className="btn" type="button" onClick={() => handlePrepareRequiredPdf(slot)}>
                             Upload PDF
@@ -6684,7 +7171,7 @@ function parseDateSafe(dateStr) {
                           </button>
                         )
                       ) : null}
-                      {canViewAllParticipantData && available ? (
+                      {canViewTeamDashboard && available ? (
                         <button
                           className="btn"
                           type="button"
@@ -6727,7 +7214,7 @@ function parseDateSafe(dateStr) {
                           >
                             {tutorial.tutorialTitle || "Open Tutorial"}
                           </a>
-                          {canViewAllParticipantData && slot.kind === "link" ? (
+                          {canViewTeamDashboard && slot.kind === "link" ? (
                             <button
                               className="btn"
                               type="button"
@@ -6879,7 +7366,7 @@ function parseDateSafe(dateStr) {
                             {d.workArea ? ` • ${d.workArea}` : ""}
                             {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
                           </div>
-                          {canViewAllParticipantData ? (
+                          {canViewTeamDashboard ? (
                             <div className="small" style={{ marginTop: 4 }}>
                               {d.visibleToParticipants === false
                                 ? "Hidden from participants"
@@ -6888,7 +7375,7 @@ function parseDateSafe(dateStr) {
                           ) : null}
                         </>
                       )}
-                      {canViewAllParticipantData && !isEditing ? (
+                      {canViewTeamDashboard && !isEditing ? (
                         <div className="row" style={{ marginTop: 10 }}>
                           <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
                             Edit
@@ -6934,7 +7421,7 @@ function parseDateSafe(dateStr) {
                             >
                               {d.tutorialTitle || "Open Tutorial"}
                             </a>
-                            {canViewAllParticipantData ? (
+                            {canViewTeamDashboard ? (
                               <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
                                 Edit Tutorial
                               </button>
@@ -6965,20 +7452,26 @@ function parseDateSafe(dateStr) {
               ) : null}
             </div>
           </div>
+          </CollapsibleSection>
         </div>
       )}
       {tab === participantDocumentsTabLabel && (
         <div style={{ display: "grid", gap: 16 }}>
           {renderTripTabIntro(participantDocumentsTabLabel)}
-          <div className="card pad">
+          <CollapsibleSection
+            title={canViewTeamDashboard ? "Worker uploads" : "My documents"}
+            subtitle={canViewTeamDashboard ? "Per-participant uploads and review." : "Your uploads for this trip."}
+            defaultOpen
+          >
+          <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div>
                 <div style={{ fontWeight: 900 }}>
-                  {canViewAllParticipantData ? "Worker Uploads" : "My Documents"}
+                  {canViewTeamDashboard ? "Worker Uploads" : "My Documents"}
                 </div>
               </div>
               <div className="spacer" />
-              {canViewAllParticipantData ? (
+              {canViewTeamDashboard ? (
                 <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
                   <div className="row" style={{ gap: 8 }}>
                     <input
@@ -7012,13 +7505,13 @@ function parseDateSafe(dateStr) {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: canViewAllParticipantData
+                gridTemplateColumns: canViewTeamDashboard
                   ? "repeat(auto-fit, minmax(280px, 1fr))"
                   : "1fr",
                 gap: 16,
               }}
             >
-              {(canViewAllParticipantData
+              {(canViewTeamDashboard
                 ? trip.participants || []
                 : currentParticipant
                   ? [currentParticipant]
@@ -7031,7 +7524,7 @@ function parseDateSafe(dateStr) {
                     <div className="row" style={{ marginBottom: 10 }}>
                       <div>
                         <div style={{ fontWeight: 900 }}>
-                          {canViewAllParticipantData ? (
+                          {canViewTeamDashboard ? (
                             <Link href={`/profile?participantId=${encodeURIComponent(participant.id)}`}>
                               {participant.name}
                             </Link>
@@ -7113,7 +7606,7 @@ function parseDateSafe(dateStr) {
                               ) : null}
 
                               {(document && (
-                                (canViewAllParticipantData) ||
+                                (canViewTeamDashboard) ||
                                 (canUploadOwnParticipantDocuments && String(participant.id) === String(currentParticipant?.id))
                               )) ? (
                                 <button
@@ -7158,21 +7651,27 @@ function parseDateSafe(dateStr) {
               })}
             </div>
           </div>
+          </CollapsibleSection>
         </div>
       )}
 
       {tab === "Travel Form" && (
         <div style={{ display: "grid", gap: 16 }}>
           {renderTripTabIntro("Travel Form")}
-          <div className="card pad" style={{ overflowX: "auto" }}>
+          <CollapsibleSection
+            title="Travel form responses"
+            subtitle="Passport, emergency contacts, and travel preferences."
+            defaultOpen
+          >
+          <div className="card pad" style={{ overflowX: "auto", border: "none", boxShadow: "none", padding: 0 }}>
             <div className="row" style={{ marginBottom: 12, alignItems: "center" }}>
               <div className="small">
-                {canViewAllParticipantData
+                {canViewTeamDashboard
                   ? "Team travel form responses. Rows auto-generate as workers fill out the form from the Tasks tab."
                   : "Your travel form response. Fill out or update from the Tasks tab (Fill out Travel Form) or edit below."}
               </div>
               <div className="spacer" />
-              {!canViewAllParticipantData && currentParticipant && (
+              {!staffViewAllParticipants && currentParticipant && (
                 <button
                   type="button"
                   className="btn btnPrimary"
@@ -7181,7 +7680,7 @@ function parseDateSafe(dateStr) {
                   Edit my response
                 </button>
               )}
-              {canViewAllParticipantData && (
+              {canViewTeamDashboard && (
               <>
               <button
                 type="button"
@@ -7350,7 +7849,7 @@ function parseDateSafe(dateStr) {
             <table className="table" style={{ minWidth: 2400, fontSize: 12 }}>
               <thead>
                 <tr>
-                  {canViewAllParticipantData && <th>Actions</th>}
+                  {canViewTeamDashboard && <th>Actions</th>}
                   <th>Team Name</th>
                   <th>First Name (passport)</th>
                   <th>Middle Name (passport)</th>
@@ -7382,11 +7881,11 @@ function parseDateSafe(dateStr) {
                 </tr>
               </thead>
               <tbody>
-                {(canViewAllParticipantData ? (trip?.participants || []) : (currentParticipant ? [currentParticipant] : [])).map((p) => {
+                {(canViewTeamDashboard ? (trip?.participants || []) : (currentParticipant ? [currentParticipant] : [])).map((p) => {
                   const form = travelFormResponses.find((f) => String(f.userId) === String(p.id)) || null;
                   return (
                     <tr key={p.id}>
-                      {canViewAllParticipantData && (
+                      {canViewTeamDashboard && (
                         <td>
                           <button
                             type="button"
@@ -7431,24 +7930,26 @@ function parseDateSafe(dateStr) {
                 })}
               </tbody>
             </table>
-            {canViewAllParticipantData && (trip?.participants || []).length === 0 && (
+            {canViewTeamDashboard && (trip?.participants || []).length === 0 && (
               <EmptyState
                 icon="empty"
                 title="No participants yet"
                 description="Add team members in the Team tab roster to see and export their travel form responses here."
               />
             )}
-            {!canViewAllParticipantData && !currentParticipant && (
+            {!canViewTeamDashboard && !currentParticipant && (
               <div className="small">You are not assigned to this trip.</div>
             )}
           </div>
+          </CollapsibleSection>
         </div>
       )}
 
-            {tab === "Staff Tasks" && canManageTrips && (
+            {tab === "Staff Tasks" && canManageTrips && !isLeader && (
               <div style={{ display: "grid", gap: 16 }}>
             {renderTripTabIntro("Staff Tasks")}
-            <div className="card pad">
+            <CollapsibleSection title="Staff task list" subtitle="Internal planning tasks and assignments." defaultOpen>
+            <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
                 <div className="row" style={{ marginBottom: 10 }}>
                   <div className="small">
                     {completedCount} of {totalCount} complete
@@ -7877,8 +8378,9 @@ function parseDateSafe(dateStr) {
                   Staff-only checklist for trip management tasks.
                 </div>
               </div>
-            </div>
-            )}
+            </CollapsibleSection>
+          </div>
+      )}
 
       {travelFormModalOpen && (
         <div
@@ -7917,7 +8419,7 @@ function parseDateSafe(dateStr) {
             ) : null}
             <div style={{ display: "grid", gap: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-                <div><div className="small" style={{ marginBottom: 4 }}>Team Name</div>{canViewAllParticipantData ? <input className="input" value={travelFormDraft.teamName} onChange={(e) => setTravelFormDraft((d) => ({ ...d, teamName: e.target.value }))} placeholder="2026 Brazil Team" /> : <input className="input" readOnly disabled value={travelFormDraft.teamName} style={{ opacity: 0.9, cursor: "not-allowed" }} />}</div>
+                <div><div className="small" style={{ marginBottom: 4 }}>Team Name</div>{canViewTeamDashboard ? <input className="input" value={travelFormDraft.teamName} onChange={(e) => setTravelFormDraft((d) => ({ ...d, teamName: e.target.value }))} placeholder="2026 Brazil Team" /> : <input className="input" readOnly disabled value={travelFormDraft.teamName} style={{ opacity: 0.9, cursor: "not-allowed" }} />}</div>
                 <div><div className="small" style={{ marginBottom: 4 }}>First Name (passport)</div><input className="input" value={travelFormDraft.firstNamePassport} onChange={(e) => setTravelFormDraft((d) => ({ ...d, firstNamePassport: e.target.value }))} /></div>
                 <div><div className="small" style={{ marginBottom: 4 }}>Middle Name (passport)</div><input className="input" value={travelFormDraft.middleNamePassport} onChange={(e) => setTravelFormDraft((d) => ({ ...d, middleNamePassport: e.target.value }))} /></div>
                 <div><div className="small" style={{ marginBottom: 4 }}>Last Name (passport)</div><input className="input" value={travelFormDraft.lastNamePassport} onChange={(e) => setTravelFormDraft((d) => ({ ...d, lastNamePassport: e.target.value }))} /></div>
