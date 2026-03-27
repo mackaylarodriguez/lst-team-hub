@@ -381,6 +381,7 @@ export default function TripPage() {
   const [editingDocId, setEditingDocId] = useState(null);
   const [docDraft, setDocDraft] = useState(null);
   const [referenceEmails, setReferenceEmails] = useState({});
+  const [referenceSaveStatusByKey, setReferenceSaveStatusByKey] = useState({});
   const addDocumentInputRef = useRef(null);
   const [docsError, setDocsError] = useState("");
   const [fundraisingDrafts, setFundraisingDrafts] = useState({});
@@ -1594,6 +1595,10 @@ export default function TripPage() {
     if (!userId && !tripTeamMemberId) return;
 
     try {
+      setReferenceSaveStatusByKey((current) => ({
+        ...current,
+        [rawKey]: { type: "saving", message: "Saving..." },
+      }));
       const saved = await saveReferenceEmail({
         tripId: trip.id,
         userId: userId || undefined,
@@ -1620,9 +1625,23 @@ export default function TripPage() {
           sentDate: saved.sentDate,
         },
       }));
+      setReferenceSaveStatusByKey((current) => ({
+        ...current,
+        [stateKey]: { type: "success", message: "Saved." },
+      }));
     } catch (error) {
       console.error("Unable to save reference email", error);
+      setReferenceSaveStatusByKey((current) => ({
+        ...current,
+        [rawKey]: { type: "error", message: error.message || "Save failed." },
+      }));
+      showToast(error.message || "Unable to save reference email.", "error");
     }
+  }
+
+  function retryReferenceSave(refKey) {
+    const current = getReferenceStatus(refKey);
+    void saveReferenceStatus(refKey, current);
   }
 
   function toggleReferenceEmail(refKey, field) {
@@ -5450,10 +5469,36 @@ function parseDateSafe(dateStr) {
                 <tbody>
                   {referenceTableRows.map((refRow) => {
                     const referenceStatus = getReferenceStatus(refRow.refKey);
+                    const referenceSaveStatus = referenceSaveStatusByKey[refRow.refKey];
 
                     return (
                       <tr key={refRow.refKey}>
-                        <td style={{ fontWeight: 800 }}>{refRow.displayName}</td>
+                        <td style={{ fontWeight: 800 }}>
+                          <div>{refRow.displayName}</div>
+                          {referenceSaveStatus ? (
+                            <div className="small" style={{ marginTop: 4 }}>
+                              {referenceSaveStatus.type === "error" ? (
+                                <span style={{ color: "var(--danger)" }}>
+                                  {referenceSaveStatus.message}
+                                </span>
+                              ) : (
+                                <span style={{ color: "var(--muted)" }}>
+                                  {referenceSaveStatus.message}
+                                </span>
+                              )}
+                              {referenceSaveStatus.type === "error" ? (
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  style={{ marginLeft: 8, padding: "2px 8px", fontSize: 12 }}
+                                  onClick={() => retryReferenceSave(refRow.refKey)}
+                                >
+                                  Retry
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </td>
                         <td style={{ minWidth: 260 }}>
                           <div style={{ display: "grid", gap: 8 }}>
                             <input

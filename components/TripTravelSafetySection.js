@@ -6,6 +6,7 @@ import {
   listTripTravelSafetyAcknowledgments,
   saveTripTravelSafety,
 } from "@/lib/tripTravelSafety";
+import { showToast } from "@/components/Toast";
 
 function daysBetween(isoDate) {
   if (!isoDate) return null;
@@ -134,8 +135,11 @@ export default function TripTravelSafetySection({
       const nextAcks = await listTripTravelSafetyAcknowledgments(tripId);
       setAcks(nextAcks);
       setSaveStatus("Saved.");
+      showToast("Travel & Safety saved.", "success");
     } catch (e) {
-      setSaveStatus(e.message || "Unable to save.");
+      const message = e.message || "Unable to save.";
+      setSaveStatus(message);
+      showToast(message, "error");
     }
   }
 
@@ -145,13 +149,16 @@ export default function TripTravelSafetySection({
     try {
       await acknowledgeTripTravelSafety(tripId, currentUserId);
       setAckStatus("Thank you — your acknowledgment was recorded.");
+      showToast("Acknowledgment recorded.", "success");
       await load();
     } catch (e) {
       if (String(e.message || "") === "ALREADY_ACKNOWLEDGED") {
         setAckStatus("You have already acknowledged this version.");
         return;
       }
-      setAckStatus(e.message || "Unable to acknowledge.");
+      const message = e.message || "Unable to acknowledge.";
+      setAckStatus(message);
+      showToast(message, "error");
     }
   }
 
@@ -275,6 +282,11 @@ export default function TripTravelSafetySection({
                   Save Travel & Safety
                 </button>
                 {saveStatus ? <span className="small">{saveStatus}</span> : null}
+                {saveStatus && saveStatus !== "Saving..." && saveStatus !== "Saved." ? (
+                  <button className="btn" type="button" onClick={() => void handleSave()}>
+                    Retry
+                  </button>
+                ) : null}
               </div>
             ) : null}
 

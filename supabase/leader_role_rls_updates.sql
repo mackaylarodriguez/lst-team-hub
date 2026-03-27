@@ -12,7 +12,7 @@ set search_path = public
 as $$
   select lower(trim(p.role))
   from public.profiles as p
-  where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+  where p.id = auth.uid()
   limit 1;
 $$;
 
@@ -89,11 +89,7 @@ using (
       select trip_id from public.trip_assignments where user_id = auth.uid()
     )
   )
-  or user_id in (
-    select p.id
-    from public.profiles as p
-    where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
-  )
+  or user_id = auth.uid()
 );
 
 drop policy if exists "user_documents_insert_access" on public.user_documents;
@@ -110,11 +106,7 @@ with check (
       select trip_id from public.trip_assignments where user_id = auth.uid()
     )
   )
-  or user_id in (
-    select p.id
-    from public.profiles as p
-    where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
-  )
+  or user_id = auth.uid()
 );
 
 drop policy if exists "user_documents_update_access" on public.user_documents;
@@ -131,11 +123,7 @@ using (
       select trip_id from public.trip_assignments where user_id = auth.uid()
     )
   )
-  or user_id in (
-    select p.id
-    from public.profiles as p
-    where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
-  )
+  or user_id = auth.uid()
 )
 with check (
   private.current_profile_role() in ('admin', 'staff')
@@ -146,11 +134,7 @@ with check (
       select trip_id from public.trip_assignments where user_id = auth.uid()
     )
   )
-  or user_id in (
-    select p.id
-    from public.profiles as p
-    where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
-  )
+  or user_id = auth.uid()
 );
 
 drop policy if exists "user_documents_delete_access" on public.user_documents;
@@ -167,11 +151,7 @@ using (
       select trip_id from public.trip_assignments where user_id = auth.uid()
     )
   )
-  or user_id in (
-    select p.id
-    from public.profiles as p
-    where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
-  )
+  or user_id = auth.uid()
 );
 
 -- Storage: worker-documents bucket read for leaders (same as staff scope for bucket)
@@ -184,12 +164,7 @@ using (
   bucket_id = 'worker-documents'
   and (
     private.current_profile_role() in ('admin', 'staff', 'leader')
-    or exists (
-      select 1
-      from public.profiles as p
-      where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
-        and p.id::text = (storage.foldername(name))[1]
-    )
+    or auth.uid()::text = (storage.foldername(name))[1]
   )
 );
 
@@ -207,11 +182,7 @@ using (
       select trip_id from public.trip_assignments where user_id = auth.uid()
     )
   )
-  or user_id in (
-    select p.id
-    from public.profiles as p
-    where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
-  )
+  or user_id = auth.uid()
 );
 
 -- travel_form_responses: leaders can read responses for their trips
@@ -228,9 +199,5 @@ using (
       select trip_id from public.trip_assignments where user_id = auth.uid()
     )
   )
-  or user_id in (
-    select p.id
-    from public.profiles as p
-    where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
-  )
+  or user_id = auth.uid()
 );
