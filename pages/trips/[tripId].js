@@ -117,10 +117,10 @@ function CollapsibleSection({
     <div
       className={className}
       style={{
-        border: "1px solid rgba(47, 73, 147, 0.14)",
-        borderRadius: 12,
-        background: "#fff",
-        overflow: "hidden",
+        border: "none",
+        borderRadius: 0,
+        background: "transparent",
+        overflow: "visible",
         ...style,
       }}
     >
@@ -130,8 +130,8 @@ function CollapsibleSection({
             display: "flex",
             alignItems: "center",
             gap: 10,
-            padding: "10px 12px",
-            background: "rgba(245, 241, 234, 0.45)",
+            padding: "0 0 10px 0",
+            background: "transparent",
           }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -146,7 +146,7 @@ function CollapsibleSection({
           {rightSlot ? <div style={{ flexShrink: 0 }}>{rightSlot}</div> : null}
         </div>
       ) : null}
-      <div style={{ padding: "12px 14px 14px" }}>{children}</div>
+      <div>{children}</div>
     </div>
   );
 }
