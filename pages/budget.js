@@ -380,7 +380,7 @@ export default function BudgetPage() {
         <>
         <CollapsibleSection
           title="Site housing notes"
-          subtitle="Per-site housing text and workbook plans are edited on Sites. Expand for details and the policy effective date."
+          subtitle="Staff housing text per site (from Sites). Edit counts and logistics on Sites."
           defaultOpen={false}
           style={{ marginBottom: 24 }}
           rightSlot={
@@ -403,11 +403,67 @@ export default function BudgetPage() {
             </div>
           }
         >
-          <p className="small" style={{ margin: 0, color: "var(--muted)" }}>
-            Open <Link href="/sites">Sites</Link> to view and save each mission site&apos;s notes and workbook
-            inventory. The date above summarizes stored effective dates (one value if all sites match, otherwise a
-            count).
-          </p>
+          {siteHousingNotes.length === 0 ? (
+            <p className="small" style={{ margin: 0, color: "var(--muted)" }}>
+              No site notes loaded. Open <Link href="/sites">Sites</Link> to add or update mission site records.
+            </p>
+          ) : (
+            <div style={{ display: "grid", gap: 14 }}>
+              {[...siteHousingNotes]
+                .sort((a, b) =>
+                  String(a.siteName || "").localeCompare(String(b.siteName || ""), undefined, {
+                    sensitivity: "base",
+                  })
+                )
+                .map((n) => (
+                  <div
+                    key={n.id}
+                    className="card pad"
+                    style={{
+                      boxShadow: "none",
+                      border: "1px solid rgba(15, 23, 42, 0.1)",
+                      background: "rgba(248, 250, 252, 0.6)",
+                    }}
+                  >
+                    <div style={{ fontWeight: 800, marginBottom: 6 }}>{n.siteName || "—"}</div>
+                    {n.effectiveDate ? (
+                      <div className="small" style={{ marginBottom: 8, color: "var(--muted)" }}>
+                        Effective date: {n.effectiveDate}
+                      </div>
+                    ) : null}
+                    {String(n.notes || "").trim() ? (
+                      <div className="small" style={{ whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+                        {n.notes}
+                      </div>
+                    ) : (
+                      <div className="small" style={{ color: "var(--muted)", fontStyle: "italic" }}>
+                        No housing note for this site.
+                      </div>
+                    )}
+                    {String(n.workbookNotes || "").trim() ? (
+                      <details style={{ marginTop: 12 }}>
+                        <summary className="small" style={{ fontWeight: 700, cursor: "pointer" }}>
+                          Workbook plan string
+                        </summary>
+                        <div
+                          className="small"
+                          style={{
+                            marginTop: 8,
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                            fontFamily: "ui-monospace, monospace",
+                            fontSize: 11,
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {n.workbookNotes}
+                        </div>
+                      </details>
+                    ) : null}
+                  </div>
+                ))}
+            </div>
+          )}
         </CollapsibleSection>
 
         <div className="card pad" style={{ marginBottom: 24 }}>
