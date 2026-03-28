@@ -36,6 +36,7 @@ function createEmptyTeamMember() {
     startDate: "",
     endDate: "",
     fundraisingGoalAmount: "",
+    fundraisingUrl: "",
   };
 }
 
@@ -97,6 +98,7 @@ function buildTripDraftFromTrip(trip, teamMembers = []) {
             startDate: member.startDate || "",
             endDate: member.endDate || "",
             fundraisingGoalAmount: formatDraftAmount(member.fundraisingGoalAmount),
+            fundraisingUrl: String(member.fundraisingUrl || "").trim(),
           }))
         : [createEmptyTeamMember()],
   };
@@ -841,7 +843,8 @@ export default function Trips() {
                 Add first name, last name, and email now. Per-person dates let shorter subteams stay under the same trip.
               </div>
               <div className="small" style={{ marginBottom: 10 }}>
-                This saves the roster. It does not create Supabase login accounts by itself.
+                This saves the roster. It does not create Supabase login accounts by itself. You can add each
+                person&apos;s Neon fundraising link now — no worker login required.
               </div>
               <label className="row" style={{ alignItems: "center", gap: 8, marginBottom: 10 }}>
                 <input
@@ -917,6 +920,17 @@ export default function Trips() {
                             />
                           </div>
                         ) : null}
+                      </div>
+                      <div>
+                        <div className="small" style={{ marginBottom: 6 }}>Personal Neon fundraising link</div>
+                        <input
+                          className="input"
+                          type="url"
+                          inputMode="url"
+                          value={member.fundraisingUrl || ""}
+                          onChange={(event) => updateTeamMember(index, "fundraisingUrl", event.target.value)}
+                          placeholder="https://… (optional; works before they have an account)"
+                        />
                       </div>
                       <div className="row">
                         <div className="small" style={{ alignSelf: "center" }}>

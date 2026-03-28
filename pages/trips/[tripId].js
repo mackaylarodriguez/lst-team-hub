@@ -17,7 +17,11 @@ import {
   updateTripForCurrentUser,
 } from "@/lib/trips";
 import { isAdminRole, isLeaderRole, isManagerRole } from "@/lib/roles";
-import { listTripTeamMembers, saveTripTeamMembers } from "@/lib/tripTeamMembers";
+import {
+  listTripTeamMembers,
+  saveTripTeamMemberFundraisingUrl,
+  saveTripTeamMembers,
+} from "@/lib/tripTeamMembers";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import {
   getTrainingModuleDeadline,
@@ -107,6 +111,7 @@ import { deleteTripMeeting, listTripMeetings, saveTripMeeting } from "@/lib/trip
 import {
   getTripBudget,
   getTripHousingLinkForViewer,
+  getTripSiteLogisticsUrlForViewer,
   listSiteBudgetNotes,
   saveTripBudget,
 } from "@/lib/tripBudget";
@@ -496,6 +501,7 @@ export default function TripPage() {
   const [meetingStatus, setMeetingStatus] = useState("");
   const [tripBudgetRow, setTripBudgetRow] = useState(null);
   const [tripHousingLinkUrl, setTripHousingLinkUrl] = useState("");
+  const [tripSiteLogisticsRpcUrl, setTripSiteLogisticsRpcUrl] = useState("");
   const [tripBudgetLoadError, setTripBudgetLoadError] = useState("");
   const [materialsDraft, setMaterialsDraft] = useState(null);
   const [materialsSaveStatus, setMaterialsSaveStatus] = useState("");
@@ -776,6 +782,17 @@ export default function TripPage() {
         fundraisingUrl: participant.fundraisingUrl || "",
       };
     });
+    const participantEmailsForFundraising = new Set(
+      (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+    );
+    (trip.teamMembers || []).forEach((member) => {
+      if (!member.id) return;
+      const em = normalizeEmail(member.email);
+      if (em && participantEmailsForFundraising.has(em)) return;
+      nextDrafts[`roster-member-${member.id}`] = {
+        fundraisingUrl: member.fundraisingUrl || "",
+      };
+    });
     setFundraisingDrafts(nextDrafts);
     setTeamFundraisingDraft({
       teamFundraisingUrl: trip.teamFundraisingUrl || "",
@@ -859,6 +876,25 @@ export default function TripPage() {
     }
 
     void loadHousingLink();
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.id]);
+
+  useEffect(() => {
+    if (!trip?.id) return;
+    let cancelled = false;
+
+    async function loadSiteLogisticsUrl() {
+      try {
+        const url = await getTripSiteLogisticsUrlForViewer(trip.id);
+        if (!cancelled) setTripSiteLogisticsRpcUrl(url);
+      } catch {
+        if (!cancelled) setTripSiteLogisticsRpcUrl("");
+      }
+    }
+
+    void loadSiteLogisticsUrl();
     return () => {
       cancelled = true;
     };
@@ -1642,34 +1678,61 @@ export default function TripPage() {
         [participant.id]: { type: "info", message: "Saving..." },
       }));
 
-      const savedProfile = await saveFundraisingProfile({
-        tripId: trip.id,
-        userId: participant.id,
-        fundraisingUrl: draft.fundraisingUrl,
-      });
+      if (participant.tripTeamMemberId) {
+        const savedMember = await saveTripTeamMemberFundraisingUrl({
+          tripId: trip.id,
+          memberId: participant.tripTeamMemberId,
+          fundraisingUrl: draft.fundraisingUrl,
+        });
 
-      setTrip((current) => {
-        if (!current) return current;
+        setTrip((current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            teamMembers: (current.teamMembers || []).map((m) =>
+              m.id === participant.tripTeamMemberId
+                ? { ...m, fundraisingUrl: savedMember.fundraisingUrl }
+                : m
+            ),
+          };
+        });
 
-        return {
+        setFundraisingDrafts((current) => ({
           ...current,
-          participants: (current.participants || []).map((item) =>
-            item.id === participant.id
-              ? {
-                  ...item,
-                  fundraisingUrl: savedProfile.fundraisingUrl,
-                }
-              : item
-          ),
-        };
-      });
+          [participant.id]: {
+            fundraisingUrl: savedMember.fundraisingUrl || "",
+          },
+        }));
+      } else {
+        const savedProfile = await saveFundraisingProfile({
+          tripId: trip.id,
+          userId: participant.id,
+          fundraisingUrl: draft.fundraisingUrl,
+        });
 
-      setFundraisingDrafts((current) => ({
-        ...current,
-        [participant.id]: {
-          fundraisingUrl: savedProfile.fundraisingUrl || "",
-        },
-      }));
+        setTrip((current) => {
+          if (!current) return current;
+
+          return {
+            ...current,
+            participants: (current.participants || []).map((item) =>
+              item.id === participant.id
+                ? {
+                    ...item,
+                    fundraisingUrl: savedProfile.fundraisingUrl,
+                  }
+                : item
+            ),
+          };
+        });
+
+        setFundraisingDrafts((current) => ({
+          ...current,
+          [participant.id]: {
+            fundraisingUrl: savedProfile.fundraisingUrl || "",
+          },
+        }));
+      }
 
       setFundraisingStatus((current) => ({
         ...current,
@@ -4311,9 +4374,10 @@ function parseDateSafe(dateStr) {
         })
         .map((member) => ({
           id: member.id ? `roster-member-${member.id}` : `roster-${normalizeEmail(member.email)}`,
+          tripTeamMemberId: member.id || "",
           name: member.name || member.email || "Roster member",
           email: member.email || "",
-          fundraisingUrl: "",
+          fundraisingUrl: member.fundraisingUrl || "",
           fundraisingGoalAmount:
             member.fundraisingGoalAmount != null ? Number(member.fundraisingGoalAmount) : undefined,
           rosterOnly: true,
@@ -4426,9 +4490,18 @@ function parseDateSafe(dateStr) {
   const fundraisingSecondDeadlineAmount = fundraisingSecondDeadlineTotalAmount;
   const fundraisingFirstDeadlineDate = subtractDays(trip?.startDate, 90);
   const fundraisingSecondDeadlineDate = subtractDays(trip?.startDate, 30);
-  const savedFundraisingLinksCount = (trip?.participants || []).filter(
-    (participant) => !!participant.fundraisingUrl
-  ).length;
+  const savedFundraisingLinksCount = useMemo(() => {
+    if (!trip) return 0;
+    const participantEmails = new Set(
+      (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+    );
+    const participantWithUrl = (trip.participants || []).filter((p) => !!p.fundraisingUrl).length;
+    const rosterWithUrl = (trip.teamMembers || []).filter((m) => {
+      const e = normalizeEmail(m.email);
+      return e && !participantEmails.has(e) && String(m.fundraisingUrl || "").trim();
+    }).length;
+    return participantWithUrl + rosterWithUrl;
+  }, [trip]);
   const nextFundraisingDeadline = fundraisingFirstDeadlineDate
     ? {
         amount: fundraisingFirstDeadlineAmount,
@@ -4473,32 +4546,43 @@ function parseDateSafe(dateStr) {
   const visibleSiteInfoDoc = visibleDocs.find((doc) => doc.resourceKey === "site-info-link");
   const autoSiteInfoLink = useMemo(() => {
     if (!trip?.location?.trim()) return "";
+    let primary = "";
     if (canManageTrips && staffViewAllParticipants) {
-      return resolveTripSiteLogisticsUrl(trip.location, siteBudgetNotesList) || "";
+      primary = resolveTripSiteLogisticsUrl(trip.location, siteBudgetNotesList) || "";
+    } else {
+      primary =
+        resolveSiteLogisticsUrl(resolveCanonicalSiteLabelForTrip(trip.location, [])) || "";
     }
-    return (
-      resolveSiteLogisticsUrl(resolveCanonicalSiteLabelForTrip(trip.location, [])) || ""
-    );
+    if (primary) return primary;
+    return String(tripSiteLogisticsRpcUrl || "").trim() || "";
   }, [
     trip?.location,
     siteBudgetNotesList,
     canManageTrips,
     staffViewAllParticipants,
+    tripSiteLogisticsRpcUrl,
   ]);
-  const effectiveSiteInfoDoc = visibleSiteInfoDoc || (!siteInfoDoc && autoSiteInfoLink ? (
-    autoSiteInfoLink
-      ? {
-          id: "auto-site-info-link",
-          title: "Site Logistics",
-          link: autoSiteInfoLink,
-          pdfUrl: "",
-          createdAt: "",
-          updatedAt: "",
-          isAutoGenerated: true,
-          visibleToParticipants: true,
-        }
-      : null
-  ) : null);
+  const effectiveSiteInfoDoc = useMemo(() => {
+    const saved = visibleSiteInfoDoc;
+    const savedHasUrl = !!(
+      saved &&
+      (String(saved.link || "").trim() || String(saved.pdfUrl || "").trim())
+    );
+    if (savedHasUrl) return saved;
+    if (autoSiteInfoLink) {
+      return {
+        id: "auto-site-info-link",
+        title: "Site Logistics",
+        link: autoSiteInfoLink,
+        pdfUrl: "",
+        createdAt: "",
+        updatedAt: "",
+        isAutoGenerated: true,
+        visibleToParticipants: true,
+      };
+    }
+    return saved || null;
+  }, [visibleSiteInfoDoc, autoSiteInfoLink]);
   const effectiveHousingLinkDoc = useMemo(() => {
     const saved = (docs || []).find((d) => d.resourceKey === "housing-accommodation-link");
     if (saved && (saved.link || saved.pdfUrl)) {
@@ -4794,6 +4878,20 @@ function parseDateSafe(dateStr) {
     const summary = summarizeWorkbookItemsForShipping(items);
     return { noLocation: false, empty: false, note, hasHousingNote, ...summary };
   }, [trip?.location, siteBudgetNotesList]);
+
+  const materialsTeamWorkbookGlance = useMemo(() => {
+    if (!materialsDraft) return null;
+    const raw = String(materialsDraft.workbooks || "").trim();
+    if (!raw) {
+      return { kind: "empty" };
+    }
+    const items = parseAnyWorkbookInventoryString(raw);
+    const summary = summarizeWorkbookItemsForShipping(items);
+    if (summary.positiveLines.length > 0) {
+      return { kind: "parsed", raw, ...summary };
+    }
+    return { kind: "raw", raw };
+  }, [materialsDraft]);
 
   async function handleSaveMaterialsTab() {
     if (!trip?.id || !materialsDraft) return;
@@ -6346,7 +6444,8 @@ function parseDateSafe(dateStr) {
                     editingParticipantFundraisingId === participant.id;
                   const fundraisingProgressMeta = getFundraisingProgressMeta(participant);
                   const canEditParticipantFundraising =
-                    canViewTeamDashboard && !participant.rosterOnly;
+                    canViewTeamDashboard &&
+                    (!participant.rosterOnly || !!participant.tripTeamMemberId);
                   return (
                     <div
                       key={participant.id || participant.email}
@@ -6490,9 +6589,10 @@ function parseDateSafe(dateStr) {
                           )}
                         </>
                       )}
-                      {canViewTeamDashboard && participant.rosterOnly ? (
+                      {canViewTeamDashboard && participant.rosterOnly && participant.tripTeamMemberId ? (
                         <div className="small" style={{ marginTop: 12, color: "var(--muted)" }}>
-                          Worker has not connected an account yet. Fundraising link can be added after signup.
+                          No login yet — link is stored on the roster. When they join with this email, it
+                          shows on their profile unless you save a different link under their account.
                         </div>
                       ) : null}
                     </div>
@@ -7170,121 +7270,56 @@ function parseDateSafe(dateStr) {
             </div>
           ) : (
             <>
-              {canManageTrips ? (
+              <CollapsibleSection
+                defaultOpen
+                title="Materials at a glance"
+                subtitle="Summary when you open this tab: team identity, roster count, Sites workbook plan, this team’s notebook list, sizes, accountant, and shipping."
+              >
                 <div
                   className="card pad"
                   style={{
-                    background: "linear-gradient(180deg, rgba(234,242,255,.97), #fff 55%)",
-                    borderColor: "rgba(47,73,147,.28)",
+                    display: "grid",
+                    gap: 0,
+                    background: "linear-gradient(180deg, rgba(248,250,252,.98), #fff 50%)",
+                    borderColor: "rgba(15, 23, 42, 0.1)",
                   }}
                 >
                   <div
                     className="row"
-                    style={{ alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}
+                    style={{
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      marginBottom: 14,
+                      paddingBottom: 14,
+                      borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
+                    }}
                   >
-                    <div className="cardSectionPill" style={{ marginBottom: 0 }}>
-                      Site workbook plan (staff only)
-                    </div>
-                    {staffSiteWorkbookPlan?.hasHousingNote ? (
-                      <span
-                        className="small"
-                        title="This site has a housing / logistics note on the Sites page"
-                        style={{
-                          fontWeight: 800,
-                          color: "#b45309",
-                          border: "1px solid rgba(180,83,9,.35)",
-                          borderRadius: 8,
-                          padding: "2px 8px",
-                          background: "rgba(255,247,237,.9)",
-                        }}
-                      >
-                        ! See{" "}
-                        <Link href="/sites" style={{ fontWeight: 800 }}>
-                          Sites
-                        </Link>{" "}
-                        → Site notes
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="small" style={{ color: "var(--muted)", marginBottom: 10 }}>
-                    Pulled from the Sites page for this trip&apos;s location (
-                    <strong>{tripSiteCanonicalLabel || trip.location || "—"}</strong>). Trip leaders and
-                    workers do not see this block.
-                  </div>
-                  {staffSiteWorkbookPlan?.noLocation ? (
-                    <div className="small">
-                      Set this trip&apos;s <strong>location</strong> (trip setup) to match a site on
-                      the Sites page so counts appear here.
-                    </div>
-                  ) : staffSiteWorkbookPlan?.empty ? (
-                    <div className="small">
-                      No workbook plan on file for <strong>{trip.location}</strong>. Add it under{" "}
-                      <strong>Sites</strong> in the shell navigation.
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 8 }}>
-                        {staffSiteWorkbookPlan.distinctTitles} workbook title
-                        {staffSiteWorkbookPlan.distinctTitles === 1 ? "" : "s"} to send ·{" "}
-                        {staffSiteWorkbookPlan.totalCopies} total cop
-                        {staffSiteWorkbookPlan.totalCopies === 1 ? "y" : "ies"}
-                      </div>
-                      <ul
-                        className="small"
-                        style={{ margin: 0, paddingLeft: 18, lineHeight: 1.65 }}
-                      >
-                        {staffSiteWorkbookPlan.positiveLines.map((line, idx) => (
-                          <li key={`${line.name}-${idx}`}>
-                            {line.name}: <strong>{line.qty}</strong>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                </div>
-              ) : null}
-              <CollapsibleSection defaultOpen>
-                <div className="card pad" style={{ display: "grid", gap: 14 }}>
-                  <div className="cardSectionPill" style={{ marginBottom: 4 }}>Team Hub — materials</div>
-                  <div className="small" style={{ marginBottom: 10, color: "var(--muted)" }}>
-                    Workbooks, sizes, accountant, and roster counts. Saved to the same housing budget row
-                    as Budget → Housing.
-                  </div>
-                  <div
-                    className="row"
-                    style={{ alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
-                  >
-                    <div style={{ flex: "1 1 220px", minWidth: 0 }}>
-                      <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
-                        Trip name
-                      </div>
-                      <div style={{ fontSize: 15, fontWeight: 800 }}>{trip.name || "—"}</div>
-                    </div>
                     <div
                       className="row"
-                      style={{
-                        gap: 8,
-                        flexWrap: "wrap",
-                        alignItems: "center",
-                        marginLeft: "auto",
-                        justifyContent: "flex-end",
-                      }}
+                      style={{ gap: 8, flexWrap: "wrap", marginLeft: "auto", justifyContent: "flex-end" }}
                     >
                       <button
                         type="button"
                         className="btn"
                         onClick={() => {
                           void navigator.clipboard?.writeText(String(trip.name || ""));
-                          showToast("Trip name copied", "success");
+                          showToast("Team name copied", "success");
                         }}
                       >
-                        Copy name
+                        Copy team name
                       </button>
                       <button
                         type="button"
                         className="btn"
-                        onClick={() => handleExportMaterialsExcel()}
+                        onClick={() => {
+                          void navigator.clipboard?.writeText(String(trip.id || ""));
+                          showToast("Trip ID copied", "success");
+                        }}
                       >
+                        Copy trip ID
+                      </button>
+                      <button type="button" className="btn" onClick={() => handleExportMaterialsExcel()}>
                         Export Excel
                       </button>
                       <button
@@ -7292,7 +7327,7 @@ function parseDateSafe(dateStr) {
                         className="btn btnPrimary"
                         onClick={() => void handleSaveMaterialsTab()}
                       >
-                        Save
+                        Save materials
                       </button>
                       {materialsSaveStatus ? (
                         <span className="small" style={{ color: "var(--muted)" }}>
@@ -7301,6 +7336,302 @@ function parseDateSafe(dateStr) {
                       ) : null}
                     </div>
                   </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(130px, 200px) 1fr",
+                      gap: "6px 20px",
+                      alignItems: "start",
+                      padding: "10px 0",
+                      borderBottom: "1px solid rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
+                      Team name
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: 16 }}>{trip.name || "—"}</div>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(130px, 200px) 1fr",
+                      gap: "6px 20px",
+                      alignItems: "start",
+                      padding: "10px 0",
+                      borderBottom: "1px solid rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
+                      Trip ID
+                    </div>
+                    <div
+                      className="small"
+                      style={{
+                        fontFamily: "ui-monospace, monospace",
+                        wordBreak: "break-all",
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {trip.id || "—"}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(130px, 200px) 1fr",
+                      gap: "6px 20px",
+                      alignItems: "start",
+                      padding: "10px 0",
+                      borderBottom: "1px solid rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
+                      # of workers
+                    </div>
+                    <div>
+                      <span style={{ fontWeight: 800 }}>
+                        {materialsDraft.numWorkers === "" ||
+                        materialsDraft.numWorkers === null ||
+                        materialsDraft.numWorkers === undefined
+                          ? "—"
+                          : materialsDraft.numWorkers}
+                      </span>
+                      <span className="small" style={{ color: "var(--muted)", marginLeft: 10 }}>
+                        Roster on file: {rosterParticipantCount}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(130px, 200px) 1fr",
+                      gap: "6px 20px",
+                      alignItems: "start",
+                      padding: "12px 0",
+                      borderBottom: "1px solid rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
+                      Site workbook plan
+                      <div style={{ fontWeight: 500, marginTop: 4, opacity: 0.85 }}>(from Sites)</div>
+                    </div>
+                    <div>
+                      <div className="row" style={{ alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                        <span className="small" style={{ color: "var(--muted)" }}>
+                          Site: <strong>{tripSiteCanonicalLabel || trip.location || "—"}</strong>
+                        </span>
+                        {staffSiteWorkbookPlan?.hasHousingNote ? (
+                          <span
+                            className="small"
+                            title="Staff housing / logistics note on Sites"
+                            style={{
+                              fontWeight: 800,
+                              color: "#b45309",
+                              border: "1px solid rgba(180,83,9,.35)",
+                              borderRadius: 8,
+                              padding: "2px 8px",
+                              background: "rgba(255,247,237,.9)",
+                            }}
+                          >
+                            !{" "}
+                            <Link href="/sites" style={{ fontWeight: 800 }}>
+                              Sites
+                            </Link>{" "}
+                            → notes
+                          </span>
+                        ) : null}
+                      </div>
+                      {staffSiteWorkbookPlan?.noLocation ? (
+                        <div className="small" style={{ color: "var(--muted)" }}>
+                          Set the trip <strong>location</strong> in trip setup to match a site on{" "}
+                          <Link href="/sites">Sites</Link> so workbook lines appear here.
+                        </div>
+                      ) : staffSiteWorkbookPlan?.empty ? (
+                        <div className="small" style={{ color: "var(--muted)" }}>
+                          No workbook plan on file for this site. Add workbook strings under{" "}
+                          <Link href="/sites">Sites</Link> (workbook / materials notes for the site).
+                        </div>
+                      ) : (
+                        <>
+                          <div className="small" style={{ marginBottom: 8, fontWeight: 700 }}>
+                            {staffSiteWorkbookPlan.distinctTitles} title
+                            {staffSiteWorkbookPlan.distinctTitles === 1 ? "" : "s"} ·{" "}
+                            {staffSiteWorkbookPlan.totalCopies} cop
+                            {staffSiteWorkbookPlan.totalCopies === 1 ? "y" : "ies"} (site-wide plan)
+                          </div>
+                          <ul
+                            className="small"
+                            style={{ margin: 0, paddingLeft: 18, lineHeight: 1.65 }}
+                          >
+                            {staffSiteWorkbookPlan.positiveLines.map((line, idx) => (
+                              <li key={`site-${line.name}-${idx}`}>
+                                <strong>{line.qty}</strong> {line.name}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(130px, 200px) 1fr",
+                      gap: "6px 20px",
+                      alignItems: "start",
+                      padding: "12px 0",
+                      borderBottom: "1px solid rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
+                      Notebooks for this team
+                    </div>
+                    <div>
+                      {materialsTeamWorkbookGlance?.kind === "parsed" ? (
+                        <>
+                          <div className="small" style={{ marginBottom: 8, fontWeight: 700 }}>
+                            {materialsTeamWorkbookGlance.distinctTitles} line
+                            {materialsTeamWorkbookGlance.distinctTitles === 1 ? "" : "s"} ·{" "}
+                            {materialsTeamWorkbookGlance.totalCopies} cop
+                            {materialsTeamWorkbookGlance.totalCopies === 1 ? "y" : "ies"} (from inventory
+                            field below)
+                          </div>
+                          <ul
+                            className="small"
+                            style={{ margin: 0, paddingLeft: 18, lineHeight: 1.65 }}
+                          >
+                            {materialsTeamWorkbookGlance.positiveLines.map((line, idx) => (
+                              <li key={`team-${line.name}-${idx}`}>
+                                <strong>{line.qty}</strong> {line.name}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : materialsTeamWorkbookGlance?.kind === "raw" ? (
+                        <div className="small" style={{ color: "var(--muted)", lineHeight: 1.5 }}>
+                          Could not parse workbook lines from the inventory field. Raw value:{" "}
+                          <span style={{ fontFamily: "ui-monospace, monospace", wordBreak: "break-all" }}>
+                            {materialsTeamWorkbookGlance.raw}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="small" style={{ color: "var(--muted)" }}>
+                          Not entered yet — add a workbook inventory string under{" "}
+                          <strong>Edit materials</strong> below (e.g.{" "}
+                          <span style={{ fontFamily: "ui-monospace, monospace" }}>5 Luke; 2 Acts</span>).
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(130px, 200px) 1fr",
+                      gap: "6px 20px",
+                      alignItems: "start",
+                      padding: "10px 0",
+                      borderBottom: "1px solid rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
+                      Team accountant
+                    </div>
+                    <div style={{ fontWeight: 600 }}>
+                      {String(materialsDraft.teamAccountant || "").trim() || (
+                        <span className="small" style={{ color: "var(--muted)", fontWeight: 500 }}>
+                          —
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(130px, 200px) 1fr",
+                      gap: "6px 20px",
+                      alignItems: "start",
+                      padding: "10px 0",
+                      borderBottom: "1px solid rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
+                      T-shirt sizes
+                    </div>
+                    <div className="small" style={{ lineHeight: 1.55 }}>
+                      {String(materialsDraft.tshirts || "").trim() ? (
+                        <div style={{ whiteSpace: "pre-wrap" }}>
+                          <span style={{ fontWeight: 700 }}>Housing / materials field:</span>
+                          {"\n"}
+                          {materialsDraft.tshirts}
+                        </div>
+                      ) : null}
+                      {travelFormTshirtSummary ? (
+                        <div
+                          style={{
+                            whiteSpace: "pre-wrap",
+                            marginTop: String(materialsDraft.tshirts || "").trim() ? 10 : 0,
+                          }}
+                        >
+                          <span style={{ fontWeight: 700 }}>Travel forms:</span>
+                          {"\n"}
+                          {travelFormTshirtSummary}
+                        </div>
+                      ) : null}
+                      {!String(materialsDraft.tshirts || "").trim() && !travelFormTshirtSummary ? (
+                        <span style={{ color: "var(--muted)" }}>—</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(130px, 200px) 1fr",
+                      gap: "6px 20px",
+                      alignItems: "start",
+                      padding: "10px 0",
+                      borderBottom: "1px solid rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
+                      Ship-to address
+                    </div>
+                    <div className="small" style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                      {String(materialsDraft.materialsShipAddress || "").trim() || (
+                        <span style={{ color: "var(--muted)" }}>—</span>
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(130px, 200px) 1fr",
+                      gap: "6px 20px",
+                      alignItems: "start",
+                      padding: "10px 0",
+                    }}
+                  >
+                    <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
+                      Tracking #
+                    </div>
+                    <div
+                      className="small"
+                      style={{ fontFamily: "ui-monospace, monospace", wordBreak: "break-all" }}
+                    >
+                      {String(materialsDraft.materialsTrackingNumber || "").trim() || (
+                        <span style={{ color: "var(--muted)", fontFamily: "inherit" }}>—</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection defaultOpen title="Edit materials" subtitle="Updates the same housing budget row as Budget → Housing.">
+                <div className="card pad" style={{ display: "grid", gap: 14 }}>
+                  <div className="cardSectionPill" style={{ marginBottom: 4 }}>Fields</div>
                   <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
                     <div>
                       <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>

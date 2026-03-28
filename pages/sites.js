@@ -16,6 +16,7 @@ import {
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import { WORKBOOK_REFERENCE_TITLES } from "@/lib/workbookCatalog";
 import {
+  mergeSiteWorkbookNotesWithDraft,
   normalizeWorkbookNameKey,
   parseAnyWorkbookInventoryString,
   summarizeWorkbookItemsForShipping,
@@ -32,6 +33,9 @@ export default function SitesPage() {
   const [editingLogisticsSite, setEditingLogisticsSite] = useState("");
   const [logisticsUrlDraft, setLogisticsUrlDraft] = useState("");
   const [savingLogisticsFor, setSavingLogisticsFor] = useState("");
+  const [editingWorkbookSite, setEditingWorkbookSite] = useState("");
+  const [workbookQtyDraft, setWorkbookQtyDraft] = useState({});
+  const [savingWorkbookFor, setSavingWorkbookFor] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -96,12 +100,13 @@ export default function SitesPage() {
       const note = findSiteBudgetNoteForOption(siteLabel, siteNotes);
       const raw = note?.workbookNotes ?? "";
       const items = parseAnyWorkbookInventoryString(raw);
-      const positive = items.filter((x) => Number(x.qty) > 0);
       const qtyByKey = new Map();
-      for (const { name, qty } of positive) {
+      for (const { name, qty } of items) {
         const k = normalizeWorkbookNameKey(name);
         if (!k) continue;
-        qtyByKey.set(k, (qtyByKey.get(k) || 0) + (Number(qty) || 0));
+        const n = Number(qty);
+        if (!Number.isFinite(n) || n < 0) continue;
+        qtyByKey.set(k, (qtyByKey.get(k) || 0) + n);
       }
       const summary = summarizeWorkbookItemsForShipping(items);
       const customUrl = String(note?.logisticsUrl || "").trim();
@@ -160,6 +165,61 @@ export default function SitesPage() {
     }
   }
 
+  function openWorkbookEdit(siteLabel, row, columns) {
+    setEditingWorkbookSite(siteLabel);
+    const next = {};
+    for (const col of columns) {
+      const q = row.qtyByKey.get(col.key);
+      next[col.key] = q !== undefined && q !== null ? String(q) : "";
+    }
+    setWorkbookQtyDraft(next);
+  }
+
+  async function saveSiteWorkbookCounts(siteOption, columns) {
+    const matched = findSiteBudgetNoteForOption(siteOption, siteNotes);
+    const existingRaw = matched?.workbookNotes ?? "";
+    const workbookNotesStr = mergeSiteWorkbookNotesWithDraft(
+      existingRaw,
+      columns,
+      workbookQtyDraft
+    );
+    try {
+      setSavingWorkbookFor(siteOption);
+      setStatus("");
+      let saved;
+      if (matched) {
+        saved = await updateSiteBudgetNote(matched.id, {
+          siteName: siteOption,
+          workbookNotes: workbookNotesStr,
+          notes: matched.notes ?? "",
+          effectiveDate: matched.effectiveDate || null,
+        });
+      } else {
+        saved = await upsertSiteBudgetNote({
+          siteName: siteOption,
+          workbookNotes: workbookNotesStr,
+          notes: "",
+          logisticsUrl: null,
+        });
+      }
+      setSiteNotes((prev) => {
+        const others = prev.filter((r) => r.id !== saved.id);
+        return [...others, saved].sort((a, b) =>
+          a.siteName.localeCompare(b.siteName, undefined, { sensitivity: "base" })
+        );
+      });
+      setEditingWorkbookSite("");
+      setWorkbookQtyDraft({});
+      showToast(`Saved workbook counts for ${siteOption}`, "success");
+    } catch (e) {
+      const msg = e.message || "Save failed.";
+      setStatus(msg);
+      showToast(msg, "error");
+    } finally {
+      setSavingWorkbookFor("");
+    }
+  }
+
   if (!session || loading) {
     return (
       <Shell>
@@ -183,9 +243,9 @@ export default function SitesPage() {
         <span>Sites</span>
       </h1>
       <p className="small" style={{ marginBottom: 20, maxWidth: 760 }}>
-        Workbook strings and housing notes for each site live in <code>site_budget_notes</code> and are
-        edited from <strong>Trip → Materials</strong> (managers) or your database admin tools. This page
-        summarizes counts from those saved plans and lets you override site logistics links.
+        Workbook counts and housing notes are stored in <code>site_budget_notes</code>. Use{" "}
+        <strong>Edit counts</strong> on a row to change quantities; housing text is still easiest from
+        your admin tools or trip flows. Override site logistics links from the last column.
       </p>
 
       {status ? (
@@ -197,15 +257,15 @@ export default function SitesPage() {
       <div className="card pad" style={{ marginBottom: 24 }}>
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Workbook counts by site</div>
         <div className="small" style={{ marginBottom: 12, color: "var(--muted)", maxWidth: 900 }}>
-          One row per mission site. Columns follow <code>lib/workbookCatalog.js</code> plus any extra
-          titles found in saved workbook plans. Clear a custom logistics URL to fall back to the built-in
-          map in <code>lib/siteInfoLinks.js</code>.
+          One row per mission site. Columns follow <code>lib/workbookCatalog.js</code> plus extra titles
+          found in saved plans. Leave a cell blank when editing to drop that title from this site&apos;s
+          plan (quantities ≥ 0 allowed, including 0). Clear a custom logistics URL to use the built-in map.
         </div>
         <div style={{ overflowX: "auto", borderRadius: 10, border: "1px solid rgba(15,23,42,.08)" }}>
           <table
             className="table"
             style={{
-              minWidth: Math.max(720, 160 + workbookCountsMatrix.columns.length * 56 + 220),
+              minWidth: Math.max(720, 160 + workbookCountsMatrix.columns.length * 56 + 340),
               fontSize: 12,
               margin: 0,
             }}
@@ -231,11 +291,15 @@ export default function SitesPage() {
                   </th>
                 ))}
                 <th style={{ whiteSpace: "nowrap", textAlign: "right" }}>Total books</th>
+                <th style={{ whiteSpace: "nowrap", minWidth: 120 }}>Workbooks</th>
                 <th style={{ whiteSpace: "nowrap", minWidth: 200 }}>Site logistics</th>
               </tr>
             </thead>
             <tbody>
-              {workbookCountsMatrix.rows.map((row) => (
+              {workbookCountsMatrix.rows.map((row) => {
+                const isEditingWorkbooks = editingWorkbookSite === row.siteLabel;
+                const cols = workbookCountsMatrix.columns;
+                return (
                 <tr key={row.siteLabel}>
                   <td
                     style={{
@@ -249,16 +313,94 @@ export default function SitesPage() {
                   >
                     {row.siteLabel}
                   </td>
-                  {workbookCountsMatrix.columns.map((col) => {
-                    const q = row.qtyByKey.get(col.key) ?? 0;
+                  {cols.map((col) => {
+                    const q = row.qtyByKey.get(col.key);
+                    const hasVal = q !== undefined && q !== null;
+                    if (isEditingWorkbooks) {
+                      return (
+                        <td key={col.key} style={{ textAlign: "right", verticalAlign: "middle" }}>
+                          <input
+                            className="input"
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={workbookQtyDraft[col.key] ?? ""}
+                            onChange={(e) =>
+                              setWorkbookQtyDraft((prev) => ({
+                                ...prev,
+                                [col.key]: e.target.value,
+                              }))
+                            }
+                            placeholder="—"
+                            disabled={savingWorkbookFor === row.siteLabel}
+                            style={{
+                              width: 56,
+                              textAlign: "right",
+                              padding: "4px 6px",
+                              fontSize: 12,
+                            }}
+                          />
+                        </td>
+                      );
+                    }
                     return (
                       <td key={col.key} style={{ textAlign: "right", color: "var(--muted)" }}>
-                        {q > 0 ? <strong style={{ color: "inherit" }}>{q}</strong> : "—"}
+                        {hasVal ? (
+                          Number(q) > 0 ? (
+                            <strong style={{ color: "inherit" }}>{q}</strong>
+                          ) : (
+                            <span>{q}</span>
+                          )
+                        ) : (
+                          "—"
+                        )}
                       </td>
                     );
                   })}
                   <td style={{ textAlign: "right", fontWeight: 800 }}>
                     {row.totalCopies > 0 ? row.totalCopies : "—"}
+                  </td>
+                  <td style={{ verticalAlign: "top" }}>
+                    <div className="row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                      {isEditingWorkbooks ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btnPrimary"
+                            style={{ fontSize: 12, padding: "6px 12px" }}
+                            disabled={savingWorkbookFor === row.siteLabel}
+                            onClick={() => void saveSiteWorkbookCounts(row.siteLabel, cols)}
+                          >
+                            {savingWorkbookFor === row.siteLabel ? "Saving…" : "Save counts"}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ fontSize: 12, padding: "6px 12px" }}
+                            disabled={savingWorkbookFor === row.siteLabel}
+                            onClick={() => {
+                              setEditingWorkbookSite("");
+                              setWorkbookQtyDraft({});
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ fontSize: 12, padding: "6px 12px" }}
+                          disabled={
+                            !!savingWorkbookFor ||
+                            (!!editingWorkbookSite && editingWorkbookSite !== row.siteLabel)
+                          }
+                          onClick={() => openWorkbookEdit(row.siteLabel, row, cols)}
+                        >
+                          Edit counts
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td style={{ verticalAlign: "top" }}>
                     <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -336,7 +478,8 @@ export default function SitesPage() {
                     ) : null}
                   </td>
                 </tr>
-              ))}
+              );
+              })}
             </tbody>
           </table>
         </div>
