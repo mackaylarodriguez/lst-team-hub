@@ -7201,8 +7201,15 @@ function parseDateSafe(dateStr) {
                 defaultOpen
               >
                 <div className="card pad" style={{ display: "grid", gap: 12 }}>
-                  <div className="row" style={{ alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                    <div className="spacer" style={{ flex: 1, minWidth: 0 }} />
+                  <div
+                    className="row"
+                    style={{
+                      justifyContent: "flex-end",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      marginBottom: 4,
+                    }}
+                  >
                     <button
                       type="button"
                       className="btn btnPrimary"
@@ -8536,6 +8543,7 @@ function parseDateSafe(dateStr) {
               </button>
               </>
               )}
+              </div>
             </div>
             <table className="table" style={{ minWidth: 2400, fontSize: 12 }}>
               <thead>

@@ -255,24 +255,31 @@ export default function SitesPage() {
 
           return (
             <div key={siteOption} className="card pad" style={{ display: "grid", gap: 10 }}>
-              <div className="row" style={{ alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-                <div style={{ fontWeight: 900 }}>{siteOption}</div>
-                {matched?.effectiveDate ? (
-                  <span className="small" style={{ color: "var(--muted)" }}>
-                    Effective {matched.effectiveDate}
-                  </span>
-                ) : null}
-                {matched?.id && matched.siteName !== siteOption ? (
-                  <span className="small badge" title="Will use this row and rename site to match">
-                    Linked from “{matched.siteName}”
-                  </span>
-                ) : null}
-                <div className="spacer" />
+              <div
+                className="row"
+                style={{ alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+              >
+                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                  <div style={{ fontWeight: 900 }}>{siteOption}</div>
+                  <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 6 }}>
+                    {matched?.effectiveDate ? (
+                      <span className="small" style={{ color: "var(--muted)" }}>
+                        Effective {matched.effectiveDate}
+                      </span>
+                    ) : null}
+                    {matched?.id && matched.siteName !== siteOption ? (
+                      <span className="small badge" title="Will use this row and rename site to match">
+                        Linked from “{matched.siteName}”
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
                 <button
                   type="button"
                   className="btn btnPrimary"
                   disabled={isSaving}
                   onClick={() => void saveSiteRow(siteOption)}
+                  style={{ marginLeft: "auto" }}
                 >
                   {isSaving ? "Saving…" : "Save site"}
                 </button>
