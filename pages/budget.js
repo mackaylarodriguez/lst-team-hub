@@ -1,4 +1,5 @@
 import Shell from "@/components/Shell";
+import Link from "next/link";
 import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
 import ConfirmModal from "@/components/ConfirmModal";
@@ -11,9 +12,7 @@ import { isManagerRole } from "@/lib/roles";
 import {
   getBudgetAverages,
   listAllTripBudgets,
-  listSiteBudgetNotes,
   saveTripBudget,
-  updateSiteBudgetNote,
 } from "@/lib/tripBudget";
 import {
   listAllTripTickets,
@@ -58,9 +57,6 @@ export default function BudgetPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
   const [averages, setAverages] = useState(null);
-  const [siteNotes, setSiteNotes] = useState([]);
-  const [editingSiteNoteId, setEditingSiteNoteId] = useState("");
-  const [siteNoteDraft, setSiteNoteDraft] = useState({ siteName: "", notes: "" });
   const [trips, setTrips] = useState([]);
   const [housingRows, setHousingRows] = useState([]);
   const [ticketRows, setTicketRows] = useState([]);
@@ -94,9 +90,8 @@ export default function BudgetPage() {
 
       try {
         setLoading(true);
-        const [avgRes, notesRes, tripsRes, housingRes, ticketsRes] = await Promise.all([
+        const [avgRes, tripsRes, housingRes, ticketsRes] = await Promise.all([
           getBudgetAverages(),
-          listSiteBudgetNotes(),
           listTripsForCurrentUser(),
           listAllTripBudgets(),
           listAllTripTickets(),
@@ -107,7 +102,6 @@ export default function BudgetPage() {
         if (cancelled) return;
         setTrips(tripsRes || []);
         setAverages(avgRes);
-        setSiteNotes(notesRes);
         setHousingRows(mergeHousingWithTrips(tripsRes, housingRes));
         setTicketRows(refreshedTickets.length ? refreshedTickets : ticketsRes);
         if (tripsRes?.length > 0 && !newTicketTripId) setNewTicketTripId(tripsRes[0].id);
@@ -149,9 +143,6 @@ export default function BudgetPage() {
           returnedAmount: row.returnedAmount,
           housingAmount: row.housingAmount,
           notes: row.notes,
-          numWorkers: row.numWorkers,
-          tshirts: row.tshirts,
-          workbooks: row.workbooks,
         });
       }
       setHousingRows(housingRowsDraft);
@@ -256,7 +247,9 @@ export default function BudgetPage() {
           <span>Budget</span>
         </h1>
         <p className="small" style={{ marginBottom: 24 }}>
-          Overview of housing and ticketing across all trips. Travel forms stay per team on each trip page.
+          Overview of housing and ticketing across all trips. Workbook strings and per-site materials notes
+          are edited on <Link href="/sites">Sites</Link> and each trip&apos;s Materials tab—not here. Travel
+          forms stay per team on each trip page.
         </p>
 
         {status ? <div className="small" style={{ marginBottom: 12 }}>{status}</div> : null}
@@ -359,142 +352,12 @@ export default function BudgetPage() {
 
         {tab === "Housing" && (
         <div className="card pad" style={{ marginBottom: 24 }}>
-          <div className="row" style={{ marginBottom: 8, alignItems: "baseline" }}>
-            <div style={{ fontWeight: 900 }}>Site notes</div>
-            <div className="spacer" />
-            <div className="small" style={{ color: "var(--muted)" }}>
-              Effective 1/1/2025
-            </div>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: 16,
-            }}
-          >
-            {siteNotes.map((note) => {
-              const isEditing = editingSiteNoteId === note.id;
-              const isBuenosAires = note.siteName.toLowerCase().includes("buenos aires");
-
-              return (
-                <div
-                  key={note.id}
-                  className="card pad"
-                  style={{
-                    boxShadow: "none",
-                    background:
-                      "linear-gradient(180deg, rgba(248,250,252,1), rgba(255,255,255,1) 55%)",
-                    borderColor: "rgba(148,163,184,.45)",
-                    position: "relative",
-                    gridColumn: isBuenosAires ? "1 / -1" : "auto",
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: "0 0 auto 0",
-                      height: 4,
-                      width: "100%",
-                      background: "linear-gradient(90deg, var(--primary), var(--primary2))",
-                      borderTopLeftRadius: 12,
-                      borderTopRightRadius: 12,
-                    }}
-                  />
-                  <div style={{ marginBottom: 8 }}>
-                    <div style={{ fontWeight: 900 }}>{note.siteName}</div>
-                    {note.effectiveDate ? (
-                      <div className="small" style={{ color: "var(--muted)" }}>
-                        Effective {note.effectiveDate}
-                      </div>
-                    ) : null}
-                  </div>
-                  {isEditing ? (
-                    <div style={{ display: "grid", gap: 8 }}>
-                      <textarea
-                        className="input"
-                        rows={3}
-                        value={siteNoteDraft.notes}
-                        onChange={(e) =>
-                          setSiteNoteDraft((current) => ({ ...current, notes: e.target.value }))
-                        }
-                        placeholder="Site notes"
-                      />
-                      <div className="row" style={{ gap: 8 }}>
-                        <button
-                          type="button"
-                          className="btn btnPrimary"
-                          onClick={async () => {
-                            try {
-                              setStatus("Saving site note...");
-                              const updated = await updateSiteBudgetNote(note.id, {
-                                siteName: note.siteName,
-                                effectiveDate: note.effectiveDate,
-                                notes: siteNoteDraft.notes,
-                                workbookNotes: note.workbookNotes,
-                              });
-                              setSiteNotes((current) =>
-                                current.map((n) => (n.id === note.id ? updated : n))
-                              );
-                              setStatus("Site note saved.");
-                              setEditingSiteNoteId("");
-                            } catch (e) {
-                              const msg = e.message || "Unable to save site note.";
-                              setStatus(msg);
-                              showToast(msg, "error");
-                            }
-                          }}
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() => {
-                            setEditingSiteNoteId("");
-                            setSiteNoteDraft({ siteName: "", notes: "" });
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="small" style={{ whiteSpace: "pre-wrap" }}>
-                        {note.notes || "No notes yet."}
-                      </div>
-                      <div className="row" style={{ marginTop: 10 }}>
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() => {
-                            setEditingSiteNoteId(note.id);
-                            setSiteNoteDraft({
-                              siteName: note.siteName,
-                              notes: note.notes,
-                            });
-                          }}
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        )}
-
-        {tab === "Housing" && (
-        <div className="card pad" style={{ marginBottom: 24 }}>
           <div className="row" style={{ marginBottom: 8, alignItems: "center" }}>
             <div>
               <div style={{ fontWeight: 900 }}>Housing budget (all trips)</div>
               <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
-                Rows are auto-generated when a trip is created.
+                Rows are auto-generated when a trip is created. Site notes and workbook plans:{" "}
+                <Link href="/sites">Sites</Link>. Per-team materials: trip <strong>Materials</strong> tab.
               </div>
             </div>
             <div className="spacer" />
