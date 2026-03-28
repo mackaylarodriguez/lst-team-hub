@@ -4520,66 +4520,6 @@ function parseDateSafe(dateStr) {
   const participantDocumentsTabLabel = canViewTeamDashboard ? "Worker Docs" : "My Documents";
   const tripDocumentsTabLabel = "Trip Documents";
   const tripTabTravelSafety = "Travel & Safety";
-  const tripTabMeta = {
-    Overview: {
-      icon: "spark",
-      title: "Overview",
-      description: "Big-picture trip health, highlights, and key next steps.",
-    },
-    Team: {
-      icon: "workers",
-      title: "Team",
-      description: "Roster, account status, invites, and references in one place.",
-    },
-    [tripTabTravelSafety]: {
-      icon: "archived",
-      title: tripTabTravelSafety,
-      description: "Entry requirements, safety & security, acknowledgments, and reference links.",
-    },
-    Fundraising: {
-      icon: "active",
-      title: "Fundraising",
-      description: "Deadlines, team giving progress, and support-raising resources.",
-    },
-    Training: {
-      icon: "active",
-      title: "Training",
-      description: "Core links, module progress, and completion across the team.",
-    },
-    Tasks: {
-      icon: "duplicate",
-      title: "Tasks",
-      description: "Worker tasks, quick adds, and what still needs attention.",
-    },
-    Materials: {
-      icon: "active",
-      title: "Materials",
-      description:
-        "Ship project materials: workbooks, sizes, accountant, ship-to address, and tracking. Pulls from housing budget and travel forms.",
-    },
-    [tripDocumentsTabLabel]: {
-      icon: "archived",
-      title: tripDocumentsTabLabel,
-      description: "Trip-wide resources, links, PDFs, and participant visibility controls.",
-    },
-    [participantDocumentsTabLabel]: {
-      icon: "archived",
-      title: participantDocumentsTabLabel,
-      description: canViewTeamDashboard
-        ? "Uploads for each worker, with quick review and replacement controls."
-        : "Your uploads and document slots for this trip.",
-    },
-    "Staff Tasks": {
-      icon: "recruiting",
-      title: "Staff Tasks",
-      description: "Internal planning tasks and assignment progress for staff only.",
-    },
-    "Travel Form": {
-      icon: "archived",
-      title: "Travel Form",
-      description: "Team travel form responses in one exportable grid.",
-    },
-  };
 
   const workerTabList = [
     "Overview",
@@ -4668,26 +4608,6 @@ function parseDateSafe(dateStr) {
       setMaterialsSaveStatus(msg);
       showToast(msg, "error");
     }
-  }
-
-  function renderTripTabIntro(tabName) {
-    const meta = tripTabMeta[tabName] || {
-      icon: "spark",
-      title: tabName,
-      description: "Everything you need for this section.",
-    };
-
-    return (
-      <div className="sectionHeader tripTabIntro">
-        <div className="sectionHeaderMain">
-          <div className="sectionTitleRow">
-            <AppIcon name={meta.icon} className="sectionHeaderIcon" />
-            <div className="sectionTitle">{meta.title}</div>
-          </div>
-          <div className="sectionDescription">{meta.description}</div>
-        </div>
-      </div>
-    );
   }
 
   useEffect(() => {
@@ -4925,7 +4845,6 @@ function parseDateSafe(dateStr) {
 
         {tab === "Overview" && (
           <div style={{ display: "grid", gap: 16 }}>
-            {renderTripTabIntro("Overview")}
           <CollapsibleSection
             title="Progress at a glance"
             subtitle="Task, training, fundraising, and reference completion."
@@ -5431,7 +5350,6 @@ function parseDateSafe(dateStr) {
 
       {tab === "Team" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {renderTripTabIntro("Team")}
           <CollapsibleSection
             title="Roster"
             subtitle="Members, account status, invites, and shirt sizes."
@@ -5865,7 +5783,6 @@ function parseDateSafe(dateStr) {
 
       {tab === tripTabTravelSafety && (
         <div style={{ display: "grid", gap: 16 }}>
-          {renderTripTabIntro(tripTabTravelSafety)}
           {trip?.id ? (
             <TripTravelSafetySection
               tripId={trip.id}
@@ -5880,7 +5797,6 @@ function parseDateSafe(dateStr) {
 
       {tab === "Fundraising" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {renderTripTabIntro("Fundraising")}
           <CollapsibleSection
             title="Deadlines & resources"
             subtitle="Timeline amounts and general financial information."
@@ -6305,7 +6221,6 @@ function parseDateSafe(dateStr) {
 
       {tab === "Training" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {renderTripTabIntro("Training")}
           {canManageTrips && (
             <CollapsibleSection title="Team training progress" subtitle="Overall completion across participants." defaultOpen>
             <div className="card pad">
@@ -6643,7 +6558,6 @@ function parseDateSafe(dateStr) {
 
       {tab === "Tasks" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {renderTripTabIntro("Tasks")}
           {canManageTrips && (
             <CollapsibleSection title="Manage worker tasks" subtitle="Add or edit tasks for this trip." defaultOpen>
             <div className="card pad tripSectionCard">
@@ -6944,7 +6858,6 @@ function parseDateSafe(dateStr) {
 
       {tab === "Materials" && canViewTeamDashboard && (
         <div style={{ display: "grid", gap: 16 }}>
-          {renderTripTabIntro("Materials")}
           {tripBudgetLoadError ? (
             <div className="card pad small" style={{ color: "var(--danger)" }}>
               {tripBudgetLoadError}
@@ -7167,7 +7080,6 @@ function parseDateSafe(dateStr) {
 
       {tab === tripDocumentsTabLabel && (
         <div style={{ display: "grid", gap: 16 }}>
-          {renderTripTabIntro(tripDocumentsTabLabel)}
           <CollapsibleSection
             title="Documents & links"
             subtitle="Trip-wide resources and visibility for participants."
@@ -8002,7 +7914,6 @@ function parseDateSafe(dateStr) {
       )}
       {tab === participantDocumentsTabLabel && (
         <div style={{ display: "grid", gap: 16 }}>
-          {renderTripTabIntro(participantDocumentsTabLabel)}
           <CollapsibleSection
             title={canViewTeamDashboard ? "Worker uploads" : "My documents"}
             subtitle={canViewTeamDashboard ? "Per-participant uploads and review." : "Your uploads for this trip."}
@@ -8202,7 +8113,6 @@ function parseDateSafe(dateStr) {
 
       {tab === "Travel Form" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {renderTripTabIntro("Travel Form")}
           <CollapsibleSection
             title="Travel form responses"
             subtitle="Passport, emergency contacts, and travel preferences."
@@ -8510,7 +8420,6 @@ function parseDateSafe(dateStr) {
 
             {tab === "Staff Tasks" && canManageTrips && !isLeader && (
               <div style={{ display: "grid", gap: 16 }}>
-            {renderTripTabIntro("Staff Tasks")}
             <CollapsibleSection title="Staff task list" subtitle="Internal planning tasks and assignments." defaultOpen>
             <div className="card pad">
                 <div className="row" style={{ marginBottom: 10 }}>

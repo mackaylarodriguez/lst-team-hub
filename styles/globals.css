@@ -657,9 +657,6 @@ a:hover{text-decoration:underline}
   color:#fff;
   box-shadow:0 14px 24px rgba(50,84,163,.24);
 }
-.tripTabIntro{
-  margin-bottom:-2px;
-}
 .tripOverviewStatsGrid > .card,
 .tripDetailPage .tripSectionCard,
 .tripDetailPage .tripFullSpanCard{
