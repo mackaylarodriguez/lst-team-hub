@@ -612,7 +612,6 @@ export default function TripPage() {
   const trainingAccessUrl = "https://lst365.sharepoint.com/:b:/g/IQD0aBKBPtQsQ6oh55gqMG4IAe3aFtSVxmywEXEBasP_5jY?e=SZ9m0j";
   const basicTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=134&";
   const gatewayTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=136&";
-  const generalFinancialInformationUrl = "https://lst.org/projects/general-financial-information/";
 
   const trainingResources = [
     {
