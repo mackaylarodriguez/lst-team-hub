@@ -702,8 +702,11 @@ table.sitesWorkbookTable thead th.sitesWorkbookCorner{
 }
 table.sitesWorkbookTable thead th.sitesWorkbookQtyHead{
   overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+  white-space:normal;
+  line-height:1.15;
+  vertical-align:bottom;
+  word-break:break-word;
+  padding:8px 5px;
 }
 table.sitesWorkbookTable tbody td.sitesWorkbookSiteCell{
   position:sticky;
@@ -1462,7 +1465,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
     display:table-cell !important;
   }
   .sitesWorkbookTable thead th.sitesWorkbookQtyHead{
-    white-space:nowrap !important;
+    white-space:normal !important;
   }
   table.sitesLogisticsTable{
     display:table !important;

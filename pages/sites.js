@@ -14,10 +14,13 @@ import {
   upsertSiteBudgetNote,
 } from "@/lib/tripBudget";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
-import { WORKBOOK_REFERENCE_TITLES } from "@/lib/workbookCatalog";
+import {
+  WORKBOOK_REFERENCE_COLUMNS,
+  WORKBOOK_SERIES_HEADER_STYLE,
+  workbookNameToCanonicalKey,
+} from "@/lib/workbookCatalog";
 import {
   mergeSiteWorkbookNotesWithDraft,
-  normalizeWorkbookNameKey,
   parseAnyWorkbookInventoryString,
   summarizeWorkbookItemsForShipping,
 } from "@/lib/workbookInventory";
@@ -27,10 +30,21 @@ import { showToast } from "@/components/Toast";
 /** Fixed column widths (px) for Sites workbook grid — keeps headers aligned while scrolling. */
 const WB_TABLE = {
   site: 172,
-  workbookQty: 72,
+  workbookQty: 86,
   totalBooks: 92,
   workbooksActions: 220,
 };
+
+function workbookQtyHeaderStyle(col) {
+  if (col.series && WORKBOOK_SERIES_HEADER_STYLE[col.series]) {
+    return WORKBOOK_SERIES_HEADER_STYLE[col.series];
+  }
+  return {
+    background: "rgba(248, 250, 252, 0.98)",
+    color: "var(--muted)",
+    borderBottom: "1px solid var(--border)",
+  };
+}
 
 export default function SitesPage() {
   const router = useRouter();
@@ -79,14 +93,12 @@ export default function SitesPage() {
   }, [router]);
 
   const workbookCountsMatrix = useMemo(() => {
-    const seen = new Set();
-    const refCols = [];
-    for (const t of WORKBOOK_REFERENCE_TITLES) {
-      const key = normalizeWorkbookNameKey(t);
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      refCols.push({ key, label: t });
-    }
+    const refCols = WORKBOOK_REFERENCE_COLUMNS.map((c) => ({
+      key: c.key,
+      label: c.label,
+      series: c.series,
+    }));
+    const seen = new Set(refCols.map((c) => c.key));
 
     const extraMap = new Map();
     for (const siteLabel of SITE_OPTIONS) {
@@ -94,7 +106,7 @@ export default function SitesPage() {
       const raw = note?.workbookNotes ?? "";
       for (const { name, qty } of parseAnyWorkbookInventoryString(raw)) {
         if (!(Number(qty) > 0)) continue;
-        const k = normalizeWorkbookNameKey(name);
+        const k = workbookNameToCanonicalKey(name);
         if (!k || seen.has(k)) continue;
         if (!extraMap.has(k)) extraMap.set(k, String(name).trim());
       }
@@ -110,7 +122,7 @@ export default function SitesPage() {
       const items = parseAnyWorkbookInventoryString(raw);
       const qtyByKey = new Map();
       for (const { name, qty } of items) {
-        const k = normalizeWorkbookNameKey(name);
+        const k = workbookNameToCanonicalKey(name);
         if (!k) continue;
         const n = Number(qty);
         if (!Number.isFinite(n) || n < 0) continue;
@@ -270,9 +282,10 @@ export default function SitesPage() {
       <div className="card pad" style={{ marginBottom: 24 }}>
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Workbook counts by site</div>
         <div className="small" style={{ marginBottom: 12, color: "var(--muted)", maxWidth: 900 }}>
-          One row per mission site. Columns follow <code>lib/workbookCatalog.js</code> plus extra titles
-          found in saved plans. Leave a cell blank when editing to drop that title from this site&apos;s
-          plan (quantities ≥ 0 allowed, including 0).
+          One row per mission site. Book columns follow series order in <code>lib/workbookCatalog.js</code>{" "}
+          (Core → Discover → Advanced), with distinct header colors. Extra titles from saved plans appear
+          after those. Leave a cell blank when editing to drop that title (quantities ≥ 0 allowed, including
+          0).
         </div>
         <div className="sitesWorkbookScroller">
           <table
@@ -300,7 +313,10 @@ export default function SitesPage() {
                   <th
                     key={col.key}
                     className="sitesWorkbookQtyHead"
-                    style={{ textAlign: "right" }}
+                    style={{
+                      textAlign: "center",
+                      ...workbookQtyHeaderStyle(col),
+                    }}
                     title={col.label}
                   >
                     {col.label}
