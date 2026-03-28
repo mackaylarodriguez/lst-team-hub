@@ -677,6 +677,41 @@ a:hover{text-decoration:underline}
 .table th,.table td{padding:10px; border-bottom:1px solid var(--border); text-align:left}
 .table th{font-size:12px; color:var(--muted)}
 .table thead th{position:sticky; top:0; background:var(--card); z-index:1; box-shadow:0 1px 0 var(--border)}
+.sitesWorkbookScroller{
+  max-height:min(72vh,880px);
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  border-radius:var(--rs);
+  border:1px solid rgba(15,23,42,.08);
+}
+table.sitesWorkbookTable{
+  table-layout:fixed;
+  margin:0;
+}
+table.sitesWorkbookTable thead th{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:var(--card);
+  box-shadow:0 1px 0 var(--border);
+  vertical-align:bottom;
+}
+table.sitesWorkbookTable thead th.sitesWorkbookCorner{
+  left:0;
+  z-index:4;
+}
+table.sitesWorkbookTable thead th.sitesWorkbookQtyHead{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+table.sitesWorkbookTable tbody td.sitesWorkbookSiteCell{
+  position:sticky;
+  left:0;
+  z-index:1;
+  background:var(--card);
+  box-shadow:4px 0 8px -6px rgba(15,23,42,.15);
+}
 .recruitingTableScroller{
   width:100%;
   overflow-x:auto;
@@ -1333,6 +1368,30 @@ a:hover{text-decoration:underline}
   .recruitingFontDock{
     right:16px;
     bottom:16px;
+  }
+  table.sitesWorkbookTable{
+    display:table !important;
+    overflow:visible !important;
+    white-space:normal !important;
+  }
+  .sitesWorkbookTable thead{
+    display:table-header-group !important;
+    white-space:normal !important;
+  }
+  .sitesWorkbookTable tbody{
+    display:table-row-group !important;
+    white-space:normal !important;
+  }
+  .sitesWorkbookTable tr{
+    display:table-row !important;
+    white-space:normal !important;
+  }
+  .sitesWorkbookTable th,
+  .sitesWorkbookTable td{
+    display:table-cell !important;
+  }
+  .sitesWorkbookTable thead th.sitesWorkbookQtyHead{
+    white-space:nowrap !important;
   }
 }
 @media(max-width:720px){

@@ -24,6 +24,15 @@ import {
 import { resolveSiteLogisticsUrl } from "@/lib/siteInfoLinks";
 import { showToast } from "@/components/Toast";
 
+/** Fixed column widths (px) for Sites workbook grid — keeps headers aligned while scrolling. */
+const WB_TABLE = {
+  site: 172,
+  workbookQty: 72,
+  totalBooks: 92,
+  workbooksActions: 196,
+  logistics: 272,
+};
+
 export default function SitesPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -123,6 +132,12 @@ export default function SitesPage() {
 
     return { columns, rows };
   }, [siteNotes]);
+
+  const workbookTableWidthPx = useMemo(() => {
+    const { site, workbookQty, totalBooks, workbooksActions, logistics } = WB_TABLE;
+    const n = workbookCountsMatrix.columns.length;
+    return site + n * workbookQty + totalBooks + workbooksActions + logistics;
+  }, [workbookCountsMatrix.columns.length]);
 
   async function saveSiteLogisticsUrl(siteOption) {
     const url = logisticsUrlDraft.trim();
@@ -261,38 +276,42 @@ export default function SitesPage() {
           found in saved plans. Leave a cell blank when editing to drop that title from this site&apos;s
           plan (quantities ≥ 0 allowed, including 0). Clear a custom logistics URL to use the built-in map.
         </div>
-        <div style={{ overflowX: "auto", borderRadius: 10, border: "1px solid rgba(15,23,42,.08)" }}>
+        <div className="sitesWorkbookScroller">
           <table
-            className="table"
+            className="table sitesWorkbookTable"
             style={{
-              minWidth: Math.max(720, 160 + workbookCountsMatrix.columns.length * 56 + 340),
+              width: workbookTableWidthPx,
+              minWidth: workbookTableWidthPx,
               fontSize: 12,
-              margin: 0,
             }}
           >
+            <colgroup>
+              <col style={{ width: WB_TABLE.site }} />
+              {workbookCountsMatrix.columns.map((col) => (
+                <col key={col.key} style={{ width: WB_TABLE.workbookQty }} />
+              ))}
+              <col style={{ width: WB_TABLE.totalBooks }} />
+              <col style={{ width: WB_TABLE.workbooksActions }} />
+              <col style={{ width: WB_TABLE.logistics }} />
+            </colgroup>
             <thead>
               <tr>
-                <th style={{ position: "sticky", left: 0, background: "#fff", zIndex: 1, whiteSpace: "nowrap" }}>
+                <th className="sitesWorkbookCorner" style={{ whiteSpace: "nowrap" }}>
                   Site
                 </th>
                 {workbookCountsMatrix.columns.map((col) => (
                   <th
                     key={col.key}
-                    style={{
-                      whiteSpace: "nowrap",
-                      textAlign: "right",
-                      maxWidth: 120,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
+                    className="sitesWorkbookQtyHead"
+                    style={{ textAlign: "right" }}
                     title={col.label}
                   >
                     {col.label}
                   </th>
                 ))}
                 <th style={{ whiteSpace: "nowrap", textAlign: "right" }}>Total books</th>
-                <th style={{ whiteSpace: "nowrap", minWidth: 120 }}>Workbooks</th>
-                <th style={{ whiteSpace: "nowrap", minWidth: 200 }}>Site logistics</th>
+                <th style={{ whiteSpace: "nowrap" }}>Workbooks</th>
+                <th style={{ whiteSpace: "nowrap" }}>Site logistics</th>
               </tr>
             </thead>
             <tbody>
@@ -301,16 +320,7 @@ export default function SitesPage() {
                 const cols = workbookCountsMatrix.columns;
                 return (
                 <tr key={row.siteLabel}>
-                  <td
-                    style={{
-                      position: "sticky",
-                      left: 0,
-                      background: "#fff",
-                      fontWeight: 700,
-                      whiteSpace: "nowrap",
-                      boxShadow: "4px 0 8px -6px rgba(15,23,42,.15)",
-                    }}
-                  >
+                  <td className="sitesWorkbookSiteCell" style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
                     {row.siteLabel}
                   </td>
                   {cols.map((col) => {
