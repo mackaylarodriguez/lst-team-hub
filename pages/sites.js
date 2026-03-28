@@ -2,7 +2,7 @@ import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
@@ -29,8 +29,7 @@ const WB_TABLE = {
   site: 172,
   workbookQty: 72,
   totalBooks: 92,
-  workbooksActions: 196,
-  logistics: 272,
+  workbooksActions: 220,
 };
 
 export default function SitesPage() {
@@ -134,9 +133,9 @@ export default function SitesPage() {
   }, [siteNotes]);
 
   const workbookTableWidthPx = useMemo(() => {
-    const { site, workbookQty, totalBooks, workbooksActions, logistics } = WB_TABLE;
+    const { site, workbookQty, totalBooks, workbooksActions } = WB_TABLE;
     const n = workbookCountsMatrix.columns.length;
-    return site + n * workbookQty + totalBooks + workbooksActions + logistics;
+    return site + n * workbookQty + totalBooks + workbooksActions;
   }, [workbookCountsMatrix.columns.length]);
 
   async function saveSiteLogisticsUrl(siteOption) {
@@ -258,9 +257,8 @@ export default function SitesPage() {
         <span>Sites</span>
       </h1>
       <p className="small" style={{ marginBottom: 20, maxWidth: 760 }}>
-        Workbook counts and housing notes are stored in <code>site_budget_notes</code>. Use{" "}
-        <strong>Edit counts</strong> on a row to change quantities; housing text is still easiest from
-        your admin tools or trip flows. Override site logistics links from the last column.
+        Workbook counts, housing notes, and logistics URLs live in <code>site_budget_notes</code>. Edit
+        quantities in the workbook grid; set SharePoint map links in <strong>Site logistics maps</strong> below.
       </p>
 
       {status ? (
@@ -274,7 +272,7 @@ export default function SitesPage() {
         <div className="small" style={{ marginBottom: 12, color: "var(--muted)", maxWidth: 900 }}>
           One row per mission site. Columns follow <code>lib/workbookCatalog.js</code> plus extra titles
           found in saved plans. Leave a cell blank when editing to drop that title from this site&apos;s
-          plan (quantities ≥ 0 allowed, including 0). Clear a custom logistics URL to use the built-in map.
+          plan (quantities ≥ 0 allowed, including 0).
         </div>
         <div className="sitesWorkbookScroller">
           <table
@@ -292,7 +290,6 @@ export default function SitesPage() {
               ))}
               <col style={{ width: WB_TABLE.totalBooks }} />
               <col style={{ width: WB_TABLE.workbooksActions }} />
-              <col style={{ width: WB_TABLE.logistics }} />
             </colgroup>
             <thead>
               <tr>
@@ -311,7 +308,6 @@ export default function SitesPage() {
                 ))}
                 <th style={{ whiteSpace: "nowrap", textAlign: "right" }}>Total books</th>
                 <th style={{ whiteSpace: "nowrap" }}>Workbooks</th>
-                <th style={{ whiteSpace: "nowrap" }}>Site logistics</th>
               </tr>
             </thead>
             <tbody>
@@ -370,23 +366,22 @@ export default function SitesPage() {
                   <td style={{ textAlign: "right", fontWeight: 800 }}>
                     {row.totalCopies > 0 ? row.totalCopies : "—"}
                   </td>
-                  <td style={{ verticalAlign: "top" }}>
-                    <div className="row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  <td style={{ verticalAlign: "middle" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                       {isEditingWorkbooks ? (
                         <>
                           <button
                             type="button"
                             className="btn btnPrimary"
-                            style={{ fontSize: 12, padding: "6px 12px" }}
+                            style={{ fontSize: 12, padding: "6px 14px", borderRadius: 10 }}
                             disabled={savingWorkbookFor === row.siteLabel}
                             onClick={() => void saveSiteWorkbookCounts(row.siteLabel, cols)}
                           >
-                            {savingWorkbookFor === row.siteLabel ? "Saving…" : "Save counts"}
+                            {savingWorkbookFor === row.siteLabel ? "Saving…" : "Save"}
                           </button>
                           <button
                             type="button"
-                            className="btn"
-                            style={{ fontSize: 12, padding: "6px 12px" }}
+                            className="sitesBtnGhost"
                             disabled={savingWorkbookFor === row.siteLabel}
                             onClick={() => {
                               setEditingWorkbookSite("");
@@ -399,8 +394,7 @@ export default function SitesPage() {
                       ) : (
                         <button
                           type="button"
-                          className="btn"
-                          style={{ fontSize: 12, padding: "6px 12px" }}
+                          className="sitesBtnGhost"
                           disabled={
                             !!savingWorkbookFor ||
                             (!!editingWorkbookSite && editingWorkbookSite !== row.siteLabel)
@@ -412,84 +406,128 @@ export default function SitesPage() {
                       )}
                     </div>
                   </td>
-                  <td style={{ verticalAlign: "top" }}>
-                    <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      {row.effectiveLogisticsUrl ? (
-                        <a
-                          className="btn btnPrimary"
-                          href={row.effectiveLogisticsUrl}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          style={{ padding: "6px 12px", fontSize: 12 }}
-                        >
-                          Open logistics
-                        </a>
-                      ) : (
-                        <span className="small" style={{ color: "var(--muted)" }}>
-                          No link
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        className="btn"
-                        style={{ fontSize: 12, padding: "6px 12px" }}
-                        onClick={() => {
-                          setEditingLogisticsSite(row.siteLabel);
-                          setLogisticsUrlDraft(row.customLogisticsUrl || "");
-                        }}
-                      >
-                        Edit link
-                      </button>
-                    </div>
-                    {row.customLogisticsUrl ? (
-                      <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
-                        Custom URL (overrides map)
-                      </div>
-                    ) : row.effectiveLogisticsUrl ? (
-                      <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
-                        From built-in map
-                      </div>
-                    ) : null}
-                    {editingLogisticsSite === row.siteLabel ? (
-                      <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                        <input
-                          className="input"
-                          type="url"
-                          placeholder="https://…"
-                          value={logisticsUrlDraft}
-                          onChange={(e) => setLogisticsUrlDraft(e.target.value)}
-                          style={{ minWidth: 220 }}
-                        />
-                        <div className="small" style={{ color: "var(--muted)" }}>
-                          Leave empty to use the default SharePoint map for this site name.
-                        </div>
-                        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                          <button
-                            type="button"
-                            className="btn btnPrimary"
-                            disabled={savingLogisticsFor === row.siteLabel}
-                            onClick={() => void saveSiteLogisticsUrl(row.siteLabel)}
-                          >
-                            {savingLogisticsFor === row.siteLabel ? "Saving…" : "Save link"}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn"
-                            disabled={savingLogisticsFor === row.siteLabel}
-                            onClick={() => {
-                              setEditingLogisticsSite("");
-                              setLogisticsUrlDraft("");
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </td>
                 </tr>
               );
               })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card pad" style={{ marginBottom: 24 }}>
+        <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics maps</div>
+        <div className="small" style={{ marginBottom: 12, color: "var(--muted)", maxWidth: 900 }}>
+          Built-in links come from <code>lib/siteInfoLinks.js</code> (matched on site name and common
+          fragments). Add a custom URL to override; clear it to fall back to the directory again.
+        </div>
+        <div className="sitesLogisticsScroller">
+          <table className="table sitesLogisticsTable">
+            <thead>
+              <tr>
+                <th>Site</th>
+                <th>Map</th>
+                <th>Source</th>
+                <th className="small" style={{ textAlign: "right", color: "var(--muted)", fontWeight: 700 }}>
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {workbookCountsMatrix.rows.map((row) => (
+                <Fragment key={row.siteLabel}>
+                  <tr>
+                    <td className="sitesLogisticsSiteCell">{row.siteLabel}</td>
+                    <td className="sitesLogisticsLinkCell">
+                      {row.effectiveLogisticsUrl ? (
+                        <a
+                          className="sitesLogisticsOpenLink"
+                          href={row.effectiveLogisticsUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                        >
+                          Open logistics map ↗
+                        </a>
+                      ) : (
+                        <span className="small" style={{ color: "var(--muted)" }}>
+                          No map matched — set a custom URL
+                        </span>
+                      )}
+                    </td>
+                    <td className="sitesLogisticsMetaCell">
+                      {row.customLogisticsUrl
+                        ? "Custom URL"
+                        : row.effectiveLogisticsUrl
+                          ? "Built-in directory"
+                          : "—"}
+                    </td>
+                    <td className="sitesLogisticsActionCell">
+                      <button
+                        type="button"
+                        className="sitesBtnGhost"
+                        disabled={!!savingLogisticsFor}
+                        onClick={() => {
+                          setEditingLogisticsSite((cur) =>
+                            cur === row.siteLabel ? "" : row.siteLabel
+                          );
+                          setLogisticsUrlDraft(row.customLogisticsUrl || "");
+                        }}
+                      >
+                        {editingLogisticsSite === row.siteLabel ? "Close" : "Edit URL"}
+                      </button>
+                    </td>
+                  </tr>
+                  {editingLogisticsSite === row.siteLabel ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        style={{
+                          background: "var(--skySoft)",
+                          padding: "14px 16px",
+                          borderBottom: "1px solid var(--border)",
+                        }}
+                      >
+                        <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
+                          <label className="small" style={{ fontWeight: 700, color: "var(--text)" }}>
+                            Custom logistics URL (optional)
+                          </label>
+                          <input
+                            className="input"
+                            type="url"
+                            placeholder="https://…"
+                            value={logisticsUrlDraft}
+                            onChange={(e) => setLogisticsUrlDraft(e.target.value)}
+                          />
+                          <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
+                            Leave empty to use only the built-in SharePoint link when one matches this site.
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                            <button
+                              type="button"
+                              className="btn btnPrimary"
+                              style={{ fontSize: 12, padding: "6px 14px", borderRadius: 10 }}
+                              disabled={savingLogisticsFor === row.siteLabel}
+                              onClick={() => void saveSiteLogisticsUrl(row.siteLabel)}
+                            >
+                              {savingLogisticsFor === row.siteLabel ? "Saving…" : "Save URL"}
+                            </button>
+                            <button
+                              type="button"
+                              className="sitesBtnGhost"
+                              disabled={savingLogisticsFor === row.siteLabel}
+                              onClick={() => {
+                                setEditingLogisticsSite("");
+                                setLogisticsUrlDraft("");
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              ))}
             </tbody>
           </table>
         </div>

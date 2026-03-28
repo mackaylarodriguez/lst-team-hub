@@ -712,6 +712,77 @@ table.sitesWorkbookTable tbody td.sitesWorkbookSiteCell{
   background:var(--card);
   box-shadow:4px 0 8px -6px rgba(15,23,42,.15);
 }
+.sitesLogisticsScroller{
+  max-height:min(60vh,640px);
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  border-radius:var(--rs);
+  border:1px solid rgba(15,23,42,.08);
+}
+table.sitesLogisticsTable{
+  table-layout:fixed;
+  width:100%;
+  margin:0;
+  font-size:13px;
+}
+table.sitesLogisticsTable thead th{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:var(--card);
+  box-shadow:0 1px 0 var(--border);
+}
+table.sitesLogisticsTable tbody td.sitesLogisticsSiteCell{
+  font-weight:700;
+  width:22%;
+  vertical-align:middle;
+}
+table.sitesLogisticsTable .sitesLogisticsLinkCell{
+  width:38%;
+  word-break:break-word;
+  vertical-align:middle;
+}
+table.sitesLogisticsTable .sitesLogisticsMetaCell{
+  width:22%;
+  color:var(--muted);
+  font-size:12px;
+  vertical-align:middle;
+}
+table.sitesLogisticsTable .sitesLogisticsActionCell{
+  width:18%;
+  text-align:right;
+  vertical-align:middle;
+  white-space:nowrap;
+}
+.sitesBtnGhost{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  font-size:12px;
+  font-weight:600;
+  padding:6px 12px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(248,250,252,.9);
+  color:var(--primary);
+  cursor:pointer;
+  font-family:inherit;
+  line-height:1.2;
+}
+.sitesBtnGhost:hover:not(:disabled){
+  background:var(--primarySoft);
+  border-color:rgba(50,84,163,.35);
+}
+.sitesBtnGhost:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
+.sitesLogisticsOpenLink{
+  font-weight:600;
+  text-decoration:none;
+}
+.sitesLogisticsOpenLink:hover{text-decoration:underline}
 .recruitingTableScroller{
   width:100%;
   overflow-x:auto;
@@ -1392,6 +1463,27 @@ table.sitesWorkbookTable tbody td.sitesWorkbookSiteCell{
   }
   .sitesWorkbookTable thead th.sitesWorkbookQtyHead{
     white-space:nowrap !important;
+  }
+  table.sitesLogisticsTable{
+    display:table !important;
+    overflow:visible !important;
+    white-space:normal !important;
+  }
+  .sitesLogisticsTable thead{
+    display:table-header-group !important;
+    white-space:normal !important;
+  }
+  .sitesLogisticsTable tbody{
+    display:table-row-group !important;
+    white-space:normal !important;
+  }
+  .sitesLogisticsTable tr{
+    display:table-row !important;
+    white-space:normal !important;
+  }
+  .sitesLogisticsTable th,
+  .sitesLogisticsTable td{
+    display:table-cell !important;
   }
 }
 @media(max-width:720px){
