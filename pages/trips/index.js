@@ -20,6 +20,7 @@ import {
 import { listTripTeamMembers, saveTripTeamMembers } from "@/lib/tripTeamMembers";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
+import { resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
 import { listStaffTripMetrics } from "@/lib/staffOverview";
 import {
   DEFAULT_TRAINING_TIMELINE_TYPE,
@@ -228,7 +229,11 @@ function renderTripCard({
       <div className="tripCardMetaStack">
         <div className="tripCardMetaLine">
           <span className="tripCardMetaLabel">Site</span>
-          <span>{trip.location || "Site coming soon"}</span>
+          <span>
+            {resolveCanonicalSiteLabelForTrip(trip.location, []) ||
+              trip.location ||
+              "Site coming soon"}
+          </span>
         </div>
         <div className="tripCardMetaLine">
           <span className="tripCardMetaLabel">Dates</span>

@@ -3,7 +3,6 @@ import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
-import CollapsibleSection from "@/components/CollapsibleSection";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
@@ -17,23 +16,12 @@ import {
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import { WORKBOOK_REFERENCE_TITLES } from "@/lib/workbookCatalog";
 import {
+  normalizeWorkbookNameKey,
   parseAnyWorkbookInventoryString,
   summarizeWorkbookItemsForShipping,
 } from "@/lib/workbookInventory";
 import { resolveSiteLogisticsUrl } from "@/lib/siteInfoLinks";
 import { showToast } from "@/components/Toast";
-
-function formatInventoryDate(ms) {
-  if (!ms) return "—";
-  try {
-    return new Date(ms).toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  } catch {
-    return "—";
-  }
-}
 
 export default function SitesPage() {
   const router = useRouter();
@@ -41,9 +29,9 @@ export default function SitesPage() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [siteNotes, setSiteNotes] = useState([]);
-  const [draftWorkbook, setDraftWorkbook] = useState({});
-  const [draftNotes, setDraftNotes] = useState({});
-  const [savingSite, setSavingSite] = useState("");
+  const [editingLogisticsSite, setEditingLogisticsSite] = useState("");
+  const [logisticsUrlDraft, setLogisticsUrlDraft] = useState("");
+  const [savingLogisticsFor, setSavingLogisticsFor] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -61,17 +49,7 @@ export default function SitesPage() {
         setLoading(true);
         const rows = await listSiteBudgetNotes();
         if (cancelled) return;
-        const list = rows || [];
-        setSiteNotes(list);
-        const w = {};
-        const n = {};
-        for (const opt of SITE_OPTIONS) {
-          const note = findSiteBudgetNoteForOption(opt, list);
-          w[opt] = note?.workbookNotes || "";
-          n[opt] = note?.notes || "";
-        }
-        setDraftWorkbook(w);
-        setDraftNotes(n);
+        setSiteNotes(rows || []);
         setStatus("");
       } catch (e) {
         if (!cancelled) {
@@ -88,69 +66,97 @@ export default function SitesPage() {
     };
   }, [router]);
 
-  const effectiveSummaryForHousing = useMemo(() => {
-    const dates = [...new Set(siteNotes.map((n) => n.effectiveDate).filter(Boolean))];
-    if (dates.length === 0) return "—";
-    if (dates.length === 1) return dates[0];
-    return `${dates.length} dates`;
-  }, [siteNotes]);
+  const workbookCountsMatrix = useMemo(() => {
+    const seen = new Set();
+    const refCols = [];
+    for (const t of WORKBOOK_REFERENCE_TITLES) {
+      const key = normalizeWorkbookNameKey(t);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      refCols.push({ key, label: t });
+    }
 
-  const siteSummaries = useMemo(() => {
-    return SITE_OPTIONS.map((siteLabel) => {
+    const extraMap = new Map();
+    for (const siteLabel of SITE_OPTIONS) {
       const note = findSiteBudgetNoteForOption(siteLabel, siteNotes);
-      const raw = note?.workbookNotes || "";
+      const raw = note?.workbookNotes ?? "";
+      for (const { name, qty } of parseAnyWorkbookInventoryString(raw)) {
+        if (!(Number(qty) > 0)) continue;
+        const k = normalizeWorkbookNameKey(name);
+        if (!k || seen.has(k)) continue;
+        if (!extraMap.has(k)) extraMap.set(k, String(name).trim());
+      }
+    }
+    const extraCols = [...extraMap.entries()]
+      .sort((a, b) => a[1].localeCompare(b[1], undefined, { sensitivity: "base" }))
+      .map(([key, label]) => ({ key, label }));
+    const columns = [...refCols, ...extraCols];
+
+    const rows = SITE_OPTIONS.map((siteLabel) => {
+      const note = findSiteBudgetNoteForOption(siteLabel, siteNotes);
+      const raw = note?.workbookNotes ?? "";
       const items = parseAnyWorkbookInventoryString(raw);
+      const positive = items.filter((x) => Number(x.qty) > 0);
+      const qtyByKey = new Map();
+      for (const { name, qty } of positive) {
+        const k = normalizeWorkbookNameKey(name);
+        if (!k) continue;
+        qtyByKey.set(k, (qtyByKey.get(k) || 0) + (Number(qty) || 0));
+      }
       const summary = summarizeWorkbookItemsForShipping(items);
-      const logisticsUrl = resolveSiteLogisticsUrl(siteLabel);
+      const customUrl = String(note?.logisticsUrl || "").trim();
+      const effectiveLogisticsUrl = customUrl || resolveSiteLogisticsUrl(siteLabel);
       return {
         siteLabel,
         note,
-        raw,
-        logisticsUrl,
-        ...summary,
+        qtyByKey,
+        totalCopies: summary.totalCopies,
+        effectiveLogisticsUrl,
+        customLogisticsUrl: customUrl,
       };
     });
+
+    return { columns, rows };
   }, [siteNotes]);
 
-  async function saveSiteRow(siteOption) {
-    const workbookNotes = draftWorkbook[siteOption] ?? "";
-    const notes = draftNotes[siteOption] ?? "";
+  async function saveSiteLogisticsUrl(siteOption) {
+    const url = logisticsUrlDraft.trim();
     const matched = findSiteBudgetNoteForOption(siteOption, siteNotes);
-
     try {
-      setSavingSite(siteOption);
+      setSavingLogisticsFor(siteOption);
       setStatus("");
       let saved;
       if (matched) {
         saved = await updateSiteBudgetNote(matched.id, {
           siteName: siteOption,
-          workbookNotes,
-          notes,
+          workbookNotes: matched.workbookNotes ?? "",
+          notes: matched.notes ?? "",
           effectiveDate: matched.effectiveDate || null,
+          logisticsUrl: url || null,
         });
       } else {
         saved = await upsertSiteBudgetNote({
           siteName: siteOption,
-          workbookNotes,
-          notes,
+          workbookNotes: "",
+          notes: "",
+          logisticsUrl: url || null,
         });
       }
-
       setSiteNotes((prev) => {
         const others = prev.filter((r) => r.id !== saved.id);
         return [...others, saved].sort((a, b) =>
           a.siteName.localeCompare(b.siteName, undefined, { sensitivity: "base" })
         );
       });
-      setDraftWorkbook((d) => ({ ...d, [siteOption]: workbookNotes }));
-      setDraftNotes((d) => ({ ...d, [siteOption]: notes }));
-      showToast(`Saved ${siteOption}`, "success");
+      setEditingLogisticsSite("");
+      setLogisticsUrlDraft("");
+      showToast(`Saved logistics link for ${siteOption}`, "success");
     } catch (e) {
       const msg = e.message || "Save failed.";
       setStatus(msg);
       showToast(msg, "error");
     } finally {
-      setSavingSite("");
+      setSavingLogisticsFor("");
     }
   }
 
@@ -177,12 +183,9 @@ export default function SitesPage() {
         <span>Sites</span>
       </h1>
       <p className="small" style={{ marginBottom: 20, maxWidth: 760 }}>
-        Canonical list of mission sites and workbook plans. This data is stored in{" "}
-        <code>site_budget_notes</code> and is only visible to staff in this app (not workers). Use{" "}
-        <strong>Title - qty</strong> separated by semicolons (e.g.{" "}
-        <code>Luke - 19; Good News - 4</code>) or the same <code>8-Reflection</code> style as team
-        materials. Trips whose <strong>location</strong> matches a site here will show counts on{" "}
-        <strong>Trip → Materials</strong> for managers.
+        Workbook strings and housing notes for each site live in <code>site_budget_notes</code> and are
+        edited from <strong>Trip → Materials</strong> (managers) or your database admin tools. This page
+        summarizes counts from those saved plans and lets you override site logistics links.
       </p>
 
       {status ? (
@@ -191,174 +194,153 @@ export default function SitesPage() {
         </div>
       ) : null}
 
-      <div className="card pad" style={{ marginBottom: 20 }}>
-        <div style={{ fontWeight: 900, marginBottom: 8 }}>Workbook titles (reference)</div>
-        <div className="small" style={{ marginBottom: 10, color: "var(--muted)" }}>
-          Edit the list in <code>lib/workbookCatalog.js</code> if your program adds titles.
+      <div className="card pad" style={{ marginBottom: 24 }}>
+        <div style={{ fontWeight: 900, marginBottom: 6 }}>Workbook counts by site</div>
+        <div className="small" style={{ marginBottom: 12, color: "var(--muted)", maxWidth: 900 }}>
+          One row per mission site. Columns follow <code>lib/workbookCatalog.js</code> plus any extra
+          titles found in saved workbook plans. Clear a custom logistics URL to fall back to the built-in
+          map in <code>lib/siteInfoLinks.js</code>.
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {WORKBOOK_REFERENCE_TITLES.map((t) => (
-            <span key={t} className="badge" style={{ fontWeight: 600 }}>
-              {t}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ overflowX: "auto", marginBottom: 24 }}>
-        <div style={{ fontWeight: 800, marginBottom: 8 }}>Workbook counts by site</div>
-        <table className="table" style={{ minWidth: 640, fontSize: 13 }}>
-          <thead>
-            <tr>
-              <th>Site</th>
-              <th>Titles (qty &gt; 0)</th>
-              <th>Total copies</th>
-              <th>Site link</th>
-            </tr>
-          </thead>
-          <tbody>
-            {siteSummaries.map((row) => (
-              <tr key={row.siteLabel}>
-                <td>
-                  <strong>{row.siteLabel}</strong>
-                </td>
-                <td>{row.distinctTitles > 0 ? row.distinctTitles : "—"}</td>
-                <td>{row.totalCopies > 0 ? row.totalCopies : "—"}</td>
-                <td>
-                  {row.logisticsUrl ? (
-                    <a
-                      className="btn btnPrimary"
-                      href={row.logisticsUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      style={{ padding: "6px 12px", fontSize: 12 }}
-                    >
-                      Site logistics
-                    </a>
-                  ) : (
-                    <span className="small" style={{ color: "var(--muted)" }}>
-                      —
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <CollapsibleSection
-        title="Site notes & workbook plan"
-        subtitle="One block per site. Save updates the staff-only site record. Row last saved is shown in each card when available."
-        defaultOpen={false}
-        style={{ marginBottom: 24 }}
-        rightSlot={
-          <div
-            className="card pad"
+        <div style={{ overflowX: "auto", borderRadius: 10, border: "1px solid rgba(15,23,42,.08)" }}>
+          <table
+            className="table"
             style={{
+              minWidth: Math.max(720, 160 + workbookCountsMatrix.columns.length * 56 + 220),
+              fontSize: 12,
               margin: 0,
-              padding: "10px 14px",
-              boxShadow: "none",
-              border: "1px solid rgba(148,163,184,.4)",
-              background: "rgba(255,255,255,.95)",
-              minWidth: 128,
-              textAlign: "right",
             }}
           >
-            <div className="small" style={{ color: "var(--muted)", fontWeight: 700 }}>
-              Effective
-            </div>
-            <div style={{ fontWeight: 800, fontSize: 14 }}>{effectiveSummaryForHousing}</div>
-          </div>
-        }
-      >
-      <div style={{ display: "grid", gap: 20 }}>
-        {SITE_OPTIONS.map((siteOption) => {
-          const matched = findSiteBudgetNoteForOption(siteOption, siteNotes);
-          const raw = draftWorkbook[siteOption] ?? "";
-          const items = parseAnyWorkbookInventoryString(raw);
-          const liveSummary = summarizeWorkbookItemsForShipping(items);
-          const isSaving = savingSite === siteOption;
-
-          return (
-            <div key={siteOption} className="card pad" style={{ display: "grid", gap: 10 }}>
-              <div
-                className="row"
-                style={{ alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
-              >
-                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
-                  <div style={{ fontWeight: 900 }}>{siteOption}</div>
-                  {matched?.id && matched.siteName !== siteOption ? (
-                    <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 6 }}>
-                      <span className="small badge" title="Will use this row and rename site to match">
-                        Linked from “{matched.siteName}”
-                      </span>
+            <thead>
+              <tr>
+                <th style={{ position: "sticky", left: 0, background: "#fff", zIndex: 1, whiteSpace: "nowrap" }}>
+                  Site
+                </th>
+                {workbookCountsMatrix.columns.map((col) => (
+                  <th
+                    key={col.key}
+                    style={{
+                      whiteSpace: "nowrap",
+                      textAlign: "right",
+                      maxWidth: 120,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                    title={col.label}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+                <th style={{ whiteSpace: "nowrap", textAlign: "right" }}>Total books</th>
+                <th style={{ whiteSpace: "nowrap", minWidth: 200 }}>Site logistics</th>
+              </tr>
+            </thead>
+            <tbody>
+              {workbookCountsMatrix.rows.map((row) => (
+                <tr key={row.siteLabel}>
+                  <td
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      background: "#fff",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      boxShadow: "4px 0 8px -6px rgba(15,23,42,.15)",
+                    }}
+                  >
+                    {row.siteLabel}
+                  </td>
+                  {workbookCountsMatrix.columns.map((col) => {
+                    const q = row.qtyByKey.get(col.key) ?? 0;
+                    return (
+                      <td key={col.key} style={{ textAlign: "right", color: "var(--muted)" }}>
+                        {q > 0 ? <strong style={{ color: "inherit" }}>{q}</strong> : "—"}
+                      </td>
+                    );
+                  })}
+                  <td style={{ textAlign: "right", fontWeight: 800 }}>
+                    {row.totalCopies > 0 ? row.totalCopies : "—"}
+                  </td>
+                  <td style={{ verticalAlign: "top" }}>
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      {row.effectiveLogisticsUrl ? (
+                        <a
+                          className="btn btnPrimary"
+                          href={row.effectiveLogisticsUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          style={{ padding: "6px 12px", fontSize: 12 }}
+                        >
+                          Open logistics
+                        </a>
+                      ) : (
+                        <span className="small" style={{ color: "var(--muted)" }}>
+                          No link
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ fontSize: 12, padding: "6px 12px" }}
+                        onClick={() => {
+                          setEditingLogisticsSite(row.siteLabel);
+                          setLogisticsUrlDraft(row.customLogisticsUrl || "");
+                        }}
+                      >
+                        Edit link
+                      </button>
                     </div>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  className="btn btnPrimary"
-                  disabled={isSaving}
-                  onClick={() => void saveSiteRow(siteOption)}
-                  style={{ marginLeft: "auto" }}
-                >
-                  {isSaving ? "Saving…" : "Save site"}
-                </button>
-              </div>
-
-                  {liveSummary.distinctTitles > 0 || liveSummary.totalCopies > 0 ? (
-                <div className="small" style={{ color: "var(--muted)" }}>
-                  Preview:{" "}
-                  <strong>
-                    {liveSummary.distinctTitles} title{liveSummary.distinctTitles === 1 ? "" : "s"},{" "}
-                    {liveSummary.totalCopies} cop{liveSummary.totalCopies === 1 ? "y" : "ies"}
-                  </strong>
-                  {matched?.updatedAt &&
-                  !Number.isNaN(Date.parse(matched.updatedAt))
-                    ? ` · Row last saved ${formatInventoryDate(Date.parse(matched.updatedAt))}`
-                    : null}
-                </div>
-              ) : matched?.updatedAt && !Number.isNaN(Date.parse(matched.updatedAt)) ? (
-                <div className="small" style={{ color: "var(--muted)" }}>
-                  Row last saved {formatInventoryDate(Date.parse(matched.updatedAt))}
-                </div>
-              ) : null}
-
-              <div>
-                <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
-                  Housing / logistics notes
-                </div>
-                <textarea
-                  className="input"
-                  rows={3}
-                  value={draftNotes[siteOption] ?? ""}
-                  onChange={(e) =>
-                    setDraftNotes((d) => ({ ...d, [siteOption]: e.target.value }))
-                  }
-                  placeholder="Costs, shuttles, housing reminders…"
-                />
-              </div>
-
-              <div>
-                <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
-                  Workbook plan (parsed for trip Materials)
-                </div>
-                <textarea
-                  className="input"
-                  rows={4}
-                  value={draftWorkbook[siteOption] ?? ""}
-                  onChange={(e) =>
-                    setDraftWorkbook((d) => ({ ...d, [siteOption]: e.target.value }))
-                  }
-                  placeholder="e.g. Luke - 19; Good News - 4; 8-Reflection"
-                />
-              </div>
-            </div>
-          );
-        })}
+                    {row.customLogisticsUrl ? (
+                      <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
+                        Custom URL (overrides map)
+                      </div>
+                    ) : row.effectiveLogisticsUrl ? (
+                      <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
+                        From built-in map
+                      </div>
+                    ) : null}
+                    {editingLogisticsSite === row.siteLabel ? (
+                      <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                        <input
+                          className="input"
+                          type="url"
+                          placeholder="https://…"
+                          value={logisticsUrlDraft}
+                          onChange={(e) => setLogisticsUrlDraft(e.target.value)}
+                          style={{ minWidth: 220 }}
+                        />
+                        <div className="small" style={{ color: "var(--muted)" }}>
+                          Leave empty to use the default SharePoint map for this site name.
+                        </div>
+                        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            className="btn btnPrimary"
+                            disabled={savingLogisticsFor === row.siteLabel}
+                            onClick={() => void saveSiteLogisticsUrl(row.siteLabel)}
+                          >
+                            {savingLogisticsFor === row.siteLabel ? "Saving…" : "Save link"}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            disabled={savingLogisticsFor === row.siteLabel}
+                            onClick={() => {
+                              setEditingLogisticsSite("");
+                              setLogisticsUrlDraft("");
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-      </CollapsibleSection>
     </Shell>
   );
 }

@@ -109,7 +109,12 @@ import {
   listSiteBudgetNotes,
   saveTripBudget,
 } from "@/lib/tripBudget";
-import { resolveSiteBudgetNoteForTripLocation } from "@/lib/siteMaterials";
+import {
+  findSiteBudgetNoteForOption,
+  resolveCanonicalSiteLabelForTrip,
+  resolveSiteBudgetNoteForTripLocation,
+  resolveTripSiteLogisticsUrl,
+} from "@/lib/siteMaterials";
 import {
   parseAnyWorkbookInventoryString,
   summarizeWorkbookItemsForShipping,
@@ -3067,7 +3072,15 @@ function parseDateSafe(dateStr) {
   }
 
   function handleStartTripSetupEdit() {
-    setTripSetupDraft(buildTripSetupDraft(trip));
+    let draft = buildTripSetupDraft(trip);
+    const loc = String(draft.location || "").trim();
+    if (loc) {
+      const canon = resolveCanonicalSiteLabelForTrip(loc, siteBudgetNotesList);
+      if (canon && SITE_OPTIONS.includes(canon) && canon !== loc) {
+        draft = { ...draft, location: canon };
+      }
+    }
+    setTripSetupDraft(draft);
     setIsCustomSiteInput(false);
     setIsConfirmingTripDelete(false);
     setTripSetupStatus("");
@@ -3447,11 +3460,19 @@ function parseDateSafe(dateStr) {
                     }}
                   >
                     <option value="">Select site</option>
-                    {siteOptions.map((site) => (
-                      <option key={site} value={site}>
-                        {site}
-                      </option>
-                    ))}
+                    {siteOptions.map((site) => {
+                      const row = findSiteBudgetNoteForOption(site, siteBudgetNotesList);
+                      const mark =
+                        canManageTrips && staffViewAllParticipants && row?.notes?.trim()
+                          ? " !"
+                          : "";
+                      return (
+                        <option key={site} value={site}>
+                          {site}
+                          {mark}
+                        </option>
+                      );
+                    })}
                     <option value={CUSTOM_SITE_OPTION}>Other site</option>
                   </select>
                   {selectedSiteValue === CUSTOM_SITE_OPTION ? (
@@ -3529,7 +3550,26 @@ function parseDateSafe(dateStr) {
                 <div style={{ fontWeight: 800 }}>{trip.name}</div>
                 <div style={{ height: 12 }} />
                 <div className="small">Site</div>
-                <div style={{ fontWeight: 800 }}>{trip.location || "Not set"}</div>
+                <div
+                  className="row"
+                  style={{ fontWeight: 800, alignItems: "center", gap: 6, flexWrap: "wrap" }}
+                >
+                  <span>{tripSiteCanonicalLabel || "Not set"}</span>
+                  {tripSiteHasStaffHousingNote ? (
+                    <span
+                      title="Staff housing / logistics note on Sites — open Sites → Site notes (above workbook fields)"
+                      aria-label="Staff housing note on Sites"
+                      style={{
+                        fontWeight: 900,
+                        color: "#b45309",
+                        lineHeight: 1,
+                        cursor: "help",
+                      }}
+                    >
+                      !
+                    </span>
+                  ) : null}
+                </div>
                 <div style={{ height: 12 }} />
                 <div className="small">Project Leave Date</div>
                 <div style={{ fontWeight: 800 }}>{formatSingleDate(trip.startDate)}</div>
@@ -3558,7 +3598,26 @@ function parseDateSafe(dateStr) {
               <div className="tripSetupInfoGrid">
                 <div className="tripSetupInfoItem">
                   <div className="small">Site</div>
-                  <div style={{ fontWeight: 800 }}>{trip.location || "Not set"}</div>
+                  <div
+                    className="row"
+                    style={{ fontWeight: 800, alignItems: "center", gap: 6, flexWrap: "wrap" }}
+                  >
+                    <span>{tripSiteCanonicalLabel || "Not set"}</span>
+                    {tripSiteHasStaffHousingNote ? (
+                      <span
+                        title="Staff housing / logistics note on Sites — open Sites → Site notes"
+                        aria-label="Staff housing note on Sites"
+                        style={{
+                          fontWeight: 900,
+                          color: "#b45309",
+                          lineHeight: 1,
+                          cursor: "help",
+                        }}
+                      >
+                        !
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="tripSetupInfoItem">
                   <div className="small">Project Leave Date</div>
@@ -3830,17 +3889,38 @@ function parseDateSafe(dateStr) {
   const completionPct = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
   const siteOptions = useMemo(() => {
     const seen = new Set();
-    return [...(SITE_OPTIONS || []), trip?.location || ""]
-      .map((site) => String(site || "").trim())
-      .filter(Boolean)
-      .filter((site) => {
-        const key = site.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .sort((left, right) => left.localeCompare(right));
-  }, [trip?.location]);
+    const out = [];
+    for (const o of SITE_OPTIONS || []) {
+      const s = String(o || "").trim();
+      if (!s) continue;
+      const k = s.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(s);
+    }
+    const loc = String(trip?.location || "").trim();
+    if (loc) {
+      const canon = resolveCanonicalSiteLabelForTrip(loc, siteBudgetNotesList);
+      const add = canon || loc;
+      const k = add.toLowerCase();
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push(add);
+      }
+    }
+    return out;
+  }, [trip?.location, siteBudgetNotesList]);
+
+  const tripSiteCanonicalLabel = useMemo(
+    () => resolveCanonicalSiteLabelForTrip(trip?.location || "", siteBudgetNotesList),
+    [trip?.location, siteBudgetNotesList]
+  );
+
+  const tripSiteHasStaffHousingNote = useMemo(() => {
+    if (!canManageTrips || !staffViewAllParticipants) return false;
+    const note = resolveSiteBudgetNoteForTripLocation(trip?.location || "", siteBudgetNotesList);
+    return Boolean(note?.notes?.trim());
+  }, [trip?.location, siteBudgetNotesList, canManageTrips, staffViewAllParticipants]);
   const selectedSiteValue = isCustomSiteInput ? CUSTOM_SITE_OPTION : tripSetupDraft.location || "";
   const visibleDocs = useMemo(
     () =>
@@ -4362,7 +4442,20 @@ function parseDateSafe(dateStr) {
   const flightsDoc = visibleDocs.find((doc) => doc.resourceKey === "flights");
   const siteInfoDoc = docs.find((doc) => doc.resourceKey === "site-info-link");
   const visibleSiteInfoDoc = visibleDocs.find((doc) => doc.resourceKey === "site-info-link");
-  const autoSiteInfoLink = resolveSiteLogisticsUrl(trip?.location) || "";
+  const autoSiteInfoLink = useMemo(() => {
+    if (!trip?.location?.trim()) return "";
+    if (canManageTrips && staffViewAllParticipants) {
+      return resolveTripSiteLogisticsUrl(trip.location, siteBudgetNotesList) || "";
+    }
+    return (
+      resolveSiteLogisticsUrl(resolveCanonicalSiteLabelForTrip(trip.location, [])) || ""
+    );
+  }, [
+    trip?.location,
+    siteBudgetNotesList,
+    canManageTrips,
+    staffViewAllParticipants,
+  ]);
   const effectiveSiteInfoDoc = visibleSiteInfoDoc || (!siteInfoDoc && autoSiteInfoLink ? (
     autoSiteInfoLink
       ? {
@@ -4636,12 +4729,13 @@ function parseDateSafe(dateStr) {
       return { noLocation: true };
     }
     const note = resolveSiteBudgetNoteForTripLocation(trip.location, siteBudgetNotesList);
+    const hasHousingNote = Boolean(note?.notes?.trim());
     if (!note?.workbookNotes?.trim()) {
-      return { noLocation: false, empty: true, note };
+      return { noLocation: false, empty: true, note, hasHousingNote };
     }
     const items = parseAnyWorkbookInventoryString(note.workbookNotes);
     const summary = summarizeWorkbookItemsForShipping(items);
-    return { noLocation: false, empty: false, note, ...summary };
+    return { noLocation: false, empty: false, note, hasHousingNote, ...summary };
   }, [trip?.location, siteBudgetNotesList]);
 
   async function handleSaveMaterialsTab() {
@@ -7012,10 +7106,36 @@ function parseDateSafe(dateStr) {
                     borderColor: "rgba(47,73,147,.28)",
                   }}
                 >
-                  <div style={{ fontWeight: 900 }}>Site workbook plan (staff only)</div>
+                  <div
+                    className="row"
+                    style={{ alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}
+                  >
+                    <div style={{ fontWeight: 900 }}>Site workbook plan (staff only)</div>
+                    {staffSiteWorkbookPlan?.hasHousingNote ? (
+                      <span
+                        className="small"
+                        title="This site has a housing / logistics note on the Sites page"
+                        style={{
+                          fontWeight: 800,
+                          color: "#b45309",
+                          border: "1px solid rgba(180,83,9,.35)",
+                          borderRadius: 8,
+                          padding: "2px 8px",
+                          background: "rgba(255,247,237,.9)",
+                        }}
+                      >
+                        ! See{" "}
+                        <Link href="/sites" style={{ fontWeight: 800 }}>
+                          Sites
+                        </Link>{" "}
+                        → Site notes
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="small" style={{ color: "var(--muted)", marginBottom: 10 }}>
-                    Pulled from the Sites page for this trip&apos;s location. Trip leaders and workers
-                    do not see this block.
+                    Pulled from the Sites page for this trip&apos;s location (
+                    <strong>{tripSiteCanonicalLabel || trip.location || "—"}</strong>). Trip leaders and
+                    workers do not see this block.
                   </div>
                   {staffSiteWorkbookPlan?.noLocation ? (
                     <div className="small">
