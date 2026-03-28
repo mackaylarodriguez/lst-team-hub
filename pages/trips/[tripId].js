@@ -7055,30 +7055,56 @@ function parseDateSafe(dateStr) {
                 defaultOpen
               >
                 <div className="card pad" style={{ display: "grid", gap: 14 }}>
-                  <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                    <div style={{ minWidth: 200 }}>
+                  <div
+                    className="row"
+                    style={{ alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+                  >
+                    <div style={{ flex: "1 1 220px", minWidth: 0 }}>
                       <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
                         Trip name
                       </div>
                       <div style={{ fontSize: 15, fontWeight: 800 }}>{trip.name || "—"}</div>
                     </div>
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => {
-                        void navigator.clipboard?.writeText(String(trip.name || ""));
-                        showToast("Trip name copied", "success");
+                    <div
+                      className="row"
+                      style={{
+                        gap: 8,
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        marginLeft: "auto",
+                        justifyContent: "flex-end",
                       }}
                     >
-                      Copy name
-                    </button>
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => handleExportMaterialsExcel()}
-                    >
-                      Export Excel
-                    </button>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => {
+                          void navigator.clipboard?.writeText(String(trip.name || ""));
+                          showToast("Trip name copied", "success");
+                        }}
+                      >
+                        Copy name
+                      </button>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => handleExportMaterialsExcel()}
+                      >
+                        Export Excel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btnPrimary"
+                        onClick={() => void handleSaveMaterialsTab()}
+                      >
+                        Save
+                      </button>
+                      {materialsSaveStatus ? (
+                        <span className="small" style={{ color: "var(--muted)" }}>
+                          {materialsSaveStatus}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
                     <div>
@@ -7161,20 +7187,6 @@ function parseDateSafe(dateStr) {
                       placeholder="e.g. 8-Reflection; 8-Origins; 4 Good News; …"
                     />
                   </div>
-                  <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    <button
-                      type="button"
-                      className="btn btnPrimary"
-                      onClick={() => void handleSaveMaterialsTab()}
-                    >
-                      Save
-                    </button>
-                    {materialsSaveStatus ? (
-                      <span className="small" style={{ color: "var(--muted)" }}>
-                        {materialsSaveStatus}
-                      </span>
-                    ) : null}
-                  </div>
                   {tripBudgetRow?.updatedAt ? (
                     <div className="small" style={{ color: "var(--muted)" }}>
                       Housing budget last updated:{" "}
@@ -7189,6 +7201,16 @@ function parseDateSafe(dateStr) {
                 defaultOpen
               >
                 <div className="card pad" style={{ display: "grid", gap: 12 }}>
+                  <div className="row" style={{ alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                    <div className="spacer" style={{ flex: 1, minWidth: 0 }} />
+                    <button
+                      type="button"
+                      className="btn btnPrimary"
+                      onClick={() => void handleSaveMaterialsTab()}
+                    >
+                      Save shipping
+                    </button>
+                  </div>
                   <div>
                     <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
                       Ship-to address
@@ -7238,13 +7260,6 @@ function parseDateSafe(dateStr) {
                       placeholder="Internal notes"
                     />
                   </div>
-                  <button
-                    type="button"
-                    className="btn btnPrimary"
-                    onClick={() => void handleSaveMaterialsTab()}
-                  >
-                    Save shipping
-                  </button>
                 </div>
               </CollapsibleSection>
               {(effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl) && (
@@ -7272,16 +7287,27 @@ function parseDateSafe(dateStr) {
             defaultOpen
           >
           <div className="card pad">
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div>
+            <div
+              className="row"
+              style={{ marginBottom: 10, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+            >
+              <div style={{ flex: "1 1 260px", minWidth: 0 }}>
                 <div style={{ fontWeight: 900 }}>Documents & Links</div>
                 <div className="small">
                   Default trip documents stay visible here, and staff can switch each document on or off for participants.
                 </div>
               </div>
-              <div className="spacer" />
-              {canViewTeamDashboard && (
-                <div className="row">
+              {canViewTeamDashboard ? (
+                <div
+                  className="row"
+                  style={{
+                    gap: 8,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    marginLeft: "auto",
+                    justifyContent: "flex-end",
+                  }}
+                >
                   <button className="btn" type="button" onClick={handleAddLink}>
                     Add Link
                   </button>
@@ -7299,7 +7325,7 @@ function parseDateSafe(dateStr) {
                     onChange={handleAddDocument}
                   />
                 </div>
-              )}
+              ) : null}
             </div>
 
             {docsError && (
@@ -8305,13 +8331,25 @@ function parseDateSafe(dateStr) {
             defaultOpen
           >
           <div className="card pad" style={{ overflowX: "auto" }}>
-            <div className="row" style={{ marginBottom: 12, alignItems: "center" }}>
-              <div className="small">
+            <div
+              className="row"
+              style={{ marginBottom: 12, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+            >
+              <div className="small" style={{ flex: "1 1 280px", minWidth: 0 }}>
                 {canViewTeamDashboard
                   ? "Team travel form responses. Rows auto-generate as workers fill out the form from the Tasks tab."
                   : "Your travel form response. Fill out or update from the Tasks tab (Fill out Travel Form) or edit below."}
               </div>
-              <div className="spacer" />
+              <div
+                className="row"
+                style={{
+                  gap: 8,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  marginLeft: "auto",
+                  justifyContent: "flex-end",
+                }}
+              >
               {!staffViewAllParticipants && currentParticipant && (
                 <button
                   type="button"
@@ -8446,7 +8484,6 @@ function parseDateSafe(dateStr) {
               <button
                 type="button"
                 className="btn"
-                style={{ marginLeft: 8 }}
                 onClick={async () => {
                   if (!trip) return;
                   try {

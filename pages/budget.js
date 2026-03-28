@@ -352,15 +352,27 @@ export default function BudgetPage() {
 
         {tab === "Housing" && (
         <div className="card pad" style={{ marginBottom: 24 }}>
-          <div className="row" style={{ marginBottom: 8, alignItems: "center" }}>
-            <div>
+          <div
+            className="row"
+            style={{ marginBottom: 8, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+          >
+            <div style={{ flex: "1 1 280px", minWidth: 0 }}>
               <div style={{ fontWeight: 900 }}>Housing budget (all trips)</div>
               <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
                 Rows are auto-generated when a trip is created. Site notes and workbook plans:{" "}
                 <Link href="/sites">Sites</Link>. Per-team materials: trip <strong>Materials</strong> tab.
               </div>
             </div>
-            <div className="spacer" />
+            <div
+              className="row"
+              style={{
+                gap: 8,
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginLeft: "auto",
+                justifyContent: "flex-end",
+              }}
+            >
             {isEditingHousing ? (
               <>
                 <button type="button" className="btn btnPrimary" onClick={() => void saveHousingBudget()}>
@@ -440,10 +452,10 @@ export default function BudgetPage() {
                 setTimeout(() => setStatus(""), 4000);
                 showToast(`Exported ${housingFilename}`);
               }}
-              style={{ marginLeft: 8 }}
             >
               Export CSV
             </button>
+            </div>
           </div>
           <div style={{ overflowX: "auto" }}>
             <table className="table" style={{ minWidth: 1100, fontSize: 12 }}>
@@ -520,29 +532,44 @@ export default function BudgetPage() {
 
         {tab === "Ticketing" && (
         <div className="card pad">
-          <div className="row" style={{ marginBottom: 12, alignItems: "center" }}>
-            <div style={{ fontWeight: 900 }}>Ticketing (all trips)</div>
-            <div className="spacer" />
-            {trips.length > 0 && (
-              <>
-                <select
-                  className="input"
-                  value={newTicketTripId}
-                  onChange={(e) => setNewTicketTripId(e.target.value)}
-                  style={{ minWidth: 200 }}
-                >
-                  {trips.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name || t.id}</option>
-                  ))}
-                </select>
-                <button className="btn btnPrimary" type="button" onClick={() => void handleAddTicket()}>Add Ticket</button>
-              </>
-            )}
+          <div
+            className="row"
+            style={{ marginBottom: 12, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+          >
+            <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+              <div style={{ fontWeight: 900 }}>Ticketing (all trips)</div>
+              {trips.length > 0 ? (
+                <div className="row" style={{ marginTop: 10, gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <select
+                    className="input"
+                    value={newTicketTripId}
+                    onChange={(e) => setNewTicketTripId(e.target.value)}
+                    style={{ minWidth: 200 }}
+                  >
+                    {trips.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name || t.id}</option>
+                    ))}
+                  </select>
+                  <button className="btn btnPrimary" type="button" onClick={() => void handleAddTicket()}>
+                    Add Ticket
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div
+              className="row"
+              style={{
+                gap: 8,
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginLeft: "auto",
+                justifyContent: "flex-end",
+              }}
+            >
             <button
               type="button"
               className="btn"
               onClick={() => setIsEditingTickets((current) => !current)}
-              style={{ marginLeft: 8 }}
             >
               {isEditingTickets ? "Done" : "Edit"}
             </button>
@@ -605,10 +632,10 @@ export default function BudgetPage() {
                 setTimeout(() => setStatus(""), 4000);
                 showToast(`Exported ${airfareFilename}`);
               }}
-              style={{ marginLeft: 8 }}
             >
               Export CSV
             </button>
+            </div>
           </div>
           <div style={{ overflowX: "auto" }}>
             <table className="table" style={{ minWidth: 1400, fontSize: 12 }}>
