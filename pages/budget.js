@@ -361,7 +361,6 @@ export default function BudgetPage() {
         <>
         <CollapsibleSection
           title="Site housing notes"
-          subtitle="Wide tiles show full notes. Edit on Sites."
           defaultOpen={false}
           style={{ marginBottom: 24 }}
         >
