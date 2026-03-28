@@ -298,6 +298,16 @@ const AUTO_SITE_INFO_LINKS_BY_KEY = new Map(
   )
 );
 
+/** Prefer an explicit https link (e.g. SharePoint) over pdf when both exist. */
+function preferredTripResourceOpenUrl(doc) {
+  if (!doc) return "";
+  const link = String(doc.link || "").trim();
+  const pdf = String(doc.pdfUrl || "").trim();
+  if (/^https?:\/\//i.test(link)) return link;
+  if (/^https?:\/\//i.test(pdf)) return pdf;
+  return link || pdf;
+}
+
 function formatDraftAmount(value) {
   return value === null || value === undefined || value === "" ? "" : String(value);
 }
@@ -524,6 +534,8 @@ export default function TripPage() {
   ];
 
   useEffect(() => {
+    if (!router.isReady) return;
+
     const requestedTab = Array.isArray(router.query.tab) ? router.query.tab[0] : router.query.tab;
     const requestedStaffTaskId = Array.isArray(router.query.staffTaskId)
       ? router.query.staffTaskId[0]
@@ -531,17 +543,21 @@ export default function TripPage() {
     const requestedAddWorker = Array.isArray(router.query.addWorker)
       ? router.query.addWorker[0]
       : router.query.addWorker;
+    const tabKey = String(requestedTab || "").toLowerCase();
 
-    if (String(requestedTab || "").toLowerCase() === "staff-tasks") {
+    if (tabKey === "staff-tasks") {
       setTab("Staff Tasks");
     }
-    if (String(requestedTab || "").toLowerCase() === "team") {
+    if (tabKey === "team") {
       setTab("Team");
     }
-    if (String(requestedTab || "").toLowerCase() === "travel-safety") {
+    if (tabKey === "travel-safety") {
       setTab("Travel & Safety");
     }
-    if (String(requestedTab || "").toLowerCase() === "documents" || String(requestedTab || "").toLowerCase() === "my-documents") {
+    if (tabKey === "trip-documents" || tabKey === "trip-documents-link") {
+      setTab("Trip Documents");
+    }
+    if (tabKey === "documents" || tabKey === "my-documents") {
       setTab(canViewTeamDashboard ? "Worker Docs" : "My Documents");
     }
 
@@ -553,7 +569,7 @@ export default function TripPage() {
       setIsEditingRoster(false);
       setWorkerAddStatus("");
     }
-  }, [canViewTeamDashboard, router.query.addWorker, router.query.staffTaskId, router.query.tab]);
+  }, [canViewTeamDashboard, router.isReady, router.query.addWorker, router.query.staffTaskId, router.query.tab]);
 
   useEffect(() => {
     const requestedParticipantId = Array.isArray(router.query.participantId)
@@ -4345,8 +4361,8 @@ function parseDateSafe(dateStr) {
 
     links.push({
       label: "Site Logistics",
-      url: effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl || "",
-      ready: !!(effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl),
+      url: preferredTripResourceOpenUrl(effectiveSiteInfoDoc),
+      ready: !!preferredTripResourceOpenUrl(effectiveSiteInfoDoc),
     });
 
     return links;
@@ -4417,9 +4433,11 @@ function parseDateSafe(dateStr) {
         const isChecklistTask = task.id === "worker-task-checklist" || task.title === "Received and has reviewed Project Management Checklist";
         const isTicketsTask = task.id === "worker-task-tickets" || task.title === "Proofread my tickets";
         const isDocumentsTask = task.id === "worker-task-upload-passport" || task.id === "worker-task-upload-visa" || task.title === "Upload passport" || task.title === "Upload visa";
-        const documentsTabUrl = trip?.id ? `/trips/${trip.id}?tab=documents` : null;
+        const documentsTabUrl = trip?.id
+          ? `/trips/${encodeURIComponent(trip.id)}?tab=documents`
+          : null;
         const link = isChecklistTask
-          ? (effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl || wt?.link)
+          ? (preferredTripResourceOpenUrl(effectiveSiteInfoDoc) || wt?.link)
           : isTicketsTask
             ? (flightsDoc?.link || flightsDoc?.pdfUrl || wt?.link)
             : isDocumentsTask
@@ -4607,9 +4625,12 @@ function parseDateSafe(dateStr) {
   }
 
   useEffect(() => {
-    if (!tabs.includes(tab)) {
-      setTab("Overview");
+    if (tabs.includes(tab)) return;
+    if (tab === "My Documents" && tabs.includes("Worker Docs")) {
+      setTab("Worker Docs");
+      return;
     }
+    setTab("Overview");
   }, [tab, tabs]);
 
   if (!router.isReady || !tripId) {
@@ -6717,14 +6738,16 @@ function parseDateSafe(dateStr) {
                               const isChecklistTask = task.id === "worker-task-checklist" || task.title === "Received and has reviewed Project Management Checklist";
                               const isTicketsTask = task.id === "worker-task-tickets" || task.title === "Proofread my tickets";
                               const isDocumentsTask = task.id === "worker-task-upload-passport" || task.id === "worker-task-upload-visa" || task.title === "Upload passport" || task.title === "Upload visa";
-                              const documentsTabUrl = trip?.id ? `/trips/${trip.id}?tab=documents` : null;
+                              const documentsTabUrl = trip?.id
+          ? `/trips/${encodeURIComponent(trip.id)}?tab=documents`
+          : null;
                               const participantRefKey = participant.rosterOnly
                                 ? (String(participant.id || "").startsWith("roster-member-")
                                     ? `roster:${String(participant.id).slice("roster-member-".length)}`
                                     : "")
                                 : `user:${participant.id}`;
                               const taskLink = isChecklistTask
-                                ? (effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl || workerTaskTemplate?.link)
+                                ? (preferredTripResourceOpenUrl(effectiveSiteInfoDoc) || workerTaskTemplate?.link)
                                 : isTicketsTask
                                   ? (flightsDoc?.link || flightsDoc?.pdfUrl || workerTaskTemplate?.link)
                                   : isDocumentsTask
@@ -7128,7 +7151,7 @@ function parseDateSafe(dateStr) {
                     <div className="row" style={{ marginTop: 10 }}>
                       <a
                         className="btn btnPrimary"
-                        href={effectiveSiteInfoDoc.pdfUrl || effectiveSiteInfoDoc.link}
+                        href={preferredTripResourceOpenUrl(effectiveSiteInfoDoc)}
                         target="_blank"
                         rel="noreferrer"
                         style={siteLinkActionButtonStyle}
