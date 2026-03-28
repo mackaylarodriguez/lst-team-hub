@@ -8460,24 +8460,20 @@ function parseDateSafe(dateStr) {
           <div className="card pad" style={{ overflowX: "auto" }}>
             <div
               className="row"
-              style={{ marginBottom: 12, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+              style={{
+                marginBottom: 12,
+                alignItems: "flex-start",
+                gap: 12,
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+              }}
             >
-              <div className="small" style={{ flex: "1 1 280px", minWidth: 0 }}>
+              <div className="small" style={{ flex: "1 1 280px", minWidth: 0, marginRight: "auto" }}>
                 {canViewTeamDashboard
                   ? "Team travel form responses. Rows auto-generate as workers fill out the form from the Tasks tab."
                   : "Your travel form response. Fill out or update from the Tasks tab (Fill out Travel Form) or edit below."}
               </div>
-              <div
-                className="row"
-                style={{
-                  gap: 8,
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  marginLeft: "auto",
-                  justifyContent: "flex-end",
-                }}
-              >
-              {!staffViewAllParticipants && currentParticipant && (
+              {!staffViewAllParticipants && currentParticipant ? (
                 <button
                   type="button"
                   className="btn btnPrimary"
@@ -8490,9 +8486,9 @@ function parseDateSafe(dateStr) {
                 >
                   Edit my response
                 </button>
-              )}
-              {canViewTeamDashboard && (
-              <>
+              ) : null}
+              {canViewTeamDashboard ? (
+                <>
               <button
                 type="button"
                 className="btn"
@@ -8661,9 +8657,8 @@ function parseDateSafe(dateStr) {
               >
                 Export for travel agency (Excel)
               </button>
-              </>
-              )}
-              </div>
+                </>
+              ) : null}
             </div>
             <table className="table" style={{ minWidth: 2400, fontSize: 12 }}>
               <thead>
