@@ -23,6 +23,7 @@ import {
   syncTripTicketsFromTeamMembers,
 } from "@/lib/tripTickets";
 import { listTripsForCurrentUser } from "@/lib/trips";
+import { resolveSiteBudgetNoteForTripLocation } from "@/lib/siteMaterials";
 
 function n(val) {
   return val === null || val === undefined ? "" : String(val).trim();
@@ -33,7 +34,7 @@ function mergeHousingWithTrips(trips, budgets) {
   return (trips || []).map((trip) => {
     const b = byTripId.get(trip.id);
     return b
-      ? { ...b, tripName: b.tripName || trip.name }
+      ? { ...b, tripName: b.tripName || trip.name, housingLink: n(b.housingLink) }
       : {
           id: null,
           tripId: trip.id,
@@ -47,12 +48,24 @@ function mergeHousingWithTrips(trips, budgets) {
           budgetAmount: "",
           returnedAmount: "",
           housingAmount: "",
+          housingLink: "",
           notes: "",
           numWorkers: null,
           tshirts: "",
           workbooks: "",
         };
   });
+}
+
+function housingRowSiteLocation(row, trips) {
+  const trip = (trips || []).find((t) => t.id === row.tripId);
+  return n(trip?.location) || n(row.siteCountry);
+}
+
+function housingRowHasSiteStaffNote(row, trips, siteHousingNotes) {
+  const loc = housingRowSiteLocation(row, trips);
+  const note = resolveSiteBudgetNoteForTripLocation(loc, siteHousingNotes);
+  return Boolean(note?.notes?.trim());
 }
 
 export default function BudgetPage() {
@@ -154,6 +167,7 @@ export default function BudgetPage() {
           budgetAmount: row.budgetAmount,
           returnedAmount: row.returnedAmount,
           housingAmount: row.housingAmount,
+          housingLink: row.housingLink,
           notes: row.notes,
         });
       }
@@ -407,6 +421,20 @@ export default function BudgetPage() {
                 Rows are auto-generated when a trip is created. Site notes and workbook plans:{" "}
                 <Link href="/sites">Sites</Link>. Per-team materials: trip <strong>Materials</strong> tab.
               </div>
+              <div
+                className="small"
+                style={{
+                  marginTop: 10,
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  background: "rgba(15, 23, 42, 0.06)",
+                  maxWidth: 720,
+                }}
+              >
+                <strong>Site housing note:</strong> A &quot;!&quot; in the table means that row&apos;s site has
+                staff housing text on <Link href="/sites">Sites</Link> — check the collapsible section above or
+                Sites before finalizing housing numbers.
+              </div>
             </div>
             <div
               className="row"
@@ -458,6 +486,7 @@ export default function BudgetPage() {
                   "Budget Amount",
                   "Returned Amount",
                   "Housing Amount",
+                  "Housing Link",
                   "Notes",
                 ];
                 const rows = (isEditingHousing ? housingRowsDraft : housingRows).map((r) => [
@@ -469,6 +498,7 @@ export default function BudgetPage() {
                   r.budgetAmount || "",
                   r.returnedAmount || "",
                   r.housingAmount || "",
+                  r.housingLink || "",
                   r.notes || "",
                 ]);
                 const csvContent = [header, ...rows]
@@ -503,23 +533,26 @@ export default function BudgetPage() {
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table" style={{ minWidth: 1100, fontSize: 12 }}>
+            <table className="table" style={{ minWidth: 1280, fontSize: 12 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
                   <th>Project Start</th>
                   <th>Project End</th>
                   <th>Site</th>
+                  <th title="Staff housing note exists on Sites for this site">!</th>
                   <th>Team Accountant</th>
                   <th>Budget Amount</th>
                   <th>Returned Amount</th>
                   <th>Housing Amount</th>
+                  <th>Housing link</th>
                   <th>Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {(isEditingHousing ? housingRowsDraft : housingRows).map((r) => {
                   const isArchived = archivedTripIds.has(r.tripId);
+                  const siteNote = housingRowHasSiteStaffNote(r, trips, siteHousingNotes);
                   return (
                   <tr
                     key={r.id || r.tripId}
@@ -541,10 +574,28 @@ export default function BudgetPage() {
                         <td><input className="input" type="date" value={r.projectStartDate || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "projectStartDate", e.target.value)} /></td>
                         <td><input className="input" type="date" value={r.projectEndDate || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "projectEndDate", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 100 }} value={r.siteCountry || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "siteCountry", e.target.value)} /></td>
+                        <td style={{ textAlign: "center", fontWeight: 800, color: siteNote ? "var(--warn, #b45309)" : "var(--muted)" }}>
+                          {siteNote ? (
+                            <span title="This site has staff housing notes on Sites">!</span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                         <td><input className="input" style={{ minWidth: 100 }} value={r.teamAccountant || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "teamAccountant", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 90 }} value={r.budgetAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "budgetAmount", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 90 }} value={r.returnedAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "returnedAmount", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 90 }} value={r.housingAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "housingAmount", e.target.value)} /></td>
+                        <td>
+                          <input
+                            className="input"
+                            style={{ minWidth: 160 }}
+                            type="url"
+                            inputMode="url"
+                            placeholder="https://…"
+                            value={r.housingLink || ""}
+                            onChange={(e) => updateHousingDraftRow(r.tripId, "housingLink", e.target.value)}
+                          />
+                        </td>
                         <td><input className="input" style={{ minWidth: 120 }} value={r.notes || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "notes", e.target.value)} /></td>
                       </>
                     ) : (
@@ -558,10 +609,34 @@ export default function BudgetPage() {
                         <td>{r.projectStartDate || ""}</td>
                         <td>{r.projectEndDate || ""}</td>
                         <td>{r.siteCountry || ""}</td>
+                        <td style={{ textAlign: "center", fontWeight: 800, color: siteNote ? "var(--warn, #b45309)" : "var(--muted)" }}>
+                          {siteNote ? (
+                            <span title="This site has staff housing notes on Sites">!</span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                         <td>{r.teamAccountant || ""}</td>
                         <td>{r.budgetAmount || ""}</td>
                         <td>{r.returnedAmount || ""}</td>
                         <td>{r.housingAmount || ""}</td>
+                        <td className="small" style={{ maxWidth: 200, wordBreak: "break-all" }}>
+                          {r.housingLink ? (
+                            <a
+                              href={
+                                /^https?:\/\//i.test(String(r.housingLink).trim())
+                                  ? String(r.housingLink).trim()
+                                  : `https://${String(r.housingLink).trim()}`
+                              }
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {r.housingLink}
+                            </a>
+                          ) : (
+                            ""
+                          )}
+                        </td>
                         <td>{r.notes || ""}</td>
                       </>
                     )}
