@@ -121,6 +121,8 @@ function CollapsibleSection({
         borderRadius: 0,
         background: "transparent",
         overflow: "visible",
+        width: "100%",
+        minWidth: 0,
         ...style,
       }}
     >
@@ -5100,7 +5102,7 @@ function parseDateSafe(dateStr) {
                 className="tripFullSpanCard"
                 style={{ gridColumn: "1 / -1" }}
               >
-              <div className="card pad tripFullSpanCard" style={{ gridColumn: "1 / -1", border: "none", boxShadow: "none", padding: 0 }}>
+              <div className="card pad tripFullSpanCard">
                 <div style={{ fontWeight: 900, marginBottom: 8 }}>Trip Notes</div>
                 <div className="small" style={{ marginBottom: 10 }}>
                   Put obvious context here, like why the trip was archived or major team changes.
@@ -5204,7 +5206,7 @@ function parseDateSafe(dateStr) {
               subtitle="Shortcuts to the next due items."
               defaultOpen
             >
-            <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+            <div className="card pad">
               <div className="cardSectionPill">
                 {staffViewAllParticipants ? "My Upcoming Staff Tasks" : "My Upcoming Tasks"}
               </div>
@@ -5272,7 +5274,7 @@ function parseDateSafe(dateStr) {
             </CollapsibleSection>
 
             <CollapsibleSection title="Quick links" subtitle="Hand-picked resources for this trip." defaultOpen>
-            <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+            <div className="card pad">
               <div className="cardSectionPill">Quick Links</div>
               <div style={{ display: "grid", gap: 10 }}>
                 {quickLinks.map((link) => (
@@ -5304,7 +5306,7 @@ function parseDateSafe(dateStr) {
 
             {canViewTeamDashboard ? (
               <CollapsibleSection title="Recent activity" subtitle="Latest updates on this trip." defaultOpen style={{ gridColumn: "1 / -1" }}>
-              <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+              <div className="card pad">
                 <div className="row" style={{ marginBottom: 10 }}>
                   <div className="cardSectionPill">Recent Activity</div>
                   <div className="spacer" />
@@ -5348,7 +5350,7 @@ function parseDateSafe(dateStr) {
             subtitle="Members, account status, invites, and shirt sizes."
             defaultOpen
           >
-          <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+          <div className="card pad">
             <div className="row" style={{ marginBottom: 10, alignItems: "center" }}>
               <div className="spacer" />
               {workerAddStatus ? (
@@ -5628,7 +5630,7 @@ function parseDateSafe(dateStr) {
               subtitle="Track reference contacts and sent/received status."
               defaultOpen
             >
-            <div className="card pad tripSectionCard" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+            <div className="card pad tripSectionCard">
               <div style={{ fontWeight: 900, marginBottom: 10 }}>Reference Emails</div>
               <table className="table">
                 <thead>
@@ -5921,7 +5923,7 @@ function parseDateSafe(dateStr) {
             subtitle="Team Neon link and per-participant pages."
             defaultOpen
           >
-          <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+          <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 14 }}>
               {canViewTeamDashboard ? "Fundraising Pages" : "My Fundraising"}
             </div>
@@ -6219,7 +6221,7 @@ function parseDateSafe(dateStr) {
           {renderTripTabIntro("Training")}
           {canManageTrips && (
             <CollapsibleSection title="Team training progress" subtitle="Overall completion across participants." defaultOpen>
-            <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+            <div className="card pad">
               <div className="row" style={{ marginBottom: 10 }}>
                 <div style={{ fontWeight: 900 }}>Training Progress</div>
                 <div className="spacer" />
@@ -6240,7 +6242,7 @@ function parseDateSafe(dateStr) {
             subtitle="Required and optional links for this trip."
             defaultOpen
           >
-          <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+          <div className="card pad">
             <p className="small">
               Central place for training links and module tracking.
             </p>
@@ -6557,7 +6559,7 @@ function parseDateSafe(dateStr) {
           {renderTripTabIntro("Tasks")}
           {canManageTrips && (
             <CollapsibleSection title="Manage worker tasks" subtitle="Add or edit tasks for this trip." defaultOpen>
-            <div className="card pad tripSectionCard" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+            <div className="card pad tripSectionCard">
               <div className="row">
                 <div style={{ fontWeight: 900 }}>Worker Tasks</div>
                 <div className="spacer" />
@@ -6622,7 +6624,7 @@ function parseDateSafe(dateStr) {
           )}
 
             <CollapsibleSection title="Task progress" subtitle="Completion summary by participant." defaultOpen>
-            <div className="card pad tripSectionCard" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+            <div className="card pad tripSectionCard">
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>Task Progress</div>
               <div className="spacer" />
@@ -6859,7 +6861,7 @@ function parseDateSafe(dateStr) {
             subtitle="Trip-wide resources and visibility for participants."
             defaultOpen
           >
-          <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+          <div className="card pad">
             <div className="row" style={{ marginBottom: 10 }}>
               <div>
                 <div style={{ fontWeight: 900 }}>Documents & Links</div>
@@ -7694,7 +7696,7 @@ function parseDateSafe(dateStr) {
             subtitle={canViewTeamDashboard ? "Per-participant uploads and review." : "Your uploads for this trip."}
             defaultOpen
           >
-          <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+          <div className="card pad">
             <div className="row" style={{ marginBottom: 10 }}>
               <div>
                 <div style={{ fontWeight: 900 }}>
@@ -7894,7 +7896,7 @@ function parseDateSafe(dateStr) {
             subtitle="Passport, emergency contacts, and travel preferences."
             defaultOpen
           >
-          <div className="card pad" style={{ overflowX: "auto", border: "none", boxShadow: "none", padding: 0 }}>
+          <div className="card pad" style={{ overflowX: "auto" }}>
             <div className="row" style={{ marginBottom: 12, alignItems: "center" }}>
               <div className="small">
                 {canViewTeamDashboard
@@ -8198,7 +8200,7 @@ function parseDateSafe(dateStr) {
               <div style={{ display: "grid", gap: 16 }}>
             {renderTripTabIntro("Staff Tasks")}
             <CollapsibleSection title="Staff task list" subtitle="Internal planning tasks and assignments." defaultOpen>
-            <div className="card pad" style={{ border: "none", boxShadow: "none", padding: 0 }}>
+            <div className="card pad">
                 <div className="row" style={{ marginBottom: 10 }}>
                   <div className="small">
                     {completedCount} of {totalCount} complete

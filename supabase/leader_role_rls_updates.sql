@@ -13,6 +13,8 @@ as $$
   select lower(trim(p.role))
   from public.profiles as p
   where p.id = auth.uid()
+     or lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+  order by case when p.id = auth.uid() then 0 else 1 end
   limit 1;
 $$;
 
