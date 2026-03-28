@@ -4864,6 +4864,19 @@ function parseDateSafe(dateStr) {
 
   const rosterParticipantCount = (trip?.participants || []).length;
 
+  /** Parsed integer from materials draft, or null if not set (empty / invalid). */
+  const materialsBudgetWorkerCount = useMemo(() => {
+    if (!materialsDraft) return null;
+    const nw = materialsDraft.numWorkers;
+    if (nw === "" || nw === null || nw === undefined) return null;
+    const num = typeof nw === "number" ? nw : Number.parseInt(String(nw), 10);
+    return Number.isFinite(num) ? num : null;
+  }, [materialsDraft]);
+
+  /** Show roster when budget row has no # of workers saved yet. */
+  const materialsWorkersDisplayCount =
+    materialsBudgetWorkerCount !== null ? materialsBudgetWorkerCount : rosterParticipantCount;
+
   const staffSiteWorkbookPlan = useMemo(() => {
     if (!trip?.location?.trim()) {
       return { noLocation: true };
@@ -4926,7 +4939,6 @@ function parseDateSafe(dateStr) {
     try {
       const headers = [
         "Trip name",
-        "Trip ID",
         "# of workers",
         "Current roster count",
         "Team accountant",
@@ -4940,8 +4952,7 @@ function parseDateSafe(dateStr) {
       ];
       const row = [
         trip.name || "",
-        trip.id,
-        materialsDraft.numWorkers ?? "",
+        materialsWorkersDisplayCount,
         rosterParticipantCount,
         materialsDraft.teamAccountant || "",
         materialsDraft.tshirts || "",
@@ -7181,16 +7192,6 @@ function parseDateSafe(dateStr) {
                       >
                         Copy team name
                       </button>
-                      <button
-                        type="button"
-                        className="btn"
-                        onClick={() => {
-                          void navigator.clipboard?.writeText(String(trip.id || ""));
-                          showToast("Trip ID copied", "success");
-                        }}
-                      >
-                        Copy trip ID
-                      </button>
                       <button type="button" className="btn" onClick={() => handleExportMaterialsExcel()}>
                         Export Excel
                       </button>
@@ -7235,43 +7236,20 @@ function parseDateSafe(dateStr) {
                     }}
                   >
                     <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
-                      Trip ID
-                    </div>
-                    <div
-                      className="small"
-                      style={{
-                        fontFamily: "ui-monospace, monospace",
-                        wordBreak: "break-all",
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      {trip.id || "—"}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "minmax(130px, 200px) 1fr",
-                      gap: "6px 20px",
-                      alignItems: "start",
-                      padding: "10px 0",
-                      borderBottom: "1px solid rgba(15, 23, 42, 0.06)",
-                    }}
-                  >
-                    <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
                       # of workers
                     </div>
                     <div>
-                      <span style={{ fontWeight: 800 }}>
-                        {materialsDraft.numWorkers === "" ||
-                        materialsDraft.numWorkers === null ||
-                        materialsDraft.numWorkers === undefined
-                          ? "—"
-                          : materialsDraft.numWorkers}
-                      </span>
-                      <span className="small" style={{ color: "var(--muted)", marginLeft: 10 }}>
-                        Roster on file: {rosterParticipantCount}
-                      </span>
+                      <span style={{ fontWeight: 800 }}>{materialsWorkersDisplayCount}</span>
+                      {materialsBudgetWorkerCount === null ? (
+                        <span className="small" style={{ color: "var(--muted)", marginLeft: 10 }}>
+                          Using roster count — set below or <strong>Sync from roster</strong> to save on the
+                          budget row.
+                        </span>
+                      ) : (
+                        <span className="small" style={{ color: "var(--muted)", marginLeft: 10 }}>
+                          Saved on budget · Roster on file: {rosterParticipantCount}
+                        </span>
+                      )}
                     </div>
                   </div>
 

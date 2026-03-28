@@ -28,6 +28,18 @@ function n(val) {
   return val === null || val === undefined ? "" : String(val).trim();
 }
 
+/** Background + left accent so consecutive trip groups are easy to scan on Budget → Ticketing. */
+const TICKET_TRIP_BAND_STYLES = [
+  { bg: "rgba(239, 246, 255, 0.82)", border: "#3b82f6" },
+  { bg: "rgba(240, 253, 244, 0.82)", border: "#16a34a" },
+  { bg: "rgba(250, 245, 255, 0.82)", border: "#9333ea" },
+  { bg: "rgba(255, 247, 237, 0.88)", border: "#ea580c" },
+  { bg: "rgba(253, 242, 248, 0.82)", border: "#db2777" },
+  { bg: "rgba(240, 249, 255, 0.85)", border: "#0284c7" },
+  { bg: "rgba(245, 243, 255, 0.85)", border: "#6366f1" },
+  { bg: "rgba(241, 245, 249, 0.9)", border: "#64748b" },
+];
+
 function mergeHousingWithTrips(trips, budgets) {
   const byTripId = new Map((budgets || []).map((b) => [b.tripId, b]));
   return (trips || []).map((trip) => {
@@ -79,6 +91,30 @@ export default function BudgetPage() {
     () => new Set((trips || []).filter((t) => t.status === "archived").map((t) => t.id)),
     [trips]
   );
+
+  const ticketsSortedWithBands = useMemo(() => {
+    const sorted = [...ticketRows].sort((a, b) => {
+      const byTeam = String(a.tripName || a.tripId || "").localeCompare(
+        String(b.tripName || b.tripId || ""),
+        undefined,
+        { sensitivity: "base" }
+      );
+      if (byTeam !== 0) return byTeam;
+      return String(a.workerName || "").localeCompare(String(b.workerName || ""), undefined, {
+        sensitivity: "base",
+      });
+    });
+    const bands = [];
+    let band = 0;
+    let lastTripId;
+    for (let i = 0; i < sorted.length; i++) {
+      const tid = sorted[i].tripId;
+      if (i > 0 && tid !== lastTripId) band += 1;
+      bands.push(band);
+      lastTripId = tid;
+    }
+    return { sorted, bands };
+  }, [ticketRows]);
 
   useEffect(() => {
     let cancelled = false;
@@ -700,7 +736,7 @@ export default function BudgetPage() {
                   "HP Total Charge",
                   "Date Approved to Withdraw",
                 ];
-                const rows = ticketRows.map((t) => {
+                const rows = ticketsSortedWithBands.sorted.map((t) => {
                   const siteDisplay = (t.projectCountry || t.projectCity || "").trim() || "";
                   return [
                     t.tripName || t.tripId?.slice(0, 8) || "",
@@ -766,20 +802,34 @@ export default function BudgetPage() {
                 </tr>
               </thead>
               <tbody>
-                {ticketRows.map((t) => {
+                {ticketsSortedWithBands.sorted.map((t, rowIndex) => {
                   const isArchived = archivedTripIds.has(t.tripId);
                   const siteDisplay = (t.projectCountry || t.projectCity || "").trim() || "";
+                  const band = ticketsSortedWithBands.bands[rowIndex] ?? 0;
+                  const palette = TICKET_TRIP_BAND_STYLES[band % TICKET_TRIP_BAND_STYLES.length];
+                  const rowSurface = isArchived
+                    ? {
+                        opacity: 0.75,
+                        backgroundColor: "rgba(226, 232, 240, 0.5)",
+                        borderLeft: "4px solid var(--muted)",
+                      }
+                    : {
+                        backgroundColor: palette.bg,
+                        borderLeft: `4px solid ${palette.border}`,
+                      };
+                  const newTeamBlock =
+                    rowIndex > 0 &&
+                    ticketsSortedWithBands.bands[rowIndex] !== ticketsSortedWithBands.bands[rowIndex - 1];
                   return (
                   <tr
                     key={t.id}
-                    style={
-                      isArchived
-                        ? { opacity: 0.7, backgroundColor: "var(--border)", borderLeft: "3px solid var(--muted)" }
-                        : undefined
-                    }
+                    style={{
+                      ...rowSurface,
+                      ...(newTeamBlock ? { borderTop: "2px solid rgba(15, 23, 42, 0.1)" } : {}),
+                    }}
                     title={isArchived ? "Archived team" : undefined}
                   >
-                    <td>
+                    <td style={{ fontWeight: 700 }}>
                       <span className="row" style={{ gap: 6, alignItems: "center" }}>
                         {isArchived && <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>Archived</span>}
                         {t.tripName || t.tripId?.slice(0, 8) || ""}
