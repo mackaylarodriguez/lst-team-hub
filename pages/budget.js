@@ -23,7 +23,6 @@ import {
   syncTripTicketsFromTeamMembers,
 } from "@/lib/tripTickets";
 import { listTripsForCurrentUser } from "@/lib/trips";
-import { resolveSiteBudgetNoteForTripLocation } from "@/lib/siteMaterials";
 
 function n(val) {
   return val === null || val === undefined ? "" : String(val).trim();
@@ -57,17 +56,6 @@ function mergeHousingWithTrips(trips, budgets) {
   });
 }
 
-function housingRowSiteLocation(row, trips) {
-  const trip = (trips || []).find((t) => t.id === row.tripId);
-  return n(trip?.location) || n(row.siteCountry);
-}
-
-function housingRowHasSiteStaffNote(row, trips, siteHousingNotes) {
-  const loc = housingRowSiteLocation(row, trips);
-  const note = resolveSiteBudgetNoteForTripLocation(loc, siteHousingNotes);
-  return Boolean(note?.notes?.trim());
-}
-
 export default function BudgetPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -86,13 +74,6 @@ export default function BudgetPage() {
   const [siteHousingNotes, setSiteHousingNotes] = useState([]);
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
-
-  const housingSiteEffectiveSummary = useMemo(() => {
-    const dates = [...new Set(siteHousingNotes.map((n) => n.effectiveDate).filter(Boolean))];
-    if (dates.length === 0) return "—";
-    if (dates.length === 1) return dates[0];
-    return `${dates.length} dates`;
-  }, [siteHousingNotes]);
 
   const archivedTripIds = useMemo(
     () => new Set((trips || []).filter((t) => t.status === "archived").map((t) => t.id)),
@@ -273,9 +254,9 @@ export default function BudgetPage() {
           <span>Budget</span>
         </h1>
         <p className="small" style={{ marginBottom: 24 }}>
-          Overview of housing and ticketing across all trips. Workbook strings and per-site materials notes
-          are edited on <Link href="/sites">Sites</Link> and each trip&apos;s Materials tab—not here. Travel
-          forms stay per team on each trip page.
+          Overview of housing and ticketing across all trips. Per-site materials notes are edited on{" "}
+          <Link href="/sites">Sites</Link> and each trip&apos;s Materials tab—not here. Travel forms stay per
+          team on each trip page.
         </p>
 
         {status ? <div className="small" style={{ marginBottom: 12 }}>{status}</div> : null}
@@ -380,88 +361,82 @@ export default function BudgetPage() {
         <>
         <CollapsibleSection
           title="Site housing notes"
-          subtitle="Staff housing text per site (from Sites). Edit counts and logistics on Sites."
+          subtitle="Square tiles; hover for full note. Edit on Sites."
           defaultOpen={false}
           style={{ marginBottom: 24 }}
-          rightSlot={
-            <div
-              className="card pad"
-              style={{
-                margin: 0,
-                padding: "10px 14px",
-                boxShadow: "none",
-                border: "1px solid rgba(148,163,184,.4)",
-                background: "rgba(255,255,255,.95)",
-                minWidth: 128,
-                textAlign: "right",
-              }}
-            >
-              <div className="small" style={{ color: "var(--muted)", fontWeight: 700 }}>
-                Effective
-              </div>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>{housingSiteEffectiveSummary}</div>
-            </div>
-          }
         >
           {siteHousingNotes.length === 0 ? (
             <p className="small" style={{ margin: 0, color: "var(--muted)" }}>
               No site notes loaded. Open <Link href="/sites">Sites</Link> to add or update mission site records.
             </p>
           ) : (
-            <div style={{ display: "grid", gap: 14 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))",
+                gap: 10,
+              }}
+            >
               {[...siteHousingNotes]
                 .sort((a, b) =>
                   String(a.siteName || "").localeCompare(String(b.siteName || ""), undefined, {
                     sensitivity: "base",
                   })
                 )
-                .map((n) => (
-                  <div
-                    key={n.id}
-                    className="card pad"
-                    style={{
-                      boxShadow: "none",
-                      border: "1px solid rgba(15, 23, 42, 0.1)",
-                      background: "rgba(248, 250, 252, 0.6)",
-                    }}
-                  >
-                    <div style={{ fontWeight: 800, marginBottom: 6 }}>{n.siteName || "—"}</div>
-                    {n.effectiveDate ? (
-                      <div className="small" style={{ marginBottom: 8, color: "var(--muted)" }}>
-                        Effective date: {n.effectiveDate}
+                .map((n) => {
+                  const noteText = String(n.notes || "").trim();
+                  const hoverBody = noteText || "No housing note for this site.";
+                  return (
+                    <div
+                      key={n.id}
+                      title={`${n.siteName || "Site"}\n\n${hoverBody}`}
+                      style={{
+                        border: "1px solid rgba(15, 23, 42, 0.1)",
+                        borderRadius: 10,
+                        padding: "10px 10px 12px",
+                        minHeight: 128,
+                        maxHeight: 128,
+                        overflow: "hidden",
+                        background: "rgba(248, 250, 252, 0.9)",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 800,
+                          fontSize: 12,
+                          marginBottom: 6,
+                          lineHeight: 1.25,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                        }}
+                      >
+                        {n.siteName || "—"}
                       </div>
-                    ) : null}
-                    {String(n.notes || "").trim() ? (
-                      <div className="small" style={{ whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
-                        {n.notes}
+                      <div
+                        className="small"
+                        style={{
+                          flex: 1,
+                          overflow: "hidden",
+                          lineHeight: 1.35,
+                          fontSize: 11,
+                          color: noteText ? "inherit" : "var(--muted)",
+                          fontStyle: noteText ? "normal" : "italic",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 5,
+                          WebkitBoxOrient: "vertical",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {noteText || "No note"}
                       </div>
-                    ) : (
-                      <div className="small" style={{ color: "var(--muted)", fontStyle: "italic" }}>
-                        No housing note for this site.
-                      </div>
-                    )}
-                    {String(n.workbookNotes || "").trim() ? (
-                      <details style={{ marginTop: 12 }}>
-                        <summary className="small" style={{ fontWeight: 700, cursor: "pointer" }}>
-                          Workbook plan string
-                        </summary>
-                        <div
-                          className="small"
-                          style={{
-                            marginTop: 8,
-                            whiteSpace: "pre-wrap",
-                            wordBreak: "break-word",
-                            fontFamily: "ui-monospace, monospace",
-                            fontSize: 11,
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          {n.workbookNotes}
-                        </div>
-                      </details>
-                    ) : null}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
             </div>
           )}
         </CollapsibleSection>
@@ -474,22 +449,8 @@ export default function BudgetPage() {
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
               <div style={{ fontWeight: 900 }}>Housing budget (all trips)</div>
               <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
-                Rows are auto-generated when a trip is created. Site notes and workbook plans:{" "}
+                Rows are auto-generated when a trip is created. Site housing notes:{" "}
                 <Link href="/sites">Sites</Link>. Per-team materials: trip <strong>Materials</strong> tab.
-              </div>
-              <div
-                className="small"
-                style={{
-                  marginTop: 10,
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  background: "rgba(15, 23, 42, 0.06)",
-                  maxWidth: 720,
-                }}
-              >
-                <strong>Site housing note:</strong> A &quot;!&quot; in the table means that row&apos;s site has
-                staff housing text on <Link href="/sites">Sites</Link> — check the collapsible section above or
-                Sites before finalizing housing numbers.
               </div>
             </div>
             <div
@@ -589,14 +550,13 @@ export default function BudgetPage() {
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table" style={{ minWidth: 1280, fontSize: 12 }}>
+            <table className="table" style={{ minWidth: 1220, fontSize: 12 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
                   <th>Project Start</th>
                   <th>Project End</th>
                   <th>Site</th>
-                  <th title="Staff housing note exists on Sites for this site">!</th>
                   <th>Team Accountant</th>
                   <th>Budget Amount</th>
                   <th>Returned Amount</th>
@@ -608,7 +568,6 @@ export default function BudgetPage() {
               <tbody>
                 {(isEditingHousing ? housingRowsDraft : housingRows).map((r) => {
                   const isArchived = archivedTripIds.has(r.tripId);
-                  const siteNote = housingRowHasSiteStaffNote(r, trips, siteHousingNotes);
                   return (
                   <tr
                     key={r.id || r.tripId}
@@ -630,13 +589,6 @@ export default function BudgetPage() {
                         <td><input className="input" type="date" value={r.projectStartDate || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "projectStartDate", e.target.value)} /></td>
                         <td><input className="input" type="date" value={r.projectEndDate || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "projectEndDate", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 100 }} value={r.siteCountry || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "siteCountry", e.target.value)} /></td>
-                        <td style={{ textAlign: "center", fontWeight: 800, color: siteNote ? "var(--warn, #b45309)" : "var(--muted)" }}>
-                          {siteNote ? (
-                            <span title="This site has staff housing notes on Sites">!</span>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
                         <td><input className="input" style={{ minWidth: 100 }} value={r.teamAccountant || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "teamAccountant", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 90 }} value={r.budgetAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "budgetAmount", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 90 }} value={r.returnedAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "returnedAmount", e.target.value)} /></td>
@@ -665,13 +617,6 @@ export default function BudgetPage() {
                         <td>{r.projectStartDate || ""}</td>
                         <td>{r.projectEndDate || ""}</td>
                         <td>{r.siteCountry || ""}</td>
-                        <td style={{ textAlign: "center", fontWeight: 800, color: siteNote ? "var(--warn, #b45309)" : "var(--muted)" }}>
-                          {siteNote ? (
-                            <span title="This site has staff housing notes on Sites">!</span>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
                         <td>{r.teamAccountant || ""}</td>
                         <td>{r.budgetAmount || ""}</td>
                         <td>{r.returnedAmount || ""}</td>
