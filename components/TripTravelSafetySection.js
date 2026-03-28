@@ -21,6 +21,14 @@ function needsReviewBadge(isoDate) {
   return days !== null && days > 60;
 }
 
+function formatSubsectionDate(isoDate) {
+  if (!isoDate) return "—";
+  const s = String(isoDate).slice(0, 10);
+  const d = new Date(`${s}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return String(isoDate);
+  return d.toLocaleDateString(undefined, { dateStyle: "medium" });
+}
+
 function trimPreview(text, max = 90) {
   const t = String(text || "").replace(/\s+/g, " ").trim();
   if (!t) return "";
@@ -183,24 +191,26 @@ export default function TripTravelSafetySection({
         badge={showReview ? <ReviewBadge /> : null}
       >
         <div className="small" style={{ marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-          <span>
-            <strong>Last verified:</strong>{" "}
-            {lastVerified ? lastVerified : "—"}
-          </span>
+          {canEdit ? (
+            <>
+              <strong>Last updated:</strong>
+              <input
+                className="input"
+                type="date"
+                value={lastVerified}
+                onChange={(e) => setDraft((d) => ({ ...d, [lastVerifiedKey]: e.target.value }))}
+                style={{ maxWidth: 160 }}
+              />
+            </>
+          ) : (
+            <span>
+              <strong>Last updated:</strong> {formatSubsectionDate(lastVerified)}
+            </span>
+          )}
           {showReview ? <ReviewBadge /> : null}
         </div>
         {canEdit ? (
           <>
-            <div className="small" style={{ marginBottom: 4 }}>
-              Update verification date
-            </div>
-            <input
-              className="input"
-              type="date"
-              value={lastVerified}
-              onChange={(e) => setDraft((d) => ({ ...d, [lastVerifiedKey]: e.target.value }))}
-              style={{ maxWidth: 220, marginBottom: 10 }}
-            />
             <textarea
               className="input"
               rows={8}

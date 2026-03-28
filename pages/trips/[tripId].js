@@ -386,6 +386,9 @@ function getEffectiveTutorialContent(slot, doc) {
   };
 }
 
+/** Staff preview of worker UI when roster members do not have Hub accounts yet */
+const WORKER_PREVIEW_PARTICIPANT_ID = "__lst_worker_preview__";
+
 export default function TripPage() {
   const router = useRouter();
   const { tripId } = router.query;
@@ -3860,6 +3863,16 @@ function parseDateSafe(dateStr) {
     if (!trip) return null;
 
     if (isPreviewingParticipant) {
+      if (String(previewParticipantId) === WORKER_PREVIEW_PARTICIPANT_ID) {
+        return {
+          id: WORKER_PREVIEW_PARTICIPANT_ID,
+          name: "Worker preview",
+          email: "",
+          firstName: "",
+          rosterOnly: false,
+          assignmentId: "",
+        };
+      }
       return (
         trip.participants.find(
           (participant) => String(participant.id) === String(previewParticipantId)
@@ -3880,7 +3893,7 @@ function parseDateSafe(dateStr) {
 
   const activeParticipantEmail = currentParticipant?.email?.toLowerCase() || "";
   const canUploadOwnParticipantDocuments =
-    !staffViewAllParticipants && !!currentParticipant;
+    !staffViewAllParticipants && !!currentParticipant && !isPreviewingParticipant;
   const participantDocumentsByUserId = useMemo(() => {
     const grouped = new Map();
 
@@ -4800,9 +4813,12 @@ function parseDateSafe(dateStr) {
                   className="input tripPagePreviewSelect"
                   value={previewParticipantId}
                   onChange={(event) => setPreviewParticipantId(event.target.value)}
-                  style={{ minWidth: 220 }}
+                  style={{ minWidth: 240 }}
                 >
                   <option value="">Staff view</option>
+                  <option value={WORKER_PREVIEW_PARTICIPANT_ID}>
+                    View as worker (no account on roster yet)
+                  </option>
                   {(trip.participants || []).map((participant) => (
                     <option key={participant.id} value={participant.id}>
                       View as {participant.name}
