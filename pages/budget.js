@@ -1,6 +1,7 @@
 import Shell from "@/components/Shell";
 import Link from "next/link";
 import AppIcon from "@/components/AppIcon";
+import CollapsibleSection from "@/components/CollapsibleSection";
 import Spinner from "@/components/Spinner";
 import ConfirmModal from "@/components/ConfirmModal";
 import EmptyState from "@/components/EmptyState";
@@ -12,6 +13,7 @@ import { isManagerRole } from "@/lib/roles";
 import {
   getBudgetAverages,
   listAllTripBudgets,
+  listSiteBudgetNotes,
   saveTripBudget,
 } from "@/lib/tripBudget";
 import {
@@ -68,8 +70,16 @@ export default function BudgetPage() {
   const [housingRowsDraft, setHousingRowsDraft] = useState([]);
   const [isEditingTickets, setIsEditingTickets] = useState(false);
   const [ticketToDeleteId, setTicketToDeleteId] = useState(null);
+  const [siteHousingNotes, setSiteHousingNotes] = useState([]);
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
+
+  const housingSiteEffectiveSummary = useMemo(() => {
+    const dates = [...new Set(siteHousingNotes.map((n) => n.effectiveDate).filter(Boolean))];
+    if (dates.length === 0) return "—";
+    if (dates.length === 1) return dates[0];
+    return `${dates.length} dates`;
+  }, [siteHousingNotes]);
 
   const archivedTripIds = useMemo(
     () => new Set((trips || []).filter((t) => t.status === "archived").map((t) => t.id)),
@@ -90,11 +100,12 @@ export default function BudgetPage() {
 
       try {
         setLoading(true);
-        const [avgRes, tripsRes, housingRes, ticketsRes] = await Promise.all([
+        const [avgRes, tripsRes, housingRes, ticketsRes, siteNotesRes] = await Promise.all([
           getBudgetAverages(),
           listTripsForCurrentUser(),
           listAllTripBudgets(),
           listAllTripTickets(),
+          listSiteBudgetNotes(),
         ]);
         if (cancelled) return;
         await syncTripTicketsFromTeamMembers(tripsRes || []);
@@ -104,6 +115,7 @@ export default function BudgetPage() {
         setAverages(avgRes);
         setHousingRows(mergeHousingWithTrips(tripsRes, housingRes));
         setTicketRows(refreshedTickets.length ? refreshedTickets : ticketsRes);
+        setSiteHousingNotes(siteNotesRes || []);
         if (tripsRes?.length > 0 && !newTicketTripId) setNewTicketTripId(tripsRes[0].id);
       } catch (e) {
         if (!cancelled) {
@@ -351,6 +363,39 @@ export default function BudgetPage() {
         )}
 
         {tab === "Housing" && (
+        <>
+        <CollapsibleSection
+          title="Site housing notes"
+          subtitle="Per-site housing text and workbook plans are edited on Sites. Expand for details and the policy effective date."
+          defaultOpen={false}
+          style={{ marginBottom: 24 }}
+          rightSlot={
+            <div
+              className="card pad"
+              style={{
+                margin: 0,
+                padding: "10px 14px",
+                boxShadow: "none",
+                border: "1px solid rgba(148,163,184,.4)",
+                background: "rgba(255,255,255,.95)",
+                minWidth: 128,
+                textAlign: "right",
+              }}
+            >
+              <div className="small" style={{ color: "var(--muted)", fontWeight: 700 }}>
+                Effective
+              </div>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>{housingSiteEffectiveSummary}</div>
+            </div>
+          }
+        >
+          <p className="small" style={{ margin: 0, color: "var(--muted)" }}>
+            Open <Link href="/sites">Sites</Link> to view and save each mission site&apos;s notes and workbook
+            inventory. The date above summarizes stored effective dates (one value if all sites match, otherwise a
+            count).
+          </p>
+        </CollapsibleSection>
+
         <div className="card pad" style={{ marginBottom: 24 }}>
           <div
             className="row"
@@ -528,6 +573,7 @@ export default function BudgetPage() {
           </div>
           {housingRows.length === 0 && !isEditingHousing && <div className="small">No housing budget rows yet. Add a trip to see a row per trip, or create a trip first.</div>}
         </div>
+        </>
         )}
 
         {tab === "Ticketing" && (

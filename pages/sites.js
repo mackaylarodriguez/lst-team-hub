@@ -3,6 +3,7 @@ import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
+import CollapsibleSection from "@/components/CollapsibleSection";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
@@ -86,6 +87,13 @@ export default function SitesPage() {
       cancelled = true;
     };
   }, [router]);
+
+  const effectiveSummaryForHousing = useMemo(() => {
+    const dates = [...new Set(siteNotes.map((n) => n.effectiveDate).filter(Boolean))];
+    if (dates.length === 0) return "—";
+    if (dates.length === 1) return dates[0];
+    return `${dates.length} dates`;
+  }, [siteNotes]);
 
   const siteSummaries = useMemo(() => {
     return SITE_OPTIONS.map((siteLabel) => {
@@ -239,12 +247,31 @@ export default function SitesPage() {
         </table>
       </div>
 
-      <div style={{ fontWeight: 800, marginBottom: 10 }}>Site notes & workbook plan</div>
-      <div className="small" style={{ marginBottom: 16, color: "var(--muted)" }}>
-        One block per site. Save updates the staff-only site record (and may rename legacy rows to the
-        canonical site name). Last updated: shown when present on matched note.
-      </div>
-
+      <CollapsibleSection
+        title="Site notes & workbook plan"
+        subtitle="One block per site. Save updates the staff-only site record. Row last saved is shown in each card when available."
+        defaultOpen={false}
+        style={{ marginBottom: 24 }}
+        rightSlot={
+          <div
+            className="card pad"
+            style={{
+              margin: 0,
+              padding: "10px 14px",
+              boxShadow: "none",
+              border: "1px solid rgba(148,163,184,.4)",
+              background: "rgba(255,255,255,.95)",
+              minWidth: 128,
+              textAlign: "right",
+            }}
+          >
+            <div className="small" style={{ color: "var(--muted)", fontWeight: 700 }}>
+              Effective
+            </div>
+            <div style={{ fontWeight: 800, fontSize: 14 }}>{effectiveSummaryForHousing}</div>
+          </div>
+        }
+      >
       <div style={{ display: "grid", gap: 20 }}>
         {SITE_OPTIONS.map((siteOption) => {
           const matched = findSiteBudgetNoteForOption(siteOption, siteNotes);
@@ -261,18 +288,13 @@ export default function SitesPage() {
               >
                 <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                   <div style={{ fontWeight: 900 }}>{siteOption}</div>
-                  <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 6 }}>
-                    {matched?.effectiveDate ? (
-                      <span className="small" style={{ color: "var(--muted)" }}>
-                        Effective {matched.effectiveDate}
-                      </span>
-                    ) : null}
-                    {matched?.id && matched.siteName !== siteOption ? (
+                  {matched?.id && matched.siteName !== siteOption ? (
+                    <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 6 }}>
                       <span className="small badge" title="Will use this row and rename site to match">
                         Linked from “{matched.siteName}”
                       </span>
-                    ) : null}
-                  </div>
+                    </div>
+                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -336,6 +358,7 @@ export default function SitesPage() {
           );
         })}
       </div>
+      </CollapsibleSection>
     </Shell>
   );
 }
