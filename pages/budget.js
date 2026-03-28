@@ -361,7 +361,7 @@ export default function BudgetPage() {
         <>
         <CollapsibleSection
           title="Site housing notes"
-          subtitle="Square tiles; hover for full note. Edit on Sites."
+          subtitle="Wide tiles show full notes. Edit on Sites."
           defaultOpen={false}
           style={{ marginBottom: 24 }}
         >
@@ -373,8 +373,8 @@ export default function BudgetPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))",
-                gap: 10,
+                gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))",
+                gap: 12,
               }}
             >
               {[...siteHousingNotes]
@@ -385,34 +385,27 @@ export default function BudgetPage() {
                 )
                 .map((n) => {
                   const noteText = String(n.notes || "").trim();
-                  const hoverBody = noteText || "No housing note for this site.";
                   return (
                     <div
                       key={n.id}
-                      title={`${n.siteName || "Site"}\n\n${hoverBody}`}
                       style={{
                         border: "1px solid rgba(15, 23, 42, 0.1)",
                         borderRadius: 10,
-                        padding: "10px 10px 12px",
-                        minHeight: 128,
-                        maxHeight: 128,
-                        overflow: "hidden",
+                        padding: "12px 14px 14px",
+                        minHeight: 0,
                         background: "rgba(248, 250, 252, 0.9)",
                         display: "flex",
                         flexDirection: "column",
+                        alignItems: "stretch",
                       }}
                     >
                       <div
                         style={{
                           fontWeight: 800,
                           fontSize: 12,
-                          marginBottom: 6,
-                          lineHeight: 1.25,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
+                          marginBottom: 8,
+                          lineHeight: 1.35,
+                          wordBreak: "break-word",
                         }}
                       >
                         {n.siteName || "—"}
@@ -420,16 +413,12 @@ export default function BudgetPage() {
                       <div
                         className="small"
                         style={{
-                          flex: 1,
-                          overflow: "hidden",
-                          lineHeight: 1.35,
-                          fontSize: 11,
+                          lineHeight: 1.5,
+                          fontSize: 12,
                           color: noteText ? "inherit" : "var(--muted)",
                           fontStyle: noteText ? "normal" : "italic",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 5,
-                          WebkitBoxOrient: "vertical",
                           wordBreak: "break-word",
+                          whiteSpace: "pre-wrap",
                         }}
                       >
                         {noteText || "No note"}
