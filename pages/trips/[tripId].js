@@ -100,6 +100,7 @@ import {
   fillTravelFormExportTemplate,
   TRAVEL_FORM_TEMPLATE_PATH,
 } from "@/lib/travelFormExport";
+import * as XLSX from "xlsx";
 import { showToast } from "@/components/Toast";
 import TripTravelSafetySection from "@/components/TripTravelSafetySection";
 import { deleteTripMeeting, listTripMeetings, saveTripMeeting } from "@/lib/tripMeetings";
@@ -4610,6 +4611,66 @@ function parseDateSafe(dateStr) {
     }
   }
 
+  function handleExportMaterialsExcel() {
+    if (!trip?.id || !materialsDraft) return;
+    try {
+      const headers = [
+        "Trip name",
+        "Trip ID",
+        "# of workers",
+        "Current roster count",
+        "Team accountant",
+        "T-shirt sizes (housing budget)",
+        "T-shirt sizes (travel forms)",
+        "Workbooks (inventory)",
+        "Ship-to address",
+        "Tracking number",
+        "Materials notes",
+        "Housing budget last updated",
+      ];
+      const row = [
+        trip.name || "",
+        trip.id,
+        materialsDraft.numWorkers ?? "",
+        rosterParticipantCount,
+        materialsDraft.teamAccountant || "",
+        materialsDraft.tshirts || "",
+        travelFormTshirtSummary || "",
+        materialsDraft.workbooks || "",
+        materialsDraft.materialsShipAddress || "",
+        materialsDraft.materialsTrackingNumber || "",
+        materialsDraft.materialsNotes || "",
+        tripBudgetRow?.updatedAt
+          ? new Date(tripBudgetRow.updatedAt).toLocaleString()
+          : "",
+      ];
+      const ws = XLSX.utils.aoa_to_sheet([headers, row]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Materials");
+      const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([out], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const safeTripName = String(trip.name || "trip")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.download = `${safeTripName || "trip"}-materials-${dateStr}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast(`Exported ${link.download}`, "success");
+    } catch (e) {
+      const msg = e?.message || "Export failed.";
+      showToast(msg, "error");
+    }
+  }
+
   useEffect(() => {
     if (tabs.includes(tab)) return;
     if (tab === "My Documents" && tabs.includes("Worker Docs")) {
@@ -6879,19 +6940,26 @@ function parseDateSafe(dateStr) {
                   <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                     <div style={{ minWidth: 200 }}>
                       <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
-                        Team ID
+                        Trip name
                       </div>
-                      <code style={{ fontSize: 13 }}>{trip.id}</code>
+                      <div style={{ fontSize: 15, fontWeight: 800 }}>{trip.name || "—"}</div>
                     </div>
                     <button
                       type="button"
                       className="btn"
                       onClick={() => {
-                        void navigator.clipboard?.writeText(trip.id);
-                        showToast("Team ID copied", "success");
+                        void navigator.clipboard?.writeText(String(trip.name || ""));
+                        showToast("Trip name copied", "success");
                       }}
                     >
-                      Copy
+                      Copy name
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => handleExportMaterialsExcel()}
+                    >
+                      Export Excel
                     </button>
                   </div>
                   <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
