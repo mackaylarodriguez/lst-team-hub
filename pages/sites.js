@@ -60,7 +60,17 @@ export default function SitesPage() {
         setLoading(true);
         const rows = await listSiteBudgetNotes();
         if (cancelled) return;
-        setSiteNotes(rows || []);
+        const list = rows || [];
+        setSiteNotes(list);
+        const w = {};
+        const n = {};
+        for (const opt of SITE_OPTIONS) {
+          const note = findSiteBudgetNoteForOption(opt, list);
+          w[opt] = note?.workbookNotes || "";
+          n[opt] = note?.notes || "";
+        }
+        setDraftWorkbook(w);
+        setDraftNotes(n);
         setStatus("");
       } catch (e) {
         if (!cancelled) {
@@ -76,26 +86,6 @@ export default function SitesPage() {
       cancelled = true;
     };
   }, [router]);
-
-  const seedDrafts = useCallback(
-    (notes) => {
-      const w = {};
-      const n = {};
-      for (const opt of SITE_OPTIONS) {
-        const note = findSiteBudgetNoteForOption(opt, notes);
-        w[opt] = note?.workbookNotes || "";
-        n[opt] = note?.notes || "";
-      }
-      setDraftWorkbook(w);
-      setDraftNotes(n);
-    },
-    []
-  );
-
-  useEffect(() => {
-    if (loading) return;
-    seedDrafts(siteNotes);
-  }, [loading, siteNotes, seedDrafts]);
 
   const siteSummaries = useMemo(() => {
     return SITE_OPTIONS.map((siteLabel) => {
@@ -144,6 +134,8 @@ export default function SitesPage() {
           a.siteName.localeCompare(b.siteName, undefined, { sensitivity: "base" })
         );
       });
+      setDraftWorkbook((d) => ({ ...d, [siteOption]: workbookNotes }));
+      setDraftNotes((d) => ({ ...d, [siteOption]: notes }));
       showToast(`Saved ${siteOption}`, "success");
     } catch (e) {
       const msg = e.message || "Save failed.";
@@ -286,18 +278,19 @@ export default function SitesPage() {
                 </button>
               </div>
 
-              {liveSummary.distinctTitles > 0 || liveSummary.totalCopies > 0 ? (
+                  {liveSummary.distinctTitles > 0 || liveSummary.totalCopies > 0 ? (
                 <div className="small" style={{ color: "var(--muted)" }}>
                   Preview:{" "}
                   <strong>
                     {liveSummary.distinctTitles} title{liveSummary.distinctTitles === 1 ? "" : "s"},{" "}
                     {liveSummary.totalCopies} cop{liveSummary.totalCopies === 1 ? "y" : "ies"}
                   </strong>
-                  {matched?.updatedAt
+                  {matched?.updatedAt &&
+                  !Number.isNaN(Date.parse(matched.updatedAt))
                     ? ` · Row last saved ${formatInventoryDate(Date.parse(matched.updatedAt))}`
                     : null}
                 </div>
-              ) : matched?.updatedAt ? (
+              ) : matched?.updatedAt && !Number.isNaN(Date.parse(matched.updatedAt)) ? (
                 <div className="small" style={{ color: "var(--muted)" }}>
                   Row last saved {formatInventoryDate(Date.parse(matched.updatedAt))}
                 </div>

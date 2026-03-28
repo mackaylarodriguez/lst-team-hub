@@ -104,7 +104,16 @@ import * as XLSX from "xlsx";
 import { showToast } from "@/components/Toast";
 import TripTravelSafetySection from "@/components/TripTravelSafetySection";
 import { deleteTripMeeting, listTripMeetings, saveTripMeeting } from "@/lib/tripMeetings";
-import { getTripBudget, saveTripBudget } from "@/lib/tripBudget";
+import {
+  getTripBudget,
+  listSiteBudgetNotes,
+  saveTripBudget,
+} from "@/lib/tripBudget";
+import { resolveSiteBudgetNoteForTripLocation } from "@/lib/siteMaterials";
+import {
+  parseAnyWorkbookInventoryString,
+  summarizeWorkbookItemsForShipping,
+} from "@/lib/workbookInventory";
 import { resolveSiteLogisticsUrl } from "@/lib/siteInfoLinks";
 
 function CollapsibleSection({
@@ -478,6 +487,7 @@ export default function TripPage() {
   const [tripBudgetLoadError, setTripBudgetLoadError] = useState("");
   const [materialsDraft, setMaterialsDraft] = useState(null);
   const [materialsSaveStatus, setMaterialsSaveStatus] = useState("");
+  const [siteBudgetNotesList, setSiteBudgetNotesList] = useState([]);
   const latestStaffTaskSaveRef = useRef(0);
   const editableStaffTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
@@ -857,6 +867,23 @@ export default function TripPage() {
       cancelled = true;
     };
   }, [trip?.id, canViewTeamDashboard]);
+
+  useEffect(() => {
+    if (!canManageTrips) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await listSiteBudgetNotes();
+        if (!cancelled) setSiteBudgetNotesList(rows || []);
+      } catch (e) {
+        console.error("Unable to load site workbook plans", e);
+        if (!cancelled) setSiteBudgetNotesList([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canManageTrips]);
 
   useEffect(() => {
     if (!trip?.id || !canManageTrips) return;
@@ -4582,6 +4609,19 @@ function parseDateSafe(dateStr) {
 
   const rosterParticipantCount = (trip?.participants || []).length;
 
+  const staffSiteWorkbookPlan = useMemo(() => {
+    if (!trip?.location?.trim()) {
+      return { noLocation: true };
+    }
+    const note = resolveSiteBudgetNoteForTripLocation(trip.location, siteBudgetNotesList);
+    if (!note?.workbookNotes?.trim()) {
+      return { noLocation: false, empty: true, note };
+    }
+    const items = parseAnyWorkbookInventoryString(note.workbookNotes);
+    const summary = summarizeWorkbookItemsForShipping(items);
+    return { noLocation: false, empty: false, note, ...summary };
+  }, [trip?.location, siteBudgetNotesList]);
+
   async function handleSaveMaterialsTab() {
     if (!trip?.id || !materialsDraft) return;
     try {
@@ -6931,6 +6971,51 @@ function parseDateSafe(dateStr) {
             </div>
           ) : (
             <>
+              {canManageTrips ? (
+                <div
+                  className="card pad"
+                  style={{
+                    background: "linear-gradient(180deg, rgba(234,242,255,.97), #fff 55%)",
+                    borderColor: "rgba(47,73,147,.28)",
+                  }}
+                >
+                  <div style={{ fontWeight: 900 }}>Site workbook plan (staff only)</div>
+                  <div className="small" style={{ color: "var(--muted)", marginBottom: 10 }}>
+                    Pulled from the Sites page for this trip&apos;s location. Trip leaders and workers
+                    do not see this block.
+                  </div>
+                  {staffSiteWorkbookPlan?.noLocation ? (
+                    <div className="small">
+                      Set this trip&apos;s <strong>location</strong> (trip setup) to match a site on
+                      the Sites page so counts appear here.
+                    </div>
+                  ) : staffSiteWorkbookPlan?.empty ? (
+                    <div className="small">
+                      No workbook plan on file for <strong>{trip.location}</strong>. Add it under{" "}
+                      <strong>Sites</strong> in the shell navigation.
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 8 }}>
+                        {staffSiteWorkbookPlan.distinctTitles} workbook title
+                        {staffSiteWorkbookPlan.distinctTitles === 1 ? "" : "s"} to send ·{" "}
+                        {staffSiteWorkbookPlan.totalCopies} total cop
+                        {staffSiteWorkbookPlan.totalCopies === 1 ? "y" : "ies"}
+                      </div>
+                      <ul
+                        className="small"
+                        style={{ margin: 0, paddingLeft: 18, lineHeight: 1.65 }}
+                      >
+                        {staffSiteWorkbookPlan.positiveLines.map((line, idx) => (
+                          <li key={`${line.name}-${idx}`}>
+                            {line.name}: <strong>{line.qty}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              ) : null}
               <CollapsibleSection
                 title="Team Hub — materials"
                 subtitle="Workbooks, sizes, accountant, and roster counts. Saved to the same housing budget row as Budget → Housing."
