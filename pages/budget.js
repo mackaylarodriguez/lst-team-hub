@@ -60,7 +60,7 @@ export default function BudgetPage() {
   const [averages, setAverages] = useState(null);
   const [siteNotes, setSiteNotes] = useState([]);
   const [editingSiteNoteId, setEditingSiteNoteId] = useState("");
-  const [siteNoteDraft, setSiteNoteDraft] = useState({ siteName: "", notes: "", workbookNotes: "" });
+  const [siteNoteDraft, setSiteNoteDraft] = useState({ siteName: "", notes: "" });
   const [trips, setTrips] = useState([]);
   const [housingRows, setHousingRows] = useState([]);
   const [ticketRows, setTicketRows] = useState([]);
@@ -375,7 +375,6 @@ export default function BudgetPage() {
           >
             {siteNotes.map((note) => {
               const isEditing = editingSiteNoteId === note.id;
-              const workbook = note.workbookNotes || "";
               const isBuenosAires = note.siteName.toLowerCase().includes("buenos aires");
 
               return (
@@ -421,21 +420,6 @@ export default function BudgetPage() {
                         }
                         placeholder="Site notes"
                       />
-                      <div>
-                        <div className="small" style={{ marginBottom: 4, fontWeight: 600 }}>Workbook notes</div>
-                        <textarea
-                          className="input"
-                          rows={2}
-                          value={siteNoteDraft.workbookNotes}
-                          onChange={(e) =>
-                            setSiteNoteDraft((current) => ({
-                              ...current,
-                              workbookNotes: e.target.value,
-                            }))
-                          }
-                          placeholder="Workbook notes for this site"
-                        />
-                      </div>
                       <div className="row" style={{ gap: 8 }}>
                         <button
                           type="button"
@@ -447,7 +431,7 @@ export default function BudgetPage() {
                                 siteName: note.siteName,
                                 effectiveDate: note.effectiveDate,
                                 notes: siteNoteDraft.notes,
-                                workbookNotes: siteNoteDraft.workbookNotes,
+                                workbookNotes: note.workbookNotes,
                               });
                               setSiteNotes((current) =>
                                 current.map((n) => (n.id === note.id ? updated : n))
@@ -468,7 +452,7 @@ export default function BudgetPage() {
                           className="btn"
                           onClick={() => {
                             setEditingSiteNoteId("");
-                            setSiteNoteDraft({ siteName: "", notes: "", workbookNotes: "" });
+                            setSiteNoteDraft({ siteName: "", notes: "" });
                           }}
                         >
                           Cancel
@@ -480,12 +464,6 @@ export default function BudgetPage() {
                       <div className="small" style={{ whiteSpace: "pre-wrap" }}>
                         {note.notes || "No notes yet."}
                       </div>
-                      <div
-                        className="small"
-                        style={{ marginTop: 8, paddingTop: 6, borderTop: "1px solid var(--border)" }}
-                      >
-                        <strong>Workbook notes:</strong> {workbook || "No workbook notes yet."}
-                      </div>
                       <div className="row" style={{ marginTop: 10 }}>
                         <button
                           type="button"
@@ -495,7 +473,6 @@ export default function BudgetPage() {
                             setSiteNoteDraft({
                               siteName: note.siteName,
                               notes: note.notes,
-                              workbookNotes: note.workbookNotes,
                             });
                           }}
                         >

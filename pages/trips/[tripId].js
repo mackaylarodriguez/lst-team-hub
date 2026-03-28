@@ -103,6 +103,8 @@ import {
 import { showToast } from "@/components/Toast";
 import TripTravelSafetySection from "@/components/TripTravelSafetySection";
 import { deleteTripMeeting, listTripMeetings, saveTripMeeting } from "@/lib/tripMeetings";
+import { getTripBudget, saveTripBudget } from "@/lib/tripBudget";
+import { resolveSiteLogisticsUrl } from "@/lib/siteInfoLinks";
 
 function CollapsibleSection({
   title,
@@ -256,47 +258,6 @@ function buildWorkerInvitePayload(email, trip) {
 
   return { loginUrl, subject, body };
 }
-
-function normalizeSiteInfoKey(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-const AUTO_SITE_INFO_LINKS = [
-  [["albania elbasan", "elbasan albania", "elbasan"], "https://lst365.sharepoint.com/:w:/g/IQCr0eKDZTeSTrvVTdx2fnWrATYOq_PXdblUVSyqFLGq0DQ?e=VXvq02"],
-  [["burnos aires argentina", "buenos aires argentina", "buenos aires", "argentina buenos aires"], "https://lst365.sharepoint.com/:w:/g/IQA4z2RnV8ThT7pEKzEFySxGAVEqe5nGRJX94y5R4YfDfFE?e=6nXVWb"],
-  [["vienna", "vienna austria"], "https://lst365.sharepoint.com/:w:/g/IQDxSro6PcVEQq1Vm8zyqXheAX8qSYyTcZGVMx4PdYHQh94?e=ChZHfY"],
-  [["florianopolis", "florianopolis brazil"], "https://lst365.sharepoint.com/:w:/g/IQAi_fnDKnrEQbQQ1u2o4Pm_AZoFLTIMUBjCN3edSOt1dfI?e=KOEP8e"],
-  [["joao pessoa brazil", "joao pessoa", "joao pessoa paraiba"], "https://lst365.sharepoint.com/:w:/g/IQAi_fnDKnrEQbQQ1u2o4Pm_AZoFLTIMUBjCN3edSOt1dfI?e=KOEP8e"],
-  [["ponta grossa brazil", "ponta grossa"], "https://lst365.sharepoint.com/:w:/g/IQDNjLodIRhjTppa_qOmme9LAQnGtuzCX72mE7COPVxaJmo?e=lW1zZv"],
-  [["recife brazil", "recife"], "https://lst365.sharepoint.com/:w:/g/IQARreWH2jlZSqXaJp1XXUSgAXe6cHTOLM4ZYaTViCkmhDU?e=vLebLu"],
-  [["rio de janeiro", "rio de janeiro brazil", "rio"], "https://lst365.sharepoint.com/:w:/g/IQCsgZaP3lrZRY3W6H61xvjCAW7e57FXNJzPUJzXt1fZm90?e=Iheo9h"],
-  [["croatia"], "https://lst365.sharepoint.com/:w:/g/IQCRc3e68vkQTbLBPnukBhozAbUqD_J5sweioU-m2hak8Js?e=H9cwZI"],
-  [["hannover germany", "hannover"], "https://lst365.sharepoint.com/:w:/g/IQB3YxIE_HTWQYn0Cd8leS98ASlRPPtW0WtqwpOYVnP4bMc?e=tFdjtV"],
-  [["lecce", "lecce italy"], "https://lst365.sharepoint.com/:w:/g/IQB7reWqEGrARpX8MeuXfzy-AW7LHjReu3ddKqyOIY93SA8?e=uo9HFG"],
-  [["padova italy", "padova"], "https://lst365.sharepoint.com/:w:/g/IQChsRXtcd1fR4ZgTpk0OROUAXpXDpQJaiX3yOQ6lyVoEaE?e=SHXwre"],
-  [["vicenza", "vicenza italy"], "https://lst365.sharepoint.com/:w:/g/IQCM_Yf-3oN4RYOQuYqr_plIAW7IHugXXh0HMYPiZNTtw5o?e=XhMsoM"],
-  [["kasama japan", "kasama"], "https://lst365.sharepoint.com/:w:/g/IQBkZ5pFJVAmTZ3r9K5tM6DAAcTduUSfOk3_CqzkjOdkbyY?e=4Xn3vG"],
-  [["tokyo japan", "tokyo"], "https://lst365.sharepoint.com/:w:/g/IQD9J2UkIYp9TIHb-lPAy40iAdCqf72iXcoxLXoDJ_VM_-I?e=AISo4N"],
-  [["marseille france", "marseille"], "https://lst365.sharepoint.com/:w:/g/IQCIUT87l_VjQ42EX04fvIr8AUN1qvC1useECpVcSHTLKVw?e=OIhzfm"],
-  [["krakow poland", "krakow"], "https://lst365.sharepoint.com/:w:/g/IQDdYxW3aFWKS69WTRknVWFKAde4Lx-hMuz7n3axYEPFhv4?e=eOe9j4"],
-  [["lodz poland", "lodz"], "https://lst365.sharepoint.com/:w:/g/IQC-jkBrhVkhRKJPLw2WucIdAXalV12z8aXyGaTdhX-6ghg?e=kF41eX"],
-  [["pabianice poland", "pabianice"], "https://lst365.sharepoint.com/:w:/g/IQCGgNg98C1mSbDF5LqYtL34AStYJB4QiTTz-Zl8G0oUFeE?e=QHcSLP"],
-  [["south korea seoul", "seoul south korea", "seoul korea", "korea seoul", "seoul"], "https://lst365.sharepoint.com/:w:/g/IQDnOTLPfex0RqJG4p6ChdERAZ2WKBJZHw3pzjFk4Om_aHw?e=7oZybD"],
-  [["spain murcia alcantarilla", "murcia alcantarilla", "alcantarilla", "murcia"], "https://lst365.sharepoint.com/:w:/g/IQBHLXMUylwVRblNuEp_IfPeAexqrlspqpMj2fE00jyGt6E?e=eVhwsq"],
-  [["west springeifld", "west springfield"], "https://lst365.sharepoint.com/:w:/g/IQAhz_L8VEJqR5uqjcsUevrfARar3ZTPt_KAUUJuSFS6xXM?e=sIN60O"],
-  [["ecuador tabacundo", "tabacundo", "tabacundo ecuador"], "https://lst365.sharepoint.com/:x:/g/IQA5-MNxcpW0S715lEJe206YAZGC0Uw1e35UpI3gIoJOSoQ?e=Q6qbtu"],
-];
-
-const AUTO_SITE_INFO_LINKS_BY_KEY = new Map(
-  AUTO_SITE_INFO_LINKS.flatMap(([aliases, url]) =>
-    aliases.map((alias) => [normalizeSiteInfoKey(alias), url])
-  )
-);
 
 /** Prefer an explicit https link (e.g. SharePoint) over pdf when both exist. */
 function preferredTripResourceOpenUrl(doc) {
@@ -512,6 +473,10 @@ export default function TripPage() {
   const [meetingDraft, setMeetingDraft] = useState({ title: "", scheduledAt: "", notesAfter: "" });
   const [editingMeetingId, setEditingMeetingId] = useState("");
   const [meetingStatus, setMeetingStatus] = useState("");
+  const [tripBudgetRow, setTripBudgetRow] = useState(null);
+  const [tripBudgetLoadError, setTripBudgetLoadError] = useState("");
+  const [materialsDraft, setMaterialsDraft] = useState(null);
+  const [materialsSaveStatus, setMaterialsSaveStatus] = useState("");
   const latestStaffTaskSaveRef = useRef(0);
   const editableStaffTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
@@ -559,6 +524,9 @@ export default function TripPage() {
     }
     if (tabKey === "documents" || tabKey === "my-documents") {
       setTab(canViewTeamDashboard ? "Worker Docs" : "My Documents");
+    }
+    if (tabKey === "materials") {
+      setTab("Materials");
     }
 
     if (requestedStaffTaskId) {
@@ -844,6 +812,50 @@ export default function TripPage() {
       cancelled = true;
     };
   }, [trip?.id]);
+
+  useEffect(() => {
+    if (!trip?.id || !canViewTeamDashboard) return;
+    let cancelled = false;
+
+    async function loadTripBudgetRow() {
+      try {
+        const row = await getTripBudget(trip.id);
+        if (cancelled) return;
+        setTripBudgetRow(row);
+        setTripBudgetLoadError("");
+        setMaterialsDraft(
+          row
+            ? {
+                numWorkers: row.numWorkers ?? "",
+                teamAccountant: row.teamAccountant || "",
+                tshirts: row.tshirts || "",
+                workbooks: row.workbooks || "",
+                materialsShipAddress: row.materialsShipAddress || "",
+                materialsTrackingNumber: row.materialsTrackingNumber || "",
+                materialsNotes: row.materialsNotes || "",
+              }
+            : {
+                numWorkers: "",
+                teamAccountant: "",
+                tshirts: "",
+                workbooks: "",
+                materialsShipAddress: "",
+                materialsTrackingNumber: "",
+                materialsNotes: "",
+              }
+        );
+      } catch (e) {
+        if (!cancelled) {
+          setTripBudgetLoadError(e.message || "Unable to load housing budget.");
+        }
+      }
+    }
+
+    void loadTripBudgetRow();
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.id, canViewTeamDashboard]);
 
   useEffect(() => {
     if (!trip?.id || !canManageTrips) return;
@@ -4298,7 +4310,7 @@ function parseDateSafe(dateStr) {
   const flightsDoc = visibleDocs.find((doc) => doc.resourceKey === "flights");
   const siteInfoDoc = docs.find((doc) => doc.resourceKey === "site-info-link");
   const visibleSiteInfoDoc = visibleDocs.find((doc) => doc.resourceKey === "site-info-link");
-  const autoSiteInfoLink = AUTO_SITE_INFO_LINKS_BY_KEY.get(normalizeSiteInfoKey(trip?.location)) || "";
+  const autoSiteInfoLink = resolveSiteLogisticsUrl(trip?.location) || "";
   const effectiveSiteInfoDoc = visibleSiteInfoDoc || (!siteInfoDoc && autoSiteInfoLink ? (
     autoSiteInfoLink
       ? {
@@ -4539,6 +4551,12 @@ function parseDateSafe(dateStr) {
       title: "Tasks",
       description: "Worker tasks, quick adds, and what still needs attention.",
     },
+    Materials: {
+      icon: "active",
+      title: "Materials",
+      description:
+        "Ship project materials: workbooks, sizes, accountant, ship-to address, and tracking. Pulls from housing budget and travel forms.",
+    },
     [tripDocumentsTabLabel]: {
       icon: "archived",
       title: tripDocumentsTabLabel,
@@ -4580,6 +4598,7 @@ function parseDateSafe(dateStr) {
     "Fundraising",
     "Training",
     "Tasks",
+    "Materials",
     tripDocumentsTabLabel,
     participantDocumentsTabLabel,
     "Travel Form",
@@ -4592,6 +4611,7 @@ function parseDateSafe(dateStr) {
     "Fundraising",
     "Training",
     "Tasks",
+    "Materials",
     tripDocumentsTabLabel,
     participantDocumentsTabLabel,
     "Travel Form",
@@ -4603,6 +4623,52 @@ function parseDateSafe(dateStr) {
         ? workerTabList
         : managerExpandedTabs
       : workerTabList;
+
+  const travelFormTshirtSummary = useMemo(() => {
+    return (travelFormResponses || [])
+      .map((r) => {
+        const name = [r.firstNamePassport, r.lastNamePassport]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || r.email || "Participant";
+        const sz = String(r.tshirtSize || "").trim();
+        if (!sz) return null;
+        return `${name}: ${sz}`;
+      })
+      .filter(Boolean)
+      .join("\n");
+  }, [travelFormResponses]);
+
+  const rosterParticipantCount = (trip?.participants || []).length;
+
+  async function handleSaveMaterialsTab() {
+    if (!trip?.id || !materialsDraft) return;
+    try {
+      setMaterialsSaveStatus("Saving...");
+      const nw = materialsDraft.numWorkers;
+      const numWorkersParsed =
+        nw === "" || nw === null || nw === undefined
+          ? null
+          : Number.parseInt(String(nw), 10);
+      await saveTripBudget(trip.id, {
+        numWorkers: Number.isFinite(numWorkersParsed) ? numWorkersParsed : null,
+        teamAccountant: materialsDraft.teamAccountant,
+        tshirts: materialsDraft.tshirts,
+        workbooks: materialsDraft.workbooks,
+        materialsShipAddress: materialsDraft.materialsShipAddress,
+        materialsTrackingNumber: materialsDraft.materialsTrackingNumber,
+        materialsNotes: materialsDraft.materialsNotes,
+      });
+      const next = await getTripBudget(trip.id);
+      setTripBudgetRow(next);
+      setMaterialsSaveStatus("Saved.");
+      showToast("Materials saved.", "success");
+    } catch (e) {
+      const msg = e.message || "Error saving.";
+      setMaterialsSaveStatus(msg);
+      showToast(msg, "error");
+    }
+  }
 
   function renderTripTabIntro(tabName) {
     const meta = tripTabMeta[tabName] || {
@@ -6873,6 +6939,229 @@ function parseDateSafe(dateStr) {
             Task progress is loaded from Supabase for each assigned user.
           </div>
           </CollapsibleSection>
+        </div>
+      )}
+
+      {tab === "Materials" && canViewTeamDashboard && (
+        <div style={{ display: "grid", gap: 16 }}>
+          {renderTripTabIntro("Materials")}
+          {tripBudgetLoadError ? (
+            <div className="card pad small" style={{ color: "var(--danger)" }}>
+              {tripBudgetLoadError}
+            </div>
+          ) : null}
+          {!materialsDraft ? (
+            <div className="card pad" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <Spinner size={32} />
+              <span className="small">Loading housing budget…</span>
+            </div>
+          ) : (
+            <>
+              <CollapsibleSection
+                title="Team Hub — materials"
+                subtitle="Workbooks, sizes, accountant, and roster counts. Saved to the same housing budget row as Budget → Housing."
+                defaultOpen
+              >
+                <div className="card pad" style={{ display: "grid", gap: 14 }}>
+                  <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                    <div style={{ minWidth: 200 }}>
+                      <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
+                        Team ID
+                      </div>
+                      <code style={{ fontSize: 13 }}>{trip.id}</code>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        void navigator.clipboard?.writeText(trip.id);
+                        showToast("Team ID copied", "success");
+                      }}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+                    <div>
+                      <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
+                        # of workers
+                      </div>
+                      <input
+                        className="input"
+                        type="number"
+                        style={{ width: 100 }}
+                        value={materialsDraft.numWorkers ?? ""}
+                        onChange={(e) =>
+                          setMaterialsDraft((d) => ({ ...d, numWorkers: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() =>
+                        setMaterialsDraft((d) => ({ ...d, numWorkers: rosterParticipantCount }))
+                      }
+                      title="Set count from current roster"
+                    >
+                      Sync from roster ({rosterParticipantCount})
+                    </button>
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
+                      Team accountant
+                    </div>
+                    <input
+                      className="input"
+                      value={materialsDraft.teamAccountant}
+                      onChange={(e) =>
+                        setMaterialsDraft((d) => ({ ...d, teamAccountant: e.target.value }))
+                      }
+                      placeholder="Name"
+                      style={{ maxWidth: 360 }}
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
+                      T-shirt sizes (housing budget)
+                    </div>
+                    <textarea
+                      className="input"
+                      rows={3}
+                      value={materialsDraft.tshirts}
+                      onChange={(e) =>
+                        setMaterialsDraft((d) => ({ ...d, tshirts: e.target.value }))
+                      }
+                      placeholder="Team or roster notes; same field as Budget housing grid"
+                    />
+                  </div>
+                  {travelFormTshirtSummary ? (
+                    <div>
+                      <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
+                        T-shirt sizes (travel forms)
+                      </div>
+                      <div
+                        className="small"
+                        style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}
+                      >
+                        {travelFormTshirtSummary}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div>
+                    <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
+                      Workbooks (inventory string)
+                    </div>
+                    <textarea
+                      className="input"
+                      rows={4}
+                      value={materialsDraft.workbooks}
+                      onChange={(e) =>
+                        setMaterialsDraft((d) => ({ ...d, workbooks: e.target.value }))
+                      }
+                      placeholder="e.g. 8-Reflection; 8-Origins; 4 Good News; …"
+                    />
+                  </div>
+                  <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="btn btnPrimary"
+                      onClick={() => void handleSaveMaterialsTab()}
+                    >
+                      Save
+                    </button>
+                    {materialsSaveStatus ? (
+                      <span className="small" style={{ color: "var(--muted)" }}>
+                        {materialsSaveStatus}
+                      </span>
+                    ) : null}
+                  </div>
+                  {tripBudgetRow?.updatedAt ? (
+                    <div className="small" style={{ color: "var(--muted)" }}>
+                      Housing budget last updated:{" "}
+                      {new Date(tripBudgetRow.updatedAt).toLocaleString()}
+                    </div>
+                  ) : null}
+                </div>
+              </CollapsibleSection>
+              <CollapsibleSection
+                title="Shipping"
+                subtitle="Ship-to if different from home; tracking when the box goes out."
+                defaultOpen
+              >
+                <div className="card pad" style={{ display: "grid", gap: 12 }}>
+                  <div>
+                    <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
+                      Ship-to address
+                    </div>
+                    <div className="small" style={{ marginBottom: 6, color: "var(--muted)" }}>
+                      Use when materials should go somewhere other than each worker’s address.
+                    </div>
+                    <textarea
+                      className="input"
+                      rows={3}
+                      value={materialsDraft.materialsShipAddress}
+                      onChange={(e) =>
+                        setMaterialsDraft((d) => ({
+                          ...d,
+                          materialsShipAddress: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
+                      Tracking number
+                    </div>
+                    <input
+                      className="input"
+                      value={materialsDraft.materialsTrackingNumber}
+                      onChange={(e) =>
+                        setMaterialsDraft((d) => ({
+                          ...d,
+                          materialsTrackingNumber: e.target.value,
+                        }))
+                      }
+                      placeholder="Carrier tracking #"
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 4, fontWeight: 700 }}>
+                      Notes
+                    </div>
+                    <textarea
+                      className="input"
+                      rows={2}
+                      value={materialsDraft.materialsNotes}
+                      onChange={(e) =>
+                        setMaterialsDraft((d) => ({ ...d, materialsNotes: e.target.value }))
+                      }
+                      placeholder="Internal notes"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btnPrimary"
+                    onClick={() => void handleSaveMaterialsTab()}
+                  >
+                    Save shipping
+                  </button>
+                </div>
+              </CollapsibleSection>
+              {(effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl) && (
+                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <a
+                    className="btn btnPrimary"
+                    href={preferredTripResourceOpenUrl(effectiveSiteInfoDoc)}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    Open site logistics
+                  </a>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

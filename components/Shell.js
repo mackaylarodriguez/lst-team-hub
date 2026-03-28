@@ -75,6 +75,14 @@ function SidebarIcon({ name }) {
     );
   }
 
+  if (name === "sites") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="8" />
@@ -212,6 +220,9 @@ export default function Shell({ children }) {
       : null,
     canManageTrips
       ? { href: "/budget", label: "Budget", active: path === "/budget", icon: "money" }
+      : null,
+    canManageTrips
+      ? { href: "/sites", label: "Sites", active: path === "/sites", icon: "sites" }
       : null,
     { href: "/profile", label: "Profile", active: path === "/profile", icon: "profile" },
   ].filter(Boolean);
