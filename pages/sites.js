@@ -1,16 +1,19 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
   buildSiteWorkbookInventoryRows,
-  groupBudgetRowsBySiteForMaterials,
+  groupTripsBySiteForMaterials,
   listAllTripBudgets,
+  saveTripBudget,
 } from "@/lib/tripBudget";
 import { listTripsForCurrentUser } from "@/lib/trips";
+import { showToast } from "@/components/Toast";
 
 function formatInventoryDate(ms) {
   if (!ms) return "—";
@@ -31,6 +34,9 @@ export default function SitesPage() {
   const [status, setStatus] = useState("");
   const [trips, setTrips] = useState([]);
   const [budgetRows, setBudgetRows] = useState([]);
+  const [sitesWorkbooksEditing, setSitesWorkbooksEditing] = useState(false);
+  const [sitesWorkbooksDraft, setSitesWorkbooksDraft] = useState({});
+  const [sitesWorkbooksSaving, setSitesWorkbooksSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,7 +76,7 @@ export default function SitesPage() {
   }, [router]);
 
   const siteGroups = useMemo(
-    () => groupBudgetRowsBySiteForMaterials(budgetRows, trips),
+    () => groupTripsBySiteForMaterials(trips, budgetRows),
     [budgetRows, trips]
   );
 
@@ -78,6 +84,56 @@ export default function SitesPage() {
     () => buildSiteWorkbookInventoryRows(siteGroups),
     [siteGroups]
   );
+
+  function beginSitesWorkbooksEdit() {
+    const next = {};
+    for (const g of siteGroups) {
+      for (const t of g.teams) {
+        next[t.tripId] = t.workbooks || "";
+      }
+    }
+    setSitesWorkbooksDraft(next);
+    setSitesWorkbooksEditing(true);
+  }
+
+  function cancelSitesWorkbooksEdit() {
+    setSitesWorkbooksEditing(false);
+    setSitesWorkbooksDraft({});
+  }
+
+  async function saveSitesWorkbooks() {
+    if (sitesWorkbooksSaving) return;
+    try {
+      setSitesWorkbooksSaving(true);
+      setStatus("Saving workbooks…");
+      for (const g of siteGroups) {
+        for (const t of g.teams) {
+          const workbooks =
+            sitesWorkbooksDraft[t.tripId] !== undefined
+              ? sitesWorkbooksDraft[t.tripId]
+              : t.workbooks || "";
+          if ((t.workbooks || "") === workbooks) continue;
+          await saveTripBudget(t.tripId, { workbooks });
+        }
+      }
+      const budgetsRes = await listAllTripBudgets();
+      setBudgetRows(budgetsRes || []);
+      setSitesWorkbooksEditing(false);
+      setSitesWorkbooksDraft({});
+      setStatus("");
+      showToast("Workbooks saved for all listed teams.", "success");
+    } catch (e) {
+      const msg = e.message || "Could not save workbooks.";
+      setStatus(msg);
+      showToast(msg, "error");
+    } finally {
+      setSitesWorkbooksSaving(false);
+    }
+  }
+
+  function updateWorkbooksDraft(tripId, value) {
+    setSitesWorkbooksDraft((prev) => ({ ...prev, [tripId]: value }));
+  }
 
   if (!session || loading) {
     return (
@@ -102,10 +158,12 @@ export default function SitesPage() {
         <span>Sites</span>
       </h1>
       <p className="small" style={{ marginBottom: 20, maxWidth: 720 }}>
-        Materials inventory by site: workbook lines are parsed from each team&apos;s housing budget
-        (e.g. <code>8-Reflection; 4 Good News</code>). Quantities are summed per site. Last updated
-        comes from the most recent budget save for that workbook line at the site. Use{" "}
-        <strong>Site logistics</strong> when a SharePoint link is configured for that location.
+        Every trip is grouped by site (from the housing budget country/city when set, otherwise the
+        trip&apos;s location). Use <strong>Teams by site</strong> below to edit workbook inventory
+        strings for any team—same field as Trip → Materials and the housing budget row in the
+        database. The summary table sums quantities per workbook title per site (e.g.{" "}
+        <code>8-Reflection; 4 Good News</code>). Open <strong>Site logistics</strong> when a
+        SharePoint link is configured for that location.
       </p>
 
       {status ? (
@@ -114,15 +172,9 @@ export default function SitesPage() {
         </div>
       ) : null}
 
-      {inventoryRows.length === 0 ? (
-        <div className="card pad">
-          <div style={{ fontWeight: 800 }}>No workbook inventory yet</div>
-          <div className="small" style={{ marginTop: 8 }}>
-            Enter workbook strings on the Budget → Housing grid or on each trip&apos;s Materials tab.
-          </div>
-        </div>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
+      {inventoryRows.length > 0 ? (
+        <div style={{ overflowX: "auto", marginBottom: 24 }}>
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>Workbook totals by site</div>
           <table className="table" style={{ minWidth: 720, fontSize: 13 }}>
             <thead>
               <tr>
@@ -164,26 +216,72 @@ export default function SitesPage() {
             </tbody>
           </table>
         </div>
-      )}
+      ) : trips.length > 0 ? (
+        <div className="card pad" style={{ marginBottom: 24 }}>
+          <div style={{ fontWeight: 800 }}>No workbook lines parsed yet</div>
+          <div className="small" style={{ marginTop: 8 }}>
+            Add workbook text under a team below (e.g. <code>8-Reflection; 4 Good News</code>) and
+            save. Totals will appear here once there is something to parse.
+          </div>
+        </div>
+      ) : null}
 
-      {siteGroups.length > 0 && (
-        <div className="card pad" style={{ marginTop: 24 }}>
-          <div style={{ fontWeight: 900, marginBottom: 8 }}>Teams by site</div>
-          <div className="small" style={{ marginBottom: 12, color: "var(--muted)" }}>
-            Raw workbook text per team (same as Budget housing).
+      {trips.length === 0 ? (
+        <div className="card pad">
+          <div style={{ fontWeight: 800 }}>No trips yet</div>
+          <div className="small" style={{ marginTop: 8 }}>
+            Create a trip first; then sites and workbook strings will show up here.
+          </div>
+        </div>
+      ) : (
+        <div className="card pad">
+          <div className="row" style={{ marginBottom: 12, alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+            <div>
+              <div style={{ fontWeight: 900 }}>Teams by site</div>
+              <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                {trips.length} trip{trips.length === 1 ? "" : "s"} across {siteGroups.length} site
+                {siteGroups.length === 1 ? "" : "s"}. Edit workbook strings in place, then save.
+              </div>
+            </div>
+            <div className="spacer" />
+            {sitesWorkbooksEditing ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btnPrimary"
+                  disabled={sitesWorkbooksSaving}
+                  onClick={() => void saveSitesWorkbooks()}
+                >
+                  {sitesWorkbooksSaving ? "Saving…" : "Save workbooks"}
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={sitesWorkbooksSaving}
+                  onClick={cancelSitesWorkbooksEdit}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button type="button" className="btn" onClick={beginSitesWorkbooksEdit}>
+                Edit workbooks
+              </button>
+            )}
           </div>
           <div style={{ display: "grid", gap: 16 }}>
             {siteGroups.map((group) => (
               <div key={group.siteLabel}>
                 <div style={{ fontWeight: 800, marginBottom: 6 }}>{group.siteLabel}</div>
                 <div style={{ overflowX: "auto" }}>
-                  <table className="table" style={{ minWidth: 520, fontSize: 12 }}>
+                  <table className="table" style={{ minWidth: 640, fontSize: 12 }}>
                     <thead>
                       <tr>
                         <th>Team</th>
                         <th>Status</th>
                         <th># Workers</th>
-                        <th>Workbooks (raw)</th>
+                        <th>Workbooks</th>
+                        <th style={{ width: 100 }}>Trip</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -192,7 +290,35 @@ export default function SitesPage() {
                           <td>{t.tripName || t.tripId}</td>
                           <td>{t.status === "archived" ? "Archived" : "Active"}</td>
                           <td>{t.numWorkers != null ? t.numWorkers : "—"}</td>
-                          <td>{t.workbooks ? t.workbooks : "—"}</td>
+                          <td style={{ minWidth: 280 }}>
+                            {sitesWorkbooksEditing ? (
+                              <textarea
+                                className="input"
+                                rows={3}
+                                value={
+                                  sitesWorkbooksDraft[t.tripId] !== undefined
+                                    ? sitesWorkbooksDraft[t.tripId]
+                                    : t.workbooks || ""
+                                }
+                                onChange={(e) => updateWorkbooksDraft(t.tripId, e.target.value)}
+                                placeholder="e.g. 8-Reflection; 4 Good News"
+                                style={{ width: "100%", minWidth: 260, fontSize: 12 }}
+                              />
+                            ) : (
+                              <span style={{ whiteSpace: "pre-wrap" }}>
+                                {t.workbooks ? t.workbooks : "—"}
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <Link
+                              className="btn"
+                              href={`/trips/${encodeURIComponent(t.tripId)}?tab=Materials`}
+                              style={{ padding: "6px 10px", fontSize: 11 }}
+                            >
+                              Open
+                            </Link>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

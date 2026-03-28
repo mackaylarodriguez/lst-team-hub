@@ -539,8 +539,6 @@ export default function BudgetPage() {
                   "Returned Amount",
                   "Housing Amount",
                   "Notes",
-                  "# of workers",
-                  "Workbooks",
                 ];
                 const rows = (isEditingHousing ? housingRowsDraft : housingRows).map((r) => [
                   r.teamName || "",
@@ -552,8 +550,6 @@ export default function BudgetPage() {
                   r.returnedAmount || "",
                   r.housingAmount || "",
                   r.notes || "",
-                  r.numWorkers != null ? String(r.numWorkers) : "",
-                  r.workbooks || "",
                 ]);
                 const csvContent = [header, ...rows]
                   .map((cols) =>
@@ -587,7 +583,7 @@ export default function BudgetPage() {
             </button>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table" style={{ minWidth: 1300, fontSize: 12 }}>
+            <table className="table" style={{ minWidth: 1100, fontSize: 12 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
@@ -599,8 +595,6 @@ export default function BudgetPage() {
                   <th>Returned Amount</th>
                   <th>Housing Amount</th>
                   <th>Notes</th>
-                  <th># of workers</th>
-                  <th>Workbooks</th>
                 </tr>
               </thead>
               <tbody>
@@ -632,8 +626,6 @@ export default function BudgetPage() {
                         <td><input className="input" style={{ minWidth: 90 }} value={r.returnedAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "returnedAmount", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 90 }} value={r.housingAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "housingAmount", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 120 }} value={r.notes || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "notes", e.target.value)} /></td>
-                        <td><input className="input" type="number" style={{ width: 60 }} value={r.numWorkers ?? ""} onChange={(e) => updateHousingDraftRow(r.tripId, "numWorkers", e.target.value === "" ? null : parseInt(e.target.value, 10) || null)} /></td>
-                        <td><input className="input" style={{ minWidth: 70 }} value={r.workbooks || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "workbooks", e.target.value)} /></td>
                       </>
                     ) : (
                       <>
@@ -651,8 +643,6 @@ export default function BudgetPage() {
                         <td>{r.returnedAmount || ""}</td>
                         <td>{r.housingAmount || ""}</td>
                         <td>{r.notes || ""}</td>
-                        <td>{r.numWorkers != null ? r.numWorkers : ""}</td>
-                        <td>{r.workbooks || ""}</td>
                       </>
                     )}
                   </tr>
