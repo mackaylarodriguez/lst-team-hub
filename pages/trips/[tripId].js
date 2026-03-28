@@ -388,6 +388,8 @@ function getEffectiveTutorialContent(slot, doc) {
 
 /** Staff preview of worker UI when roster members do not have Hub accounts yet */
 const WORKER_PREVIEW_PARTICIPANT_ID = "__lst_worker_preview__";
+/** Staff preview of trip-leader tabs (no Materials / Staff Tasks) */
+const LEADER_PREVIEW_PARTICIPANT_ID = "__lst_leader_preview__";
 
 export default function TripPage() {
   const router = useRouter();
@@ -498,11 +500,20 @@ export default function TripPage() {
   const staffTaskNoteSaveTimeoutsRef = useRef({});
   const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
-  const isPreviewingParticipant = canManageTrips && !!previewParticipantId;
-  const staffViewAllParticipants = canManageTrips && !isPreviewingParticipant;
   const isLeader = isLeaderRole(session?.permissionRole || session?.role);
-  const canViewTeamDashboard = staffViewAllParticipants || (isLeader && !isPreviewingParticipant);
-  const canManageTripMeetings = staffViewAllParticipants || (isLeader && !isPreviewingParticipant);
+  const isStaffPreviewingLeader =
+    canManageTrips && String(previewParticipantId) === LEADER_PREVIEW_PARTICIPANT_ID;
+  const isStaffPreviewingWorker =
+    canManageTrips &&
+    !!previewParticipantId &&
+    String(previewParticipantId) !== LEADER_PREVIEW_PARTICIPANT_ID;
+  const isPreviewingParticipant = isStaffPreviewingWorker;
+  const staffViewAllParticipants = canManageTrips && !previewParticipantId;
+  const effectiveIsLeader = isLeader || isStaffPreviewingLeader;
+  const canViewTeamDashboard =
+    staffViewAllParticipants || (effectiveIsLeader && !isPreviewingParticipant);
+  const canManageTripMeetings =
+    staffViewAllParticipants || (effectiveIsLeader && !isPreviewingParticipant);
 
   const staffList = [
     "Mackayla",
@@ -828,7 +839,7 @@ export default function TripPage() {
   }, [trip?.id]);
 
   useEffect(() => {
-    if (!trip?.id || !canViewTeamDashboard) return;
+    if (!trip?.id || !staffViewAllParticipants) return;
     let cancelled = false;
 
     async function loadTripBudgetRow() {
@@ -869,10 +880,10 @@ export default function TripPage() {
     return () => {
       cancelled = true;
     };
-  }, [trip?.id, canViewTeamDashboard]);
+  }, [trip?.id, staffViewAllParticipants]);
 
   useEffect(() => {
-    if (!canManageTrips) return;
+    if (!canManageTrips || !staffViewAllParticipants) return;
     let cancelled = false;
     (async () => {
       try {
@@ -886,7 +897,7 @@ export default function TripPage() {
     return () => {
       cancelled = true;
     };
-  }, [canManageTrips]);
+  }, [canManageTrips, staffViewAllParticipants]);
 
   useEffect(() => {
     if (!trip?.id || !canManageTrips) return;
@@ -4592,18 +4603,16 @@ function parseDateSafe(dateStr) {
     "Fundraising",
     "Training",
     "Tasks",
-    "Materials",
     tripDocumentsTabLabel,
     participantDocumentsTabLabel,
     "Travel Form",
   ];
-  const tabs = isLeader && !isPreviewingParticipant
-    ? leaderExpandedTabs
-    : canManageTrips
-      ? isPreviewingParticipant
-        ? workerTabList
-        : managerExpandedTabs
-      : workerTabList;
+  const tabs = (() => {
+    if (isPreviewingParticipant) return workerTabList;
+    if (canManageTrips && !isStaffPreviewingLeader) return managerExpandedTabs;
+    if (effectiveIsLeader) return leaderExpandedTabs;
+    return workerTabList;
+  })();
 
   const travelFormTshirtSummary = useMemo(() => {
     return (travelFormResponses || [])
@@ -4813,21 +4822,29 @@ function parseDateSafe(dateStr) {
                   className="input tripPagePreviewSelect"
                   value={previewParticipantId}
                   onChange={(event) => setPreviewParticipantId(event.target.value)}
-                  style={{ minWidth: 240 }}
+                  style={{ minWidth: 260 }}
                 >
-                  <option value="">Staff view</option>
+                  <option value="">Staff view (full)</option>
+                  <option value={LEADER_PREVIEW_PARTICIPANT_ID}>Leader view (preview)</option>
                   <option value={WORKER_PREVIEW_PARTICIPANT_ID}>
-                    View as worker (no account on roster yet)
+                    Worker view — not on Hub yet
                   </option>
-                  {(trip.participants || []).map((participant) => (
-                    <option key={participant.id} value={participant.id}>
-                      View as {participant.name}
-                    </option>
-                  ))}
+                  {(trip.participants || []).length > 0 ? (
+                    <optgroup label="Worker view — choose roster member">
+                      {(trip.participants || []).map((participant) => (
+                        <option key={participant.id} value={participant.id}>
+                          {participant.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : null}
                 </select>
-                {isPreviewingParticipant && (
+                {isStaffPreviewingLeader ? (
+                  <span className="badge">Previewing leader view</span>
+                ) : null}
+                {isPreviewingParticipant ? (
                   <span className="badge">Previewing worker view</span>
-                )}
+                ) : null}
               </div>
             )}
           </div>
@@ -6973,7 +6990,7 @@ function parseDateSafe(dateStr) {
         </div>
       )}
 
-      {tab === "Materials" && canViewTeamDashboard && (
+      {tab === "Materials" && staffViewAllParticipants && (
         <div style={{ display: "grid", gap: 16 }}>
           {tripBudgetLoadError ? (
             <div className="card pad small" style={{ color: "var(--danger)" }}>
