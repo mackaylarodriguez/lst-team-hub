@@ -28,6 +28,26 @@ function n(val) {
   return val === null || val === undefined ? "" : String(val).trim();
 }
 
+function parseTripStartDateMs(value) {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  if (!s) return null;
+  const parsed = Date.parse(s.length <= 10 ? `${s}T12:00:00` : s);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** Sort trips for Budget housing/ticketing: soonest start first; missing dates last; then name. */
+function compareTripsForBudgetSort(a, b) {
+  const ma = parseTripStartDateMs(a?.startDate);
+  const mb = parseTripStartDateMs(b?.startDate);
+  const fa = ma ?? Number.MAX_SAFE_INTEGER;
+  const fb = mb ?? Number.MAX_SAFE_INTEGER;
+  if (fa !== fb) return fa - fb;
+  return String(a?.name || a?.id || "").localeCompare(String(b?.name || b?.id || ""), undefined, {
+    sensitivity: "base",
+  });
+}
+
 /** Background + left accent so consecutive trip groups are easy to scan on Budget → Ticketing. */
 const TICKET_TRIP_BAND_STYLES = [
   { bg: "rgba(239, 246, 255, 0.82)", border: "#3b82f6" },
@@ -42,7 +62,8 @@ const TICKET_TRIP_BAND_STYLES = [
 
 function mergeHousingWithTrips(trips, budgets) {
   const byTripId = new Map((budgets || []).map((b) => [b.tripId, b]));
-  return (trips || []).map((trip) => {
+  const orderedTrips = [...(trips || [])].sort(compareTripsForBudgetSort);
+  return orderedTrips.map((trip) => {
     const b = byTripId.get(trip.id);
     return b
       ? { ...b, tripName: b.tripName || trip.name, housingLink: n(b.housingLink) }
@@ -92,8 +113,21 @@ export default function BudgetPage() {
     [trips]
   );
 
+  const tripsSortedForBudget = useMemo(
+    () => [...(trips || [])].sort(compareTripsForBudgetSort),
+    [trips]
+  );
+
   const ticketsSortedWithBands = useMemo(() => {
+    const startByTripId = new Map();
+    for (const t of trips || []) {
+      const ms = parseTripStartDateMs(t.startDate);
+      startByTripId.set(t.id, ms ?? Number.MAX_SAFE_INTEGER);
+    }
     const sorted = [...ticketRows].sort((a, b) => {
+      const sa = startByTripId.get(a.tripId) ?? Number.MAX_SAFE_INTEGER;
+      const sb = startByTripId.get(b.tripId) ?? Number.MAX_SAFE_INTEGER;
+      if (sa !== sb) return sa - sb;
       const byTeam = String(a.tripName || a.tripId || "").localeCompare(
         String(b.tripName || b.tripId || ""),
         undefined,
@@ -114,7 +148,7 @@ export default function BudgetPage() {
       lastTripId = tid;
     }
     return { sorted, bands };
-  }, [ticketRows]);
+  }, [ticketRows, trips]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +180,10 @@ export default function BudgetPage() {
         setHousingRows(mergeHousingWithTrips(tripsRes, housingRes));
         setTicketRows(refreshedTickets.length ? refreshedTickets : ticketsRes);
         setSiteHousingNotes(siteNotesRes || []);
-        if (tripsRes?.length > 0 && !newTicketTripId) setNewTicketTripId(tripsRes[0].id);
+        if (tripsRes?.length > 0 && !newTicketTripId) {
+          const sorted = [...tripsRes].sort(compareTripsForBudgetSort);
+          setNewTicketTripId(sorted[0].id);
+        }
       } catch (e) {
         if (!cancelled) {
           const msg = e.message || "Error loading budget data.";
@@ -692,7 +729,7 @@ export default function BudgetPage() {
                     onChange={(e) => setNewTicketTripId(e.target.value)}
                     style={{ minWidth: 200 }}
                   >
-                    {trips.map((t) => (
+                    {tripsSortedForBudget.map((t) => (
                       <option key={t.id} value={t.id}>{t.name || t.id}</option>
                     ))}
                   </select>
