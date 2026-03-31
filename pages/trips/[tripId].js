@@ -373,6 +373,7 @@ function buildTrainingModuleRowDomId(moduleId) {
 }
 
 function getDocumentCategoryBadgeClass(category) {
+  if (category === "Flights") return "badgeWarn";
   if (category === "Travel") return "badgeInfo";
   if (category === "Insurance") return "badgeWarn";
   if (category === "Budget") return "badgeSuccess";
@@ -412,6 +413,7 @@ function getEffectiveTutorialContent(slot, doc) {
 const WORKER_PREVIEW_PARTICIPANT_ID = "__lst_worker_preview__";
 /** Staff preview of trip-leader tabs (no Materials / Staff Tasks) */
 const LEADER_PREVIEW_PARTICIPANT_ID = "__lst_leader_preview__";
+const ROSTER_PREVIEW_PREFIX = "__lst_roster_preview__:";
 
 export default function TripPage() {
   const router = useRouter();
@@ -4090,13 +4092,60 @@ function parseDateSafe(dateStr) {
     [visibleDocs]
   );
   const optionalDocs = useMemo(() => {
-    return (visibleDocs || []).filter((doc) => !doc.resourceKey);
+    return (visibleDocs || [])
+      .filter((doc) => !doc.resourceKey)
+      .sort((a, b) => {
+        const aFlights = String(a?.category || "").toLowerCase() === "flights";
+        const bFlights = String(b?.category || "").toLowerCase() === "flights";
+        if (aFlights !== bFlights) return aFlights ? -1 : 1;
+        const aCreated = new Date(a?.createdAt || 0).getTime();
+        const bCreated = new Date(b?.createdAt || 0).getTime();
+        if (aCreated !== bCreated) return bCreated - aCreated;
+        return String(a?.title || "").localeCompare(String(b?.title || ""));
+      });
   }, [visibleDocs]);
+
+  const workerPreviewOptions = useMemo(() => {
+    if (!trip) return [];
+    const participantEmails = new Set(
+      (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+    );
+    const options = (trip.participants || []).map((participant) => ({
+      id: String(participant.id || ""),
+      label: participant.name || participant.email || "Worker",
+    }));
+    for (const member of trip.teamMembers || []) {
+      if (!member?.id) continue;
+      const email = normalizeEmail(member.email);
+      if (email && participantEmails.has(email)) continue;
+      options.push({
+        id: `${ROSTER_PREVIEW_PREFIX}${member.id}`,
+        label: member.name || member.email || "Roster member",
+      });
+    }
+    return options.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+  }, [trip]);
 
   const currentParticipant = useMemo(() => {
     if (!trip) return null;
 
     if (isPreviewingParticipant) {
+      if (String(previewParticipantId).startsWith(ROSTER_PREVIEW_PREFIX)) {
+        const rosterId = String(previewParticipantId).slice(ROSTER_PREVIEW_PREFIX.length);
+        const rosterMember = (trip.teamMembers || []).find((m) => String(m.id) === String(rosterId));
+        if (rosterMember) {
+          return {
+            id: `${ROSTER_PREVIEW_PREFIX}${rosterMember.id}`,
+            tripTeamMemberId: rosterMember.id,
+            name: rosterMember.name || rosterMember.email || "Roster member",
+            email: rosterMember.email || "",
+            firstName: rosterMember.firstName || "",
+            lastName: rosterMember.lastName || "",
+            rosterOnly: true,
+            assignmentId: "",
+          };
+        }
+      }
       if (String(previewParticipantId) === WORKER_PREVIEW_PARTICIPANT_ID) {
         return {
           id: WORKER_PREVIEW_PARTICIPANT_ID,
@@ -5223,14 +5272,11 @@ function parseDateSafe(dateStr) {
                 >
                   <option value="">Staff view (full)</option>
                   <option value={LEADER_PREVIEW_PARTICIPANT_ID}>Leader view (preview)</option>
-                  <option value={WORKER_PREVIEW_PARTICIPANT_ID}>
-                    Worker view — not on Hub yet
-                  </option>
-                  {(trip.participants || []).length > 0 ? (
+                  {workerPreviewOptions.length > 0 ? (
                     <optgroup label="Worker view — choose roster member">
-                      {(trip.participants || []).map((participant) => (
+                      {workerPreviewOptions.map((participant) => (
                         <option key={participant.id} value={participant.id}>
-                          {participant.name}
+                          {participant.label}
                         </option>
                       ))}
                     </optgroup>
