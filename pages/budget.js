@@ -15,6 +15,7 @@ import {
   listAllTripBudgets,
   listSiteBudgetNotes,
   saveTripBudget,
+  uploadTripHousingPdf,
 } from "@/lib/tripBudget";
 import {
   listAllTripTickets,
@@ -85,7 +86,12 @@ function mergeHousingWithTrips(trips, budgets) {
   return orderedTrips.map((trip) => {
     const b = byTripId.get(trip.id);
     return b
-      ? { ...b, tripName: b.tripName || trip.name, housingLink: n(b.housingLink) }
+      ? {
+          ...b,
+          tripName: b.tripName || trip.name,
+          housingLink: n(b.housingLink),
+          housingPdfUrl: n(b.housingPdfUrl),
+        }
       : {
           id: null,
           tripId: trip.id,
@@ -100,6 +106,7 @@ function mergeHousingWithTrips(trips, budgets) {
           returnedAmount: "",
           housingAmount: "",
           housingLink: "",
+          housingPdfUrl: "",
           notes: "",
           numWorkers: null,
           tshirts: "",
@@ -124,6 +131,7 @@ export default function BudgetPage() {
   const [isEditingTickets, setIsEditingTickets] = useState(false);
   const [ticketToDeleteId, setTicketToDeleteId] = useState(null);
   const [siteHousingNotes, setSiteHousingNotes] = useState([]);
+  const [housingPdfUploadingTripId, setHousingPdfUploadingTripId] = useState(null);
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
 
@@ -226,6 +234,19 @@ export default function BudgetPage() {
     });
   }
 
+  async function handleHousingPdfFile(tripId, file) {
+    if (!file) return;
+    try {
+      setHousingPdfUploadingTripId(tripId);
+      const url = await uploadTripHousingPdf(tripId, file);
+      updateHousingDraftRow(tripId, "housingPdfUrl", url);
+    } catch (e) {
+      showToast(e.message || "Upload failed", "error");
+    } finally {
+      setHousingPdfUploadingTripId(null);
+    }
+  }
+
   async function saveHousingBudget() {
     try {
       setStatus("Saving...");
@@ -241,6 +262,7 @@ export default function BudgetPage() {
           returnedAmount: row.returnedAmount,
           housingAmount: row.housingAmount,
           housingLink: row.housingLink,
+          housingPdfUrl: row.housingPdfUrl,
           notes: row.notes,
         });
       }
@@ -533,8 +555,9 @@ export default function BudgetPage() {
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
               <div style={{ fontWeight: 900 }}>Housing budget (all trips)</div>
               <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
-                Rows are auto-generated when a trip is created. Site housing notes:{" "}
-                <Link href="/sites">Sites</Link>. Per-team materials: trip <strong>Materials</strong> tab.
+                Rows are auto-generated when a trip is created. Add a booking link and/or upload a PDF — both
+                sync to each trip&apos;s <strong>Documents → Team housing</strong> for workers. Site housing
+                notes: <Link href="/sites">Sites</Link>. Per-team materials: trip <strong>Materials</strong> tab.
               </div>
             </div>
             <div
@@ -588,6 +611,7 @@ export default function BudgetPage() {
                   "Returned Amount",
                   "Housing Amount",
                   "Housing Link",
+                  "Housing PDF URL",
                   "Notes",
                 ];
                 const rows = (isEditingHousing ? housingRowsDraft : housingRows).map((r) => [
@@ -600,6 +624,7 @@ export default function BudgetPage() {
                   r.returnedAmount || "",
                   r.housingAmount || "",
                   r.housingLink || "",
+                  r.housingPdfUrl || "",
                   r.notes || "",
                 ]);
                 const csvContent = [header, ...rows]
@@ -634,7 +659,7 @@ export default function BudgetPage() {
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table" style={{ minWidth: 1220, fontSize: 12 }}>
+            <table className="table" style={{ minWidth: 1320, fontSize: 12 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
@@ -645,7 +670,7 @@ export default function BudgetPage() {
                   <th>Budget Amount</th>
                   <th>Returned Amount</th>
                   <th>Housing Amount</th>
-                  <th>Housing link</th>
+                  <th>Housing link / PDF</th>
                   <th>Notes</th>
                 </tr>
               </thead>
@@ -677,16 +702,55 @@ export default function BudgetPage() {
                         <td><input className="input" style={{ minWidth: 90 }} value={r.budgetAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "budgetAmount", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 90 }} value={r.returnedAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "returnedAmount", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 90 }} value={r.housingAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "housingAmount", e.target.value)} /></td>
-                        <td>
+                        <td style={{ minWidth: 220, verticalAlign: "top" }}>
                           <input
                             className="input"
-                            style={{ minWidth: 160 }}
+                            style={{ minWidth: 180, width: "100%" }}
                             type="url"
                             inputMode="url"
-                            placeholder="https://…"
+                            placeholder="https://… (optional if PDF)"
                             value={r.housingLink || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "housingLink", e.target.value)}
                           />
+                          <div
+                            className="row"
+                            style={{ marginTop: 6, gap: 8, flexWrap: "wrap", alignItems: "center" }}
+                          >
+                            <label className="small" style={{ cursor: "pointer", fontWeight: 600 }}>
+                              <input
+                                type="file"
+                                accept="application/pdf,.pdf"
+                                style={{ display: "none" }}
+                                disabled={housingPdfUploadingTripId === r.tripId}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  e.target.value = "";
+                                  void handleHousingPdfFile(r.tripId, f);
+                                }}
+                              />
+                              {housingPdfUploadingTripId === r.tripId ? "Uploading…" : "Choose PDF"}
+                            </label>
+                            {r.housingPdfUrl ? (
+                              <>
+                                <a
+                                  className="small"
+                                  href={r.housingPdfUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Open PDF
+                                </a>
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  style={{ padding: "2px 8px", fontSize: 11 }}
+                                  onClick={() => updateHousingDraftRow(r.tripId, "housingPdfUrl", "")}
+                                >
+                                  Clear PDF
+                                </button>
+                              </>
+                            ) : null}
+                          </div>
                         </td>
                         <td><input className="input" style={{ minWidth: 120 }} value={r.notes || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "notes", e.target.value)} /></td>
                       </>
@@ -705,21 +769,31 @@ export default function BudgetPage() {
                         <td>{r.budgetAmount || ""}</td>
                         <td>{r.returnedAmount || ""}</td>
                         <td>{r.housingAmount || ""}</td>
-                        <td className="small" style={{ maxWidth: 200, wordBreak: "break-all" }}>
-                          {r.housingLink ? (
-                            <a
-                              href={
-                                /^https?:\/\//i.test(String(r.housingLink).trim())
-                                  ? String(r.housingLink).trim()
-                                  : `https://${String(r.housingLink).trim()}`
-                              }
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {r.housingLink}
-                            </a>
+                        <td className="small" style={{ maxWidth: 220, wordBreak: "break-all" }}>
+                          {r.housingLink || r.housingPdfUrl ? (
+                            <>
+                              {r.housingLink ? (
+                                <a
+                                  href={
+                                    /^https?:\/\//i.test(String(r.housingLink).trim())
+                                      ? String(r.housingLink).trim()
+                                      : `https://${String(r.housingLink).trim()}`
+                                  }
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {r.housingLink}
+                                </a>
+                              ) : null}
+                              {r.housingLink && r.housingPdfUrl ? <br /> : null}
+                              {r.housingPdfUrl ? (
+                                <a href={r.housingPdfUrl} target="_blank" rel="noreferrer">
+                                  Housing PDF
+                                </a>
+                              ) : null}
+                            </>
                           ) : (
-                            ""
+                            "—"
                           )}
                         </td>
                         <td>{r.notes || ""}</td>
