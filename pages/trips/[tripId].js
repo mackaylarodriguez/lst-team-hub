@@ -489,7 +489,6 @@ export default function TripPage() {
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
   const [editableStaffTasks, setEditableStaffTasks] = useState([]);
   const [editingStaffTaskId, setEditingStaffTaskId] = useState(null);
-  const [editingDueDateTaskId, setEditingDueDateTaskId] = useState(null);
   const [staffTaskDueDateDraft, setStaffTaskDueDateDraft] = useState("");
   const [staffTaskTitleDraft, setStaffTaskTitleDraft] = useState("");
   const [isAddingStaffTask, setIsAddingStaffTask] = useState(false);
@@ -2622,11 +2621,15 @@ export default function TripPage() {
   function handleEditStaffTask(task) {
     setEditingStaffTaskId(task.id);
     setStaffTaskTitleDraft(task.taskName || task.title || "");
+    setStaffTaskDueDateDraft(
+      task.dueDate || computeStaffTaskDueDate(task, trip) || ""
+    );
   }
 
   function handleCancelStaffTaskEdit() {
     setEditingStaffTaskId(null);
     setStaffTaskTitleDraft("");
+    setStaffTaskDueDateDraft("");
   }
 
   async function handleAddStaffTask() {
@@ -2673,26 +2676,25 @@ export default function TripPage() {
     }
   }
 
-  function handleSaveStaffTaskDueDate(taskId) {
-    updateStaffTask(taskId, "dueDate", staffTaskDueDateDraft || "");
-    setEditingDueDateTaskId(null);
-    setStaffTaskDueDateDraft("");
-  }
-
-  function handleCancelStaffTaskDueDateEdit() {
-    setEditingDueDateTaskId(null);
-    setStaffTaskDueDateDraft("");
-  }
-
   function handleJumpToStaffTask(taskId) {
     if (!taskId) return;
     setPendingStaffTaskJumpId(taskId);
     setTab("Staff Tasks");
   }
 
-  function handleSaveStaffTaskTitle(taskId) {
-    updateStaffTask(taskId, "taskName", staffTaskTitleDraft.trim() || "Untitled task");
-    handleCancelStaffTaskEdit();
+  async function handleSaveStaffTaskRow(taskId) {
+    const baseTasks = editableStaffTasksRef.current || [];
+    const title = staffTaskTitleDraft.trim() || "Untitled task";
+    const due = staffTaskDueDateDraft || "";
+    const nextTasks = baseTasks.map((task) =>
+      task.id === taskId ? { ...task, taskName: title, dueDate: due } : task
+    );
+    try {
+      await saveStaffTasks(nextTasks);
+      handleCancelStaffTaskEdit();
+    } catch {
+      /* saveStaffTasks already surfaced error; keep edit mode */
+    }
   }
 
   function getStaffTaskAreaLabel(area) {
@@ -9387,9 +9389,7 @@ function parseDateSafe(dateStr) {
                                   />
                                 ) : (
                                   <>
-                                    <span style={{ fontSize: "14px", fontWeight: 600 }}>
-                                      {t.taskName || t.title || "-"}
-                                    </span>
+                                    <span>{t.taskName || t.title || "-"}</span>
                                     {staffTaskLink ? (
                                       <a
                                         href={staffTaskLink}
@@ -9454,82 +9454,26 @@ function parseDateSafe(dateStr) {
                               </td>
 
                               <td>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                  {editingDueDateTaskId === t.id ? (
-                                    <>
-                                      <input
-                                        className="input"
-                                        type="date"
-                                        autoFocus
-                                        value={staffTaskDueDateDraft}
-                                        onChange={(e) => setStaffTaskDueDateDraft(e.target.value)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === "Escape") handleCancelStaffTaskDueDateEdit();
-                                        }}
-                                      />
-                                      <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-                                        <button
-                                          type="button"
-                                          className="btn btnPrimary"
-                                          style={{ padding: "4px 10px", fontSize: 12 }}
-                                          onClick={() => handleSaveStaffTaskDueDate(t.id)}
-                                        >
-                                          Save
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="btn"
-                                          style={{ padding: "4px 10px", fontSize: 12 }}
-                                          onClick={handleCancelStaffTaskDueDateEdit}
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div style={{ fontWeight: 600 }}>
-                                        {effectiveStaffDueDate
-                                          ? formatShortDate(effectiveStaffDueDate)
-                                          : "—"}
-                                      </div>
-                                      <div
-                                        className="row"
-                                        style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}
-                                      >
-                                        {!t.dueDate && effectiveStaffDueDate ? (
-                                          <span className="small" style={{ color: "var(--muted)" }}>
-                                            Auto
-                                          </span>
-                                        ) : t.dueDate &&
-                                          t.dueDate === computeStaffTaskDueDate(t, trip) ? (
-                                          <span className="small" style={{ color: "var(--muted)" }}>
-                                            Auto
-                                          </span>
-                                        ) : null}
-                                        <button
-                                          type="button"
-                                          className="btn"
-                                          style={{ padding: "2px 8px", fontSize: 12 }}
-                                          onClick={() => {
-                                            setEditingDueDateTaskId(t.id);
-                                            setStaffTaskDueDateDraft(
-                                              t.dueDate || computeStaffTaskDueDate(t, trip) || ""
-                                            );
-                                          }}
-                                        >
-                                          Edit
-                                        </button>
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
+                                {isEditingTitle ? (
+                                  <input
+                                    className="input"
+                                    type="date"
+                                    value={staffTaskDueDateDraft}
+                                    onChange={(e) => setStaffTaskDueDateDraft(e.target.value)}
+                                  />
+                                ) : (
+                                  <>
+                                    {effectiveStaffDueDate
+                                      ? formatShortDate(effectiveStaffDueDate)
+                                      : "—"}
+                                  </>
+                                )}
                               </td>
 
                               <td>
                                 <div className="staffTaskNotesCell">
                                   <textarea
-                                    className="staffTaskNotesInput"
+                                    className="input staffTaskNotesInput"
                                     rows={2}
                                     value={t.notes || ""}
                                     onChange={(e) =>
@@ -9569,7 +9513,7 @@ function parseDateSafe(dateStr) {
                                       <button
                                         className="btn btnPrimary"
                                         type="button"
-                                        onClick={() => handleSaveStaffTaskTitle(t.id)}
+                                        onClick={() => handleSaveStaffTaskRow(t.id)}
                                       >
                                         Save
                                       </button>
