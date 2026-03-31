@@ -9294,7 +9294,9 @@ function parseDateSafe(dateStr) {
                                       onChange={(e) =>
                                         handleDueDateChange(t.id, e.target.value)
                                       }
-                                      onBlur={() => setEditingDueDateTaskId(null)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Escape") setEditingDueDateTaskId(null);
+                                      }}
                                     />
                                   ) : (
                                     <button
