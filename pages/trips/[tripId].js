@@ -22,6 +22,7 @@ import {
   saveTripTeamMemberFundraisingUrl,
   saveTripTeamMembers,
 } from "@/lib/tripTeamMembers";
+import { pruneTripTicketsForNonTravelingLeaders } from "@/lib/tripTickets";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import {
   getTrainingModuleDeadline,
@@ -203,7 +204,7 @@ const TEAM_STATUS_OPTIONS = [
 ];
 
 const TSHIRT_SIZE_OPTIONS = ["", "XS", "S", "M", "L", "XL", "XXL", "3XL"];
-const TEAM_MEMBER_ROLE_OPTIONS = ["Worker", "Trainer"];
+const TEAM_MEMBER_ROLE_OPTIONS = ["Worker", "Trainer", "Leader"];
 function getTshirtSizeOptions(currentValue) {
   const v = String(currentValue || "").trim();
   if (!v || TSHIRT_SIZE_OPTIONS.includes(v)) return TSHIRT_SIZE_OPTIONS;
@@ -346,6 +347,7 @@ function createEmptyRosterMember() {
     lastName: "",
     email: "",
     teamRole: "Worker",
+    travelsWithTeam: true,
     startDate: "",
     endDate: "",
   };
@@ -3357,7 +3359,8 @@ function parseDateSafe(dateStr) {
             firstName: member.firstName || "",
             lastName: member.lastName || "",
             email: member.email || "",
-            teamRole: member.role || "Worker",
+            teamRole: member.teamRole || member.role || "Worker",
+            travelsWithTeam: member.travelsWithTeam !== false,
             startDate: member.startDate || "",
             endDate: member.endDate || "",
           }))
@@ -3477,6 +3480,12 @@ function parseDateSafe(dateStr) {
         .map((member) => member.assignmentId);
       const savedMembers = await saveTripTeamMembers(trip.id, rosterDraft);
 
+      try {
+        await pruneTripTicketsForNonTravelingLeaders();
+      } catch (pruneErr) {
+        console.warn("pruneTripTicketsForNonTravelingLeaders", pruneErr);
+      }
+
       if (removedAssignmentIds.length > 0) {
         await Promise.all(removedAssignmentIds.map((assignmentId) => removeTripAssignment(assignmentId)));
       }
@@ -3498,6 +3507,35 @@ function parseDateSafe(dateStr) {
     } catch (error) {
       console.error("Unable to save team roster", error);
       setRosterStatus(error.message || "Unable to save team roster.");
+    }
+  }
+
+  async function handleToggleLeaderTraveling(member) {
+    if (!trip?.id || !staffViewAllParticipants || !member.id) return;
+    const role = member.teamRole || member.role || "";
+    if (role !== "Leader") return;
+
+    const currentlyTravels = member.travelsWithTeam !== false;
+    try {
+      setRosterStatus("Saving...");
+      const nextMembers = (trip.teamMembers || []).map((m) =>
+        String(m.id) === String(member.id)
+          ? { ...m, travelsWithTeam: !currentlyTravels }
+          : m
+      );
+      const savedMembers = await saveTripTeamMembers(trip.id, nextMembers);
+      setTrip((current) => (current ? { ...current, teamMembers: savedMembers } : current));
+      try {
+        await pruneTripTicketsForNonTravelingLeaders();
+      } catch (pruneErr) {
+        console.warn("pruneTripTicketsForNonTravelingLeaders", pruneErr);
+      }
+      setRosterStatus("Saved.");
+    } catch (error) {
+      console.error("Unable to update leader travel flag", error);
+      const msg = error.message || "Unable to update.";
+      setRosterStatus(msg);
+      showToast(msg, "error");
     }
   }
 
@@ -4310,6 +4348,8 @@ function parseDateSafe(dateStr) {
         firstName: member.firstName || "",
         lastName: member.lastName || "",
         role: member.teamRole || member.role || "",
+        teamRole: member.teamRole || member.role || "Worker",
+        travelsWithTeam: member.travelsWithTeam !== false,
         email,
         fundraisingUrl: "",
         startDate: member.startDate || trip.startDate || "",
@@ -4322,14 +4362,23 @@ function parseDateSafe(dateStr) {
       const email = participant.email || "";
       const key = normalizeEmail(email) || `participant-${participant.id || participant.name || index}`;
       const existing = membersByKey.get(key);
+      const rosterMatch = (trip.teamMembers || []).find(
+        (m) => normalizeEmail(m.email) === key
+      );
 
       membersByKey.set(key, {
         key,
-        id: existing?.id || "",
+        id: rosterMatch?.id || existing?.id || "",
         name: participant.name || existing?.name || "Unnamed member",
         firstName: participant.firstName || existing?.firstName || "",
         lastName: participant.lastName || existing?.lastName || "",
-        role: existing?.role || participant.role || "",
+        role: rosterMatch?.teamRole || existing?.role || participant.role || "",
+        teamRole: rosterMatch?.teamRole || existing?.teamRole || participant.role || "Worker",
+        travelsWithTeam: rosterMatch
+          ? rosterMatch.travelsWithTeam !== false
+          : existing
+            ? existing.travelsWithTeam !== false
+            : true,
         email: participant.email || existing?.email || "",
         fundraisingUrl: participant.fundraisingUrl || existing?.fundraisingUrl || "",
         startDate: existing?.startDate || trip.startDate || "",
@@ -6122,6 +6171,27 @@ function parseDateSafe(dateStr) {
                       value={member.endDate || ""}
                       onChange={(event) => updateRosterDraftMember(index, "endDate", event.target.value)}
                     />
+                    {(member.teamRole || "Worker") === "Leader" ? (
+                      <label
+                        className="small"
+                        style={{
+                          gridColumn: "1 / -1",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={member.travelsWithTeam !== false}
+                          onChange={(event) =>
+                            updateRosterDraftMember(index, "travelsWithTeam", event.target.checked)
+                          }
+                        />
+                        Traveling with team (uncheck if this leader is not traveling — skips auto ticketing)
+                      </label>
+                    ) : null}
                     <button className="btn" type="button" onClick={() => handleRemoveRosterMember(index)}>
                       Remove
                     </button>
@@ -6146,6 +6216,14 @@ function parseDateSafe(dateStr) {
                   <tr>
                     <th>Name</th>
                     <th>Role</th>
+                    {staffViewAllParticipants ? (
+                      <th
+                        title="Leaders only. No = not traveling; auto ticketing is not created for them."
+                        style={{ whiteSpace: "nowrap" }}
+                      >
+                        Traveling w/ team?
+                      </th>
+                    ) : null}
                     <th>Account</th>
                     <th>Email</th>
                     <th>Project Dates</th>
@@ -6182,7 +6260,25 @@ function parseDateSafe(dateStr) {
                             member.name
                           )}
                         </td>
-                        <td>{member.role || "Worker"}</td>
+                        <td>{member.teamRole || member.role || "Worker"}</td>
+                        {staffViewAllParticipants ? (
+                          <td>
+                            {(member.teamRole || member.role) === "Leader" ? (
+                              <button
+                                type="button"
+                                className="btn"
+                                style={{ padding: "4px 10px", fontSize: 12 }}
+                                disabled={!member.id}
+                                title="Toggle whether this leader travels with the team (No = skip auto ticketing)"
+                                onClick={() => void handleToggleLeaderTraveling(member)}
+                              >
+                                {member.travelsWithTeam !== false ? "Yes" : "No"}
+                              </button>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                        ) : null}
                         <td>
                           <span className={`badge ${connectionStatus.accountBadgeClass}`.trim()}>
                             {connectionStatus.accountLabel}

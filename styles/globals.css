@@ -405,6 +405,56 @@ a:hover{text-decoration:underline}
   min-height:44px;
 }
 .input:focus{outline:none; border-color:rgba(60,170,225,.7); box-shadow:0 0 0 4px rgba(60,170,225,.12)}
+
+/* Budget → Ticketing: compact trip picker and full-width edit fields (not oversized “pill” inputs). */
+.budgetTripPicker{
+  display:block;
+  max-width:min(260px, 100%);
+  width:100%;
+  min-height:36px;
+  padding:6px 10px;
+  font-size:13px;
+  line-height:1.35;
+  border-radius:8px;
+}
+.budgetTicketTable{
+  table-layout:auto;
+}
+.budgetTicketTable textarea.budgetTicketMultiline,
+.budgetTicketTable input.budgetTicketCompact{
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+  padding:8px 10px;
+  font-size:13px;
+  line-height:1.45;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:#fff;
+  font-family:inherit;
+  color:var(--text);
+}
+.budgetTicketTable textarea.budgetTicketMultiline{
+  min-height:3.25em;
+  resize:vertical;
+  vertical-align:top;
+}
+.budgetTicketTable textarea.budgetTicketMultiline:focus,
+.budgetTicketTable input.budgetTicketCompact:focus{
+  outline:none;
+  border-color:rgba(60,170,225,.7);
+  box-shadow:0 0 0 3px rgba(60,170,225,.1);
+}
+.budgetTicketTable input.budgetTicketCompact:read-only{
+  background:rgba(148, 163, 184, 0.1);
+  color:var(--text);
+}
+.budgetTicketViewCell{
+  vertical-align:top;
+  white-space:pre-wrap;
+  word-break:break-word;
+  max-width:220px;
+}
 .statusSelect{font-weight:700}
 .statusNotStarted{border-color:rgba(239,68,68,.25); background:rgba(239,68,68,.08); color:#b42318}
 .statusInProgress{border-color:rgba(249,157,42,.28); background:var(--goldSoft); color:#b45309}

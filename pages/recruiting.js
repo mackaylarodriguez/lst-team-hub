@@ -48,7 +48,7 @@ function normalizeStatusValue(value) {
 }
 
 function getWorkflowBoardLabel(record) {
-  if (record?.isConvertedToTeam) return "Converted Teams";
+  if (record?.isConvertedToTeam) return "Lock Teams";
   if (record?.isPotentialTeam) return "Potential Teams";
   return "Recruiting";
 }
@@ -603,7 +603,7 @@ const BULK_ACTION_OPTIONS = [
 const RECRUITING_TABS = [
   { id: "outreach", label: "Recruiting" },
   { id: "potential", label: "Potential Teams" },
-  { id: "converted", label: "Converted Teams" },
+  { id: "converted", label: "Lock Teams" },
 ];
 
 const RECRUITING_TAB_META = {
@@ -1700,8 +1700,8 @@ export default function RecruitingPage() {
       setSelectedRecordId(result?.record?.id || selectedRecord.id);
       setPageStatus(
         result?.status === "already_converted"
-          ? "Trip already added. Moved to Converted Teams."
-          : "Trip added. Moved to Converted Teams."
+          ? "Trip already added. Moved to Lock Teams."
+          : "Trip added. Moved to Lock Teams."
       );
     } catch (error) {
       console.error("Unable to form team", error);
@@ -2611,8 +2611,8 @@ export default function RecruitingPage() {
       return (
         <EmptyState
           icon="archived"
-          title="No converted teams yet"
-          description="Converted teams will show up here once they’ve been formed into real trips."
+          title="No lock teams yet"
+          description="Lock teams will show up here once they’ve been formed into real trips."
         />
       );
     }
@@ -2650,7 +2650,7 @@ export default function RecruitingPage() {
                 <td>{formatContactName(record)}</td>
                 <td>{record.linkedTrip?.site || record.site || "-"}</td>
                 <td>{record.linkedTrip?.departureDate ? formatDate(record.linkedTrip.departureDate) : formatFlexibleDepartureDate(record.departureDate)}</td>
-                <td>{record.linkedTrip?.status || "Converted"}</td>
+                <td>{record.linkedTrip?.status || "Locked"}</td>
                 <td>
                   <div className="row recruitingActionRow" onClick={(event) => event.stopPropagation()}>
                     <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>
@@ -2676,8 +2676,8 @@ export default function RecruitingPage() {
       return (
         <EmptyState
           icon="archived"
-          title="No converted teams yet"
-          description="Converted teams will show up here once they’ve been formed into real trips."
+          title="No lock teams yet"
+          description="Lock teams will show up here once they’ve been formed into real trips."
         />
       );
     }
@@ -2695,7 +2695,7 @@ export default function RecruitingPage() {
                 <div className="recruitingMobileCardTitle">{record.teamName || record.linkedTrip?.name || "-"}</div>
                 <div className="small">{formatContactName(record)}</div>
               </div>
-              <span className="badge">{record.linkedTrip?.status || "Converted"}</span>
+              <span className="badge">{record.linkedTrip?.status || "Locked"}</span>
             </div>
             <div className="recruitingMobileMeta">
               <span>{record.linkedTrip?.site || record.site || "-"}</span>
@@ -3019,7 +3019,7 @@ export default function RecruitingPage() {
                   type="button"
                   onClick={() => void openRecordDetails(selectedRecord?.id, "history")}
                 >
-                  Open Converted Team History
+                  Open Lock Team History
                 </button>
               ) : null}
             </div>
@@ -3050,7 +3050,7 @@ export default function RecruitingPage() {
 
             {activeTab === "converted" ? (
               <>
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>Converted Teams</div>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Lock Teams</div>
                 <div className="small" style={{ marginBottom: 10 }}>
                   Recruiting records already turned into real teams.
                 </div>
@@ -3083,7 +3083,7 @@ export default function RecruitingPage() {
                     ? "Contact History"
                     : activeTab === "potential"
                     ? "Potential Team History"
-                    : "Converted Team History"
+                    : "Lock Team History"
                   : activeTab === "potential"
                   ? "Potential Team Details"
                   : "Edit Details"}

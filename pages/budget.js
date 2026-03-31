@@ -819,17 +819,27 @@ export default function BudgetPage() {
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
               <div style={{ fontWeight: 900 }}>Ticketing (all trips)</div>
               {trips.length > 0 ? (
-                <div className="row" style={{ marginTop: 10, gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <select
-                    className="input"
-                    value={newTicketTripId}
-                    onChange={(e) => setNewTicketTripId(e.target.value)}
-                    style={{ minWidth: 200 }}
-                  >
-                    {tripsSortedForBudget.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name || t.id}</option>
-                    ))}
-                  </select>
+                <div
+                  className="row"
+                  style={{ marginTop: 10, gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}
+                >
+                  <div style={{ flex: "0 1 260px", minWidth: 0 }}>
+                    <label className="small" htmlFor="budget-new-ticket-trip" style={{ display: "block", marginBottom: 4, color: "var(--muted)" }}>
+                      Trip
+                    </label>
+                    <select
+                      id="budget-new-ticket-trip"
+                      className="input budgetTripPicker"
+                      value={newTicketTripId}
+                      onChange={(e) => setNewTicketTripId(e.target.value)}
+                    >
+                      {tripsSortedForBudget.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name || t.id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <button className="btn btnPrimary" type="button" onClick={() => void handleAddTicket()}>
                     Add Ticket
                   </button>
@@ -848,10 +858,10 @@ export default function BudgetPage() {
             >
             <button
               type="button"
-              className="btn"
+              className={isEditingTickets ? "btn btnPrimary" : "btn"}
               onClick={() => setIsEditingTickets((current) => !current)}
             >
-              {isEditingTickets ? "Done" : "Edit"}
+              {isEditingTickets ? "Save" : "Edit"}
             </button>
             <button
               type="button"
@@ -975,39 +985,112 @@ export default function BudgetPage() {
                     </td>
                     {isEditingTickets ? (
                       <>
-                        <td><input className="input" style={{ minWidth: 60 }} value={t.intlDom || ""} onChange={(e) => updateTicketRow(t.id, "intlDom", e.target.value)} /></td>
-                        <td><input className="input" style={{ minWidth: 100 }} value={t.workerName || ""} onChange={(e) => updateTicketRow(t.id, "workerName", e.target.value)} /></td>
-                        <td><input className="input" style={{ minWidth: 120 }} value={siteDisplay} onChange={(e) => updateTicketRow(t.id, "projectCountry", e.target.value)} placeholder="Site" /></td>
-                        <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.departureDate || ""} onChange={(e) => updateTicketRow(t.id, "departureDate", e.target.value)} /></td>
-                        <td><input className="input" style={{ minWidth: 100 }} value={t.ticketAgency || ""} onChange={(e) => updateTicketRow(t.id, "ticketAgency", e.target.value)} /></td>
-                        <td><input className="input" style={{ minWidth: 90 }} value={t.totalTicketCost || ""} onChange={(e) => updateTicketRow(t.id, "totalTicketCost", e.target.value)} /></td>
-                        <td><input className="input" style={{ minWidth: 90 }} value={t.amountWorkerPaid || ""} onChange={(e) => updateTicketRow(t.id, "amountWorkerPaid", e.target.value)} /></td>
-                        <td>
+                        <td style={{ minWidth: 72, maxWidth: 100 }}>
                           <input
-                            className="input"
-                            style={{ minWidth: 90, backgroundColor: "rgba(148, 163, 184, 0.12)" }}
-                            value={computedTotalLstCost}
-                            readOnly
-                            title="Total Ticket Cost - Amount Worker Paid"
+                            className="budgetTicketCompact"
+                            value={t.intlDom || ""}
+                            onChange={(e) => updateTicketRow(t.id, "intlDom", e.target.value)}
+                            aria-label="Intl or domestic"
                           />
                         </td>
-                        <td><input className="input" style={{ minWidth: 90 }} value={t.hpTotalCharge || ""} onChange={(e) => updateTicketRow(t.id, "hpTotalCharge", e.target.value)} /></td>
-                        <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.dateApprovedToWithdraw || ""} onChange={(e) => updateTicketRow(t.id, "dateApprovedToWithdraw", e.target.value)} /></td>
-                        <td><button className="btn" type="button" onClick={() => confirm("Delete this ticket?") && removeTicket(t.id)}>Delete</button></td>
+                        <td style={{ minWidth: 140, maxWidth: 280 }}>
+                          <textarea
+                            className="budgetTicketMultiline"
+                            rows={3}
+                            value={t.workerName || ""}
+                            onChange={(e) => updateTicketRow(t.id, "workerName", e.target.value)}
+                            placeholder="Worker name"
+                          />
+                        </td>
+                        <td style={{ minWidth: 140, maxWidth: 280 }}>
+                          <textarea
+                            className="budgetTicketMultiline"
+                            rows={3}
+                            value={siteDisplay}
+                            onChange={(e) => updateTicketRow(t.id, "projectCountry", e.target.value)}
+                            placeholder="Site / country"
+                          />
+                        </td>
+                        <td style={{ minWidth: 118 }}>
+                          <input
+                            className="budgetTicketCompact"
+                            type="date"
+                            value={t.departureDate || ""}
+                            onChange={(e) => updateTicketRow(t.id, "departureDate", e.target.value)}
+                          />
+                        </td>
+                        <td style={{ minWidth: 140, maxWidth: 300 }}>
+                          <textarea
+                            className="budgetTicketMultiline"
+                            rows={3}
+                            value={t.ticketAgency || ""}
+                            onChange={(e) => updateTicketRow(t.id, "ticketAgency", e.target.value)}
+                            placeholder="Agency"
+                          />
+                        </td>
+                        <td style={{ minWidth: 100 }}>
+                          <input
+                            className="budgetTicketCompact"
+                            value={t.totalTicketCost || ""}
+                            onChange={(e) => updateTicketRow(t.id, "totalTicketCost", e.target.value)}
+                            inputMode="decimal"
+                          />
+                        </td>
+                        <td style={{ minWidth: 100 }}>
+                          <input
+                            className="budgetTicketCompact"
+                            value={t.amountWorkerPaid || ""}
+                            onChange={(e) => updateTicketRow(t.id, "amountWorkerPaid", e.target.value)}
+                            inputMode="decimal"
+                          />
+                        </td>
+                        <td style={{ minWidth: 100 }}>
+                          <input
+                            className="budgetTicketCompact"
+                            value={computedTotalLstCost}
+                            readOnly
+                            title="Total Ticket Cost − Amount Worker Paid"
+                          />
+                        </td>
+                        <td style={{ minWidth: 100 }}>
+                          <input
+                            className="budgetTicketCompact"
+                            value={t.hpTotalCharge || ""}
+                            onChange={(e) => updateTicketRow(t.id, "hpTotalCharge", e.target.value)}
+                            inputMode="decimal"
+                          />
+                        </td>
+                        <td style={{ minWidth: 118 }}>
+                          <input
+                            className="budgetTicketCompact"
+                            type="date"
+                            value={t.dateApprovedToWithdraw || ""}
+                            onChange={(e) => updateTicketRow(t.id, "dateApprovedToWithdraw", e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <button className="btn" type="button" onClick={() => confirm("Delete this ticket?") && removeTicket(t.id)}>
+                            Delete
+                          </button>
+                        </td>
                       </>
                     ) : (
                       <>
-                        <td>{t.intlDom || ""}</td>
-                        <td>{t.workerName || ""}</td>
-                        <td>{siteDisplay}</td>
-                        <td>{t.departureDate || ""}</td>
-                        <td>{t.ticketAgency || ""}</td>
-                        <td>{t.totalTicketCost || ""}</td>
-                        <td>{t.amountWorkerPaid || ""}</td>
-                        <td>{computedTotalLstCost}</td>
-                        <td>{t.hpTotalCharge || ""}</td>
-                        <td>{t.dateApprovedToWithdraw || ""}</td>
-                        <td><button className="btn" type="button" onClick={() => setTicketToDeleteId(t.id)}>Delete</button></td>
+                        <td className="budgetTicketViewCell">{t.intlDom || ""}</td>
+                        <td className="budgetTicketViewCell">{t.workerName || ""}</td>
+                        <td className="budgetTicketViewCell">{siteDisplay}</td>
+                        <td className="budgetTicketViewCell">{t.departureDate || ""}</td>
+                        <td className="budgetTicketViewCell">{t.ticketAgency || ""}</td>
+                        <td className="budgetTicketViewCell">{t.totalTicketCost || ""}</td>
+                        <td className="budgetTicketViewCell">{t.amountWorkerPaid || ""}</td>
+                        <td className="budgetTicketViewCell">{computedTotalLstCost}</td>
+                        <td className="budgetTicketViewCell">{t.hpTotalCharge || ""}</td>
+                        <td className="budgetTicketViewCell">{t.dateApprovedToWithdraw || ""}</td>
+                        <td>
+                          <button className="btn" type="button" onClick={() => setTicketToDeleteId(t.id)}>
+                            Delete
+                          </button>
+                        </td>
                       </>
                     )}
                   </tr>
