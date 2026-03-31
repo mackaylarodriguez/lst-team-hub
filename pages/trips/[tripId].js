@@ -439,7 +439,6 @@ export default function TripPage() {
   const [docDraft, setDocDraft] = useState(null);
   const [referenceEmails, setReferenceEmails] = useState({});
   const [referenceSaveStatusByKey, setReferenceSaveStatusByKey] = useState({});
-  const addDocumentInputRef = useRef(null);
   const [docsError, setDocsError] = useState("");
   const [fundraisingDrafts, setFundraisingDrafts] = useState({});
   const [fundraisingStatus, setFundraisingStatus] = useState({});
@@ -1346,19 +1345,15 @@ export default function TripPage() {
     };
   }, [trip?.id, staffViewAllParticipants]);
 
-  async function handleAddDocument(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  function handlePrepareNewPdf() {
     setPendingPdfDraft({
-      file,
-      title: file.name.replace(/\.pdf$/i, ""),
+      file: null,
+      title: "",
       category: "Other",
       workArea: trip?.name || "",
       resourceKey: "",
       visibleToParticipants: true,
     });
-    event.target.value = "";
   }
 
   function handlePrepareRequiredPdf(slot) {
@@ -1389,6 +1384,18 @@ export default function TripPage() {
     setPendingPdfDraft(null);
   }
 
+  function prependDocWithoutDuplicates(current, created) {
+    const next = [created, ...(current || [])];
+    const seen = new Set();
+    return next.filter((doc) => {
+      const id = String(doc?.id || "").trim();
+      if (!id) return true;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }
+
   async function handleSavePendingPdf() {
     if (!pendingPdfDraft?.file) return;
 
@@ -1402,7 +1409,7 @@ export default function TripPage() {
         visibleToParticipants: pendingPdfDraft.visibleToParticipants,
         tripId: trip?.id,
       });
-      setDocs((current) => [created, ...current]);
+      setDocs((current) => prependDocWithoutDuplicates(current, created));
       setDocsError("");
       setPendingPdfDraft(null);
     } catch (error) {
@@ -1438,7 +1445,7 @@ export default function TripPage() {
         tripId: trip?.id,
       });
       if (!created) return;
-      setDocs((current) => [created, ...current]);
+      setDocs((current) => prependDocWithoutDuplicates(current, created));
       setDocsError("");
       handleCancelAddLink();
     } catch (error) {
@@ -1618,7 +1625,7 @@ export default function TripPage() {
         allowVisibilityFallback: false,
         tripId: trip?.id,
       });
-      setDocs((current) => [created, ...current]);
+      setDocs((current) => prependDocWithoutDuplicates(current, created));
       setDocsError("");
     } catch (error) {
       if (isMissingResourceVisibilityColumnError(error)) {
@@ -7684,16 +7691,10 @@ function parseDateSafe(dateStr) {
                   <button
                     className="btn"
                     type="button"
-                    onClick={() => addDocumentInputRef.current?.click()}
+                    onClick={handlePrepareNewPdf}
                   >
                     Upload File
                   </button>
-                  <input
-                    ref={addDocumentInputRef}
-                    type="file"
-                    hidden
-                    onChange={handleAddDocument}
-                  />
                 </div>
               ) : null}
             </div>
