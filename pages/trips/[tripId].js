@@ -7325,11 +7325,11 @@ function parseDateSafe(dateStr) {
                       >
                         {materialsWorkersDisplayCount}
                       </span>
-                      <div style={{ ...materialsGlanceMuted, marginTop: 4 }}>
-                        {materialsBudgetWorkerCount === null
-                          ? "From roster (participants + roster-only). Set # of workers on Budget → Housing to save on the budget row."
-                          : `Saved on budget row · Roster on file: ${materialsRosterHeadcount}`}
-                      </div>
+                      {materialsBudgetWorkerCount !== null ? (
+                        <div style={{ ...materialsGlanceMuted, marginTop: 4 }}>
+                          {`Saved on budget row · Roster on file: ${materialsRosterHeadcount}`}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
