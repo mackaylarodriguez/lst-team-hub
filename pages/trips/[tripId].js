@@ -51,6 +51,7 @@ import {
   saveStaffTasks as persistStaffTasks,
   sortStaffTasksByTemplate,
   computeStaffTaskDueDate,
+  getStaffTaskAreaSortRank,
   STAFF_TASKS_UPDATED_EVENT,
 } from "@/lib/staffTasks";
 import {
@@ -201,6 +202,7 @@ const TEAM_STATUS_OPTIONS = [
 ];
 
 const TSHIRT_SIZE_OPTIONS = ["", "XS", "S", "M", "L", "XL", "XXL", "3XL"];
+const TEAM_MEMBER_ROLE_OPTIONS = ["Worker", "Trainer"];
 function getTshirtSizeOptions(currentValue) {
   const v = String(currentValue || "").trim();
   if (!v || TSHIRT_SIZE_OPTIONS.includes(v)) return TSHIRT_SIZE_OPTIONS;
@@ -245,10 +247,10 @@ function getWorkerConnectionStatus(member) {
     return {
       statusLabel: "Invitable",
       statusBadgeClass: "badgeWarn",
-      accountLabel: "Not Joined",
+      accountLabel: "Waiting for account creation",
       accountBadgeClass: "badgeWarn",
       canInvite: true,
-      inviteLabel: "Resend Invite",
+      inviteLabel: "Send Invite",
       inviteTitle: "Send a new invite email",
     };
   }
@@ -259,7 +261,7 @@ function getWorkerConnectionStatus(member) {
     accountLabel: "Cannot Invite",
     accountBadgeClass: "",
     canInvite: false,
-    inviteLabel: "Resend Invite",
+    inviteLabel: "Send Invite",
     inviteTitle: "Add an email before sending an invite",
   };
 }
@@ -342,6 +344,7 @@ function createEmptyRosterMember() {
     firstName: "",
     lastName: "",
     email: "",
+    teamRole: "Worker",
     startDate: "",
     endDate: "",
   };
@@ -352,6 +355,7 @@ function createEmptyWorkerDraft() {
     firstName: "",
     lastName: "",
     email: "",
+    teamRole: "Worker",
     assignmentMode: "unassigned",
   };
 }
@@ -484,6 +488,7 @@ export default function TripPage() {
   const [editableStaffTasks, setEditableStaffTasks] = useState([]);
   const [editingStaffTaskId, setEditingStaffTaskId] = useState(null);
   const [editingDueDateTaskId, setEditingDueDateTaskId] = useState(null);
+  const [staffTaskDueDateDraft, setStaffTaskDueDateDraft] = useState("");
   const [staffTaskTitleDraft, setStaffTaskTitleDraft] = useState("");
   const [isAddingStaffTask, setIsAddingStaffTask] = useState(false);
   const [pendingStaffTaskJumpId, setPendingStaffTaskJumpId] = useState("");
@@ -2615,9 +2620,15 @@ export default function TripPage() {
     }
   }
 
-  function handleDueDateChange(taskId, value) {
-    updateStaffTask(taskId, "dueDate", value);
+  function handleSaveStaffTaskDueDate(taskId) {
+    updateStaffTask(taskId, "dueDate", staffTaskDueDateDraft || "");
     setEditingDueDateTaskId(null);
+    setStaffTaskDueDateDraft("");
+  }
+
+  function handleCancelStaffTaskDueDateEdit() {
+    setEditingDueDateTaskId(null);
+    setStaffTaskDueDateDraft("");
   }
 
   function handleJumpToStaffTask(taskId) {
@@ -2700,7 +2711,7 @@ function parseDateSafe(dateStr) {
   function groupTasksByWorkArea(tasks) {
     const groups = {};
 
-    tasks.forEach((task) => {
+    (tasks || []).forEach((task) => {
       const area = getStaffTaskAreaLabel(task.workArea);
 
       if (!groups[area]) {
@@ -2710,7 +2721,18 @@ function parseDateSafe(dateStr) {
       groups[area].push(task);
     });
 
-    return groups;
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      const ra = getStaffTaskAreaSortRank(groups[a][0]?.workArea);
+      const rb = getStaffTaskAreaSortRank(groups[b][0]?.workArea);
+      if (ra !== rb) return ra - rb;
+      return a.localeCompare(b);
+    });
+
+    const ordered = {};
+    sortedKeys.forEach((k) => {
+      ordered[k] = sortStaffTasksByTemplate(groups[k]);
+    });
+    return ordered;
   }
 
   function getWorkerTaskSection(task) {
@@ -3280,6 +3302,7 @@ function parseDateSafe(dateStr) {
             firstName: member.firstName || "",
             lastName: member.lastName || "",
             email: member.email || "",
+            teamRole: member.role || "Worker",
             startDate: member.startDate || "",
             endDate: member.endDate || "",
           }))
@@ -3455,6 +3478,7 @@ function parseDateSafe(dateStr) {
           firstName,
           lastName,
           email,
+          teamRole: newWorkerDraft.teamRole || "Worker",
           startDate: "",
           endDate: "",
         },
@@ -4183,7 +4207,7 @@ function parseDateSafe(dateStr) {
         name: member.name || "Unnamed member",
         firstName: member.firstName || "",
         lastName: member.lastName || "",
-        role: "",
+        role: member.teamRole || member.role || "",
         email,
         fundraisingUrl: "",
         startDate: member.startDate || trip.startDate || "",
@@ -4203,7 +4227,7 @@ function parseDateSafe(dateStr) {
         name: participant.name || existing?.name || "Unnamed member",
         firstName: participant.firstName || existing?.firstName || "",
         lastName: participant.lastName || existing?.lastName || "",
-        role: participant.role || existing?.role || "",
+        role: existing?.role || participant.role || "",
         email: participant.email || existing?.email || "",
         fundraisingUrl: participant.fundraisingUrl || existing?.fundraisingUrl || "",
         startDate: existing?.startDate || trip.startDate || "",
@@ -5911,6 +5935,17 @@ function parseDateSafe(dateStr) {
                   />
                   <select
                     className="input"
+                    value={newWorkerDraft.teamRole}
+                    onChange={(event) => updateNewWorkerDraft("teamRole", event.target.value)}
+                  >
+                    {TEAM_MEMBER_ROLE_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="input"
                     value={newWorkerDraft.assignmentMode}
                     onChange={(event) => updateNewWorkerDraft("assignmentMode", event.target.value)}
                   >
@@ -5964,6 +5999,17 @@ function parseDateSafe(dateStr) {
                       placeholder="Email"
                       onChange={(event) => updateRosterDraftMember(index, "email", event.target.value)}
                     />
+                    <select
+                      className="input"
+                      value={member.teamRole || "Worker"}
+                      onChange={(event) => updateRosterDraftMember(index, "teamRole", event.target.value)}
+                    >
+                      {TEAM_MEMBER_ROLE_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
                     <input
                       className="input"
                       type="date"
@@ -9289,41 +9335,75 @@ function parseDateSafe(dateStr) {
                               </td>
 
                               <td>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                   {editingDueDateTaskId === t.id ? (
-                                    <input
-                                      className="input"
-                                      type="date"
-                                      autoFocus
-                                      value={effectiveStaffDueDate}
-                                      onChange={(e) =>
-                                        handleDueDateChange(t.id, e.target.value)
-                                      }
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Escape") setEditingDueDateTaskId(null);
-                                      }}
-                                    />
+                                    <>
+                                      <input
+                                        className="input"
+                                        type="date"
+                                        autoFocus
+                                        value={staffTaskDueDateDraft}
+                                        onChange={(e) => setStaffTaskDueDateDraft(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Escape") handleCancelStaffTaskDueDateEdit();
+                                        }}
+                                      />
+                                      <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                                        <button
+                                          type="button"
+                                          className="btn btnPrimary"
+                                          style={{ padding: "4px 10px", fontSize: 12 }}
+                                          onClick={() => handleSaveStaffTaskDueDate(t.id)}
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn"
+                                          style={{ padding: "4px 10px", fontSize: 12 }}
+                                          onClick={handleCancelStaffTaskDueDateEdit}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </>
                                   ) : (
-                                    <button
-                                      className="staffTaskDateButton"
-                                      type="button"
-                                      onClick={() => setEditingDueDateTaskId(t.id)}
-                                    >
-                                      {effectiveStaffDueDate
-                                        ? formatShortDate(effectiveStaffDueDate)
-                                        : "Add date"}
-                                    </button>
+                                    <>
+                                      <div style={{ fontWeight: 600 }}>
+                                        {effectiveStaffDueDate
+                                          ? formatShortDate(effectiveStaffDueDate)
+                                          : "—"}
+                                      </div>
+                                      <div
+                                        className="row"
+                                        style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}
+                                      >
+                                        {!t.dueDate && effectiveStaffDueDate ? (
+                                          <span className="small" style={{ color: "var(--muted)" }}>
+                                            Auto
+                                          </span>
+                                        ) : t.dueDate &&
+                                          t.dueDate === computeStaffTaskDueDate(t, trip) ? (
+                                          <span className="small" style={{ color: "var(--muted)" }}>
+                                            Auto
+                                          </span>
+                                        ) : null}
+                                        <button
+                                          type="button"
+                                          className="btn"
+                                          style={{ padding: "2px 8px", fontSize: 12 }}
+                                          onClick={() => {
+                                            setEditingDueDateTaskId(t.id);
+                                            setStaffTaskDueDateDraft(
+                                              t.dueDate || computeStaffTaskDueDate(t, trip) || ""
+                                            );
+                                          }}
+                                        >
+                                          Edit
+                                        </button>
+                                      </div>
+                                    </>
                                   )}
-                                  {!t.dueDate && effectiveStaffDueDate ? (
-                                    <span className="small" style={{ color: "var(--muted)" }}>
-                                      Auto
-                                    </span>
-                                  ) : t.dueDate &&
-                                    t.dueDate === computeStaffTaskDueDate(t, trip) ? (
-                                    <span className="small" style={{ color: "var(--muted)" }}>
-                                      Auto
-                                    </span>
-                                  ) : null}
                                 </div>
                               </td>
 
