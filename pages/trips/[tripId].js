@@ -4701,6 +4701,7 @@ function parseDateSafe(dateStr) {
     if (!trip) return [];
 
     if (staffViewAllParticipants) {
+      const effectiveStaffDue = (task) => task.dueDate || computeStaffTaskDueDate(task, trip);
       return (editableStaffTasks || [])
         .filter(
           (task) =>
@@ -4708,8 +4709,10 @@ function parseDateSafe(dateStr) {
             isTaskAssignedToUser(task.assignedTo, session?.name || session?.email || "")
         )
         .sort((left, right) => {
-          const leftDate = parseDateSafe(left.dueDate)?.getTime() || Number.MAX_SAFE_INTEGER;
-          const rightDate = parseDateSafe(right.dueDate)?.getTime() || Number.MAX_SAFE_INTEGER;
+          const leftDate =
+            parseDateSafe(effectiveStaffDue(left))?.getTime() || Number.MAX_SAFE_INTEGER;
+          const rightDate =
+            parseDateSafe(effectiveStaffDue(right))?.getTime() || Number.MAX_SAFE_INTEGER;
           return leftDate - rightDate;
         })
         .slice(0, 5)
@@ -4718,7 +4721,7 @@ function parseDateSafe(dateStr) {
           return {
             id: task.id,
             title: task.taskName,
-            dueDate: task.dueDate,
+            dueDate: effectiveStaffDue(task) || "",
             detail: task.workArea,
             destinationTab: "Staff Tasks",
             destinationId: task.id,
@@ -9201,6 +9204,8 @@ function parseDateSafe(dateStr) {
                           const staffTaskTpl = findStaffTaskTemplate(t);
                           const staffTaskLink = staffTaskTpl?.link;
                           const staffTaskDetails = staffTaskTpl?.details;
+                          const effectiveStaffDueDate =
+                            t.dueDate || computeStaffTaskDueDate(t, trip) || "";
 
                           return (
                             <tr
@@ -9290,7 +9295,7 @@ function parseDateSafe(dateStr) {
                                       className="input"
                                       type="date"
                                       autoFocus
-                                      value={t.dueDate || ""}
+                                      value={effectiveStaffDueDate}
                                       onChange={(e) =>
                                         handleDueDateChange(t.id, e.target.value)
                                       }
@@ -9304,15 +9309,21 @@ function parseDateSafe(dateStr) {
                                       type="button"
                                       onClick={() => setEditingDueDateTaskId(t.id)}
                                     >
-                                      {t.dueDate ? formatShortDate(t.dueDate) : "Add date"}
+                                      {effectiveStaffDueDate
+                                        ? formatShortDate(effectiveStaffDueDate)
+                                        : "Add date"}
                                     </button>
                                   )}
-                                  {t.dueDate &&
-                                    t.dueDate === computeStaffTaskDueDate(t, trip) && (
-                                      <span className="small" style={{ color: "var(--muted)" }}>
-                                        Auto
-                                      </span>
-                                    )}
+                                  {!t.dueDate && effectiveStaffDueDate ? (
+                                    <span className="small" style={{ color: "var(--muted)" }}>
+                                      Auto
+                                    </span>
+                                  ) : t.dueDate &&
+                                    t.dueDate === computeStaffTaskDueDate(t, trip) ? (
+                                    <span className="small" style={{ color: "var(--muted)" }}>
+                                      Auto
+                                    </span>
+                                  ) : null}
                                 </div>
                               </td>
 
