@@ -431,10 +431,9 @@ export default function SitesPage() {
       </div>
 
       <div className="card pad" style={{ marginBottom: 24 }}>
-        <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics maps</div>
+        <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics</div>
         <div className="small" style={{ marginBottom: 12, color: "var(--muted)", maxWidth: 900 }}>
-          Built-in links come from <code>lib/siteInfoLinks.js</code> (matched on site name and common
-          fragments). Add a custom URL to override; clear it to fall back to the directory again.
+          Add a custom URL to override.
         </div>
         <div className="sitesLogisticsScroller">
           <table className="table sitesLogisticsTable">

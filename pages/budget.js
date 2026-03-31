@@ -36,6 +36,25 @@ function parseTripStartDateMs(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function parseCurrencyLike(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const parsed = Number(raw.replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatMoneyLike(value) {
+  if (!Number.isFinite(value)) return "";
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+function computeTotalLstCost(totalTicketCost, amountWorkerPaid) {
+  const total = parseCurrencyLike(totalTicketCost) ?? 0;
+  const paid = parseCurrencyLike(amountWorkerPaid) ?? 0;
+  if (!String(totalTicketCost || "").trim() && !String(amountWorkerPaid || "").trim()) return "";
+  return formatMoneyLike(total - paid);
+}
+
 /** Sort trips for Budget housing/ticketing: soonest start first; missing dates last; then name. */
 function compareTripsForBudgetSort(a, b) {
   const ma = parseTripStartDateMs(a?.startDate);
@@ -240,6 +259,9 @@ export default function BudgetPage() {
     const row = ticketRows.find((r) => r.id === ticketId);
     if (!row) return;
     const updated = { ...row, [field]: value };
+    if (field === "totalTicketCost" || field === "amountWorkerPaid") {
+      updated.totalLstCost = computeTotalLstCost(updated.totalTicketCost, updated.amountWorkerPaid);
+    }
     setTicketRows((prev) =>
       prev.map((r) => (r.id === ticketId ? updated : r))
     );
@@ -771,7 +793,7 @@ export default function BudgetPage() {
                   "Total Ticket Cost",
                   "Amount Worker Paid",
                   "Total LST Cost",
-                  "HP Total Charge",
+                  "Total Charge",
                   "Date Approved to Withdraw",
                 ];
                 const rows = ticketsSortedWithBands.sorted.map((t) => {
@@ -785,7 +807,7 @@ export default function BudgetPage() {
                     t.ticketAgency || "",
                     t.totalTicketCost || "",
                     t.amountWorkerPaid || "",
-                    t.totalLstCost || "",
+                    computeTotalLstCost(t.totalTicketCost, t.amountWorkerPaid),
                     t.hpTotalCharge || "",
                     t.dateApprovedToWithdraw || "",
                   ];
@@ -834,7 +856,7 @@ export default function BudgetPage() {
                   <th>Total Ticket Cost</th>
                   <th>Amount Worker Paid</th>
                   <th>Total LST Cost</th>
-                  <th>HP Total Charge</th>
+                  <th>Total Charge</th>
                   <th>Date Approved to Withdraw</th>
                   <th></th>
                 </tr>
@@ -843,6 +865,10 @@ export default function BudgetPage() {
                 {ticketsSortedWithBands.sorted.map((t, rowIndex) => {
                   const isArchived = archivedTripIds.has(t.tripId);
                   const siteDisplay = (t.projectCountry || t.projectCity || "").trim() || "";
+                  const computedTotalLstCost = computeTotalLstCost(
+                    t.totalTicketCost,
+                    t.amountWorkerPaid
+                  );
                   const band = ticketsSortedWithBands.bands[rowIndex] ?? 0;
                   const palette = TICKET_TRIP_BAND_STYLES[band % TICKET_TRIP_BAND_STYLES.length];
                   const rowSurface = isArchived
@@ -882,7 +908,15 @@ export default function BudgetPage() {
                         <td><input className="input" style={{ minWidth: 100 }} value={t.ticketAgency || ""} onChange={(e) => updateTicketRow(t.id, "ticketAgency", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 90 }} value={t.totalTicketCost || ""} onChange={(e) => updateTicketRow(t.id, "totalTicketCost", e.target.value)} /></td>
                         <td><input className="input" style={{ minWidth: 90 }} value={t.amountWorkerPaid || ""} onChange={(e) => updateTicketRow(t.id, "amountWorkerPaid", e.target.value)} /></td>
-                        <td><input className="input" style={{ minWidth: 90 }} value={t.totalLstCost || ""} onChange={(e) => updateTicketRow(t.id, "totalLstCost", e.target.value)} /></td>
+                        <td>
+                          <input
+                            className="input"
+                            style={{ minWidth: 90, backgroundColor: "rgba(148, 163, 184, 0.12)" }}
+                            value={computedTotalLstCost}
+                            readOnly
+                            title="Total Ticket Cost - Amount Worker Paid"
+                          />
+                        </td>
                         <td><input className="input" style={{ minWidth: 90 }} value={t.hpTotalCharge || ""} onChange={(e) => updateTicketRow(t.id, "hpTotalCharge", e.target.value)} /></td>
                         <td><input className="input" type="date" style={{ minWidth: 110 }} value={t.dateApprovedToWithdraw || ""} onChange={(e) => updateTicketRow(t.id, "dateApprovedToWithdraw", e.target.value)} /></td>
                         <td><button className="btn" type="button" onClick={() => confirm("Delete this ticket?") && removeTicket(t.id)}>Delete</button></td>
@@ -896,7 +930,7 @@ export default function BudgetPage() {
                         <td>{t.ticketAgency || ""}</td>
                         <td>{t.totalTicketCost || ""}</td>
                         <td>{t.amountWorkerPaid || ""}</td>
-                        <td>{t.totalLstCost || ""}</td>
+                        <td>{computedTotalLstCost}</td>
                         <td>{t.hpTotalCharge || ""}</td>
                         <td>{t.dateApprovedToWithdraw || ""}</td>
                         <td><button className="btn" type="button" onClick={() => setTicketToDeleteId(t.id)}>Delete</button></td>
