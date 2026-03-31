@@ -1316,7 +1316,14 @@ export default function TripPage() {
       try {
         const tasks = await listStaffTasksForTrip(trip.id);
         if (!cancelled) {
-          setEditableStaffTasks(tasks);
+          setEditableStaffTasks(
+            sortStaffTasksByTemplate(
+              (tasks || []).map((task) => ({
+                ...task,
+                dueDate: task.dueDate || computeStaffTaskDueDate(task, trip),
+              }))
+            )
+          );
         }
       } catch (error) {
         console.error("Unable to load staff tasks", error);
@@ -2214,13 +2221,17 @@ export default function TripPage() {
       });
   }
 
-  async function saveStaffTasks(nextTasks) {
-    const orderedTasks = sortStaffTasksByTemplate(
-      nextTasks.map((task) => ({
+  function withComputedStaffDueDates(tasks) {
+    return sortStaffTasksByTemplate(
+      (tasks || []).map((task) => ({
         ...task,
         dueDate: task.dueDate || computeStaffTaskDueDate(task, trip),
       }))
     );
+  }
+
+  async function saveStaffTasks(nextTasks) {
+    const orderedTasks = withComputedStaffDueDates(nextTasks);
     setEditableStaffTasks(orderedTasks);
     editableStaffTasksRef.current = orderedTasks;
     if (!trip) return;
