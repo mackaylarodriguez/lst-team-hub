@@ -513,6 +513,8 @@ export default function TripPage() {
   const [materialsDraft, setMaterialsDraft] = useState(null);
   const [materialsSaveStatus, setMaterialsSaveStatus] = useState("");
   const [isEditingMaterialsGlance, setIsEditingMaterialsGlance] = useState(false);
+  /** Bumps when materials save completes so stale in-flight getTripBudget loads cannot overwrite the draft. */
+  const materialsBudgetLoadGenRef = useRef(0);
   const [siteBudgetNotesList, setSiteBudgetNotesList] = useState([]);
   const latestStaffTaskSaveRef = useRef(0);
   const editableStaffTasksRef = useRef([]);
@@ -912,9 +914,10 @@ export default function TripPage() {
     let cancelled = false;
 
     async function loadTripBudgetRow() {
+      const loadGenAtStart = materialsBudgetLoadGenRef.current;
       try {
         const row = await getTripBudget(trip.id);
-        if (cancelled) return;
+        if (cancelled || loadGenAtStart !== materialsBudgetLoadGenRef.current) return;
         setTripBudgetRow(row);
         setTripBudgetLoadError("");
         setMaterialsDraft(
@@ -922,11 +925,11 @@ export default function TripPage() {
             ? {
                 numWorkers: numWorkersDraftFromBudgetValue(row.numWorkers),
                 teamAccountant: row.teamAccountant || "",
-                tshirts: row.tshirts || "",
-                workbooks: row.workbooks || "",
-                materialsShipAddress: row.materialsShipAddress || "",
-                materialsTrackingNumber: row.materialsTrackingNumber || "",
-                materialsNotes: row.materialsNotes || "",
+                tshirts: row.tshirts ?? "",
+                workbooks: row.workbooks ?? "",
+                materialsShipAddress: row.materialsShipAddress ?? "",
+                materialsTrackingNumber: row.materialsTrackingNumber ?? "",
+                materialsNotes: row.materialsNotes ?? "",
               }
             : {
                 numWorkers: "",
@@ -939,9 +942,8 @@ export default function TripPage() {
               }
         );
       } catch (e) {
-        if (!cancelled) {
-          setTripBudgetLoadError(e.message || "Unable to load housing budget.");
-        }
+        if (cancelled || loadGenAtStart !== materialsBudgetLoadGenRef.current) return;
+        setTripBudgetLoadError(e.message || "Unable to load housing budget.");
       }
     }
 
@@ -4961,24 +4963,25 @@ function parseDateSafe(dateStr) {
           : Number.parseInt(String(nw), 10);
       await saveTripBudget(trip.id, {
         numWorkers: Number.isFinite(numWorkersParsed) ? numWorkersParsed : null,
-        teamAccountant: materialsDraft.teamAccountant,
-        tshirts: materialsDraft.tshirts,
-        workbooks: materialsDraft.workbooks,
-        materialsShipAddress: materialsDraft.materialsShipAddress,
-        materialsTrackingNumber: materialsDraft.materialsTrackingNumber,
-        materialsNotes: materialsDraft.materialsNotes,
+        teamAccountant: materialsDraft.teamAccountant ?? "",
+        tshirts: materialsDraft.tshirts ?? "",
+        workbooks: materialsDraft.workbooks ?? "",
+        materialsShipAddress: materialsDraft.materialsShipAddress ?? "",
+        materialsTrackingNumber: materialsDraft.materialsTrackingNumber ?? "",
+        materialsNotes: materialsDraft.materialsNotes ?? "",
       });
+      materialsBudgetLoadGenRef.current += 1;
       const next = await getTripBudget(trip.id);
       setTripBudgetRow(next);
       if (next) {
         setMaterialsDraft({
           numWorkers: numWorkersDraftFromBudgetValue(next.numWorkers),
           teamAccountant: next.teamAccountant || "",
-          tshirts: next.tshirts || "",
-          workbooks: next.workbooks || "",
-          materialsShipAddress: next.materialsShipAddress || "",
-          materialsTrackingNumber: next.materialsTrackingNumber || "",
-          materialsNotes: next.materialsNotes || "",
+          tshirts: next.tshirts ?? "",
+          workbooks: next.workbooks ?? "",
+          materialsShipAddress: next.materialsShipAddress ?? "",
+          materialsTrackingNumber: next.materialsTrackingNumber ?? "",
+          materialsNotes: next.materialsNotes ?? "",
         });
       }
       setMaterialsSaveStatus("Saved.");
@@ -4999,11 +5002,11 @@ function parseDateSafe(dateStr) {
         ? {
             numWorkers: numWorkersDraftFromBudgetValue(row.numWorkers),
             teamAccountant: row.teamAccountant || "",
-            tshirts: row.tshirts || "",
-            workbooks: row.workbooks || "",
-            materialsShipAddress: row.materialsShipAddress || "",
-            materialsTrackingNumber: row.materialsTrackingNumber || "",
-            materialsNotes: row.materialsNotes || "",
+            tshirts: row.tshirts ?? "",
+            workbooks: row.workbooks ?? "",
+            materialsShipAddress: row.materialsShipAddress ?? "",
+            materialsTrackingNumber: row.materialsTrackingNumber ?? "",
+            materialsNotes: row.materialsNotes ?? "",
           }
         : {
             numWorkers: "",

@@ -225,7 +225,8 @@ export default function BudgetPage() {
           notes: row.notes,
         });
       }
-      setHousingRows(housingRowsDraft);
+      const housingRes = await listAllTripBudgets();
+      setHousingRows(mergeHousingWithTrips(trips, housingRes));
       setIsEditingHousing(false);
       setStatus("Saved.");
     } catch (e) {
