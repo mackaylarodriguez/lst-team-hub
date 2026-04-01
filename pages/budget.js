@@ -7,7 +7,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import EmptyState from "@/components/EmptyState";
 import { showToast } from "@/components/Toast";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
@@ -15,6 +15,7 @@ import {
   listAllTripBudgets,
   listSiteBudgetNotes,
   saveTripBudget,
+  deleteTripBudget,
   updateSiteBudgetNote,
   uploadTripHousingPdf,
 } from "@/lib/tripBudget";
@@ -29,6 +30,7 @@ import {
   syncTripHousingExtras,
   uploadTripHousingExtraPdf,
 } from "@/lib/tripHousingEntries";
+import { listAllTripTeamMembers } from "@/lib/tripTeamMembers";
 import { listTripsForCurrentUser } from "@/lib/trips";
 import { resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
 
@@ -187,6 +189,8 @@ export default function BudgetPage() {
   const [housingRowsDraft, setHousingRowsDraft] = useState([]);
   const [isEditingTickets, setIsEditingTickets] = useState(false);
   const [ticketToDeleteId, setTicketToDeleteId] = useState(null);
+  const [budgetRowDeleteTripId, setBudgetRowDeleteTripId] = useState(null);
+  const [teamMembersByTripId, setTeamMembersByTripId] = useState({});
   const [siteHousingNotes, setSiteHousingNotes] = useState([]);
   const [housingPdfUploadingTripId, setHousingPdfUploadingTripId] = useState(null);
   const [housingExtrasByTripId, setHousingExtrasByTripId] = useState({});
@@ -206,6 +210,17 @@ export default function BudgetPage() {
   const tripsSortedForBudget = useMemo(
     () => [...(trips || [])].sort(compareTripsForBudgetSort),
     [trips]
+  );
+
+  const sortedAccountantNamesForTrip = useCallback(
+    (tripId) => {
+      const key = String(tripId || "");
+      const list = teamMembersByTripId[key] || [];
+      const names = [...new Set(list.map((m) => m.name).filter(Boolean))];
+      names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+      return names;
+    },
+    [teamMembersByTripId]
   );
 
   const ticketsSortedWithBands = useMemo(() => {
@@ -278,14 +293,27 @@ export default function BudgetPage() {
 
       try {
         setLoading(true);
-        const [avgRes, tripsRes, housingRes, ticketsRes, siteNotesRes] = await Promise.all([
-          getBudgetAverages(),
-          listTripsForCurrentUser(),
-          listAllTripBudgets(),
-          listAllTripTickets(),
-          listSiteBudgetNotes(),
-        ]);
+        const [avgRes, tripsRes, housingRes, ticketsRes, siteNotesRes, rosterMembers] =
+          await Promise.all([
+            getBudgetAverages(),
+            listTripsForCurrentUser(),
+            listAllTripBudgets(),
+            listAllTripTickets(),
+            listSiteBudgetNotes(),
+            listAllTripTeamMembers().catch((err) => {
+              console.warn("Could not load roster for accountant dropdown", err);
+              return [];
+            }),
+          ]);
         if (cancelled) return;
+        const rosterByTrip = {};
+        for (const mem of rosterMembers || []) {
+          const tid = String(mem.tripId || "");
+          if (!tid) continue;
+          if (!rosterByTrip[tid]) rosterByTrip[tid] = [];
+          rosterByTrip[tid].push(mem);
+        }
+        if (!cancelled) setTeamMembersByTripId(rosterByTrip);
         await syncTripTicketsFromTeamMembers(tripsRes || []);
         const refreshedTickets = await listAllTripTickets();
         if (cancelled) return;
@@ -434,15 +462,26 @@ export default function BudgetPage() {
         ...Object.keys(housingExtrasDraft || {}),
         ...Object.keys(housingExtrasByTripId || {}),
       ]);
+      let extrasSkippedMissingTable = false;
       for (const tripId of tripIdsToSync) {
-        await syncTripHousingExtras(tripId, housingExtrasDraft[tripId] || []);
+        const syncResult = await syncTripHousingExtras(tripId, housingExtrasDraft[tripId] || []);
+        if (syncResult?.skippedDueToMissingTable) extrasSkippedMissingTable = true;
       }
+      const hadAnyExtraLines = Object.values(housingExtrasDraft || {}).some(
+        (list) => (list || []).length > 0
+      );
       const housingRes = await listAllTripBudgets();
       setHousingRows(mergeHousingWithTrips(trips, housingRes));
       const extraRows = await listAllTripHousingEntries();
       setHousingExtrasByTripId(groupHousingExtrasByTripId(extraRows));
       setIsEditingHousing(false);
       setStatus("Saved.");
+      if (extrasSkippedMissingTable && hadAnyExtraLines) {
+        showToast(
+          "Main housing saved, but extra housing lines need the Supabase table: run supabase/trip_housing_entries_install.sql (or trip_housing_entries.sql + trip_housing_entries_rls.sql).",
+          "warning"
+        );
+      }
     } catch (e) {
       const msg = e.message || "Error saving.";
       setStatus(msg);
@@ -478,6 +517,38 @@ export default function BudgetPage() {
       setStatus("Ticket removed.");
     } catch (e) {
       setStatus(e.message || "Error deleting.");
+    }
+  }
+
+  async function removeBudgetRowForTrip(tripId) {
+    if (!tripId) return;
+    try {
+      setStatus("Deleting budget row...");
+      await deleteTripBudget(tripId);
+      try {
+        await syncTripHousingExtras(tripId, []);
+      } catch (e) {
+        console.warn("Could not clear housing extras for trip", tripId, e);
+      }
+      const housingRes = await listAllTripBudgets();
+      const nextRows = mergeHousingWithTrips(trips, housingRes);
+      setHousingRows(nextRows);
+      if (isEditingHousing) {
+        setHousingRowsDraft(nextRows.map((r) => ({ ...r })));
+        setHousingExtrasDraft((prev) => {
+          const next = { ...prev };
+          delete next[tripId];
+          return next;
+        });
+      }
+      const extraRows = await listAllTripHousingEntries();
+      setHousingExtrasByTripId(groupHousingExtrasByTripId(extraRows));
+      setStatus("Budget row removed.");
+      showToast("Budget row removed. Trip still exists; you can add a new row by saving from Edit.", "success");
+    } catch (e) {
+      const msg = e.message || "Error deleting budget row.";
+      setStatus(msg);
+      showToast(msg, "error");
     }
   }
 
@@ -570,6 +641,19 @@ export default function BudgetPage() {
           setTicketToDeleteId(null);
         }}
         onCancel={() => setTicketToDeleteId(null)}
+      />
+      <ConfirmModal
+        open={!!budgetRowDeleteTripId}
+        title="Delete budget row?"
+        message="This removes the saved budget record for this trip (housing, amounts, and materials fields on that row). The trip itself is not deleted. Extra housing lines for this trip are cleared too."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          if (budgetRowDeleteTripId) void removeBudgetRowForTrip(budgetRowDeleteTripId);
+          setBudgetRowDeleteTripId(null);
+        }}
+        onCancel={() => setBudgetRowDeleteTripId(null)}
       />
       <div className="budgetPage">
         <h1 className="h1" style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
@@ -907,7 +991,7 @@ export default function BudgetPage() {
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table dataTableStriped" style={{ minWidth: 1320, fontSize: 13 }}>
+            <table className="table dataTableStriped" style={{ minWidth: 1380, fontSize: 13 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
@@ -920,6 +1004,7 @@ export default function BudgetPage() {
                   <th>Housing Amount</th>
                   <th>Housing link / PDF</th>
                   <th>Notes</th>
+                  <th style={{ width: 88 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -978,14 +1063,32 @@ export default function BudgetPage() {
                             placeholder="Site"
                           />
                         </td>
-                        <td style={{ minWidth: 120, maxWidth: 220 }}>
-                          <textarea
+                        <td style={{ minWidth: 160, maxWidth: 240 }}>
+                          <select
                             className="input"
-                            rows={3}
                             value={r.teamAccountant || ""}
-                            onChange={(e) => updateHousingDraftRow(r.tripId, "teamAccountant", e.target.value)}
-                            placeholder="Accountant"
-                          />
+                            onChange={(e) =>
+                              updateHousingDraftRow(r.tripId, "teamAccountant", e.target.value)
+                            }
+                          >
+                            <option value="">— Select team member —</option>
+                            {sortedAccountantNamesForTrip(r.tripId).map((name) => (
+                              <option key={name} value={name}>
+                                {name}
+                              </option>
+                            ))}
+                            {r.teamAccountant &&
+                            !sortedAccountantNamesForTrip(r.tripId).includes(r.teamAccountant) ? (
+                              <option value={r.teamAccountant}>
+                                {r.teamAccountant} (not on roster)
+                              </option>
+                            ) : null}
+                          </select>
+                          {sortedAccountantNamesForTrip(r.tripId).length === 0 ? (
+                            <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
+                              No roster members yet for this trip.
+                            </div>
+                          ) : null}
                         </td>
                         <td style={{ minWidth: 96 }}>
                           <input
@@ -1160,6 +1263,22 @@ export default function BudgetPage() {
                             placeholder="Notes"
                           />
                         </td>
+                        <td style={{ verticalAlign: "top", whiteSpace: "nowrap" }}>
+                          {r.id ? (
+                            <button
+                              type="button"
+                              className="btn"
+                              style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
+                              onClick={() => setBudgetRowDeleteTripId(r.tripId)}
+                            >
+                              Delete
+                            </button>
+                          ) : (
+                            <span className="small" style={{ color: "var(--muted)" }}>
+                              —
+                            </span>
+                          )}
+                        </td>
                       </>
                     ) : (
                       <>
@@ -1250,6 +1369,22 @@ export default function BudgetPage() {
                           ) : null}
                         </td>
                         <td>{r.notes || ""}</td>
+                        <td style={{ verticalAlign: "top", whiteSpace: "nowrap" }}>
+                          {r.id ? (
+                            <button
+                              type="button"
+                              className="btn"
+                              style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
+                              onClick={() => setBudgetRowDeleteTripId(r.tripId)}
+                            >
+                              Delete
+                            </button>
+                          ) : (
+                            <span className="small" style={{ color: "var(--muted)" }}>
+                              —
+                            </span>
+                          )}
+                        </td>
                       </>
                     )}
                   </tr>
