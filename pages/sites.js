@@ -294,12 +294,6 @@ export default function SitesPage() {
       <div className="card pad" style={{ marginBottom: 24 }}>
         <div className="appSectionBadge" style={{ marginBottom: 8 }}>Workbooks</div>
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Workbook counts by site</div>
-        <div className="small" style={{ marginBottom: 12, color: "var(--muted)", maxWidth: 900 }}>
-          One row per mission site. Book columns follow series order in <code>lib/workbookCatalog.js</code>{" "}
-          (Core → Discover → Advanced), with distinct header colors. Extra titles from saved plans appear
-          after those. Leave a cell blank when editing to drop that title (quantities ≥ 0 allowed, including
-          0).
-        </div>
         <div className="sitesWorkbookScroller">
           <table
             className="table sitesWorkbookTable dataTableStriped"

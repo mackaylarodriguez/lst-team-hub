@@ -15,6 +15,7 @@ import {
   listAllTripBudgets,
   listSiteBudgetNotes,
   saveTripBudget,
+  updateSiteBudgetNote,
   uploadTripHousingPdf,
 } from "@/lib/tripBudget";
 import {
@@ -192,6 +193,8 @@ export default function BudgetPage() {
   const [housingExtrasDraft, setHousingExtrasDraft] = useState({});
   const [newHousingSlotTripId, setNewHousingSlotTripId] = useState("");
   const [housingExtraPdfUploadKey, setHousingExtraPdfUploadKey] = useState(null);
+  const [editingSiteNoteId, setEditingSiteNoteId] = useState("");
+  const [editingSiteNoteDraft, setEditingSiteNoteDraft] = useState("");
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
 
@@ -478,6 +481,38 @@ export default function BudgetPage() {
     }
   }
 
+  function beginEditSiteHousingNote(note) {
+    setEditingSiteNoteId(String(note?.id || ""));
+    setEditingSiteNoteDraft(String(note?.notes || ""));
+  }
+
+  function cancelEditSiteHousingNote() {
+    setEditingSiteNoteId("");
+    setEditingSiteNoteDraft("");
+  }
+
+  async function saveSiteHousingNote(note) {
+    if (!note?.id) return;
+    try {
+      setStatus("Saving site note...");
+      const saved = await updateSiteBudgetNote(note.id, {
+        siteName: note.siteName || "",
+        effectiveDate: note.effectiveDate || null,
+        notes: editingSiteNoteDraft,
+        workbookNotes: note.workbookNotes ?? "",
+        logisticsUrl: note.logisticsUrl ?? "",
+      });
+      setSiteHousingNotes((prev) => prev.map((row) => (row.id === saved.id ? saved : row)));
+      cancelEditSiteHousingNote();
+      setStatus("Saved.");
+      showToast(`Saved note for ${note.siteName || "site"}`, "success");
+    } catch (e) {
+      const msg = e.message || "Unable to save site note.";
+      setStatus(msg);
+      showToast(msg, "error");
+    }
+  }
+
   async function handleAddTicket() {
     const tripId = newTicketTripId || trips[0]?.id;
     if (!tripId) {
@@ -666,6 +701,7 @@ export default function BudgetPage() {
             >
               {siteHousingNotesForDisplay.map((n) => {
                   const noteText = String(n.notes || "").trim();
+                  const isEditingThisNote = String(editingSiteNoteId) === String(n.id || "");
                   return (
                     <div
                       key={n.id}
@@ -691,19 +727,46 @@ export default function BudgetPage() {
                       >
                         {n.siteName || "—"}
                       </div>
-                      <div
-                        className="small"
-                        style={{
-                          lineHeight: 1.5,
-                          fontSize: 12,
-                          color: noteText ? "inherit" : "var(--muted)",
-                          fontStyle: noteText ? "normal" : "italic",
-                          wordBreak: "break-word",
-                          whiteSpace: "pre-wrap",
-                        }}
-                      >
-                        {noteText || "No note"}
-                      </div>
+                      {isEditingThisNote ? (
+                        <div style={{ display: "grid", gap: 8 }}>
+                          <textarea
+                            className="input"
+                            rows={5}
+                            value={editingSiteNoteDraft}
+                            onChange={(e) => setEditingSiteNoteDraft(e.target.value)}
+                            placeholder="Enter site housing note"
+                          />
+                          <div className="row" style={{ gap: 8 }}>
+                            <button className="btn btnPrimary" type="button" onClick={() => void saveSiteHousingNote(n)}>
+                              Save
+                            </button>
+                            <button className="btn" type="button" onClick={cancelEditSiteHousingNote}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div
+                            className="small"
+                            style={{
+                              lineHeight: 1.5,
+                              fontSize: 12,
+                              color: noteText ? "inherit" : "var(--muted)",
+                              fontStyle: noteText ? "normal" : "italic",
+                              wordBreak: "break-word",
+                              whiteSpace: "pre-wrap",
+                            }}
+                          >
+                            {noteText || "No note"}
+                          </div>
+                          <div className="row" style={{ marginTop: 8 }}>
+                            <button className="btn" type="button" onClick={() => beginEditSiteHousingNote(n)}>
+                              Edit note
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
