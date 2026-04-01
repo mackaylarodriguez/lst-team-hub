@@ -1773,13 +1773,8 @@ export default function BudgetPage() {
                         <td>{formatUsdDisplay(t.totalTicketCost)}</td>
                         <td>{formatUsdDisplay(t.amountWorkerPaid)}</td>
                         <td
-                          className="small"
-                          style={{
-                            ...ticketComputedFieldStyle,
-                            borderRadius: 6,
-                            padding: "6px 8px",
-                          }}
                           title="Calculated: Total Ticket Cost − Amount Worker Paid"
+                          style={{ fontVariantNumeric: "tabular-nums" }}
                         >
                           {computedTotalLstCost || "—"}
                         </td>
