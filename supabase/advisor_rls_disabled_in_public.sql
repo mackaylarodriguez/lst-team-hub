@@ -37,6 +37,7 @@ end
 $fix$;
 
 -- 3) Table → migration file (run the full file: enables RLS + creates policies)
+--    site_budget_notes + trip_meetings → enable_rls_site_budget_notes_trip_meetings.sql (one-shot both)
 --    profiles                    → profiles_rls.sql
 --    trips                       → trips_rls.sql  (+ trips_delete_rls.sql if you use delete rules)
 --    trip_assignments            → trip_assignments_rls.sql
