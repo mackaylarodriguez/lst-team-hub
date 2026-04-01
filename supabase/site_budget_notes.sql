@@ -17,7 +17,8 @@ insert into public.site_budget_notes (site_name, effective_date, notes, workbook
 ('Lecce', '2025-01-01', 'Transportation to/from - teams departing from Lecce early morning require a shuttle costing approximately $100.', NULL),
 ('Murcia, Spain', '2025-01-01', 'Travel to/from - approximately 100 euros total to pay for gas; Housing - they will provide but appreciate any money to help cover the cost of water and utilities. $100/week total.', NULL),
 ('Rio de Janeiro', '2025-01-01', '$50/person/week for housing, $100 total for cleaning (give to the church), and $100/team for transportation to/from (if bigger team $200/team)', NULL),
-('Vicenza/Padova', '2025-01-01', 'Housing-need to include money for utilities (electricity/water/gas) - not sure how much yet.', NULL)
+('Italy - Padova', '2025-01-01', 'Housing-need to include money for utilities (electricity/water/gas) - not sure how much yet.', NULL),
+('Italy - Vicenza', '2025-01-01', 'Housing-need to include money for utilities (electricity/water/gas) - not sure how much yet.', NULL)
 on conflict (site_name) do update set
   effective_date = excluded.effective_date,
   notes = excluded.notes,
