@@ -996,10 +996,10 @@ export default function BudgetPage() {
                                 <button
                                   type="button"
                                   className="btn"
-                                  style={{ padding: "2px 8px", fontSize: 11 }}
+                                  style={{ padding: "2px 8px", fontSize: 11, color: "var(--danger)" }}
                                   onClick={() => removeHousingExtraDraft(r.tripId, idx)}
                                 >
-                                  Remove
+                                  Delete line
                                 </button>
                               </div>
                               <input
@@ -1061,14 +1061,6 @@ export default function BudgetPage() {
                               </div>
                             </div>
                           ))}
-                          <button
-                            type="button"
-                            className="btn"
-                            style={{ marginTop: 10, fontSize: 12 }}
-                            onClick={() => addHousingExtraDraftForTrip(r.tripId)}
-                          >
-                            + Add housing for this team
-                          </button>
                         </td>
                         <td style={{ minWidth: 160, maxWidth: 280 }}>
                           <textarea
