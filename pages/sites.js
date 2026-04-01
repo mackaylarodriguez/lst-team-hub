@@ -349,7 +349,7 @@ export default function SitesPage() {
                       return (
                         <td key={col.key} style={{ textAlign: "right", verticalAlign: "middle" }}>
                           <input
-                            className="budgetTicketCompact"
+                            className="input"
                             type="number"
                             min={0}
                             step={1}
@@ -364,8 +364,9 @@ export default function SitesPage() {
                             disabled={savingWorkbookFor === row.siteLabel}
                             style={{
                               width: 56,
-                              maxWidth: 56,
                               textAlign: "right",
+                              padding: "4px 6px",
+                              fontSize: 12,
                             }}
                           />
                         </td>
