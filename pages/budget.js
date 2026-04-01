@@ -426,9 +426,9 @@ export default function BudgetPage() {
     const row = ticketRows.find((r) => r.id === ticketId);
     if (!row) return;
     const updated = { ...row, [field]: value };
-    if (field === "totalTicketCost" || field === "amountWorkerPaid") {
-      updated.totalLstCost = computeTotalLstCost(updated.totalTicketCost, updated.amountWorkerPaid);
-    }
+    const computedCost = computeTotalLstCost(updated.totalTicketCost, updated.amountWorkerPaid);
+    updated.totalLstCost = computedCost;
+    updated.hpTotalCharge = computedCost;
     setTicketRows((prev) =>
       prev.map((r) => (r.id === ticketId ? updated : r))
     );
@@ -1271,7 +1271,7 @@ export default function BudgetPage() {
                     t.totalTicketCost || "",
                     t.amountWorkerPaid || "",
                     computeTotalLstCost(t.totalTicketCost, t.amountWorkerPaid),
-                    t.hpTotalCharge || "",
+                    computeTotalLstCost(t.totalTicketCost, t.amountWorkerPaid),
                     t.dateApprovedToWithdraw || "",
                   ];
                 });
@@ -1434,9 +1434,9 @@ export default function BudgetPage() {
                         <td style={{ minWidth: 100 }}>
                           <input
                             className="input"
-                            value={t.hpTotalCharge || ""}
-                            onChange={(e) => updateTicketRow(t.id, "hpTotalCharge", e.target.value)}
-                            inputMode="decimal"
+                            value={computedTotalLstCost}
+                            readOnly
+                            title="Matches Total Ticket Cost − Amount Worker Paid"
                           />
                         </td>
                         <td style={{ minWidth: 118 }}>
@@ -1463,7 +1463,7 @@ export default function BudgetPage() {
                         <td>{t.totalTicketCost || ""}</td>
                         <td>{t.amountWorkerPaid || ""}</td>
                         <td>{computedTotalLstCost}</td>
-                        <td>{t.hpTotalCharge || ""}</td>
+                        <td>{computedTotalLstCost}</td>
                         <td>{t.dateApprovedToWithdraw || ""}</td>
                         <td>
                           <button className="btn" type="button" onClick={() => setTicketToDeleteId(t.id)}>
