@@ -12,6 +12,7 @@ create table if not exists public.trip_tickets (
   total_lst_cost text,
   hp_total_charge text,
   date_approved_to_withdraw date,
+  notes text,
   updated_at timestamp with time zone default now(),
   created_at timestamp with time zone default now()
 );

@@ -46,6 +46,13 @@ function parseTripStartDateMs(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const USD_CURRENCY_FORMAT = {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+};
+
 function parseCurrencyLike(value) {
   const raw = String(value ?? "").trim();
   if (!raw) return null;
@@ -53,16 +60,42 @@ function parseCurrencyLike(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function formatMoneyLike(value) {
-  if (!Number.isFinite(value)) return "";
-  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+/** Format a numeric amount as $1,234.56 (for display or after blur). */
+function formatUsdNumber(n) {
+  if (!Number.isFinite(n)) return "";
+  return new Intl.NumberFormat("en-US", USD_CURRENCY_FORMAT).format(n);
+}
+
+/**
+ * Format stored money text for display (parses $, commas, etc.).
+ * Unparseable non-empty strings are returned as-is.
+ */
+function formatUsdDisplay(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return formatUsdNumber(value);
+  }
+  const raw = String(value).trim();
+  if (!raw) return "";
+  const n = parseCurrencyLike(raw);
+  if (n === null) return raw;
+  return formatUsdNumber(n);
+}
+
+/** On blur: normalize user input to $X,XXX.XX or empty. */
+function normalizeMoneyInputToUsd(raw) {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return "";
+  const n = parseCurrencyLike(trimmed);
+  if (n === null) return trimmed;
+  return formatUsdNumber(n);
 }
 
 function computeTotalLstCost(totalTicketCost, amountWorkerPaid) {
+  if (!String(totalTicketCost ?? "").trim() && !String(amountWorkerPaid ?? "").trim()) return "";
   const total = parseCurrencyLike(totalTicketCost) ?? 0;
   const paid = parseCurrencyLike(amountWorkerPaid) ?? 0;
-  if (!String(totalTicketCost || "").trim() && !String(amountWorkerPaid || "").trim()) return "";
-  return formatMoneyLike(total - paid);
+  return formatUsdNumber(total - paid);
 }
 
 /** Sort trips for Budget housing/ticketing: soonest start first; missing dates last; then name. */
@@ -88,6 +121,13 @@ const TICKET_TRIP_BAND_STYLES = [
   { bg: "rgba(245, 243, 255, 0.85)", border: "#6366f1" },
   { bg: "rgba(241, 245, 249, 0.9)", border: "#64748b" },
 ];
+
+/** Read-only computed airfare cell (Total LST Cost). */
+const ticketComputedFieldStyle = {
+  backgroundColor: "rgba(15, 23, 42, 0.07)",
+  color: "rgba(15, 23, 42, 0.55)",
+  cursor: "not-allowed",
+};
 
 function createDraftHousingExtraId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -495,7 +535,6 @@ export default function BudgetPage() {
     const updated = { ...row, [field]: value };
     const computedCost = computeTotalLstCost(updated.totalTicketCost, updated.amountWorkerPaid);
     updated.totalLstCost = computedCost;
-    updated.hpTotalCharge = computedCost;
     setTicketRows((prev) =>
       prev.map((r) => (r.id === ticketId ? updated : r))
     );
@@ -606,6 +645,7 @@ export default function BudgetPage() {
         totalLstCost: "",
         hpTotalCharge: "",
         dateApprovedToWithdraw: "",
+        notes: "",
       });
       setTicketRows((prev) => [...prev, { ...saved, tripName: trip?.name || "" }]);
       setStatus("Ticket added.");
@@ -709,7 +749,7 @@ export default function BudgetPage() {
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
                   {averages.airfare.average != null
-                    ? `$${averages.airfare.average.toLocaleString()}`
+                    ? formatUsdNumber(Number(averages.airfare.average))
                     : "—"}
                 </div>
                 <div className="small" style={{ color: "var(--muted)" }}>
@@ -731,7 +771,7 @@ export default function BudgetPage() {
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
                   {averages.housing1.average != null
-                    ? `$${averages.housing1.average.toLocaleString()}`
+                    ? formatUsdNumber(Number(averages.housing1.average))
                     : "—"}
                 </div>
                 <div className="small" style={{ color: "var(--muted)" }}>
@@ -753,7 +793,7 @@ export default function BudgetPage() {
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
                   {averages.housing2.average != null
-                    ? `$${averages.housing2.average.toLocaleString()}`
+                    ? formatUsdNumber(Number(averages.housing2.average))
                     : "—"}
                 </div>
                 <div className="small" style={{ color: "var(--muted)" }}>
@@ -946,9 +986,9 @@ export default function BudgetPage() {
                   r.projectEndDate || "",
                   r.siteCountry || "",
                   r.teamAccountant || "",
-                  r.budgetAmount || "",
-                  r.returnedAmount || "",
-                  r.housingAmount || "",
+                  formatUsdDisplay(r.budgetAmount),
+                  formatUsdDisplay(r.returnedAmount),
+                  formatUsdDisplay(r.housingAmount),
                   r.housingLink || "",
                   r.housingPdfUrl || "",
                   formatHousingExtrasForCsv(
@@ -1090,25 +1130,49 @@ export default function BudgetPage() {
                             </div>
                           ) : null}
                         </td>
-                        <td style={{ minWidth: 96 }}>
+                        <td style={{ minWidth: 112 }}>
                           <input
                             className="input"
                             value={r.budgetAmount || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "budgetAmount", e.target.value)}
+                            onBlur={(e) => {
+                              const next = normalizeMoneyInputToUsd(e.target.value);
+                              if (next !== (r.budgetAmount || "")) {
+                                updateHousingDraftRow(r.tripId, "budgetAmount", next);
+                              }
+                            }}
+                            inputMode="decimal"
+                            placeholder="$0.00"
                           />
                         </td>
-                        <td style={{ minWidth: 96 }}>
+                        <td style={{ minWidth: 112 }}>
                           <input
                             className="input"
                             value={r.returnedAmount || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "returnedAmount", e.target.value)}
+                            onBlur={(e) => {
+                              const next = normalizeMoneyInputToUsd(e.target.value);
+                              if (next !== (r.returnedAmount || "")) {
+                                updateHousingDraftRow(r.tripId, "returnedAmount", next);
+                              }
+                            }}
+                            inputMode="decimal"
+                            placeholder="$0.00"
                           />
                         </td>
-                        <td style={{ minWidth: 96 }}>
+                        <td style={{ minWidth: 112 }}>
                           <input
                             className="input"
                             value={r.housingAmount || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "housingAmount", e.target.value)}
+                            onBlur={(e) => {
+                              const next = normalizeMoneyInputToUsd(e.target.value);
+                              if (next !== (r.housingAmount || "")) {
+                                updateHousingDraftRow(r.tripId, "housingAmount", next);
+                              }
+                            }}
+                            inputMode="decimal"
+                            placeholder="$0.00"
                           />
                         </td>
                         <td style={{ minWidth: 220, verticalAlign: "top", maxWidth: 360 }}>
@@ -1292,9 +1356,9 @@ export default function BudgetPage() {
                         <td>{r.projectEndDate || ""}</td>
                         <td>{r.siteCountry || ""}</td>
                         <td>{r.teamAccountant || ""}</td>
-                        <td>{r.budgetAmount || ""}</td>
-                        <td>{r.returnedAmount || ""}</td>
-                        <td>{r.housingAmount || ""}</td>
+                        <td>{formatUsdDisplay(r.budgetAmount)}</td>
+                        <td>{formatUsdDisplay(r.returnedAmount)}</td>
+                        <td>{formatUsdDisplay(r.housingAmount)}</td>
                         <td className="small" style={{ maxWidth: 280, wordBreak: "break-word", verticalAlign: "top" }}>
                           <div style={{ marginBottom: housingExtrasList.length ? 8 : 0 }}>
                             {r.housingLink || r.housingPdfUrl ? (
@@ -1473,6 +1537,7 @@ export default function BudgetPage() {
                   "Total LST Cost",
                   "Total Charge",
                   "Date Approved to Withdraw",
+                  "Notes",
                 ];
                 const rows = ticketsSortedWithBands.sorted.map((t) => {
                   const siteDisplay = (t.projectCountry || t.projectCity || "").trim() || "";
@@ -1483,11 +1548,12 @@ export default function BudgetPage() {
                     siteDisplay,
                     t.departureDate || "",
                     t.ticketAgency || "",
-                    t.totalTicketCost || "",
-                    t.amountWorkerPaid || "",
+                    formatUsdDisplay(t.totalTicketCost),
+                    formatUsdDisplay(t.amountWorkerPaid),
                     computeTotalLstCost(t.totalTicketCost, t.amountWorkerPaid),
-                    computeTotalLstCost(t.totalTicketCost, t.amountWorkerPaid),
+                    formatUsdDisplay(t.hpTotalCharge),
                     t.dateApprovedToWithdraw || "",
+                    t.notes || "",
                   ];
                 });
                 const csvContent = [header, ...rows]
@@ -1522,7 +1588,7 @@ export default function BudgetPage() {
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table dataTableStriped" style={{ minWidth: 1400, fontSize: 12 }}>
+            <table className="table dataTableStriped" style={{ minWidth: 1580, fontSize: 12 }}>
               <thead>
                 <tr>
                   <th>Team</th>
@@ -1533,9 +1599,10 @@ export default function BudgetPage() {
                   <th>Ticket Agency</th>
                   <th>Total Ticket Cost</th>
                   <th>Amount Worker Paid</th>
-                  <th>Total LST Cost</th>
-                  <th>Total Charge</th>
+                  <th title="Total Ticket Cost − Amount Worker Paid (calculated)">Total LST Cost</th>
+                  <th title="Optional; not auto-filled">Total Charge</th>
                   <th>Date Approved to Withdraw</th>
+                  <th>Notes</th>
                   <th></th>
                 </tr>
               </thead>
@@ -1622,20 +1689,34 @@ export default function BudgetPage() {
                             placeholder="Agency"
                           />
                         </td>
-                        <td style={{ minWidth: 100 }}>
+                        <td style={{ minWidth: 112 }}>
                           <input
                             className="input"
                             value={t.totalTicketCost || ""}
                             onChange={(e) => updateTicketRow(t.id, "totalTicketCost", e.target.value)}
+                            onBlur={(e) => {
+                              const next = normalizeMoneyInputToUsd(e.target.value);
+                              if (next !== (t.totalTicketCost || "")) {
+                                updateTicketRow(t.id, "totalTicketCost", next);
+                              }
+                            }}
                             inputMode="decimal"
+                            placeholder="$0.00"
                           />
                         </td>
-                        <td style={{ minWidth: 100 }}>
+                        <td style={{ minWidth: 112 }}>
                           <input
                             className="input"
                             value={t.amountWorkerPaid || ""}
                             onChange={(e) => updateTicketRow(t.id, "amountWorkerPaid", e.target.value)}
+                            onBlur={(e) => {
+                              const next = normalizeMoneyInputToUsd(e.target.value);
+                              if (next !== (t.amountWorkerPaid || "")) {
+                                updateTicketRow(t.id, "amountWorkerPaid", next);
+                              }
+                            }}
                             inputMode="decimal"
+                            placeholder="$0.00"
                           />
                         </td>
                         <td style={{ minWidth: 100 }}>
@@ -1643,15 +1724,19 @@ export default function BudgetPage() {
                             className="input"
                             value={computedTotalLstCost}
                             readOnly
-                            title="Total Ticket Cost − Amount Worker Paid"
+                            tabIndex={-1}
+                            title="Calculated: Total Ticket Cost − Amount Worker Paid (not editable)"
+                            style={ticketComputedFieldStyle}
                           />
                         </td>
                         <td style={{ minWidth: 100 }}>
                           <input
                             className="input"
-                            value={computedTotalLstCost}
-                            readOnly
-                            title="Matches Total Ticket Cost − Amount Worker Paid"
+                            value={t.hpTotalCharge || ""}
+                            onChange={(e) => updateTicketRow(t.id, "hpTotalCharge", e.target.value)}
+                            inputMode="decimal"
+                            placeholder=""
+                            title="Optional total charge (leave blank if unused)"
                           />
                         </td>
                         <td style={{ minWidth: 118 }}>
@@ -1660,6 +1745,16 @@ export default function BudgetPage() {
                             type="date"
                             value={t.dateApprovedToWithdraw || ""}
                             onChange={(e) => updateTicketRow(t.id, "dateApprovedToWithdraw", e.target.value)}
+                          />
+                        </td>
+                        <td style={{ minWidth: 180, maxWidth: 320, verticalAlign: "top" }}>
+                          <textarea
+                            className="input"
+                            rows={3}
+                            value={t.notes || ""}
+                            onChange={(e) => updateTicketRow(t.id, "notes", e.target.value)}
+                            placeholder="Notes"
+                            aria-label="Ticket notes"
                           />
                         </td>
                         <td>
@@ -1675,11 +1770,32 @@ export default function BudgetPage() {
                         <td>{siteDisplay}</td>
                         <td>{t.departureDate || ""}</td>
                         <td>{t.ticketAgency || ""}</td>
-                        <td>{t.totalTicketCost || ""}</td>
-                        <td>{t.amountWorkerPaid || ""}</td>
-                        <td>{computedTotalLstCost}</td>
-                        <td>{computedTotalLstCost}</td>
+                        <td>{formatUsdDisplay(t.totalTicketCost)}</td>
+                        <td>{formatUsdDisplay(t.amountWorkerPaid)}</td>
+                        <td
+                          className="small"
+                          style={{
+                            ...ticketComputedFieldStyle,
+                            borderRadius: 6,
+                            padding: "6px 8px",
+                          }}
+                          title="Calculated: Total Ticket Cost − Amount Worker Paid"
+                        >
+                          {computedTotalLstCost || "—"}
+                        </td>
+                        <td>{formatUsdDisplay(t.hpTotalCharge)}</td>
                         <td>{t.dateApprovedToWithdraw || ""}</td>
+                        <td
+                          className="small"
+                          style={{
+                            maxWidth: 280,
+                            verticalAlign: "top",
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {t.notes || "—"}
+                        </td>
                         <td>
                           <button className="btn" type="button" onClick={() => setTicketToDeleteId(t.id)}>
                             Delete

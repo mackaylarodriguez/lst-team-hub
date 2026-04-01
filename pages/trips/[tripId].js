@@ -8829,212 +8829,233 @@ function parseDateSafe(dateStr) {
                 return (
                   <div
                     key={d.id}
-                    className="card pad row"
+                    className="card pad"
                     style={{
                       boxShadow: "none",
                       borderColor: "rgba(15, 23, 42, 0.08)",
-                      alignItems: "flex-start",
+                      display: "flex",
+                      flexDirection: "column",
                     }}
                   >
-                    <div style={{ flex: 1 }}>
-                      {isEditing ? (
-                        <div style={{ display: "grid", gap: 8 }}>
-                          <input
-                            className="input"
-                            value={docDraft?.title || ""}
-                            onChange={(e) =>
-                              setDocDraft((prev) => ({ ...prev, title: e.target.value }))
-                            }
-                            placeholder="Title"
-                          />
-                          <input
-                            className="input"
-                            value={docDraft?.link || ""}
-                            onChange={(e) =>
-                              setDocDraft((prev) => ({ ...prev, link: e.target.value }))
-                            }
-                            placeholder="https://..."
-                            disabled={!!docDraft?.pdfUrl}
-                          />
-                          <select
-                            className="input"
-                            value={docDraft?.category || "Other"}
-                            onChange={(e) =>
-                              setDocDraft((prev) => ({ ...prev, category: e.target.value }))
-                            }
-                          >
-                            {DOCUMENT_CATEGORY_OPTIONS.map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            className="input"
-                            value={docDraft?.workArea || ""}
-                            onChange={(e) =>
-                              setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
-                            }
-                            placeholder="Notes / work area"
-                          />
-                          <div
-                            style={{
-                              display: "grid",
-                              gap: 8,
-                              padding: 10,
-                              borderRadius: 12,
-                              background: "rgba(15, 23, 42, 0.04)",
-                            }}
-                          >
-                            <div className="small" style={{ fontWeight: 900 }}>
-                              Tutorial
-                            </div>
+                    <div className="row" style={{ alignItems: "flex-start" }}>
+                      <div style={{ flex: 1 }}>
+                        {isEditing ? (
+                          <div style={{ display: "grid", gap: 8 }}>
                             <input
                               className="input"
-                              value={docDraft?.tutorialTitle || ""}
+                              value={docDraft?.title || ""}
                               onChange={(e) =>
-                                setDocDraft((prev) => ({
-                                  ...prev,
-                                  tutorialTitle: e.target.value,
-                                }))
+                                setDocDraft((prev) => ({ ...prev, title: e.target.value }))
                               }
-                              placeholder="Tutorial button label"
+                              placeholder="Title"
                             />
                             <input
                               className="input"
-                              value={docDraft?.tutorialUrl || ""}
+                              value={docDraft?.link || ""}
                               onChange={(e) =>
-                                setDocDraft((prev) => ({
-                                  ...prev,
-                                  tutorialUrl: e.target.value,
-                                }))
+                                setDocDraft((prev) => ({ ...prev, link: e.target.value }))
                               }
-                              placeholder="Tutorial link https://..."
+                              placeholder="https://..."
+                              disabled={!!docDraft?.pdfUrl}
                             />
-                            <input
+                            <select
                               className="input"
-                              value={docDraft?.tutorialDescription || ""}
+                              value={docDraft?.category || "Other"}
                               onChange={(e) =>
-                                setDocDraft((prev) => ({
-                                  ...prev,
-                                  tutorialDescription: e.target.value,
-                                }))
+                                setDocDraft((prev) => ({ ...prev, category: e.target.value }))
                               }
-                              placeholder="Tutorial description"
-                            />
-                          </div>
-                          <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <input
-                              type="checkbox"
-                              checked={docDraft?.visibleToParticipants !== false}
-                              onChange={(e) =>
-                                setDocDraft((prev) => ({
-                                  ...prev,
-                                  visibleToParticipants: e.target.checked,
-                                }))
-                              }
-                            />
-                            Visible to participants
-                          </label>
-                          {!!docDraft?.pdfUrl && (
-                            <input type="file" onChange={handleReplaceDocumentFile} />
-                          )}
-                          <div className="row">
-                            <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
-                              Save
-                            </button>
-                            <button className="btn" type="button" onClick={handleCancelEditDoc}>
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div style={{ fontWeight: 900 }}>{d.title}</div>
-                          <div className="small" style={{ marginTop: 4 }}>
-                            {isPdf ? "PDF" : "Link"}
-                            {d.category ? ` • ${d.category}` : ""}
-                            {d.workArea ? ` • ${d.workArea}` : ""}
-                            {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
-                          </div>
-                          {canViewTeamDashboard ? (
-                            <div className="small" style={{ marginTop: 4 }}>
-                              {d.visibleToParticipants === false
-                                ? "Hidden from participants"
-                                : "Visible to participants"}
-                            </div>
-                          ) : null}
-                        </>
-                      )}
-                      {canViewTeamDashboard && !isEditing ? (
-                        <div className="row" style={{ marginTop: 10 }}>
-                          <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
-                            Edit
-                          </button>
-                          <button className="btn" type="button" onClick={() => handleDeleteDoc(d.id)}>
-                            Delete
-                          </button>
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() =>
-                              handleToggleDocVisibility(d, d.visibleToParticipants === false)
-                            }
-                          >
-                            {d.visibleToParticipants === false
-                              ? "Make Visible To Participants"
-                              : "Hide From Participants"}
-                          </button>
-                        </div>
-                      ) : null}
-                      {d.tutorialUrl ? (
-                        <div
-                          style={{
-                            marginTop: 12,
-                            paddingTop: 12,
-                            borderTop: "1px solid rgba(15, 23, 42, 0.08)",
-                            display: "grid",
-                            gap: 8,
-                          }}
-                        >
-                          <div className="small" style={{ fontWeight: 900 }}>
-                            Tutorial
-                          </div>
-                          <div className="small">
-                            {d.tutorialDescription || "Helpful walkthrough for this resource."}
-                          </div>
-                          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                            <a
-                              className="btn"
-                              href={d.tutorialUrl}
-                              target="_blank"
-                              rel="noreferrer"
                             >
-                              {d.tutorialTitle || "Open Tutorial"}
-                            </a>
-                            {canViewTeamDashboard ? (
-                              <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
-                                Edit Tutorial
+                              {DOCUMENT_CATEGORY_OPTIONS.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              className="input"
+                              value={docDraft?.workArea || ""}
+                              onChange={(e) =>
+                                setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
+                              }
+                              placeholder="Notes / work area"
+                            />
+                            <div
+                              style={{
+                                display: "grid",
+                                gap: 8,
+                                padding: 10,
+                                borderRadius: 12,
+                                background: "rgba(15, 23, 42, 0.04)",
+                              }}
+                            >
+                              <div className="small" style={{ fontWeight: 900 }}>
+                                Tutorial
+                              </div>
+                              <input
+                                className="input"
+                                value={docDraft?.tutorialTitle || ""}
+                                onChange={(e) =>
+                                  setDocDraft((prev) => ({
+                                    ...prev,
+                                    tutorialTitle: e.target.value,
+                                  }))
+                                }
+                                placeholder="Tutorial button label"
+                              />
+                              <input
+                                className="input"
+                                value={docDraft?.tutorialUrl || ""}
+                                onChange={(e) =>
+                                  setDocDraft((prev) => ({
+                                    ...prev,
+                                    tutorialUrl: e.target.value,
+                                  }))
+                                }
+                                placeholder="Tutorial link https://..."
+                              />
+                              <input
+                                className="input"
+                                value={docDraft?.tutorialDescription || ""}
+                                onChange={(e) =>
+                                  setDocDraft((prev) => ({
+                                    ...prev,
+                                    tutorialDescription: e.target.value,
+                                  }))
+                                }
+                                placeholder="Tutorial description"
+                              />
+                            </div>
+                            <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <input
+                                type="checkbox"
+                                checked={docDraft?.visibleToParticipants !== false}
+                                onChange={(e) =>
+                                  setDocDraft((prev) => ({
+                                    ...prev,
+                                    visibleToParticipants: e.target.checked,
+                                  }))
+                                }
+                              />
+                              Visible to participants
+                            </label>
+                            {!!docDraft?.pdfUrl && (
+                              <input type="file" onChange={handleReplaceDocumentFile} />
+                            )}
+                            <div className="row">
+                              <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
+                                Save
                               </button>
-                            ) : null}
+                              <button className="btn" type="button" onClick={handleCancelEditDoc}>
+                                Cancel
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
+                        ) : (
+                          <>
+                            <div style={{ fontWeight: 900 }}>{d.title}</div>
+                            <div className="small" style={{ marginTop: 4 }}>
+                              {isPdf ? "PDF" : "Link"}
+                              {d.category ? ` • ${d.category}` : ""}
+                              {d.workArea ? ` • ${d.workArea}` : ""}
+                              {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
+                            </div>
+                            {canViewTeamDashboard ? (
+                              <div className="small" style={{ marginTop: 4 }}>
+                                {d.visibleToParticipants === false
+                                  ? "Hidden from participants"
+                                  : "Visible to participants"}
+                              </div>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+                      <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
+                        {available ? (isPdf ? "PDF Ready" : "Link Ready") : "Coming Soon"}
+                      </span>
                     </div>
-
-                    <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-                      {available ? (isPdf ? "PDF Ready" : "Link Ready") : "Coming Soon"}
-                    </span>
-
-                    {available ? (
-                      <a className="btn btnPrimary" href={d.pdfUrl || d.link} target="_blank" rel="noreferrer">
-                        Open
-                      </a>
-                    ) : (
-                      <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
-                        Coming soon
-                      </button>
-                    )}
+                    {!isEditing ? (
+                      <div className="row" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
+                        {available ? (
+                          <a className="btn btnPrimary" href={d.pdfUrl || d.link} target="_blank" rel="noreferrer">
+                            Open
+                          </a>
+                        ) : (
+                          <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
+                            Coming soon
+                          </button>
+                        )}
+                        {canViewTeamDashboard ? (
+                          <>
+                            <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
+                              Edit
+                            </button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() =>
+                                handleToggleDocVisibility(d, d.visibleToParticipants === false)
+                              }
+                            >
+                              {d.visibleToParticipants === false
+                                ? "Make Visible To Participants"
+                                : "Hide From Participants"}
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {!isEditing && d.tutorialUrl ? (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          paddingTop: 12,
+                          borderTop: "1px solid rgba(15, 23, 42, 0.08)",
+                          display: "grid",
+                          gap: 8,
+                        }}
+                      >
+                        <div className="small" style={{ fontWeight: 900 }}>
+                          Tutorial
+                        </div>
+                        <div className="small">
+                          {d.tutorialDescription || "Helpful walkthrough for this resource."}
+                        </div>
+                        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                          <a
+                            className="btn"
+                            href={d.tutorialUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {d.tutorialTitle || "Open Tutorial"}
+                          </a>
+                          {canViewTeamDashboard ? (
+                            <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
+                              Edit Tutorial
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                    {canViewTeamDashboard && !isEditing ? (
+                      <div
+                        style={{
+                          marginTop: "auto",
+                          paddingTop: 12,
+                          display: "flex",
+                          justifyContent: "flex-end",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="btn"
+                          style={tripDocDeleteButtonStyle}
+                          onClick={() => void handleDeleteDoc(d.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
