@@ -858,7 +858,7 @@ export default function BudgetPage() {
                             {isArchived && <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>Archived</span>}
                             <textarea
                               className="input"
-                              rows={2}
+                              rows={3}
                               value={r.teamName || ""}
                               onChange={(e) => updateHousingDraftRow(r.tripId, "teamName", e.target.value)}
                               placeholder="Team name"
@@ -884,7 +884,7 @@ export default function BudgetPage() {
                         <td style={{ minWidth: 120, maxWidth: 220 }}>
                           <textarea
                             className="input"
-                            rows={2}
+                            rows={3}
                             value={r.siteCountry || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "siteCountry", e.target.value)}
                             placeholder="Site"
@@ -893,7 +893,7 @@ export default function BudgetPage() {
                         <td style={{ minWidth: 120, maxWidth: 220 }}>
                           <textarea
                             className="input"
-                            rows={2}
+                            rows={3}
                             value={r.teamAccountant || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "teamAccountant", e.target.value)}
                             placeholder="Accountant"
@@ -926,7 +926,7 @@ export default function BudgetPage() {
                           </div>
                           <textarea
                             className="input"
-                            rows={2}
+                            rows={3}
                             inputMode="url"
                             placeholder="https://… (optional if PDF)"
                             value={r.housingLink || ""}
@@ -1002,8 +1002,9 @@ export default function BudgetPage() {
                                   Delete line
                                 </button>
                               </div>
-                              <input
+                              <textarea
                                 className="input"
+                                rows={2}
                                 style={{ marginBottom: 6, width: "100%" }}
                                 placeholder="Label (optional)"
                                 value={ex.label || ""}
@@ -1013,7 +1014,7 @@ export default function BudgetPage() {
                               />
                               <textarea
                                 className="input"
-                                rows={2}
+                                rows={3}
                                 inputMode="url"
                                 placeholder="https://…"
                                 value={ex.housingLink || ""}
