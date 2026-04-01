@@ -135,6 +135,20 @@ function defaultIntlDomForLocation(location) {
   return text.includes("massachusetts") ? "Dom" : "Intl";
 }
 
+function budgetToolbarStyle() {
+  return {
+    position: "sticky",
+    top: 74,
+    zIndex: 5,
+    background: "linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.95))",
+    border: "1px solid rgba(15,23,42,.08)",
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+    backdropFilter: "blur(2px)",
+  };
+}
+
 function mergeHousingWithTrips(trips, budgets) {
   const byTripId = new Map((budgets || []).map((b) => [b.tripId, b]));
   const orderedTrips = [...(trips || [])].sort(compareTripsForBudgetSort);
@@ -695,10 +709,10 @@ export default function BudgetPage() {
         <div className="card pad">
           <div
             className="row"
-            style={{ marginBottom: 12, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+            style={{ ...budgetToolbarStyle(), alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
-              <div style={{ fontWeight: 900 }}>Housing budget (all trips)</div>
+              <div style={{ fontWeight: 900 }}>Housing budget (all trips) 🏠</div>
               {tripsSortedForBudget.length > 0 ? (
                 <div
                   className="row"
@@ -841,18 +855,19 @@ export default function BudgetPage() {
                 </tr>
               </thead>
               <tbody>
-                {(isEditingHousing ? housingRowsDraft : housingRows).map((r) => {
+                {(isEditingHousing ? housingRowsDraft : housingRows).map((r, rowIndex) => {
                   const isArchived = archivedTripIds.has(r.tripId);
                   const housingExtrasList =
                     (isEditingHousing ? housingExtrasDraft[r.tripId] : housingExtrasByTripId[r.tripId]) ||
                     [];
+                  const baseRowStyle = rowIndex % 2 === 0 ? undefined : { backgroundColor: "rgba(15, 23, 42, 0.02)" };
                   return (
                   <tr
                     key={r.id || r.tripId}
                     style={
                       isArchived
                         ? { opacity: 0.7, backgroundColor: "var(--border)", borderLeft: "3px solid var(--muted)" }
-                        : undefined
+                        : baseRowStyle
                     }
                     title={isArchived ? "Archived team" : undefined}
                   >
@@ -1175,7 +1190,13 @@ export default function BudgetPage() {
               </tbody>
             </table>
           </div>
-          {housingRows.length === 0 && !isEditingHousing && <div className="small">No housing budget rows yet. Add a trip to see a row per trip, or create a trip first.</div>}
+          {housingRows.length === 0 && !isEditingHousing && (
+            <EmptyState
+              icon="empty"
+              title="No housing rows yet"
+              description="Use Add Housing above to create an extra housing line for a trip."
+            />
+          )}
         </div>
         </>
         )}
@@ -1184,10 +1205,10 @@ export default function BudgetPage() {
         <div className="card pad">
           <div
             className="row"
-            style={{ marginBottom: 12, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+            style={{ ...budgetToolbarStyle(), alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
-              <div style={{ fontWeight: 900 }}>Ticketing (all trips)</div>
+              <div style={{ fontWeight: 900 }}>Ticketing (all trips) ✈️</div>
               {trips.length > 0 ? (
                 <div
                   className="row"
