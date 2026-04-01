@@ -29,6 +29,7 @@ import {
   uploadTripHousingExtraPdf,
 } from "@/lib/tripHousingEntries";
 import { listTripsForCurrentUser } from "@/lib/trips";
+import { resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
 
 function n(val) {
   return val === null || val === undefined ? "" : String(val).trim();
@@ -235,6 +236,30 @@ export default function BudgetPage() {
     }
     return { sorted, bands };
   }, [ticketRows, trips]);
+
+  const siteHousingNotesForDisplay = useMemo(() => {
+    const byCanonicalSite = new Map();
+    for (const note of siteHousingNotes || []) {
+      const canonical = resolveCanonicalSiteLabelForTrip(note?.siteName || "", siteHousingNotes);
+      const key = String(canonical || note?.siteName || "").trim().toLowerCase();
+      if (!key) continue;
+      const existing = byCanonicalSite.get(key);
+      if (!existing) {
+        byCanonicalSite.set(key, { ...note, siteName: canonical || note?.siteName || "" });
+        continue;
+      }
+      const existingTime = Date.parse(existing.updatedAt || existing.createdAt || 0) || 0;
+      const candidateTime = Date.parse(note?.updatedAt || note?.createdAt || 0) || 0;
+      if (candidateTime >= existingTime) {
+        byCanonicalSite.set(key, { ...note, siteName: canonical || note?.siteName || "" });
+      }
+    }
+    return [...byCanonicalSite.values()].sort((a, b) =>
+      String(a.siteName || "").localeCompare(String(b.siteName || ""), undefined, {
+        sensitivity: "base",
+      })
+    );
+  }, [siteHousingNotes]);
 
   useEffect(() => {
     let cancelled = false;
@@ -627,7 +652,7 @@ export default function BudgetPage() {
           defaultOpen={false}
           style={{ marginBottom: 24 }}
         >
-          {siteHousingNotes.length === 0 ? (
+          {siteHousingNotesForDisplay.length === 0 ? (
             <p className="small" style={{ margin: 0, color: "var(--muted)" }}>
               No site notes loaded. Open <Link href="/sites">Sites</Link> to add or update mission site records.
             </p>
@@ -639,13 +664,7 @@ export default function BudgetPage() {
                 gap: 12,
               }}
             >
-              {[...siteHousingNotes]
-                .sort((a, b) =>
-                  String(a.siteName || "").localeCompare(String(b.siteName || ""), undefined, {
-                    sensitivity: "base",
-                  })
-                )
-                .map((n) => {
+              {siteHousingNotesForDisplay.map((n) => {
                   const noteText = String(n.notes || "").trim();
                   return (
                     <div
