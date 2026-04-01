@@ -699,7 +699,6 @@ export default function BudgetPage() {
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
               <div className="appSectionBadge" style={{ marginBottom: 6 }}>Housing</div>
-              <div style={{ fontWeight: 900 }}>Housing budget (all trips) 🏠</div>
               {tripsSortedForBudget.length > 0 ? (
                 <div
                   className="row"
@@ -1196,7 +1195,6 @@ export default function BudgetPage() {
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
               <div className="appSectionBadge" style={{ marginBottom: 6 }}>Ticketing</div>
-              <div style={{ fontWeight: 900 }}>Ticketing (all trips) ✈️</div>
               {trips.length > 0 ? (
                 <div
                   className="row"
