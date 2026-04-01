@@ -383,6 +383,10 @@ export default function Admin() {
   }
 
   async function handleAddMiscTask() {
+    if (!isAdminUser) {
+      setStaffTaskStatus("Only admins can add personal tasks.");
+      return;
+    }
     if (!newMiscTaskDraft.taskName.trim()) return;
 
     try {
@@ -572,13 +576,15 @@ export default function Admin() {
             </div>
           ) : null}
           <div className="spacer" />
-          <button
-            className="btn"
-            type="button"
-            onClick={() => setIsAddingMiscTask((current) => !current)}
-          >
-            {isAddingMiscTask ? "Cancel" : "Add My Task"}
-          </button>
+          {isAdminUser ? (
+            <button
+              className="btn"
+              type="button"
+              onClick={() => setIsAddingMiscTask((current) => !current)}
+            >
+              {isAddingMiscTask ? "Cancel" : "Add My Task"}
+            </button>
+          ) : null}
           <label className="small" htmlFor="admin-task-sort">
             Sort
           </label>
@@ -596,7 +602,7 @@ export default function Admin() {
           </select>
         </div>
 
-        {isAddingMiscTask ? (
+        {isAdminUser && isAddingMiscTask ? (
           <div
             className="card pad"
             style={{
