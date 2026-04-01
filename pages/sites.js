@@ -292,6 +292,7 @@ export default function SitesPage() {
       ) : null}
 
       <div className="card pad" style={{ marginBottom: 24 }}>
+        <div className="appSectionBadge" style={{ marginBottom: 8 }}>Workbooks</div>
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Workbook counts by site</div>
         <div className="small" style={{ marginBottom: 12, color: "var(--muted)", maxWidth: 900 }}>
           One row per mission site. Book columns follow series order in <code>lib/workbookCatalog.js</code>{" "}
@@ -301,7 +302,7 @@ export default function SitesPage() {
         </div>
         <div className="sitesWorkbookScroller">
           <table
-            className="table sitesWorkbookTable"
+            className="table sitesWorkbookTable dataTableStriped"
             style={{
               width: workbookTableWidthPx,
               minWidth: workbookTableWidthPx,
@@ -467,12 +468,13 @@ export default function SitesPage() {
       </div>
 
       <div className="card pad" style={{ marginBottom: 24 }}>
+        <div className="appSectionBadge" style={{ marginBottom: 8 }}>Logistics</div>
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics</div>
         <div className="small" style={{ marginBottom: 12, color: "var(--muted)", maxWidth: 900 }}>
           Add a custom URL to override.
         </div>
         <div className="sitesLogisticsScroller">
-          <table className="table sitesLogisticsTable">
+          <table className="table sitesLogisticsTable dataTableStriped">
             <thead>
               <tr>
                 <th>Site</th>

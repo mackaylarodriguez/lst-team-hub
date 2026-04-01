@@ -135,20 +135,6 @@ function defaultIntlDomForLocation(location) {
   return text.includes("massachusetts") ? "Dom" : "Intl";
 }
 
-function budgetToolbarStyle() {
-  return {
-    position: "sticky",
-    top: 74,
-    zIndex: 5,
-    background: "linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.95))",
-    border: "1px solid rgba(15,23,42,.08)",
-    borderRadius: 12,
-    padding: 10,
-    marginBottom: 12,
-    backdropFilter: "blur(2px)",
-  };
-}
-
 function mergeHousingWithTrips(trips, budgets) {
   const byTripId = new Map((budgets || []).map((b) => [b.tripId, b]));
   const orderedTrips = [...(trips || [])].sort(compareTripsForBudgetSort);
@@ -708,10 +694,11 @@ export default function BudgetPage() {
 
         <div className="card pad">
           <div
-            className="row"
-            style={{ ...budgetToolbarStyle(), alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+            className="row appPolishToolbar"
+            style={{ alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+              <div className="appSectionBadge" style={{ marginBottom: 6 }}>Housing</div>
               <div style={{ fontWeight: 900 }}>Housing budget (all trips) 🏠</div>
               {tripsSortedForBudget.length > 0 ? (
                 <div
@@ -839,7 +826,7 @@ export default function BudgetPage() {
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table" style={{ minWidth: 1320, fontSize: 13 }}>
+            <table className="table dataTableStriped" style={{ minWidth: 1320, fontSize: 13 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
@@ -1204,10 +1191,11 @@ export default function BudgetPage() {
         {tab === "Ticketing" && (
         <div className="card pad">
           <div
-            className="row"
-            style={{ ...budgetToolbarStyle(), alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+            className="row appPolishToolbar"
+            style={{ alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+              <div className="appSectionBadge" style={{ marginBottom: 6 }}>Ticketing</div>
               <div style={{ fontWeight: 900 }}>Ticketing (all trips) ✈️</div>
               {trips.length > 0 ? (
                 <div
@@ -1319,7 +1307,7 @@ export default function BudgetPage() {
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table" style={{ minWidth: 1400, fontSize: 12 }}>
+            <table className="table dataTableStriped" style={{ minWidth: 1400, fontSize: 12 }}>
               <thead>
                 <tr>
                   <th>Team</th>

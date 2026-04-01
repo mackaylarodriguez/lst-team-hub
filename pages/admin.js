@@ -558,8 +558,9 @@ export default function Admin() {
       )}
 
       <div className="card pad" style={{ marginBottom: 16 }}>
-        <div className="row" style={{ marginBottom: 10 }}>
+        <div className="row appPolishToolbar" style={{ marginBottom: 10 }}>
             <div>
+              <div className="appSectionBadge" style={{ marginBottom: 6 }}>Tasks</div>
               <div style={{ fontWeight: 900 }}>My Tasks</div>
               <div className="small">
               {myTasks.length} total task{myTasks.length === 1 ? "" : "s"}, including your personal tasks
