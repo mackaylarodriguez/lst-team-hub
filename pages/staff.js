@@ -355,8 +355,9 @@ export default function StaffAssignments() {
       )}
 
       <div className="card pad" style={{ marginBottom: 16 }}>
-        <div className="row" style={{ marginBottom: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div className="row appPolishToolbar" style={{ marginBottom: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
           <div>
+            <div className="appSectionBadge" style={{ marginBottom: 6 }}>Search</div>
             <div style={{ fontWeight: 900, marginBottom: 6 }}>Search Workers</div>
             <div className="small">
               Search by worker name, email, or trip.
@@ -458,8 +459,9 @@ export default function StaffAssignments() {
       </div>
 
       <div className="card pad" style={{ marginBottom: 16 }}>
-        <div className="row" style={{ marginBottom: 10 }}>
+        <div className="row appPolishToolbar" style={{ marginBottom: 10 }}>
           <div>
+            <div className="appSectionBadge" style={{ marginBottom: 6 }}>Overview</div>
             <div style={{ fontWeight: 900 }}>Worker Progress</div>
             <div className="small">
               Track trip coverage, training, tasks, fundraising milestones, and who needs follow-up.
@@ -474,7 +476,7 @@ export default function StaffAssignments() {
             {normalizedSearchQuery ? "No workers match that search." : "No assigned workers yet."}
           </div>
         ) : (
-          <table className="table">
+          <table className="table dataTableStriped">
             <thead>
               <tr>
                 <th>Worker</th>
@@ -619,8 +621,9 @@ function WorkerSection({
 }) {
   return (
     <div className="card pad" style={{ marginBottom: 16 }}>
-      <div className="row" style={{ marginBottom: 10 }}>
+      <div className="row appPolishToolbar" style={{ marginBottom: 10 }}>
         <div>
+          <div className="appSectionBadge" style={{ marginBottom: 6 }}>{title}</div>
           <div style={{ fontWeight: 900 }}>{title}</div>
           <div className="small">{description}</div>
         </div>
@@ -635,7 +638,7 @@ function WorkerSection({
           description={description}
         />
       ) : (
-        <table className="table">
+        <table className="table dataTableStriped">
           <thead>
             <tr>
               <th>Worker</th>

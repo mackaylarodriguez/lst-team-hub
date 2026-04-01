@@ -5388,6 +5388,7 @@ function parseDateSafe(dateStr) {
         <div className="tripDetailHero card pad">
           <div className="row tripPageHeader tripDetailHeroTop">
             <div className="tripPageHeaderTitle">
+              <div className="appSectionBadge" style={{ marginBottom: 8 }}>Trip Detail</div>
               <h1 className="h1" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 10 }}>
                 <AppIcon name="spark" className="pageEyebrowIcon" />
                 <span>{trip.name}</span>
@@ -5549,7 +5550,7 @@ function parseDateSafe(dateStr) {
         </div>
       </div>
 
-      <div className="tabs tripPageTabs" style={{ marginBottom: 14 }}>
+      <div className="tabs tripPageTabs appPolishToolbar" style={{ marginBottom: 14 }}>
         {tabs.map(t => (
           <button
             key={t}
@@ -6271,7 +6272,7 @@ function parseDateSafe(dateStr) {
                 </div>
               </div>
             ) : (
-              <table className="table">
+              <table className="table dataTableStriped">
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -6432,7 +6433,7 @@ function parseDateSafe(dateStr) {
               <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
                 Track reference contacts and sent/received status.
               </div>
-              <table className="table">
+              <table className="table dataTableStriped">
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -9209,7 +9210,7 @@ function parseDateSafe(dateStr) {
                 </>
               ) : null}
             </div>
-            <table className="table" style={{ minWidth: 2400, fontSize: 12 }}>
+            <table className="table dataTableStriped" style={{ minWidth: 2400, fontSize: 12 }}>
               <thead>
                 <tr>
                   {canViewTeamDashboard && <th>Actions</th>}
@@ -9531,7 +9532,7 @@ function parseDateSafe(dateStr) {
                   </div>
                 ) : null}
 
-                <table className="table">
+                <table className="table dataTableStriped">
                   <thead>
                     <tr>
                       <th style={{ width: "39%" }}>Task</th>

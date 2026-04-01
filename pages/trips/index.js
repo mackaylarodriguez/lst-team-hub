@@ -589,8 +589,9 @@ export default function Trips() {
         }}
         onCancel={() => setConfirmingDeleteTripId("")}
       />
-      <div className="row" style={{ marginBottom: 14 }}>
+      <div className="row appPolishToolbar" style={{ marginBottom: 14 }}>
         <div>
+          <div className="appSectionBadge" style={{ marginBottom: 6 }}>Trips</div>
           <h1 className="h1" style={{ marginBottom: 0, display: "flex", alignItems: "center", gap: 10 }}>
             <AppIcon name="spark" className="pageEyebrowIcon" />
             <span>Trip Dashboard</span>
