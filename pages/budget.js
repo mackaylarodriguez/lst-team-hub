@@ -23,6 +23,11 @@ import {
   deleteTripTicket,
   syncTripTicketsFromTeamMembers,
 } from "@/lib/tripTickets";
+import {
+  listAllTripHousingEntries,
+  syncTripHousingExtras,
+  uploadTripHousingExtraPdf,
+} from "@/lib/tripHousingEntries";
 import { listTripsForCurrentUser } from "@/lib/trips";
 
 function n(val) {
@@ -80,6 +85,51 @@ const TICKET_TRIP_BAND_STYLES = [
   { bg: "rgba(241, 245, 249, 0.9)", border: "#64748b" },
 ];
 
+function createDraftHousingExtraId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `draft-${crypto.randomUUID()}`;
+  }
+  return `draft-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function groupHousingExtrasByTripId(rows) {
+  const map = {};
+  for (const row of rows || []) {
+    const tid = row.tripId;
+    if (!tid) continue;
+    if (!map[tid]) map[tid] = [];
+    map[tid].push({
+      id: row.id,
+      label: row.label || "",
+      housingLink: row.housingLink || "",
+      housingPdfUrl: row.housingPdfUrl || "",
+    });
+  }
+  return map;
+}
+
+function cloneHousingExtrasMap(map) {
+  return Object.fromEntries(
+    Object.entries(map || {}).map(([tripId, list]) => [
+      tripId,
+      (list || []).map((x) => ({ ...x })),
+    ])
+  );
+}
+
+function formatHousingExtrasForCsv(tripId, extrasDraft, extrasSaved, isEditing) {
+  const extras = (isEditing ? extrasDraft[tripId] : extrasSaved[tripId]) || [];
+  return extras
+    .map((e) =>
+      [e.label, e.housingLink, e.housingPdfUrl]
+        .map((x) => String(x || "").trim())
+        .filter(Boolean)
+        .join(" — ")
+    )
+    .filter(Boolean)
+    .join(" | ");
+}
+
 function mergeHousingWithTrips(trips, budgets) {
   const byTripId = new Map((budgets || []).map((b) => [b.tripId, b]));
   const orderedTrips = [...(trips || [])].sort(compareTripsForBudgetSort);
@@ -132,6 +182,10 @@ export default function BudgetPage() {
   const [ticketToDeleteId, setTicketToDeleteId] = useState(null);
   const [siteHousingNotes, setSiteHousingNotes] = useState([]);
   const [housingPdfUploadingTripId, setHousingPdfUploadingTripId] = useState(null);
+  const [housingExtrasByTripId, setHousingExtrasByTripId] = useState({});
+  const [housingExtrasDraft, setHousingExtrasDraft] = useState({});
+  const [newHousingSlotTripId, setNewHousingSlotTripId] = useState("");
+  const [housingExtraPdfUploadKey, setHousingExtraPdfUploadKey] = useState(null);
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
 
@@ -205,11 +259,23 @@ export default function BudgetPage() {
         setTrips(tripsRes || []);
         setAverages(avgRes);
         setHousingRows(mergeHousingWithTrips(tripsRes, housingRes));
+        let extrasGrouped = {};
+        try {
+          const extraRows = await listAllTripHousingEntries();
+          extrasGrouped = groupHousingExtrasByTripId(extraRows);
+        } catch (extrasErr) {
+          console.warn("Housing extras not loaded", extrasErr);
+        }
+        setHousingExtrasByTripId(extrasGrouped);
         setTicketRows(refreshedTickets.length ? refreshedTickets : ticketsRes);
         setSiteHousingNotes(siteNotesRes || []);
         if (tripsRes?.length > 0 && !newTicketTripId) {
           const sorted = [...tripsRes].sort(compareTripsForBudgetSort);
           setNewTicketTripId(sorted[0].id);
+        }
+        if (tripsRes?.length > 0 && !newHousingSlotTripId) {
+          const sorted = [...tripsRes].sort(compareTripsForBudgetSort);
+          setNewHousingSlotTripId(sorted[0].id);
         }
       } catch (e) {
         if (!cancelled) {
@@ -247,6 +313,70 @@ export default function BudgetPage() {
     }
   }
 
+  function updateHousingExtraDraft(tripId, index, field, value) {
+    setHousingExtrasDraft((prev) => {
+      const list = [...(prev[tripId] || [])];
+      if (!list[index]) return prev;
+      list[index] = { ...list[index], [field]: value };
+      return { ...prev, [tripId]: list };
+    });
+  }
+
+  function removeHousingExtraDraft(tripId, index) {
+    setHousingExtrasDraft((prev) => {
+      const list = [...(prev[tripId] || [])];
+      list.splice(index, 1);
+      return { ...prev, [tripId]: list };
+    });
+  }
+
+  function addHousingExtraDraftForTrip(tripId) {
+    if (!tripId) return;
+    setHousingExtrasDraft((prev) => ({
+      ...prev,
+      [tripId]: [
+        ...(prev[tripId] || []),
+        {
+          id: createDraftHousingExtraId(),
+          label: "",
+          housingLink: "",
+          housingPdfUrl: "",
+        },
+      ],
+    }));
+  }
+
+  async function handleHousingExtraPdfFile(tripId, index, file) {
+    if (!file) return;
+    const key = `${tripId}:${index}`;
+    try {
+      setHousingExtraPdfUploadKey(key);
+      const url = await uploadTripHousingExtraPdf(tripId, file);
+      updateHousingExtraDraft(tripId, index, "housingPdfUrl", url);
+    } catch (e) {
+      showToast(e.message || "Upload failed", "error");
+    } finally {
+      setHousingExtraPdfUploadKey(null);
+    }
+  }
+
+  function beginHousingEdit() {
+    setHousingRowsDraft(housingRows.map((r) => ({ ...r })));
+    setHousingExtrasDraft(cloneHousingExtrasMap(housingExtrasByTripId));
+    setIsEditingHousing(true);
+  }
+
+  function handleToolbarAddHousingSlot() {
+    const tripId = newHousingSlotTripId || tripsSortedForBudget[0]?.id;
+    if (!tripId) {
+      setStatus("No trip to attach housing to.");
+      showToast("Create a trip first.", "error");
+      return;
+    }
+    if (!isEditingHousing) beginHousingEdit();
+    addHousingExtraDraftForTrip(tripId);
+  }
+
   async function saveHousingBudget() {
     try {
       setStatus("Saving...");
@@ -266,8 +396,18 @@ export default function BudgetPage() {
           notes: row.notes,
         });
       }
+      const tripIdsToSync = new Set([
+        ...housingRowsDraft.map((r) => r.tripId),
+        ...Object.keys(housingExtrasDraft || {}),
+        ...Object.keys(housingExtrasByTripId || {}),
+      ]);
+      for (const tripId of tripIdsToSync) {
+        await syncTripHousingExtras(tripId, housingExtrasDraft[tripId] || []);
+      }
       const housingRes = await listAllTripBudgets();
       setHousingRows(mergeHousingWithTrips(trips, housingRes));
+      const extraRows = await listAllTripHousingEntries();
+      setHousingExtrasByTripId(groupHousingExtrasByTripId(extraRows));
       setIsEditingHousing(false);
       setStatus("Saved.");
     } catch (e) {
@@ -555,9 +695,9 @@ export default function BudgetPage() {
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
               <div style={{ fontWeight: 900 }}>Housing budget (all trips)</div>
               <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
-                Rows are auto-generated when a trip is created. Add a booking link and/or upload a PDF — both
-                sync to each trip&apos;s <strong>Documents → Team housing</strong> for workers. Site housing
-                notes: <Link href="/sites">Sites</Link>. Per-team materials: trip <strong>Materials</strong> tab.
+                One budget row per trip; use <strong>Add housing</strong> to attach extra link/PDF slots to any
+                team (e.g. second property). Primary link/PDF live on the main row; extras appear on{" "}
+                <strong>Documents → Team housing</strong> too. Site notes: <Link href="/sites">Sites</Link>.
               </div>
             </div>
             <div
@@ -570,6 +710,31 @@ export default function BudgetPage() {
                 justifyContent: "flex-end",
               }}
             >
+            {tripsSortedForBudget.length > 0 ? (
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+                <div style={{ flex: "0 1 220px", minWidth: 0 }}>
+                  <label className="small" htmlFor="budget-add-housing-trip" style={{ display: "block", marginBottom: 4, color: "var(--muted)" }}>
+                    Trip for new housing slot
+                  </label>
+                  <select
+                    id="budget-add-housing-trip"
+                    className="input"
+                    value={newHousingSlotTripId}
+                    onChange={(e) => setNewHousingSlotTripId(e.target.value)}
+                  >
+                    {tripsSortedForBudget.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name || t.id}
+                        {archivedTripIds.has(t.id) ? " (archived)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button type="button" className="btn btnPrimary" onClick={handleToolbarAddHousingSlot}>
+                  Add housing
+                </button>
+              </div>
+            ) : null}
             {isEditingHousing ? (
               <>
                 <button type="button" className="btn btnPrimary" onClick={() => void saveHousingBudget()}>
@@ -586,14 +751,7 @@ export default function BudgetPage() {
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                className="btn"
-                onClick={() => {
-                  setHousingRowsDraft(housingRows.map((r) => ({ ...r })));
-                  setIsEditingHousing(true);
-                }}
-              >
+              <button type="button" className="btn" onClick={beginHousingEdit}>
                 Edit
               </button>
             )}
@@ -612,6 +770,7 @@ export default function BudgetPage() {
                   "Housing Amount",
                   "Housing Link",
                   "Housing PDF URL",
+                  "Additional housing (extra slots)",
                   "Notes",
                 ];
                 const rows = (isEditingHousing ? housingRowsDraft : housingRows).map((r) => [
@@ -625,6 +784,12 @@ export default function BudgetPage() {
                   r.housingAmount || "",
                   r.housingLink || "",
                   r.housingPdfUrl || "",
+                  formatHousingExtrasForCsv(
+                    r.tripId,
+                    housingExtrasDraft,
+                    housingExtrasByTripId,
+                    isEditingHousing
+                  ),
                   r.notes || "",
                 ]);
                 const csvContent = [header, ...rows]
@@ -659,7 +824,7 @@ export default function BudgetPage() {
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table" style={{ minWidth: 1320, fontSize: 12 }}>
+            <table className="table" style={{ minWidth: 1320, fontSize: 13 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
@@ -677,6 +842,9 @@ export default function BudgetPage() {
               <tbody>
                 {(isEditingHousing ? housingRowsDraft : housingRows).map((r) => {
                   const isArchived = archivedTripIds.has(r.tripId);
+                  const housingExtrasList =
+                    (isEditingHousing ? housingExtrasDraft[r.tripId] : housingExtrasByTripId[r.tripId]) ||
+                    [];
                   return (
                   <tr
                     key={r.id || r.tripId}
@@ -689,24 +857,80 @@ export default function BudgetPage() {
                   >
                     {isEditingHousing ? (
                       <>
-                        <td>
-                          <span className="row" style={{ gap: 6, alignItems: "center" }}>
+                        <td style={{ minWidth: 140, maxWidth: 260 }}>
+                          <span className="row" style={{ gap: 6, alignItems: "flex-start", flexWrap: "wrap" }}>
                             {isArchived && <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>Archived</span>}
-                            <input className="input" style={{ minWidth: 120 }} value={r.teamName || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "teamName", e.target.value)} />
+                            <textarea
+                              className="input"
+                              rows={2}
+                              value={r.teamName || ""}
+                              onChange={(e) => updateHousingDraftRow(r.tripId, "teamName", e.target.value)}
+                              placeholder="Team name"
+                            />
                           </span>
                         </td>
-                        <td><input className="input" type="date" value={r.projectStartDate || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "projectStartDate", e.target.value)} /></td>
-                        <td><input className="input" type="date" value={r.projectEndDate || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "projectEndDate", e.target.value)} /></td>
-                        <td><input className="input" style={{ minWidth: 100 }} value={r.siteCountry || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "siteCountry", e.target.value)} /></td>
-                        <td><input className="input" style={{ minWidth: 100 }} value={r.teamAccountant || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "teamAccountant", e.target.value)} /></td>
-                        <td><input className="input" style={{ minWidth: 90 }} value={r.budgetAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "budgetAmount", e.target.value)} /></td>
-                        <td><input className="input" style={{ minWidth: 90 }} value={r.returnedAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "returnedAmount", e.target.value)} /></td>
-                        <td><input className="input" style={{ minWidth: 90 }} value={r.housingAmount || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "housingAmount", e.target.value)} /></td>
-                        <td style={{ minWidth: 220, verticalAlign: "top" }}>
+                        <td style={{ minWidth: 118 }}>
                           <input
                             className="input"
-                            style={{ minWidth: 180, width: "100%" }}
-                            type="url"
+                            type="date"
+                            value={r.projectStartDate || ""}
+                            onChange={(e) => updateHousingDraftRow(r.tripId, "projectStartDate", e.target.value)}
+                          />
+                        </td>
+                        <td style={{ minWidth: 118 }}>
+                          <input
+                            className="input"
+                            type="date"
+                            value={r.projectEndDate || ""}
+                            onChange={(e) => updateHousingDraftRow(r.tripId, "projectEndDate", e.target.value)}
+                          />
+                        </td>
+                        <td style={{ minWidth: 120, maxWidth: 220 }}>
+                          <textarea
+                            className="input"
+                            rows={2}
+                            value={r.siteCountry || ""}
+                            onChange={(e) => updateHousingDraftRow(r.tripId, "siteCountry", e.target.value)}
+                            placeholder="Site"
+                          />
+                        </td>
+                        <td style={{ minWidth: 120, maxWidth: 220 }}>
+                          <textarea
+                            className="input"
+                            rows={2}
+                            value={r.teamAccountant || ""}
+                            onChange={(e) => updateHousingDraftRow(r.tripId, "teamAccountant", e.target.value)}
+                            placeholder="Accountant"
+                          />
+                        </td>
+                        <td style={{ minWidth: 96 }}>
+                          <input
+                            className="input"
+                            value={r.budgetAmount || ""}
+                            onChange={(e) => updateHousingDraftRow(r.tripId, "budgetAmount", e.target.value)}
+                          />
+                        </td>
+                        <td style={{ minWidth: 96 }}>
+                          <input
+                            className="input"
+                            value={r.returnedAmount || ""}
+                            onChange={(e) => updateHousingDraftRow(r.tripId, "returnedAmount", e.target.value)}
+                          />
+                        </td>
+                        <td style={{ minWidth: 96 }}>
+                          <input
+                            className="input"
+                            value={r.housingAmount || ""}
+                            onChange={(e) => updateHousingDraftRow(r.tripId, "housingAmount", e.target.value)}
+                          />
+                        </td>
+                        <td style={{ minWidth: 220, verticalAlign: "top", maxWidth: 360 }}>
+                          <div className="small" style={{ color: "var(--muted)", marginBottom: 4 }}>
+                            Main (budget row)
+                          </div>
+                          <textarea
+                            className="input"
+                            rows={2}
                             inputMode="url"
                             placeholder="https://… (optional if PDF)"
                             value={r.housingLink || ""}
@@ -751,8 +975,114 @@ export default function BudgetPage() {
                               </>
                             ) : null}
                           </div>
+                          {housingExtrasList.map((ex, idx) => (
+                            <div
+                              key={ex.id || `extra-${r.tripId}-${idx}`}
+                              style={{
+                                marginTop: 12,
+                                paddingTop: 12,
+                                borderTop: "1px dashed var(--border)",
+                              }}
+                            >
+                              <div
+                                className="row"
+                                style={{
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  marginBottom: 6,
+                                  gap: 8,
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <span className="small" style={{ fontWeight: 700 }}>
+                                  Additional {idx + 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  style={{ padding: "2px 8px", fontSize: 11 }}
+                                  onClick={() => removeHousingExtraDraft(r.tripId, idx)}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              <input
+                                className="input"
+                                style={{ marginBottom: 6, width: "100%" }}
+                                placeholder="Label (optional)"
+                                value={ex.label || ""}
+                                onChange={(e) =>
+                                  updateHousingExtraDraft(r.tripId, idx, "label", e.target.value)
+                                }
+                              />
+                              <textarea
+                                className="input"
+                                rows={2}
+                                inputMode="url"
+                                placeholder="https://…"
+                                value={ex.housingLink || ""}
+                                onChange={(e) =>
+                                  updateHousingExtraDraft(r.tripId, idx, "housingLink", e.target.value)
+                                }
+                              />
+                              <div
+                                className="row"
+                                style={{ marginTop: 6, gap: 8, flexWrap: "wrap", alignItems: "center" }}
+                              >
+                                <label className="small" style={{ cursor: "pointer", fontWeight: 600 }}>
+                                  <input
+                                    type="file"
+                                    accept="application/pdf,.pdf"
+                                    style={{ display: "none" }}
+                                    disabled={housingExtraPdfUploadKey === `${r.tripId}:${idx}`}
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      e.target.value = "";
+                                      void handleHousingExtraPdfFile(r.tripId, idx, f);
+                                    }}
+                                  />
+                                  {housingExtraPdfUploadKey === `${r.tripId}:${idx}`
+                                    ? "Uploading…"
+                                    : "Choose PDF"}
+                                </label>
+                                {ex.housingPdfUrl ? (
+                                  <>
+                                    <a className="small" href={ex.housingPdfUrl} target="_blank" rel="noreferrer">
+                                      Open PDF
+                                    </a>
+                                    <button
+                                      type="button"
+                                      className="btn"
+                                      style={{ padding: "2px 8px", fontSize: 11 }}
+                                      onClick={() =>
+                                        updateHousingExtraDraft(r.tripId, idx, "housingPdfUrl", "")
+                                      }
+                                    >
+                                      Clear PDF
+                                    </button>
+                                  </>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ marginTop: 10, fontSize: 12 }}
+                            onClick={() => addHousingExtraDraftForTrip(r.tripId)}
+                          >
+                            + Add housing for this team
+                          </button>
                         </td>
-                        <td><input className="input" style={{ minWidth: 120 }} value={r.notes || ""} onChange={(e) => updateHousingDraftRow(r.tripId, "notes", e.target.value)} /></td>
+                        <td style={{ minWidth: 160, maxWidth: 280 }}>
+                          <textarea
+                            className="input"
+                            rows={3}
+                            value={r.notes || ""}
+                            onChange={(e) => updateHousingDraftRow(r.tripId, "notes", e.target.value)}
+                            placeholder="Notes"
+                          />
+                        </td>
                       </>
                     ) : (
                       <>
@@ -769,32 +1099,72 @@ export default function BudgetPage() {
                         <td>{r.budgetAmount || ""}</td>
                         <td>{r.returnedAmount || ""}</td>
                         <td>{r.housingAmount || ""}</td>
-                        <td className="small" style={{ maxWidth: 220, wordBreak: "break-all" }}>
-                          {r.housingLink || r.housingPdfUrl ? (
-                            <>
-                              {r.housingLink ? (
-                                <a
-                                  href={
-                                    /^https?:\/\//i.test(String(r.housingLink).trim())
-                                      ? String(r.housingLink).trim()
-                                      : `https://${String(r.housingLink).trim()}`
-                                  }
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  {r.housingLink}
-                                </a>
-                              ) : null}
-                              {r.housingLink && r.housingPdfUrl ? <br /> : null}
-                              {r.housingPdfUrl ? (
-                                <a href={r.housingPdfUrl} target="_blank" rel="noreferrer">
-                                  Housing PDF
-                                </a>
-                              ) : null}
-                            </>
-                          ) : (
-                            "—"
-                          )}
+                        <td className="small" style={{ maxWidth: 280, wordBreak: "break-word", verticalAlign: "top" }}>
+                          <div style={{ marginBottom: housingExtrasList.length ? 8 : 0 }}>
+                            {r.housingLink || r.housingPdfUrl ? (
+                              <>
+                                <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>
+                                  Main
+                                </span>
+                                <div style={{ marginTop: 4 }}>
+                                  {r.housingLink ? (
+                                    <a
+                                      href={
+                                        /^https?:\/\//i.test(String(r.housingLink).trim())
+                                          ? String(r.housingLink).trim()
+                                          : `https://${String(r.housingLink).trim()}`
+                                      }
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      {r.housingLink}
+                                    </a>
+                                  ) : null}
+                                  {r.housingLink && r.housingPdfUrl ? <br /> : null}
+                                  {r.housingPdfUrl ? (
+                                    <a href={r.housingPdfUrl} target="_blank" rel="noreferrer">
+                                      Housing PDF
+                                    </a>
+                                  ) : null}
+                                </div>
+                              </>
+                            ) : housingExtrasList.length ? null : (
+                              "—"
+                            )}
+                          </div>
+                          {housingExtrasList.length ? (
+                            <ul style={{ margin: 0, paddingLeft: 18 }}>
+                              {housingExtrasList.map((ex) => (
+                                <li key={ex.id} style={{ marginBottom: 8 }}>
+                                  {ex.label ? (
+                                    <span style={{ fontWeight: 700 }}>{ex.label}: </span>
+                                  ) : (
+                                    <span className="small" style={{ color: "var(--muted)" }}>Extra: </span>
+                                  )}
+                                  {ex.housingLink ? (
+                                    <a
+                                      href={
+                                        /^https?:\/\//i.test(String(ex.housingLink).trim())
+                                          ? String(ex.housingLink).trim()
+                                          : `https://${String(ex.housingLink).trim()}`
+                                      }
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      {ex.housingLink}
+                                    </a>
+                                  ) : null}
+                                  {ex.housingLink && ex.housingPdfUrl ? <span> · </span> : null}
+                                  {ex.housingPdfUrl ? (
+                                    <a href={ex.housingPdfUrl} target="_blank" rel="noreferrer">
+                                      PDF
+                                    </a>
+                                  ) : null}
+                                  {!ex.housingLink && !ex.housingPdfUrl ? "—" : null}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
                         </td>
                         <td>{r.notes || ""}</td>
                       </>
@@ -829,7 +1199,7 @@ export default function BudgetPage() {
                     </label>
                     <select
                       id="budget-new-ticket-trip"
-                      className="input budgetTripPicker"
+                      className="input"
                       value={newTicketTripId}
                       onChange={(e) => setNewTicketTripId(e.target.value)}
                     >
@@ -987,7 +1357,7 @@ export default function BudgetPage() {
                       <>
                         <td style={{ minWidth: 72, maxWidth: 100 }}>
                           <input
-                            className="budgetTicketCompact"
+                            className="input"
                             value={t.intlDom || ""}
                             onChange={(e) => updateTicketRow(t.id, "intlDom", e.target.value)}
                             aria-label="Intl or domestic"
@@ -995,7 +1365,7 @@ export default function BudgetPage() {
                         </td>
                         <td style={{ minWidth: 140, maxWidth: 280 }}>
                           <textarea
-                            className="budgetTicketMultiline"
+                            className="input"
                             rows={3}
                             value={t.workerName || ""}
                             onChange={(e) => updateTicketRow(t.id, "workerName", e.target.value)}
@@ -1004,7 +1374,7 @@ export default function BudgetPage() {
                         </td>
                         <td style={{ minWidth: 140, maxWidth: 280 }}>
                           <textarea
-                            className="budgetTicketMultiline"
+                            className="input"
                             rows={3}
                             value={siteDisplay}
                             onChange={(e) => updateTicketRow(t.id, "projectCountry", e.target.value)}
@@ -1013,7 +1383,7 @@ export default function BudgetPage() {
                         </td>
                         <td style={{ minWidth: 118 }}>
                           <input
-                            className="budgetTicketCompact"
+                            className="input"
                             type="date"
                             value={t.departureDate || ""}
                             onChange={(e) => updateTicketRow(t.id, "departureDate", e.target.value)}
@@ -1021,7 +1391,7 @@ export default function BudgetPage() {
                         </td>
                         <td style={{ minWidth: 140, maxWidth: 300 }}>
                           <textarea
-                            className="budgetTicketMultiline"
+                            className="input"
                             rows={3}
                             value={t.ticketAgency || ""}
                             onChange={(e) => updateTicketRow(t.id, "ticketAgency", e.target.value)}
@@ -1030,7 +1400,7 @@ export default function BudgetPage() {
                         </td>
                         <td style={{ minWidth: 100 }}>
                           <input
-                            className="budgetTicketCompact"
+                            className="input"
                             value={t.totalTicketCost || ""}
                             onChange={(e) => updateTicketRow(t.id, "totalTicketCost", e.target.value)}
                             inputMode="decimal"
@@ -1038,7 +1408,7 @@ export default function BudgetPage() {
                         </td>
                         <td style={{ minWidth: 100 }}>
                           <input
-                            className="budgetTicketCompact"
+                            className="input"
                             value={t.amountWorkerPaid || ""}
                             onChange={(e) => updateTicketRow(t.id, "amountWorkerPaid", e.target.value)}
                             inputMode="decimal"
@@ -1046,7 +1416,7 @@ export default function BudgetPage() {
                         </td>
                         <td style={{ minWidth: 100 }}>
                           <input
-                            className="budgetTicketCompact"
+                            className="input"
                             value={computedTotalLstCost}
                             readOnly
                             title="Total Ticket Cost − Amount Worker Paid"
@@ -1054,7 +1424,7 @@ export default function BudgetPage() {
                         </td>
                         <td style={{ minWidth: 100 }}>
                           <input
-                            className="budgetTicketCompact"
+                            className="input"
                             value={t.hpTotalCharge || ""}
                             onChange={(e) => updateTicketRow(t.id, "hpTotalCharge", e.target.value)}
                             inputMode="decimal"
@@ -1062,7 +1432,7 @@ export default function BudgetPage() {
                         </td>
                         <td style={{ minWidth: 118 }}>
                           <input
-                            className="budgetTicketCompact"
+                            className="input"
                             type="date"
                             value={t.dateApprovedToWithdraw || ""}
                             onChange={(e) => updateTicketRow(t.id, "dateApprovedToWithdraw", e.target.value)}
@@ -1076,16 +1446,16 @@ export default function BudgetPage() {
                       </>
                     ) : (
                       <>
-                        <td className="budgetTicketViewCell">{t.intlDom || ""}</td>
-                        <td className="budgetTicketViewCell">{t.workerName || ""}</td>
-                        <td className="budgetTicketViewCell">{siteDisplay}</td>
-                        <td className="budgetTicketViewCell">{t.departureDate || ""}</td>
-                        <td className="budgetTicketViewCell">{t.ticketAgency || ""}</td>
-                        <td className="budgetTicketViewCell">{t.totalTicketCost || ""}</td>
-                        <td className="budgetTicketViewCell">{t.amountWorkerPaid || ""}</td>
-                        <td className="budgetTicketViewCell">{computedTotalLstCost}</td>
-                        <td className="budgetTicketViewCell">{t.hpTotalCharge || ""}</td>
-                        <td className="budgetTicketViewCell">{t.dateApprovedToWithdraw || ""}</td>
+                        <td>{t.intlDom || ""}</td>
+                        <td>{t.workerName || ""}</td>
+                        <td>{siteDisplay}</td>
+                        <td>{t.departureDate || ""}</td>
+                        <td>{t.ticketAgency || ""}</td>
+                        <td>{t.totalTicketCost || ""}</td>
+                        <td>{t.amountWorkerPaid || ""}</td>
+                        <td>{computedTotalLstCost}</td>
+                        <td>{t.hpTotalCharge || ""}</td>
+                        <td>{t.dateApprovedToWithdraw || ""}</td>
                         <td>
                           <button className="btn" type="button" onClick={() => setTicketToDeleteId(t.id)}>
                             Delete

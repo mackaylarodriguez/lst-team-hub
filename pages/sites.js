@@ -306,7 +306,10 @@ export default function SitesPage() {
             </colgroup>
             <thead>
               <tr>
-                <th className="sitesWorkbookCorner" style={{ whiteSpace: "nowrap" }}>
+                <th
+                  className="sitesWorkbookCorner"
+                  style={{ whiteSpace: "nowrap", maxWidth: WB_TABLE.site, boxSizing: "border-box" }}
+                >
                   Site
                 </th>
                 {workbookCountsMatrix.columns.map((col) => (
@@ -332,7 +335,11 @@ export default function SitesPage() {
                 const cols = workbookCountsMatrix.columns;
                 return (
                 <tr key={row.siteLabel}>
-                  <td className="sitesWorkbookSiteCell" style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
+                  <td
+                    className="sitesWorkbookSiteCell"
+                    style={{ fontWeight: 700, maxWidth: WB_TABLE.site, boxSizing: "border-box" }}
+                    title={row.siteLabel}
+                  >
                     {row.siteLabel}
                   </td>
                   {cols.map((col) => {
@@ -342,7 +349,7 @@ export default function SitesPage() {
                       return (
                         <td key={col.key} style={{ textAlign: "right", verticalAlign: "middle" }}>
                           <input
-                            className="input"
+                            className="budgetTicketCompact"
                             type="number"
                             min={0}
                             step={1}
@@ -357,9 +364,8 @@ export default function SitesPage() {
                             disabled={savingWorkbookFor === row.siteLabel}
                             style={{
                               width: 56,
+                              maxWidth: 56,
                               textAlign: "right",
-                              padding: "4px 6px",
-                              fontSize: 12,
                             }}
                           />
                         </td>
