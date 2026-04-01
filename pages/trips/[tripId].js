@@ -2179,13 +2179,14 @@ export default function TripPage() {
       );
     } catch (error) {
       console.error("Unable to save T-shirt size", error);
+      showToast(error.message || "Unable to save T-shirt size.", "error");
     } finally {
       setTeamTabTshirtSavingUserId("");
     }
   }
 
   async function handleCreateTask() {
-    if (!trip || !taskDraft.title.trim()) return;
+    if (!trip || !taskDraft.title.trim() || !canManageTrips || !staffViewAllParticipants) return;
 
     try {
       const createdTask = await createTripTask({
@@ -5069,6 +5070,7 @@ function parseDateSafe(dateStr) {
     "Fundraising",
     "Training",
     "Tasks",
+    "Travel Form",
     tripDocumentsTabLabel,
     participantDocumentsTabLabel,
   ];
@@ -6284,9 +6286,13 @@ function parseDateSafe(dateStr) {
                           : "";
                       const travelForm = getTravelFormByRefKey(travelFormRefKey);
                       const tshirtSize = travelForm?.tshirtSize ?? "";
+                      const isOwnTeamRow =
+                        !!currentParticipant &&
+                        (String(member.profileId) === String(currentParticipant.id) ||
+                          (!!normalizeEmail(member.email) &&
+                            normalizeEmail(member.email) === normalizeEmail(currentParticipant.email)));
                       const canEditTshirt =
-                        !!travelFormRefKey &&
-                        (canViewTeamDashboard || String(member.profileId) === String(currentParticipant?.id));
+                        !!travelFormRefKey && (canViewTeamDashboard || isOwnTeamRow);
                       const isSavingTshirt =
                         normalizeTravelFormRefKey(teamTabTshirtSavingUserId) ===
                         normalizeTravelFormRefKey(travelFormRefKey);
@@ -7184,16 +7190,13 @@ function parseDateSafe(dateStr) {
             })}
           </div>
 
-          <div className="small" style={{ marginTop: 12 }}>
-            Training progress is loaded from Supabase for each assigned user.
-          </div>
           </CollapsibleSection>
         </div>
       )}
 
       {tab === "Tasks" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {canManageTrips && (
+          {canManageTrips && staffViewAllParticipants && (
             <CollapsibleSection defaultOpen>
             <div className="card pad tripSectionCard">
               <div className="cardSectionPill" style={{ marginBottom: 10 }}>Manage worker tasks</div>
