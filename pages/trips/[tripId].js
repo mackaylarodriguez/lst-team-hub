@@ -61,6 +61,7 @@ import {
   listTripTasks,
   updateTripTask,
   listUserTaskProgress,
+  loadProfileEmailsByUserIds,
   saveUserTaskProgress,
 } from "@/lib/tripTasks";
 import {
@@ -1090,11 +1091,26 @@ export default function TripPage() {
       const nextTrainingStates = {};
       const nextTaskStates = {};
 
-      progress.forEach((row) => {
-        const participant = participantsById.get(row.userId);
-        if (!participant?.email) return;
+      const orphanProgressUserIds = [
+        ...new Set(
+          [...progress, ...taskProgress]
+            .map((row) => row.userId)
+            .filter((id) => id && !participantsById.has(id))
+        ),
+      ];
+      const profileEmailByUserId = await loadProfileEmailsByUserIds(orphanProgressUserIds);
 
-        const trainingEmailKey = normalizeEmail(participant.email);
+      function resolveEmailForProgressUserId(userId) {
+        const participant = participantsById.get(userId);
+        if (participant?.email) return participant.email;
+        return profileEmailByUserId.get(String(userId)) || "";
+      }
+
+      progress.forEach((row) => {
+        const email = resolveEmailForProgressUserId(row.userId);
+        if (!email) return;
+
+        const trainingEmailKey = normalizeEmail(email);
         if (!trainingEmailKey) return;
         if (!nextTrainingStates[trainingEmailKey]) {
           nextTrainingStates[trainingEmailKey] = {};
@@ -1111,10 +1127,10 @@ export default function TripPage() {
       });
 
       taskProgress.forEach((row) => {
-        const participant = participantsById.get(row.userId);
-        if (!participant?.email) return;
+        const email = resolveEmailForProgressUserId(row.userId);
+        if (!email) return;
 
-        const taskEmailKey = normalizeEmail(participant.email);
+        const taskEmailKey = normalizeEmail(email);
         if (!taskEmailKey) return;
         if (!nextTaskStates[taskEmailKey]) {
           nextTaskStates[taskEmailKey] = {};
@@ -2001,43 +2017,50 @@ export default function TripPage() {
     const emailKey = normalizeEmail(ownerEmail);
     if (!emailKey) return;
 
-    const participant = (trip.participants || []).find(
-      (entry) => normalizeEmail(entry.email) === emailKey
-    );
-    if (!participant?.id) return;
+    void (async () => {
+      const userId = await resolveTrainingSubjectUserId(ownerEmail);
+      if (!userId) {
+        showToast(
+          "No profile found for this email. The worker needs an account (or matching roster email) before tasks can be saved.",
+          "error"
+        );
+        return;
+      }
 
-    const currentState = participantTaskStates[emailKey] || {};
-    const next = { ...currentState, [taskId]: !currentState[taskId] };
+      const currentState = participantTaskStates[emailKey] || {};
+      const next = { ...currentState, [taskId]: !currentState[taskId] };
 
-    setParticipantTaskStates((prev) => ({
-      ...prev,
-      [emailKey]: next,
-    }));
+      setParticipantTaskStates((prev) => ({
+        ...prev,
+        [emailKey]: next,
+      }));
 
-    const task = (trip.tasks || []).find((item) => item.id === taskId);
+      const task = (trip.tasks || []).find((item) => item.id === taskId);
+      const subject = participantDisplayForTrainingEmail(ownerEmail);
 
-    void saveUserTaskProgress({
-      tripId: trip.id,
-      userId: participant.id,
-      taskName: taskId,
-      completed: next[taskId],
-      dueDate: task?.due || null,
-    })
-      .then(async () => {
+      try {
+        await saveUserTaskProgress({
+          tripId: trip.id,
+          userId,
+          taskName: taskId,
+          completed: next[taskId],
+          dueDate: task?.due || null,
+        });
         if (!next[taskId]) return;
         const activityEntry = await logTripActivity({
           tripId: trip.id,
-          actorUserId: participant.id,
-          actorName: participant.name || session?.name || participant.email,
-          actorEmail: participant.email || session?.email || "",
+          actorUserId: userId,
+          actorName: subject.name || session?.name || subject.email || ownerEmail,
+          actorEmail: subject.email || session?.email || "",
           eventType: "task_completed",
-          message: `${participant.name || participant.email || "Someone"} marked task complete`,
+          message: `${subject.name || subject.email || "Someone"} marked task complete`,
         });
         pushRecentActivity(activityEntry);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("Unable to save user task progress", error);
-      });
+        showToast(error.message || "Unable to save task progress.", "error");
+      }
+    })();
   }
 
   function openTravelFormModal(target) {
@@ -2231,7 +2254,10 @@ export default function TripPage() {
     void (async () => {
       const userId = await resolveTrainingSubjectUserId(ownerEmail);
       if (!userId) {
-        console.error("Unable to resolve profile for training toggle", ownerEmail);
+        showToast(
+          "No profile found for this email. The worker needs an account (or matching roster email) before training can be saved.",
+          "error"
+        );
         return;
       }
 
@@ -2271,6 +2297,7 @@ export default function TripPage() {
         pushRecentActivity(activityEntry);
       } catch (error) {
         console.error("Unable to save training progress", error);
+        showToast(error.message || "Unable to save training progress.", "error");
       }
     })();
   }
@@ -2284,7 +2311,10 @@ export default function TripPage() {
     void (async () => {
       const userId = await resolveTrainingSubjectUserId(ownerEmail);
       if (!userId) {
-        console.error("Unable to resolve profile for training date", ownerEmail);
+        showToast(
+          "No profile found for this email. The worker needs an account before training dates can be saved.",
+          "error"
+        );
         return;
       }
 
@@ -2323,6 +2353,7 @@ export default function TripPage() {
         pushRecentActivity(activityEntry);
       } catch (error) {
         console.error("Unable to save training date", error);
+        showToast(error.message || "Unable to save training progress.", "error");
       }
     })();
   }
