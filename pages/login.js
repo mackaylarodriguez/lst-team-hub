@@ -149,13 +149,14 @@ export default function Login() {
   return (
     <div className="container" style={{ display:"grid", placeItems:"center", minHeight:"100vh" }}>
       <div className="card pad" style={{ width:"min(520px, 100%)" }}>
-        <div className="row" style={{ marginBottom: 14 }}>
+        <div className="row appPolishToolbar" style={{ marginBottom: 14 }}>
           <img
             className="logoImage"
             src="/logos/Lets-Start-Talking-LOGO-CMYK.png"
             alt="LST logo"
           />
           <div>
+            <div className="appSectionBadge" style={{ marginBottom: 6 }}>Access</div>
             <div style={{ fontSize: 20, fontWeight: 900, letterSpacing:"-.02em" }}>LST International Projects Hub</div>
           </div>
         </div>

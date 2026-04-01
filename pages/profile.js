@@ -338,6 +338,7 @@ export default function Profile() {
         <AppIcon name="profile" className="pageEyebrowIcon" />
         <span>{canManageProfiles && participantId ? "Participant Profile" : "Profile"}</span>
       </h1>
+      <div className="appSectionBadge" style={{ marginBottom: 8 }}>Profile</div>
       <p className="p">
         Documents uploaded on trips stay attached to this participant profile so staff can review them later.
       </p>
@@ -399,8 +400,9 @@ export default function Profile() {
         </div>
 
         <div className="card pad">
-          <div className="row" style={{ marginBottom: 10 }}>
+          <div className="row appPolishToolbar" style={{ marginBottom: 10 }}>
             <div>
+              <div className="appSectionBadge" style={{ marginBottom: 6 }}>Documents</div>
               <div style={{ fontWeight: 900 }}>Document History</div>
               <div className="small">Uploads from this participant across current and past trips.</div>
             </div>
@@ -469,8 +471,9 @@ export default function Profile() {
         {canViewPrivateStaffSections && profile ? (
           <div style={{ display: "grid", gap: 16 }}>
             <div className="card pad">
-              <div className="row" style={{ marginBottom: 10 }}>
+              <div className="row appPolishToolbar" style={{ marginBottom: 10 }}>
                 <div>
+                  <div className="appSectionBadge" style={{ marginBottom: 6 }}>Recruiting Notes</div>
                   <div style={{ fontWeight: 900 }}>Recruiting Notes</div>
                   <div className="small">
                     Mackayla and Leslee notes from recruiting stay visible here after the team is formed.
@@ -546,8 +549,9 @@ export default function Profile() {
             </div>
 
             <div className="card pad">
-              <div className="row" style={{ marginBottom: 10 }}>
+              <div className="row appPolishToolbar" style={{ marginBottom: 10 }}>
                 <div>
+                  <div className="appSectionBadge" style={{ marginBottom: 6 }}>Staff Notes</div>
                   <div style={{ fontWeight: 900 }}>Staff Notes</div>
                   <div className="small">Private participant notes visible only to staff.</div>
                 </div>
