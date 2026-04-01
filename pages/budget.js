@@ -130,6 +130,11 @@ function formatHousingExtrasForCsv(tripId, extrasDraft, extrasSaved, isEditing) 
     .join(" | ");
 }
 
+function defaultIntlDomForLocation(location) {
+  const text = String(location || "").toLowerCase();
+  return text.includes("massachusetts") ? "Dom" : "Intl";
+}
+
 function mergeHousingWithTrips(trips, budgets) {
   const byTripId = new Map((budgets || []).map((b) => [b.tripId, b]));
   const orderedTrips = [...(trips || [])].sort(compareTripsForBudgetSort);
@@ -459,7 +464,7 @@ export default function BudgetPage() {
       setStatus("Adding...");
       const saved = await saveTripTicket({
         tripId,
-        intlDom: "Intl",
+        intlDom: defaultIntlDomForLocation(trip?.location),
         workerName: "",
         projectCountry: trip?.location || "",
         projectCity: "",
