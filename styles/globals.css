@@ -739,33 +739,40 @@ table.sitesWorkbookTable thead th.sitesWorkbookQtyHead{
 table.sitesWorkbookTable tbody td.sitesWorkbookSiteCell{
   position:sticky;
   left:0;
-  z-index:1;
+  /* Above scrolling qty cells so counts don’t show through; below thead corner (z-index 4) */
+  z-index:3;
   background:var(--card);
-  box-shadow:4px 0 8px -6px rgba(15,23,42,.15);
+  box-shadow:4px 0 0 0 var(--card), 6px 0 14px -4px rgba(15,23,42,.2);
   white-space:normal;
   word-break:break-word;
   overflow-wrap:break-word;
   vertical-align:middle;
   min-width:0;
 }
-/* Striping + row hover: per-cell bg so sticky Site column matches (override .sitesWorkbookSiteCell) */
-table.sitesWorkbookTable tbody tr:nth-child(odd) td:not(.sitesWorkbookSiteCell){
-  background-color:transparent;
-}
-table.sitesWorkbookTable tbody tr:nth-child(even) td,
-table.sitesWorkbookTable tbody tr:nth-child(even) td.sitesWorkbookSiteCell{
+/* Striping + hover: body cells can use translucent tints; Site column must stay opaque so scrolled columns don’t bleed through */
+table.sitesWorkbookTable tbody tr:nth-child(even) td:not(.sitesWorkbookSiteCell){
   background-color:rgba(15, 23, 42, 0.04);
 }
-table.sitesWorkbookTable tbody tr:hover td,
-table.sitesWorkbookTable tbody tr:hover td.sitesWorkbookSiteCell{
+table.sitesWorkbookTable tbody tr:nth-child(even) td.sitesWorkbookSiteCell{
+  background-color:#f3f5f7;
+  box-shadow:4px 0 0 0 #f3f5f7, 6px 0 14px -4px rgba(15,23,42,.2);
+}
+table.sitesWorkbookTable tbody tr:hover td:not(.sitesWorkbookSiteCell){
   background-color:rgba(50, 84, 163, 0.09);
 }
-table.sitesWorkbookTable tbody tr:nth-child(even):hover td,
-table.sitesWorkbookTable tbody tr:nth-child(even):hover td.sitesWorkbookSiteCell{
+table.sitesWorkbookTable tbody tr:hover td.sitesWorkbookSiteCell{
+  background-color:#e8ecf9;
+  box-shadow:4px 0 0 0 #e8ecf9, 6px 0 14px -4px rgba(15,23,42,.22);
+}
+table.sitesWorkbookTable tbody tr:nth-child(even):hover td:not(.sitesWorkbookSiteCell){
   background-color:rgba(50, 84, 163, 0.1);
 }
+table.sitesWorkbookTable tbody tr:nth-child(even):hover td.sitesWorkbookSiteCell{
+  background-color:#e0e5f5;
+  box-shadow:4px 0 0 0 #e0e5f5, 6px 0 14px -4px rgba(15,23,42,.22);
+}
 table.sitesWorkbookTable tbody td{
-  transition:background-color .12s ease;
+  transition:background-color .12s ease, box-shadow .12s ease;
 }
 .sitesLogisticsScroller{
   max-height:min(60vh,640px);
