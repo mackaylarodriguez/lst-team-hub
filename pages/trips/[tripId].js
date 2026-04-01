@@ -3565,35 +3565,6 @@ function parseDateSafe(dateStr) {
     }
   }
 
-  async function handleToggleLeaderTraveling(member) {
-    if (!trip?.id || !staffViewAllParticipants || !member.id) return;
-    const role = member.teamRole || member.role || "";
-    if (role !== "Leader") return;
-
-    const currentlyTravels = member.travelsWithTeam !== false;
-    try {
-      setRosterStatus("Saving...");
-      const nextMembers = (trip.teamMembers || []).map((m) =>
-        String(m.id) === String(member.id)
-          ? { ...m, travelsWithTeam: !currentlyTravels }
-          : m
-      );
-      const savedMembers = await saveTripTeamMembers(trip.id, nextMembers);
-      setTrip((current) => (current ? { ...current, teamMembers: savedMembers } : current));
-      try {
-        await pruneTripTicketsForNonTravelingLeaders();
-      } catch (pruneErr) {
-        console.warn("pruneTripTicketsForNonTravelingLeaders", pruneErr);
-      }
-      setRosterStatus("Saved.");
-    } catch (error) {
-      console.error("Unable to update leader travel flag", error);
-      const msg = error.message || "Unable to update.";
-      setRosterStatus(msg);
-      showToast(msg, "error");
-    }
-  }
-
   async function handleAddWorkerToTrip() {
     if (!trip?.id) return;
 
@@ -6232,27 +6203,6 @@ function parseDateSafe(dateStr) {
                       value={member.endDate || ""}
                       onChange={(event) => updateRosterDraftMember(index, "endDate", event.target.value)}
                     />
-                    {(member.teamRole || "Worker") === "Leader" ? (
-                      <label
-                        className="small"
-                        style={{
-                          gridColumn: "1 / -1",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={member.travelsWithTeam !== false}
-                          onChange={(event) =>
-                            updateRosterDraftMember(index, "travelsWithTeam", event.target.checked)
-                          }
-                        />
-                        Traveling with team (uncheck if this leader is not traveling — skips auto ticketing)
-                      </label>
-                    ) : null}
                     <button className="btn" type="button" onClick={() => handleRemoveRosterMember(index)}>
                       Remove
                     </button>
@@ -6277,14 +6227,6 @@ function parseDateSafe(dateStr) {
                   <tr>
                     <th>Name</th>
                     <th>Role</th>
-                    {staffViewAllParticipants ? (
-                      <th
-                        title="Leaders only. No = not traveling; auto ticketing is not created for them."
-                        style={{ whiteSpace: "nowrap" }}
-                      >
-                        Traveling w/ team?
-                      </th>
-                    ) : null}
                     <th>Account</th>
                     <th>Email</th>
                     <th>Project Dates</th>
@@ -6322,24 +6264,6 @@ function parseDateSafe(dateStr) {
                           )}
                         </td>
                         <td>{member.teamRole || member.role || "Worker"}</td>
-                        {staffViewAllParticipants ? (
-                          <td>
-                            {(member.teamRole || member.role) === "Leader" ? (
-                              <button
-                                type="button"
-                                className="btn"
-                                style={{ padding: "4px 10px", fontSize: 12 }}
-                                disabled={!member.id}
-                                title="Toggle whether this leader travels with the team (No = skip auto ticketing)"
-                                onClick={() => void handleToggleLeaderTraveling(member)}
-                              >
-                                {member.travelsWithTeam !== false ? "Yes" : "No"}
-                              </button>
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                        ) : null}
                         <td>
                           <span className={`badge ${connectionStatus.accountBadgeClass}`.trim()}>
                             {connectionStatus.accountLabel}
