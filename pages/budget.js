@@ -98,6 +98,15 @@ function computeTotalLstCost(totalTicketCost, amountWorkerPaid) {
   return formatUsdNumber(total - paid);
 }
 
+/** Green at/under team housing budget cap; amber when average is over budget. */
+function housingAverageVsBudgetColor(average, budgetCap) {
+  if (average == null || budgetCap == null) return undefined;
+  const a = Number(average);
+  const cap = Number(budgetCap);
+  if (!Number.isFinite(a) || !Number.isFinite(cap)) return undefined;
+  return a <= cap ? "#15803d" : "#ca8a04";
+}
+
 /** Sort trips for Budget housing/ticketing: soonest start first; missing dates last; then name. */
 function compareTripsForBudgetSort(a, b) {
   const ma = parseTripStartDateMs(a?.startDate);
@@ -753,7 +762,11 @@ export default function BudgetPage() {
                     : "—"}
                 </div>
                 <div className="small" style={{ color: "var(--muted)" }}>
-                  Averaging airfare cells, skipping blanks and entries that are "0".
+                  Average of <strong>Total ticket cost</strong> only (Ticketing tab). Worker paid, Total
+                  LST cost, Total charge, and other columns are not used. Skips blanks and $0.
+                  {averages.airfare.count > 0 ? (
+                    <span> ({averages.airfare.count} ticket row{averages.airfare.count === 1 ? "" : "s"})</span>
+                  ) : null}
                 </div>
               </div>
 
@@ -769,13 +782,33 @@ export default function BudgetPage() {
                 <div className="small" style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: ".09em", marginBottom: 4, color: "#0f766e" }}>
                   Housing 1
                 </div>
-                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
+                <div
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 900,
+                    marginBottom: 4,
+                    color: housingAverageVsBudgetColor(
+                      averages.housing1.average,
+                      averages.housing1.budgetPerTeam
+                    ),
+                  }}
+                >
                   {averages.housing1.average != null
                     ? formatUsdNumber(Number(averages.housing1.average))
                     : "—"}
                 </div>
                 <div className="small" style={{ color: "var(--muted)" }}>
-                  Budget is $1,000/team. Averaging sites where LST pays housing (non‑blank, above 0).
+                  Average of <strong>Housing amount</strong> only (Housing budget table). Other amount
+                  columns are not included. Non‑blank, above $0. Budget cap{" "}
+                  {formatUsdNumber(Number(averages.housing1.budgetPerTeam))} per team — number is{" "}
+                  <span style={{ color: "#15803d", fontWeight: 700 }}>green</span> at or under cap,{" "}
+                  <span style={{ color: "#ca8a04", fontWeight: 700 }}>amber</span> if over.
+                  {averages.housing1.count > 0 ? (
+                    <span>
+                      {" "}
+                      ({averages.housing1.count} team{averages.housing1.count === 1 ? "" : "s"})
+                    </span>
+                  ) : null}
                 </div>
               </div>
 
@@ -791,13 +824,31 @@ export default function BudgetPage() {
                 <div className="small" style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: ".09em", marginBottom: 4, color: "#c2410c" }}>
                   Housing 2
                 </div>
-                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
+                <div
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 900,
+                    marginBottom: 4,
+                    color: housingAverageVsBudgetColor(
+                      averages.housing2.average,
+                      averages.housing2.budgetPerTeam
+                    ),
+                  }}
+                >
                   {averages.housing2.average != null
                     ? formatUsdNumber(Number(averages.housing2.average))
                     : "—"}
                 </div>
                 <div className="small" style={{ color: "var(--muted)" }}>
-                  Averaging all sites that had a team. Skipping YF teams.
+                  Same <strong>Housing amount</strong> column only. Non‑YF teams; blank housing counts
+                  as $0 in this average. Same {formatUsdNumber(Number(averages.housing2.budgetPerTeam))}{" "}
+                  cap for green vs amber.
+                  {averages.housing2.count > 0 ? (
+                    <span>
+                      {" "}
+                      ({averages.housing2.count} team{averages.housing2.count === 1 ? "" : "s"})
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
