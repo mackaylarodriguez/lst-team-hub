@@ -5005,6 +5005,8 @@ function parseDateSafe(dateStr) {
           destinationTab: "Tasks",
           destinationId: task.id,
           link: link || null,
+          /** Same trip My Documents / Worker Docs tab — open in-app instead of new window */
+          openDocumentsTab: !!(isDocumentsTask && link && documentsTabUrl && link === documentsTabUrl),
           details: task.description || wt?.details || null,
         };
       });
@@ -5984,15 +5986,26 @@ function parseDateSafe(dateStr) {
                           : "Due when ready"}
                       </div>
                       {task.link ? (
-                        <a
-                          href={task.link}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="small"
-                          style={{ display: "inline-block", marginTop: 4 }}
-                        >
-                          View details →
-                        </a>
+                        task.openDocumentsTab ? (
+                          <button
+                            type="button"
+                            className="small overviewTaskJumpButton"
+                            style={{ display: "inline-block", marginTop: 4 }}
+                            onClick={() => setTab(participantDocumentsTabLabel)}
+                          >
+                            View details →
+                          </button>
+                        ) : (
+                          <a
+                            href={task.link}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="small"
+                            style={{ display: "inline-block", marginTop: 4 }}
+                          >
+                            View details →
+                          </a>
+                        )
                       ) : null}
                       {task.details && !task.link ? (
                         <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>{task.details}</div>
@@ -7416,15 +7429,26 @@ function parseDateSafe(dateStr) {
                                     >
                                       {task.title}
                                       {taskLink ? (
-                                        <a
-                                          href={taskLink}
-                                          target="_blank"
-                                          rel="noreferrer noopener"
-                                          className="btn"
-                                          style={{ marginLeft: 8, padding: "4px 10px", fontSize: 12 }}
-                                        >
-                                          View details
-                                        </a>
+                                        isDocumentsTask ? (
+                                          <button
+                                            type="button"
+                                            className="btn"
+                                            style={{ marginLeft: 8, padding: "4px 10px", fontSize: 12 }}
+                                            onClick={() => setTab(participantDocumentsTabLabel)}
+                                          >
+                                            View details
+                                          </button>
+                                        ) : (
+                                          <a
+                                            href={taskLink}
+                                            target="_blank"
+                                            rel="noreferrer noopener"
+                                            className="btn"
+                                            style={{ marginLeft: 8, padding: "4px 10px", fontSize: 12 }}
+                                          >
+                                            View details
+                                          </a>
+                                        )
                                       ) : null}
                                       {canFillTravelForm ? (
                                         <button
