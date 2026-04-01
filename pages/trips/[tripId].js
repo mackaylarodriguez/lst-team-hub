@@ -28,6 +28,7 @@ import {
   getTrainingModuleDeadline,
   listTrainingModules,
   listTrainingProgress,
+  resolveProfileIdByEmailForTraining,
   saveTrainingProgress,
 } from "@/lib/training";
 import { saveFundraisingProfile } from "@/lib/fundraising";
@@ -1093,14 +1094,19 @@ export default function TripPage() {
         const participant = participantsById.get(row.userId);
         if (!participant?.email) return;
 
-        if (!nextTrainingStates[participant.email]) {
-          nextTrainingStates[participant.email] = {};
+        const trainingEmailKey = normalizeEmail(participant.email);
+        if (!trainingEmailKey) return;
+        if (!nextTrainingStates[trainingEmailKey]) {
+          nextTrainingStates[trainingEmailKey] = {};
         }
 
-        nextTrainingStates[participant.email][row.moduleId] = !!row.completed;
+        nextTrainingStates[trainingEmailKey][row.moduleId] = !!row.completed;
         if (row.completedAt) {
-          nextTrainingStates[participant.email][`${row.moduleId}Date`] =
-            String(row.completedAt).slice(0, 10);
+          const raw = String(row.completedAt);
+          const ymd = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+          nextTrainingStates[trainingEmailKey][`${row.moduleId}Date`] = ymd
+            ? ymd[1]
+            : raw.slice(0, 10);
         }
       });
 
@@ -2175,94 +2181,142 @@ export default function TripPage() {
     }
   }
 
+  async function resolveTrainingSubjectUserId(ownerEmail) {
+    const key = normalizeEmail(ownerEmail);
+    if (!key || !trip) return null;
+    const fromAssignment = (trip.participants || []).find(
+      (entry) => normalizeEmail(entry.email) === key
+    );
+    if (fromAssignment?.id) return fromAssignment.id;
+    return resolveProfileIdByEmailForTraining(ownerEmail);
+  }
+
+  function participantDisplayForTrainingEmail(ownerEmail) {
+    const key = normalizeEmail(ownerEmail);
+    const fromParticipants = (trip?.participants || []).find(
+      (entry) => normalizeEmail(entry.email) === key
+    );
+    if (fromParticipants) return fromParticipants;
+    const fromRoster = (trip?.teamMembers || []).find(
+      (entry) => normalizeEmail(entry.email) === key
+    );
+    if (fromRoster) {
+      return {
+        id: fromRoster.id,
+        name: fromRoster.name || fromRoster.email || ownerEmail,
+        email: fromRoster.email || ownerEmail,
+      };
+    }
+    return {
+      id: null,
+      name: ownerEmail,
+      email: ownerEmail,
+    };
+  }
+
   function toggleTraining(id, ownerEmail = session?.email) {
     if (!trip || !ownerEmail) return;
 
-    const participant = (trip.participants || []).find(
-      (entry) => entry.email?.toLowerCase() === ownerEmail.toLowerCase()
-    );
-    if (!participant?.id) return;
+    const emailKey = normalizeEmail(ownerEmail);
+    if (!emailKey) return;
 
-    const currentState = participantTrainingStates[ownerEmail] || {};
-    const next = { ...currentState, [id]: !currentState[id] };
-    const nextValue = !currentState[id];
+    void (async () => {
+      const userId = await resolveTrainingSubjectUserId(ownerEmail);
+      if (!userId) {
+        console.error("Unable to resolve profile for training toggle", ownerEmail);
+        return;
+      }
 
-    if (datedTrainingModuleIds.includes(id) && !nextValue) {
-      next[`${id}Date`] = "";
-    }
+      const currentState = participantTrainingStates[emailKey] || {};
+      const next = { ...currentState, [id]: !currentState[id] };
+      const nextValue = !currentState[id];
 
-    setParticipantTrainingStates((prev) => ({
-      ...prev,
-      [ownerEmail]: next,
-    }));
+      if (datedTrainingModuleIds.includes(id) && !nextValue) {
+        next[`${id}Date`] = "";
+      }
 
-    void saveTrainingProgress({
-      tripId: trip.id,
-      userId: participant.id,
-      moduleId: id,
-      completed: nextValue,
-      completedAt: next[`${id}Date`] || null,
-    })
-      .then(async () => {
+      setParticipantTrainingStates((prev) => ({
+        ...prev,
+        [emailKey]: next,
+      }));
+
+      const participant = participantDisplayForTrainingEmail(ownerEmail);
+
+      try {
+        await saveTrainingProgress({
+          tripId: trip.id,
+          userId,
+          moduleId: id,
+          completed: nextValue,
+          completedAt: next[`${id}Date`] || null,
+        });
         if (!nextValue) return;
         const module = allTrainingModules.find((item) => item.id === id);
         const activityEntry = await logTripActivity({
           tripId: trip.id,
-          actorUserId: participant.id,
+          actorUserId: userId,
           actorName: participant.name || session?.name || participant.email,
           actorEmail: participant.email || session?.email || "",
           eventType: "training_completed",
           message: `${participant.name || participant.email || "Someone"} completed ${module?.title || "training module"}`,
         });
         pushRecentActivity(activityEntry);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("Unable to save training progress", error);
-      });
+      }
+    })();
   }
 
   function updateTrainingDate(id, value, ownerEmail = session?.email) {
     if (!trip || !ownerEmail) return;
 
-    const participant = (trip.participants || []).find(
-      (entry) => entry.email?.toLowerCase() === ownerEmail.toLowerCase()
-    );
-    if (!participant?.id) return;
+    const emailKey = normalizeEmail(ownerEmail);
+    if (!emailKey) return;
 
-    const currentState = participantTrainingStates[ownerEmail] || {};
-    const next = {
-      ...currentState,
-      [`${id}Date`]: value,
-      [id]: value ? true : currentState[id],
-    };
-    setParticipantTrainingStates((prev) => ({
-      ...prev,
-      [ownerEmail]: next,
-    }));
+    void (async () => {
+      const userId = await resolveTrainingSubjectUserId(ownerEmail);
+      if (!userId) {
+        console.error("Unable to resolve profile for training date", ownerEmail);
+        return;
+      }
 
-    void saveTrainingProgress({
-      tripId: trip.id,
-      userId: participant.id,
-      moduleId: id,
-      completed: !!next[id],
-      completedAt: value || null,
-    })
-      .then(async () => {
+      const currentState = participantTrainingStates[emailKey] || {};
+      const next = {
+        ...currentState,
+        [`${id}Date`]: value,
+        [id]: value ? true : currentState[id],
+      };
+
+      setParticipantTrainingStates((prev) => ({
+        ...prev,
+        [emailKey]: next,
+      }));
+
+      const participant = participantDisplayForTrainingEmail(ownerEmail);
+
+      try {
+        await saveTrainingProgress({
+          tripId: trip.id,
+          userId,
+          moduleId: id,
+          completed: !!next[id],
+          completedAt: value || null,
+        });
         if (!value || currentState[id]) return;
         const module = allTrainingModules.find((item) => item.id === id);
         const activityEntry = await logTripActivity({
           tripId: trip.id,
-          actorUserId: participant.id,
+          actorUserId: userId,
           actorName: participant.name || session?.name || participant.email,
           actorEmail: participant.email || session?.email || "",
           eventType: "training_completed",
           message: `${participant.name || participant.email || "Someone"} completed ${module?.title || "training module"}`,
         });
         pushRecentActivity(activityEntry);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("Unable to save training date", error);
-      });
+      }
+    })();
   }
 
   function withComputedStaffDueDates(tasks) {
@@ -4467,7 +4521,8 @@ function parseDateSafe(dateStr) {
     if (!trip) return [];
 
     const base = (trip.participants || []).map((participant) => {
-      const trainingState = participantTrainingStates[participant.email] || {};
+      const trainingState =
+        participantTrainingStates[normalizeEmail(participant.email)] || {};
       const completed = allTrainingModules.filter(
         (module) => !!trainingState[module.id]
       ).length;
@@ -4495,7 +4550,8 @@ function parseDateSafe(dateStr) {
         return e && !participantEmails.has(e);
       })
       .map((member) => {
-        const trainingState = participantTrainingStates[member.email] || {};
+        const trainingState =
+          participantTrainingStates[normalizeEmail(member.email)] || {};
         const completed = allTrainingModules.filter(
           (module) => !!trainingState[module.id]
         ).length;
