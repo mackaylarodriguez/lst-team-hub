@@ -9,6 +9,7 @@ import {
 } from "@/lib/trips";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
 import {
+  computeStaffTaskDueDate,
   deleteStaffMiscTask,
   isTaskAssignedToUser,
   isMissingStaffMiscTasksTableError,
@@ -18,6 +19,7 @@ import {
   saveStaffTasks,
   STAFF_MISC_TASKS_UPDATED_EVENT,
   STAFF_TASKS_UPDATED_EVENT,
+  toCalendarDatePart,
 } from "@/lib/staffTasks";
 
 const PROGRESS_OPTIONS = [
@@ -197,13 +199,21 @@ export default function Admin() {
   const allTasks = useMemo(
     () => [
       ...trips.flatMap((trip) =>
-        (staffTasksByTrip[trip.id] || trip.staffTasks || []).map((task) => ({
-          ...task,
-          tripId: trip.id,
-          tripName: trip.name,
-        }))
+        (staffTasksByTrip[trip.id] || trip.staffTasks || []).map((task) => {
+          const stored = toCalendarDatePart(task.dueDate);
+          const computed = toCalendarDatePart(computeStaffTaskDueDate(task, trip));
+          return {
+            ...task,
+            tripId: trip.id,
+            tripName: trip.name,
+            dueDate: stored || computed || "",
+          };
+        })
       ),
-      ...miscTasks,
+      ...miscTasks.map((task) => ({
+        ...task,
+        dueDate: toCalendarDatePart(task.dueDate) || "",
+      })),
     ],
     [miscTasks, staffTasksByTrip, trips]
   );
