@@ -1114,11 +1114,13 @@ export default function TripPage() {
         const participant = participantsById.get(row.userId);
         if (!participant?.email) return;
 
-        if (!nextTaskStates[participant.email]) {
-          nextTaskStates[participant.email] = {};
+        const taskEmailKey = normalizeEmail(participant.email);
+        if (!taskEmailKey) return;
+        if (!nextTaskStates[taskEmailKey]) {
+          nextTaskStates[taskEmailKey] = {};
         }
 
-        nextTaskStates[participant.email][row.taskName] = !!row.completed;
+        nextTaskStates[taskEmailKey][row.taskName] = !!row.completed;
       });
 
       setParticipantTrainingStates(nextTrainingStates);
@@ -1996,18 +1998,20 @@ export default function TripPage() {
 
   function toggleTask(taskId, ownerEmail = session?.email) {
     if (!trip || !ownerEmail) return;
+    const emailKey = normalizeEmail(ownerEmail);
+    if (!emailKey) return;
 
     const participant = (trip.participants || []).find(
-      (entry) => entry.email?.toLowerCase() === ownerEmail.toLowerCase()
+      (entry) => normalizeEmail(entry.email) === emailKey
     );
     if (!participant?.id) return;
 
-    const currentState = participantTaskStates[ownerEmail] || {};
+    const currentState = participantTaskStates[emailKey] || {};
     const next = { ...currentState, [taskId]: !currentState[taskId] };
 
     setParticipantTaskStates((prev) => ({
       ...prev,
-      [ownerEmail]: next,
+      [emailKey]: next,
     }));
 
     const task = (trip.tasks || []).find((item) => item.id === taskId);
@@ -2117,7 +2121,11 @@ export default function TripPage() {
       setTravelFormStatus("Saved.");
       showToast("Travel form saved.");
       const travelFormTask = (trip.tasks || []).find((t) => t.title === "Fill out Travel Form");
-      if (participant && travelFormTask && !(participantTaskStates[participant.email] || {})[travelFormTask.id]) {
+      if (
+        participant &&
+        travelFormTask &&
+        !(participantTaskStates[normalizeEmail(participant.email)] || {})[travelFormTask.id]
+      ) {
         toggleTask(travelFormTask.id, participant.email);
       }
       setTravelFormModalOpen(false);
@@ -4299,7 +4307,7 @@ function parseDateSafe(dateStr) {
     if (!trip) return [];
 
     const base = (trip.participants || []).map((participant) => {
-      const taskState = participantTaskStates[participant.email] || {};
+      const taskState = participantTaskStates[normalizeEmail(participant.email)] || {};
       const completed = trip.tasks.filter((task) => !!taskState[task.id]).length;
 
       return {
@@ -4324,7 +4332,7 @@ function parseDateSafe(dateStr) {
         return e && !participantEmails.has(e);
       })
       .map((member) => {
-        const taskState = participantTaskStates[member.email] || {};
+        const taskState = participantTaskStates[normalizeEmail(member.email)] || {};
         const completed = trip.tasks.filter((task) => !!taskState[task.id]).length;
         return {
           id: member.id ? `roster-member-${member.id}` : `roster-${normalizeEmail(member.email)}`,
@@ -7294,7 +7302,7 @@ function parseDateSafe(dateStr) {
             }}
           >
             {visibleTaskParticipants.map((participant) => {
-              const taskState = participantTaskStates[participant.email] || {};
+              const taskState = participantTaskStates[normalizeEmail(participant.email)] || {};
 
               return (
                 <div key={participant.email} className="card pad">
