@@ -1127,37 +1127,43 @@ export default function BudgetPage() {
                             )}
                           </div>
                           {housingExtrasList.length ? (
-                            <ul style={{ margin: 0, paddingLeft: 18 }}>
-                              {housingExtrasList.map((ex) => (
-                                <li key={ex.id} style={{ marginBottom: 8 }}>
-                                  {ex.label ? (
-                                    <span style={{ fontWeight: 700 }}>{ex.label}: </span>
-                                  ) : (
-                                    <span className="small" style={{ color: "var(--muted)" }}>Extra: </span>
-                                  )}
-                                  {ex.housingLink ? (
-                                    <a
-                                      href={
-                                        /^https?:\/\//i.test(String(ex.housingLink).trim())
-                                          ? String(ex.housingLink).trim()
-                                          : `https://${String(ex.housingLink).trim()}`
-                                      }
-                                      target="_blank"
-                                      rel="noreferrer"
-                                    >
-                                      {ex.housingLink}
-                                    </a>
-                                  ) : null}
-                                  {ex.housingLink && ex.housingPdfUrl ? <span> · </span> : null}
-                                  {ex.housingPdfUrl ? (
-                                    <a href={ex.housingPdfUrl} target="_blank" rel="noreferrer">
-                                      PDF
-                                    </a>
-                                  ) : null}
-                                  {!ex.housingLink && !ex.housingPdfUrl ? "—" : null}
-                                </li>
+                            <div style={{ display: "grid", gap: 8 }}>
+                              {housingExtrasList.map((ex, idx) => (
+                                <div
+                                  key={ex.id}
+                                  style={{
+                                    paddingTop: 8,
+                                    borderTop: "1px dashed var(--border)",
+                                  }}
+                                >
+                                  <div className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>
+                                    {ex.label ? ex.label : `Additional ${idx + 1}`}
+                                  </div>
+                                  <div style={{ marginTop: 4 }}>
+                                    {ex.housingLink ? (
+                                      <a
+                                        href={
+                                          /^https?:\/\//i.test(String(ex.housingLink).trim())
+                                            ? String(ex.housingLink).trim()
+                                            : `https://${String(ex.housingLink).trim()}`
+                                        }
+                                        target="_blank"
+                                        rel="noreferrer"
+                                      >
+                                        {ex.housingLink}
+                                      </a>
+                                    ) : null}
+                                    {ex.housingLink && ex.housingPdfUrl ? <br /> : null}
+                                    {ex.housingPdfUrl ? (
+                                      <a href={ex.housingPdfUrl} target="_blank" rel="noreferrer">
+                                        PDF
+                                      </a>
+                                    ) : null}
+                                    {!ex.housingLink && !ex.housingPdfUrl ? "—" : null}
+                                  </div>
+                                </div>
                               ))}
-                            </ul>
+                            </div>
                           ) : null}
                         </td>
                         <td>{r.notes || ""}</td>
