@@ -4,6 +4,7 @@ create table if not exists public.site_budget_notes (
   effective_date date,
   notes text,
   workbook_notes text,
+  workbook_notes_updated_at timestamp with time zone,
   updated_at timestamp with time zone default now(),
   created_at timestamp with time zone default now()
 );

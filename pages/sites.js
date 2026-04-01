@@ -32,8 +32,17 @@ const WB_TABLE = {
   site: 172,
   workbookQty: 86,
   totalBooks: 92,
+  workbooksUpdated: 118,
   workbooksActions: 220,
 };
+
+function formatWorkbookInventoryUpdatedAt(iso) {
+  const s = String(iso || "").trim();
+  if (!s) return "—";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
 
 function workbookQtyHeaderStyle(col) {
   if (col.series && WORKBOOK_SERIES_HEADER_STYLE[col.series]) {
@@ -134,6 +143,7 @@ export default function SitesPage() {
       return {
         siteLabel,
         note,
+        workbookNotesUpdatedAt: note?.workbookNotesUpdatedAt || "",
         qtyByKey,
         totalCopies: summary.totalCopies,
         effectiveLogisticsUrl,
@@ -145,9 +155,9 @@ export default function SitesPage() {
   }, [siteNotes]);
 
   const workbookTableWidthPx = useMemo(() => {
-    const { site, workbookQty, totalBooks, workbooksActions } = WB_TABLE;
+    const { site, workbookQty, totalBooks, workbooksUpdated, workbooksActions } = WB_TABLE;
     const n = workbookCountsMatrix.columns.length;
-    return site + n * workbookQty + totalBooks + workbooksActions;
+    return site + n * workbookQty + totalBooks + workbooksUpdated + workbooksActions;
   }, [workbookCountsMatrix.columns.length]);
 
   async function saveSiteLogisticsUrl(siteOption) {
@@ -219,6 +229,7 @@ export default function SitesPage() {
           workbookNotes: workbookNotesStr,
           notes: matched.notes ?? "",
           effectiveDate: matched.effectiveDate || null,
+          setWorkbookNotesUpdatedAt: true,
         });
       } else {
         saved = await upsertSiteBudgetNote({
@@ -226,6 +237,7 @@ export default function SitesPage() {
           workbookNotes: workbookNotesStr,
           notes: "",
           logisticsUrl: null,
+          setWorkbookNotesUpdatedAt: true,
         });
       }
       setSiteNotes((prev) => {
@@ -302,6 +314,7 @@ export default function SitesPage() {
                 <col key={col.key} style={{ width: WB_TABLE.workbookQty }} />
               ))}
               <col style={{ width: WB_TABLE.totalBooks }} />
+              <col style={{ width: WB_TABLE.workbooksUpdated }} />
               <col style={{ width: WB_TABLE.workbooksActions }} />
             </colgroup>
             <thead>
@@ -326,6 +339,12 @@ export default function SitesPage() {
                   </th>
                 ))}
                 <th style={{ whiteSpace: "nowrap", textAlign: "right" }}>Total books</th>
+                <th
+                  style={{ whiteSpace: "nowrap", fontSize: 11, fontWeight: 800, color: "var(--muted)" }}
+                  title="When workbook counts were last saved on this page"
+                >
+                  Inventory updated
+                </th>
                 <th style={{ whiteSpace: "nowrap" }}>Workbooks</th>
               </tr>
             </thead>
@@ -388,6 +407,17 @@ export default function SitesPage() {
                   })}
                   <td style={{ textAlign: "right", fontWeight: 800 }}>
                     {row.totalCopies > 0 ? row.totalCopies : "—"}
+                  </td>
+                  <td
+                    style={{
+                      fontSize: 11,
+                      color: "var(--muted)",
+                      whiteSpace: "nowrap",
+                      verticalAlign: "middle",
+                    }}
+                    title={row.workbookNotesUpdatedAt || undefined}
+                  >
+                    {formatWorkbookInventoryUpdatedAt(row.workbookNotesUpdatedAt)}
                   </td>
                   <td style={{ verticalAlign: "middle" }}>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
