@@ -41,7 +41,7 @@ function formatWorkbookInventoryUpdatedAt(iso) {
   if (!s) return "—";
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return d.toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
 function workbookQtyHeaderStyle(col) {
@@ -415,7 +415,6 @@ export default function SitesPage() {
                       whiteSpace: "nowrap",
                       verticalAlign: "middle",
                     }}
-                    title={row.workbookNotesUpdatedAt || undefined}
                   >
                     {formatWorkbookInventoryUpdatedAt(row.workbookNotesUpdatedAt)}
                   </td>
