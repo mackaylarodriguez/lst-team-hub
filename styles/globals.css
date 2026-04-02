@@ -438,7 +438,7 @@ a:hover{text-decoration:underline}
 .statusInProgress{border-color:rgba(249,157,42,.28); background:var(--goldSoft); color:#b45309}
 .statusWaiting{border-color:rgba(47,73,147,.22); background:var(--primarySoft); color:var(--primary)}
 .statusComplete{border-color:rgba(60,170,225,.28); background:var(--skySoft); color:#0f6e91}
-.badge{display:inline-flex; align-items:center; font-size:12px; padding:5px 10px; border-radius:999px; border:1px solid var(--border); color:var(--muted); background:#fff}
+.badge{display:inline-flex; align-items:center; justify-content:center; text-align:center; font-size:12px; padding:5px 10px; border-radius:999px; border:1px solid var(--border); color:var(--muted); background:#fff}
 .badgeSuccess{border-color:rgba(60,170,225,.28); color:var(--success); background:var(--skySoft)}
 .badgeWarn{border-color:rgba(249,157,42,.28); color:var(--warn); background:var(--goldSoft)}
 .badgeDanger{border-color:rgba(239,68,68,.25); color:var(--danger); background:rgba(239,68,68,.08)}
