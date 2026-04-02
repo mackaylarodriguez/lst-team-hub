@@ -1229,9 +1229,6 @@ export default function BudgetPage() {
                           />
                         </td>
                         <td style={{ minWidth: 220, verticalAlign: "top", maxWidth: 360 }}>
-                          <div className="small" style={{ color: "var(--muted)", marginBottom: 4 }}>
-                            Main (budget row)
-                          </div>
                           <textarea
                             className="input"
                             rows={3}
@@ -1428,10 +1425,7 @@ export default function BudgetPage() {
                           <div style={{ marginBottom: housingExtrasList.length ? 8 : 0 }}>
                             {r.housingLink || r.housingPdfUrl ? (
                               <>
-                                <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>
-                                  Main
-                                </span>
-                                <div style={{ marginTop: 4 }}>
+                                <div style={{ marginTop: 0 }}>
                                   {r.housingLink ? (
                                     <a
                                       href={

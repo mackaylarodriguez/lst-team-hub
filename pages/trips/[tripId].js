@@ -8297,11 +8297,12 @@ function parseDateSafe(dateStr) {
                   </div>
 
                   <div style={materialsGlanceRow}>
-                    <div style={materialsGlanceLabel}># of workers</div>
+                    <div style={{ ...materialsGlanceLabel, fontWeight: 400 }}># of workers</div>
                     <div>
                       <span
                         style={{
                           ...materialsGlanceValue,
+                          fontWeight: 400,
                           fontVariantNumeric: "tabular-nums",
                         }}
                       >
@@ -9066,7 +9067,7 @@ function parseDateSafe(dateStr) {
                               if (!href) return null;
                               const labelPart =
                                 tripHousingDocuments.length > 1
-                                  ? h.label || (i === 0 ? "Main" : `Extra ${i}`)
+                                  ? h.label || (i === 0 ? "" : `Extra ${i}`)
                                   : "";
                               return (
                                 <a
