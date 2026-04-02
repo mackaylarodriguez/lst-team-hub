@@ -4523,28 +4523,59 @@ function parseDateSafe(dateStr) {
 
   function renderTripSetupCard() {
     return (
-      <div id="trip-setup" className="card pad" style={{ gridColumn: "1 / -1" }}>
-        <div className="cardSectionPill" style={{ marginBottom: 8 }}>Trip setup</div>
-        <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-          Site, dates, and configuration.
-        </div>
-        <div className="row" style={{ marginBottom: 14 }}>
-          <div className="spacer" />
-          {tripSetupStatus ? (
-            <div className="row" style={{ alignSelf: "center", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <span className="small" style={tripSetupStatus !== "Saving..." && tripSetupStatus !== "Saved." && tripSetupStatus !== "Deleting trip..." ? { color: "var(--danger)" } : {}}>{tripSetupStatus}</span>
-              {tripSetupStatus !== "Saving..." && tripSetupStatus !== "Saved." && tripSetupStatus !== "Deleting trip..." && isEditingTripSetup ? (
-                <button type="button" className="btn btnPrimary" onClick={() => handleSaveTripSetup()}>
-                  Try again
-                </button>
-              ) : null}
+      <div
+        id="trip-setup"
+        className="card pad"
+        style={{ gridColumn: "1 / -1", paddingTop: 14 }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            columnGap: 16,
+            rowGap: 8,
+            marginBottom: 10,
+          }}
+        >
+          <div style={{ minWidth: 0, flex: "1 1 200px" }}>
+            <div className="cardSectionPill" style={{ marginBottom: 4 }}>Trip setup</div>
+            <div className="small" style={{ opacity: 0.88, lineHeight: 1.35 }}>
+              Site, dates, and configuration.
             </div>
-          ) : null}
-          {staffViewAllParticipants && !isEditingTripSetup ? (
-            <button className="btn" type="button" onClick={handleStartTripSetupEdit}>
-              Edit Details
-            </button>
-          ) : null}
+          </div>
+          <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap", flexShrink: 0, marginTop: 2 }}>
+            {tripSetupStatus ? (
+              <div className="row" style={{ alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span
+                  className="small"
+                  style={
+                    tripSetupStatus !== "Saving..." &&
+                    tripSetupStatus !== "Saved." &&
+                    tripSetupStatus !== "Deleting trip..."
+                      ? { color: "var(--danger)" }
+                      : {}
+                  }
+                >
+                  {tripSetupStatus}
+                </span>
+                {tripSetupStatus !== "Saving..." &&
+                tripSetupStatus !== "Saved." &&
+                tripSetupStatus !== "Deleting trip..." &&
+                isEditingTripSetup ? (
+                  <button type="button" className="btn btnPrimary" onClick={() => handleSaveTripSetup()}>
+                    Try again
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {staffViewAllParticipants && !isEditingTripSetup ? (
+              <button className="btn" type="button" onClick={handleStartTripSetupEdit}>
+                Edit Details
+              </button>
+            ) : null}
+          </div>
         </div>
         <div
           className={`tripSetupColumns${staffViewAllParticipants ? "" : " tripSetupColumnsSingle"}`}
