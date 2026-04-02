@@ -51,10 +51,9 @@ alter table public.travel_form_responses
 create index if not exists travel_form_responses_trip_team_member_id_idx
   on public.travel_form_responses (trip_team_member_id);
 
-create unique index if not exists travel_form_responses_trip_user_unique_idx
-  on public.travel_form_responses (trip_id, user_id)
-  where user_id is not null;
+-- Non-partial uniques for PostgREST upsert ON CONFLICT (trip_id, user_id), etc.
+create unique index if not exists travel_form_responses_trip_user_upsert_uniq
+  on public.travel_form_responses (trip_id, user_id);
 
-create unique index if not exists travel_form_responses_trip_member_unique_idx
-  on public.travel_form_responses (trip_id, trip_team_member_id)
-  where trip_team_member_id is not null;
+create unique index if not exists travel_form_responses_trip_roster_upsert_uniq
+  on public.travel_form_responses (trip_id, trip_team_member_id);

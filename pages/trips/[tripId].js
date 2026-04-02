@@ -206,13 +206,7 @@ const TEAM_STATUS_OPTIONS = [
   "On Hold",
 ];
 
-const TSHIRT_SIZE_OPTIONS = ["", "XS", "S", "M", "L", "XL", "XXL", "3XL"];
 const TEAM_MEMBER_ROLE_OPTIONS = ["Worker", "Trainer", "Leader"];
-function getTshirtSizeOptions(currentValue) {
-  const v = String(currentValue || "").trim();
-  if (!v || TSHIRT_SIZE_OPTIONS.includes(v)) return TSHIRT_SIZE_OPTIONS;
-  return [v, ...TSHIRT_SIZE_OPTIONS];
-}
 
 const BIRTHDATE_MONTH_OPTIONS = ["", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 const BIRTHDATE_DAY_OPTIONS = ["", ...Array.from({ length: 31 }, (_, i) => String(i + 1))];
@@ -791,7 +785,6 @@ export default function TripPage() {
   const [travelFormDraft, setTravelFormDraft] = useState(() => ({ ...TRAVEL_FORM_EMPTY }));
   const [travelFormStatus, setTravelFormStatus] = useState("");
   const [travelFormResponses, setTravelFormResponses] = useState([]);
-  const [teamTabTshirtSavingUserId, setTeamTabTshirtSavingUserId] = useState("");
   const [tripMeetings, setTripMeetings] = useState([]);
   const [meetingDraft, setMeetingDraft] = useState({ title: "", scheduledAt: "", notesAfter: "" });
   const [editingMeetingId, setEditingMeetingId] = useState("");
@@ -2409,10 +2402,6 @@ export default function TripPage() {
             gatewayCity: existing.gatewayCity,
             departureDate: existing.departureDate,
             returnDate: existing.returnDate,
-            tshirtSize: existing.tshirtSize,
-            emergencyContactName: existing.emergencyContactName,
-            emergencyContactEmail: existing.emergencyContactEmail,
-            emergencyContactPhone: existing.emergencyContactPhone,
             isMinor: existing.isMinor,
             passportValidSixMonths: existing.passportValidSixMonths,
             baseTicketAck: existing.baseTicketAck,
@@ -2467,30 +2456,6 @@ export default function TripPage() {
       const errMsg = error.message || "Unable to save.";
       setTravelFormStatus(errMsg);
       showToast(errMsg, "error");
-    }
-  }
-
-  async function handleSaveTeamTabTshirt(refKey, newValue) {
-    const normalizedRefKey = normalizeTravelFormRefKey(refKey);
-    const userId = normalizedRefKey.startsWith("user:") ? normalizedRefKey.slice(5) : "";
-    const tripTeamMemberId = normalizedRefKey.startsWith("roster:") ? normalizedRefKey.slice(7) : "";
-    if (!trip?.id || (!userId && !tripTeamMemberId)) return;
-    const form = getTravelFormByRefKey(normalizedRefKey);
-    const payload = { ...(form || TRAVEL_FORM_EMPTY), tshirtSize: String(newValue ?? "").trim() };
-    try {
-      setTeamTabTshirtSavingUserId(normalizedRefKey);
-      const saved = await saveTravelFormForRef(trip.id, {
-        userId: userId || undefined,
-        tripTeamMemberId: tripTeamMemberId || undefined,
-      }, payload);
-      setTravelFormResponses((prev) =>
-        prev.filter((f) => normalizeTravelFormRefKey(travelFormRowToRefKey(f)) !== normalizedRefKey).concat([saved])
-      );
-    } catch (error) {
-      console.error("Unable to save T-shirt size", error);
-      showToast(error.message || "Unable to save T-shirt size.", "error");
-    } finally {
-      setTeamTabTshirtSavingUserId("");
     }
   }
 
@@ -5485,21 +5450,6 @@ function parseDateSafe(dateStr) {
     return workerTabList;
   })();
 
-  const travelFormTshirtSummary = useMemo(() => {
-    return (travelFormResponses || [])
-      .map((r) => {
-        const name = [r.firstNamePassport, r.lastNamePassport]
-          .filter(Boolean)
-          .join(" ")
-          .trim() || r.email || "Participant";
-        const sz = String(r.tshirtSize || "").trim();
-        if (!sz) return null;
-        return `${name}: ${sz}`;
-      })
-      .filter(Boolean)
-      .join("\n");
-  }, [travelFormResponses]);
-
   /** Participants plus roster-only team members (same headcount as worker docs / fundraising list). */
   const materialsRosterHeadcount = workerDocumentParticipants.length;
 
@@ -5664,7 +5614,6 @@ function parseDateSafe(dateStr) {
         "Current roster count",
         "Team accountant",
         "T-shirt sizes (housing budget)",
-        "T-shirt sizes (travel forms)",
         "Workbooks (inventory)",
         "Ship-to address",
         "Tracking number",
@@ -5677,7 +5626,6 @@ function parseDateSafe(dateStr) {
         materialsRosterHeadcount,
         materialsDraft.teamAccountant || "",
         materialsDraft.tshirts || "",
-        travelFormTshirtSummary || "",
         materialsDraft.workbooks || "",
         materialsDraft.materialsShipAddress || "",
         materialsDraft.materialsTrackingNumber || "",
@@ -6662,7 +6610,6 @@ function parseDateSafe(dateStr) {
                     <th>Account</th>
                     <th>Email</th>
                     <th>Project Dates</th>
-                    <th>T-shirt</th>
                     {staffViewAllParticipants ? <th>Actions</th> : null}
                   </tr>
                 </thead>
@@ -6670,23 +6617,6 @@ function parseDateSafe(dateStr) {
                   {teamTabMembers.length > 0 ? (
                     teamTabMembers.map((member) => {
                       const connectionStatus = getWorkerConnectionStatus(member);
-                      const travelFormRefKey = member.profileId
-                        ? `user:${member.profileId}`
-                        : member.id
-                          ? `roster:${member.id}`
-                          : "";
-                      const travelForm = getTravelFormByRefKey(travelFormRefKey);
-                      const tshirtSize = travelForm?.tshirtSize ?? "";
-                      const isOwnTeamRow =
-                        !!currentParticipant &&
-                        (String(member.profileId) === String(currentParticipant.id) ||
-                          (!!normalizeEmail(member.email) &&
-                            normalizeEmail(member.email) === normalizeEmail(currentParticipant.email)));
-                      const canEditTshirt =
-                        !!travelFormRefKey && (canViewTeamDashboard || isOwnTeamRow);
-                      const isSavingTshirt =
-                        normalizeTravelFormRefKey(teamTabTshirtSavingUserId) ===
-                        normalizeTravelFormRefKey(travelFormRefKey);
 
                       return (
                       <tr key={member.key}>
@@ -6707,54 +6637,6 @@ function parseDateSafe(dateStr) {
                         </td>
                         <td>{member.email || "Not set"}</td>
                         <td>{formatTripDateRange(member.startDate, member.endDate)}</td>
-                        <td>
-                          {canEditTshirt ? (
-                            <span className="row" style={{ gap: 6, alignItems: "center" }}>
-                              <select
-                                className="input"
-                                style={{ minWidth: 88 }}
-                                value={tshirtSize}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setTravelFormResponses((prev) => {
-                                    const has = prev.some(
-                                      (f) =>
-                                        normalizeTravelFormRefKey(travelFormRowToRefKey(f)) ===
-                                        normalizeTravelFormRefKey(travelFormRefKey)
-                                    );
-                                    if (has) {
-                                      return prev.map((f) =>
-                                        normalizeTravelFormRefKey(travelFormRowToRefKey(f)) ===
-                                        normalizeTravelFormRefKey(travelFormRefKey)
-                                          ? { ...f, tshirtSize: v }
-                                          : f
-                                      );
-                                    }
-                                    return prev.concat([
-                                      {
-                                        ...TRAVEL_FORM_EMPTY,
-                                        userId: member.profileId || "",
-                                        tripTeamMemberId: member.profileId ? "" : member.id || "",
-                                        tshirtSize: v,
-                                      },
-                                    ]);
-                                  });
-                                  void handleSaveTeamTabTshirt(travelFormRefKey, v);
-                                }}
-                                disabled={!!isSavingTshirt}
-                              >
-                                {getTshirtSizeOptions(tshirtSize).map((opt) => (
-                                  <option key={opt || "__empty__"} value={opt}>
-                                    {opt || "—"}
-                                  </option>
-                                ))}
-                              </select>
-                              {isSavingTshirt ? <span className="small" style={{ color: "var(--muted)" }}>Saving...</span> : null}
-                            </span>
-                          ) : (
-                            <span style={tshirtSize ? undefined : { color: "var(--muted)" }}>{tshirtSize || "—"}</span>
-                          )}
-                        </td>
                         {staffViewAllParticipants ? (
                           <td>
                             <button
@@ -6775,7 +6657,7 @@ function parseDateSafe(dateStr) {
                     )})
                   ) : (
                     <tr>
-                      <td colSpan={staffViewAllParticipants ? 7 : 6} className="small">
+                      <td colSpan={staffViewAllParticipants ? 6 : 5} className="small">
                         No workers added yet.
                       </td>
                     </tr>
@@ -8088,36 +7970,12 @@ function parseDateSafe(dateStr) {
                       ) : (
                         <div style={materialsGlanceValue}>
                           {String(materialsDraft.tshirts || "").trim() ? (
-                            <div style={{ whiteSpace: "pre-wrap" }}>
-                              <span style={materialsGlanceMuted}>Housing field</span>
-                              {"\n"}
-                              {materialsDraft.tshirts}
-                            </div>
-                          ) : null}
-                          {travelFormTshirtSummary ? (
-                            <div
-                              style={{
-                                whiteSpace: "pre-wrap",
-                                marginTop: String(materialsDraft.tshirts || "").trim() ? 10 : 0,
-                              }}
-                            >
-                              <span style={materialsGlanceMuted}>Travel forms</span>
-                              {"\n"}
-                              {travelFormTshirtSummary}
-                            </div>
-                          ) : null}
-                          {!String(materialsDraft.tshirts || "").trim() && !travelFormTshirtSummary ? (
+                            <div style={{ whiteSpace: "pre-wrap" }}>{materialsDraft.tshirts}</div>
+                          ) : (
                             <span style={materialsGlanceMuted}>—</span>
-                          ) : null}
+                          )}
                         </div>
                       )}
-                      {isEditingMaterialsGlance && travelFormTshirtSummary ? (
-                        <div style={{ ...materialsGlanceMuted, marginTop: 10, whiteSpace: "pre-wrap" }}>
-                          <span style={{ fontWeight: 600 }}>Travel forms (read-only)</span>
-                          {"\n"}
-                          {travelFormTshirtSummary}
-                        </div>
-                      ) : null}
                     </div>
                   </div>
 
@@ -9361,10 +9219,6 @@ function parseDateSafe(dateStr) {
                     "GATEWAY CITY-Subject to LST approval, I want to leave from the following Gateway City as our project departure point (typically this is the city nearest to you with an international airport):",
                     "Official Project Dates: DEPARTURE DATE-Please enter the date your team will depart for your project (as approved by LST).  If you plan on traveling to your site early, you may indicate that in the \"Special Travel Preferences\" field. The date you enter here, however, should be the official departure date for the project were you not doing any extra travel.",
                     "Official Project Dates: RETURN DATE-Please enter the date you must arrive back home (as approved by LST).  If you plan on doing personal travel after your project, you may indicate that in the \"Special Travel Preferences\" field.  The date you enter here, however, should be the official return date for the project were you not doing any extra travel.",
-                    "T-shirt Size",
-                    "Emergency Contact Name",
-                    "Emergency Contact Email",
-                    "Emergency Contact Phone",
                     "Are you a minor (under 18 yrs old)?\n\nRESPOND \"\"YES\"\" or \"\"NO\"\"",
                     "Passport good for at least six months AFTER your LST trip ends?\n\nRESPOND \"\"YES\"\" or \"\"NO\"\"",
                     "Base Ticket -I understand that LST will book my travel from a Gateway City to my site, and back to that same Gateway City.  I understand I will need to get to the Gateway City at my own expense.\n\n(RESPOND \"\"YES\"\")",
@@ -9403,10 +9257,6 @@ function parseDateSafe(dateStr) {
                       form?.gatewayCity || "",
                       form?.departureDate || "",
                       form?.returnDate || "",
-                      form?.tshirtSize || "",
-                      form?.emergencyContactName || "",
-                      form?.emergencyContactEmail || "",
-                      form?.emergencyContactPhone || "",
                       form?.isMinor || "",
                       form?.passportValidSixMonths || "",
                       form?.baseTicketAck || "",
@@ -9528,10 +9378,6 @@ function parseDateSafe(dateStr) {
                   <th>Gateway City</th>
                   <th>Departure Date</th>
                   <th>Return Date</th>
-                  <th>T-shirt Size</th>
-                  <th>Emergency Contact Name</th>
-                  <th>Emergency Contact Email</th>
-                  <th>Emergency Contact Phone</th>
                   <th>Minor?</th>
                   <th>Passport 6mo valid?</th>
                   <th>Base Ticket Ack</th>
@@ -9580,10 +9426,6 @@ function parseDateSafe(dateStr) {
                       <td>{form?.gatewayCity || ""}</td>
                       <td>{form?.departureDate || ""}</td>
                       <td>{form?.returnDate || ""}</td>
-                      <td>{form?.tshirtSize || ""}</td>
-                      <td>{form?.emergencyContactName || ""}</td>
-                      <td>{form?.emergencyContactEmail || ""}</td>
-                      <td>{form?.emergencyContactPhone || ""}</td>
                       <td>{form?.isMinor || ""}</td>
                       <td>{form?.passportValidSixMonths || ""}</td>
                       <td>{form?.baseTicketAck || ""}</td>
@@ -10098,25 +9940,6 @@ function parseDateSafe(dateStr) {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
                 <div><div className="small" style={{ marginBottom: 4 }}>Official Departure Date</div><input className="input" type="date" value={travelFormDraft.departureDate} onChange={(e) => setTravelFormDraft((d) => ({ ...d, departureDate: e.target.value }))} /></div>
                 <div><div className="small" style={{ marginBottom: 4 }}>Official Return Date</div><input className="input" type="date" value={travelFormDraft.returnDate} onChange={(e) => setTravelFormDraft((d) => ({ ...d, returnDate: e.target.value }))} /></div>
-                <div>
-                  <div className="small" style={{ marginBottom: 4 }}>T-shirt Size</div>
-                  <select
-                    className="input"
-                    value={travelFormDraft.tshirtSize}
-                    onChange={(e) => setTravelFormDraft((d) => ({ ...d, tshirtSize: e.target.value }))}
-                  >
-                    {getTshirtSizeOptions(travelFormDraft.tshirtSize).map((opt) => (
-                      <option key={opt || "__empty__"} value={opt}>
-                        {opt || "—"}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
-                <div><div className="small" style={{ marginBottom: 4 }}>Emergency Contact Name</div><input className="input" value={travelFormDraft.emergencyContactName} onChange={(e) => setTravelFormDraft((d) => ({ ...d, emergencyContactName: e.target.value }))} /></div>
-                <div><div className="small" style={{ marginBottom: 4 }}>Emergency Contact Email</div><input className="input" type="email" value={travelFormDraft.emergencyContactEmail} onChange={(e) => setTravelFormDraft((d) => ({ ...d, emergencyContactEmail: e.target.value }))} /></div>
-                <div><div className="small" style={{ marginBottom: 4 }}>Emergency Contact Phone</div><input className="input" value={travelFormDraft.emergencyContactPhone} onChange={(e) => setTravelFormDraft((d) => ({ ...d, emergencyContactPhone: e.target.value }))} /></div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
                 <div><div className="small" style={{ marginBottom: 4 }}>Minor (under 18)</div><select className="input" value={travelFormDraft.isMinor} onChange={(e) => setTravelFormDraft((d) => ({ ...d, isMinor: e.target.value }))}>{YES_NO_OPTIONS.map((o) => <option key={o || "__blank__"} value={o}>{o || "—"}</option>)}</select></div>
