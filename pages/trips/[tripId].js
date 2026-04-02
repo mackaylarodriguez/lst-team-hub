@@ -344,6 +344,7 @@ function createEmptyRosterMember() {
     email: "",
     teamRole: "Worker",
     travelsWithTeam: true,
+    tshirtSize: "",
     startDate: "",
     endDate: "",
   };
@@ -3913,6 +3914,7 @@ function parseDateSafe(dateStr) {
             email: member.email || "",
             teamRole: member.teamRole || member.role || "Worker",
             travelsWithTeam: member.travelsWithTeam !== false,
+            tshirtSize: member.tshirtSize || "",
             startDate: member.startDate || "",
             endDate: member.endDate || "",
           }))
@@ -4095,6 +4097,7 @@ function parseDateSafe(dateStr) {
           lastName,
           email,
           teamRole: newWorkerDraft.teamRole || "Worker",
+          tshirtSize: "",
           startDate: "",
           endDate: "",
         },
@@ -4914,6 +4917,7 @@ function parseDateSafe(dateStr) {
         role: member.teamRole || member.role || "",
         teamRole: member.teamRole || member.role || "Worker",
         travelsWithTeam: member.travelsWithTeam !== false,
+        tshirtSize: String(member.tshirtSize || "").trim(),
         email,
         fundraisingUrl: "",
         startDate: member.startDate || trip.startDate || "",
@@ -4943,6 +4947,7 @@ function parseDateSafe(dateStr) {
           : existing
             ? existing.travelsWithTeam !== false
             : true,
+        tshirtSize: String(rosterMatch?.tshirtSize || existing?.tshirtSize || "").trim(),
         email: participant.email || existing?.email || "",
         fundraisingUrl: participant.fundraisingUrl || existing?.fundraisingUrl || "",
         startDate: existing?.startDate || trip.startDate || "",
@@ -6672,7 +6677,7 @@ function parseDateSafe(dateStr) {
           <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Roster</div>
             <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-              Members, account status, invites, and shirt sizes.
+              Members, account status, invites, and T-shirt sizes (per person on the roster).
             </div>
             <div className="row" style={{ marginBottom: 10, alignItems: "center" }}>
               <div className="spacer" />
@@ -6815,6 +6820,12 @@ function parseDateSafe(dateStr) {
                     </select>
                     <input
                       className="input"
+                      value={member.tshirtSize || ""}
+                      placeholder="T-shirt size (e.g. M, XL)"
+                      onChange={(event) => updateRosterDraftMember(index, "tshirtSize", event.target.value)}
+                    />
+                    <input
+                      className="input"
                       type="date"
                       value={member.startDate || ""}
                       onChange={(event) => updateRosterDraftMember(index, "startDate", event.target.value)}
@@ -6849,6 +6860,7 @@ function parseDateSafe(dateStr) {
                   <tr>
                     <th>Name</th>
                     <th>Role</th>
+                    <th>T-shirt</th>
                     <th>Account</th>
                     <th>Email</th>
                     <th>Project Dates</th>
@@ -6872,6 +6884,7 @@ function parseDateSafe(dateStr) {
                           )}
                         </td>
                         <td>{member.teamRole || member.role || "Worker"}</td>
+                        <td className="small">{member.tshirtSize?.trim() || "—"}</td>
                         <td>
                           <span className={`badge ${connectionStatus.accountBadgeClass}`.trim()}>
                             {connectionStatus.accountLabel}
@@ -6899,7 +6912,7 @@ function parseDateSafe(dateStr) {
                     )})
                   ) : (
                     <tr>
-                      <td colSpan={staffViewAllParticipants ? 6 : 5} className="small">
+                      <td colSpan={staffViewAllParticipants ? 7 : 6} className="small">
                         No workers added yet.
                       </td>
                     </tr>

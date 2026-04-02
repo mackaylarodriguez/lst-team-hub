@@ -33,6 +33,7 @@ function createEmptyTeamMember() {
     firstName: "",
     lastName: "",
     email: "",
+    tshirtSize: "",
     startDate: "",
     endDate: "",
     fundraisingGoalAmount: "",
@@ -95,6 +96,7 @@ function buildTripDraftFromTrip(trip, teamMembers = []) {
             firstName: member.firstName || "",
             lastName: member.lastName || "",
             email: member.email || "",
+            tshirtSize: String(member.tshirtSize || "").trim(),
             startDate: member.startDate || "",
             endDate: member.endDate || "",
             fundraisingGoalAmount: formatDraftAmount(member.fundraisingGoalAmount),
@@ -886,6 +888,12 @@ export default function Trips() {
                           value={member.email}
                           onChange={(event) => updateTeamMember(index, "email", event.target.value)}
                           placeholder="Email"
+                        />
+                        <input
+                          className="input"
+                          value={member.tshirtSize || ""}
+                          onChange={(event) => updateTeamMember(index, "tshirtSize", event.target.value)}
+                          placeholder="T-shirt size (e.g. M, XL)"
                         />
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
