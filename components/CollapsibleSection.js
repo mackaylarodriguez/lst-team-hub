@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 /**
  * Minimal expandable section with optional badge and right-side slot.
@@ -6,6 +6,7 @@ import { useId, useState } from "react";
  * @param {string} props.title
  * @param {string} [props.subtitle]
  * @param {boolean} [props.defaultOpen]
+ * @param {string} [props.persistOpenKey] localStorage key to remember open/closed ("1" / "0")
  * @param {import("react").ReactNode} [props.badge]
  * @param {import("react").ReactNode} [props.rightSlot]
  * @param {import("react").ReactNode} props.children
@@ -16,13 +17,27 @@ export default function CollapsibleSection({
   title,
   subtitle,
   defaultOpen = false,
+  persistOpenKey,
   badge,
   rightSlot,
   children,
   className = "",
   style,
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return defaultOpen;
+    if (persistOpenKey) {
+      const v = window.localStorage.getItem(persistOpenKey);
+      if (v === "0") return false;
+      if (v === "1") return true;
+    }
+    return defaultOpen;
+  });
+
+  useEffect(() => {
+    if (!persistOpenKey || typeof window === "undefined") return;
+    window.localStorage.setItem(persistOpenKey, open ? "1" : "0");
+  }, [open, persistOpenKey]);
   const id = useId();
   const panelId = `${id}-panel`;
   const buttonId = `${id}-button`;
