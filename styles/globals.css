@@ -726,10 +726,10 @@ a:hover{text-decoration:underline}
 .tripDocumentSquareTile{
   width:100%;
   max-width:100%;
-  min-height:268px;
+  min-height:0;
   height:auto;
   box-sizing:border-box;
-  padding:14px;
+  padding:12px;
   display:flex;
   flex-direction:column;
   border:1px solid var(--border);
@@ -738,6 +738,7 @@ a:hover{text-decoration:underline}
   background:var(--card);
   min-width:0;
   overflow:hidden;
+  align-self:start;
 }
 .tripDocumentSquareTileWide{
   grid-column:1 / -1;
@@ -748,19 +749,23 @@ a:hover{text-decoration:underline}
   aspect-ratio:unset;
   padding:18px;
 }
+.tripDocumentSquareTileWide .tripDocumentSquareTileScroll{
+  max-height:none;
+}
 .tripDocumentSquareTileScroll{
-  flex:1;
+  flex:0 1 auto;
   min-height:0;
+  max-height:min(240px, 55vh);
   overflow-y:auto;
   overflow-x:hidden;
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap:4px;
 }
 .tripDocumentSquareTileFoot{
   flex-shrink:0;
-  margin-top:auto;
-  padding-top:6px;
+  margin-top:8px;
+  padding-top:0;
   display:flex;
   flex-direction:column;
   gap:6px;

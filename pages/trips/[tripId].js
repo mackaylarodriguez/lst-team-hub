@@ -1957,6 +1957,7 @@ export default function TripPage() {
       }
 
       if (existing) {
+        const isBudgetLinkForm = key === "smartsheet-budget";
         const updated = await updateResource({
           id: existing.id,
           title: linkDraft.title,
@@ -1965,9 +1966,13 @@ export default function TripPage() {
           category: linkDraft.category,
           resourceKey: key === "smartsheet-budget" ? "smartsheet-budget" : key,
           workArea: linkDraft.workArea,
-          tutorialTitle: linkDraft.tutorialTitle,
-          tutorialUrl: linkDraft.tutorialUrl,
-          tutorialDescription: linkDraft.tutorialDescription,
+          tutorialTitle: isBudgetLinkForm
+            ? existing.tutorialTitle ?? ""
+            : linkDraft.tutorialTitle,
+          tutorialUrl: isBudgetLinkForm ? existing.tutorialUrl ?? "" : linkDraft.tutorialUrl,
+          tutorialDescription: isBudgetLinkForm
+            ? existing.tutorialDescription ?? ""
+            : linkDraft.tutorialDescription,
           visibleToParticipants: linkDraft.visibleToParticipants,
         });
         setDocs((current) => {
@@ -1984,6 +1989,9 @@ export default function TripPage() {
       const created = await addLinkResource({
         ...linkDraft,
         tripId: trip?.id,
+        ...(key === "smartsheet-budget"
+          ? { tutorialTitle: "", tutorialUrl: "", tutorialDescription: "" }
+          : {}),
       });
       if (!created) return;
       setDocs((current) =>
@@ -2047,46 +2055,48 @@ export default function TripPage() {
             }
             placeholder="Notes / work area"
           />
-          <div
-            style={{
-              display: "grid",
-              gap: 8,
-              padding: 10,
-              borderRadius: 12,
-              background: "rgba(15, 23, 42, 0.04)",
-            }}
-          >
-            <div className="small" style={{ fontWeight: 900 }}>
-              Tutorial
+          {String(linkDraft.resourceKey || "") !== "smartsheet-budget" ? (
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+                padding: 10,
+                borderRadius: 12,
+                background: "rgba(15, 23, 42, 0.04)",
+              }}
+            >
+              <div className="small" style={{ fontWeight: 900 }}>
+                Tutorial
+              </div>
+              <input
+                className="input"
+                value={linkDraft.tutorialTitle || ""}
+                onChange={(e) =>
+                  setLinkDraft((prev) => ({ ...prev, tutorialTitle: e.target.value }))
+                }
+                placeholder="Tutorial button label"
+              />
+              <input
+                className="input"
+                value={linkDraft.tutorialUrl || ""}
+                onChange={(e) =>
+                  setLinkDraft((prev) => ({ ...prev, tutorialUrl: e.target.value }))
+                }
+                placeholder="Tutorial link https://..."
+              />
+              <input
+                className="input"
+                value={linkDraft.tutorialDescription || ""}
+                onChange={(e) =>
+                  setLinkDraft((prev) => ({
+                    ...prev,
+                    tutorialDescription: e.target.value,
+                  }))
+                }
+                placeholder="Tutorial description"
+              />
             </div>
-            <input
-              className="input"
-              value={linkDraft.tutorialTitle || ""}
-              onChange={(e) =>
-                setLinkDraft((prev) => ({ ...prev, tutorialTitle: e.target.value }))
-              }
-              placeholder="Tutorial button label"
-            />
-            <input
-              className="input"
-              value={linkDraft.tutorialUrl || ""}
-              onChange={(e) =>
-                setLinkDraft((prev) => ({ ...prev, tutorialUrl: e.target.value }))
-              }
-              placeholder="Tutorial link https://..."
-            />
-            <input
-              className="input"
-              value={linkDraft.tutorialDescription || ""}
-              onChange={(e) =>
-                setLinkDraft((prev) => ({
-                  ...prev,
-                  tutorialDescription: e.target.value,
-                }))
-              }
-              placeholder="Tutorial description"
-            />
-          </div>
+          ) : null}
           <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <input
               type="checkbox"
