@@ -38,14 +38,14 @@ on public.trip_meetings
 for insert
 to authenticated
 with check (
-  (
-    private.current_profile_role() in ('admin', 'staff')
-    or private.current_profile_role() = 'leader'
-  )
-  and trip_id in (
-    select trip_id
-    from public.trip_assignments
-    where user_id = auth.uid()
+  private.current_profile_role() in ('admin', 'staff')
+  or (
+    private.current_profile_role() = 'leader'
+    and trip_id in (
+      select trip_id
+      from public.trip_assignments
+      where user_id = auth.uid()
+    )
   )
 );
 
@@ -55,25 +55,25 @@ on public.trip_meetings
 for update
 to authenticated
 using (
-  (
-    private.current_profile_role() in ('admin', 'staff')
-    or private.current_profile_role() = 'leader'
-  )
-  and trip_id in (
-    select trip_id
-    from public.trip_assignments
-    where user_id = auth.uid()
+  private.current_profile_role() in ('admin', 'staff')
+  or (
+    private.current_profile_role() = 'leader'
+    and trip_id in (
+      select trip_id
+      from public.trip_assignments
+      where user_id = auth.uid()
+    )
   )
 )
 with check (
-  (
-    private.current_profile_role() in ('admin', 'staff')
-    or private.current_profile_role() = 'leader'
-  )
-  and trip_id in (
-    select trip_id
-    from public.trip_assignments
-    where user_id = auth.uid()
+  private.current_profile_role() in ('admin', 'staff')
+  or (
+    private.current_profile_role() = 'leader'
+    and trip_id in (
+      select trip_id
+      from public.trip_assignments
+      where user_id = auth.uid()
+    )
   )
 );
 
@@ -84,9 +84,4 @@ for delete
 to authenticated
 using (
   private.current_profile_role() in ('admin', 'staff')
-  and trip_id in (
-    select trip_id
-    from public.trip_assignments
-    where user_id = auth.uid()
-  )
 );
