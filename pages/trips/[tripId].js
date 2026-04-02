@@ -56,6 +56,7 @@ import {
   sortStaffTasksByTemplate,
   computeStaffTaskDueDate,
   getStaffTaskAreaSortRank,
+  listStaffTaskTemplateWorkAreas,
   STAFF_TASKS_UPDATED_EVENT,
 } from "@/lib/staffTasks";
 import {
@@ -210,6 +211,15 @@ const TEAM_STATUS_OPTIONS = [
 ];
 
 const TEAM_MEMBER_ROLE_OPTIONS = ["Worker", "Trainer", "Leader"];
+
+/** Section values for custom worker trip tasks (matches checklist grouping). */
+const WORKER_TRIP_TASK_SECTION_OPTIONS = [
+  "General",
+  "Fundraising",
+  "Training",
+  "Travel",
+  "Uploads",
+];
 
 const BIRTHDATE_MONTH_OPTIONS = ["", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 const BIRTHDATE_DAY_OPTIONS = ["", ...Array.from({ length: 31 }, (_, i) => String(i + 1))];
@@ -861,7 +871,7 @@ export default function TripPage() {
   const [taskDraft, setTaskDraft] = useState({
     title: "",
     dueDate: "",
-    category: "",
+    category: "General",
     description: "",
   });
   const [taskStatusMessage, setTaskStatusMessage] = useState("");
@@ -3010,7 +3020,7 @@ export default function TripPage() {
             }
           : current
       );
-      setTaskDraft({ title: "", dueDate: "", category: "", description: "" });
+      setTaskDraft({ title: "", dueDate: "", category: "General", description: "" });
       setTaskStatusMessage("");
       setIsAddingTask(false);
     } catch (error) {
@@ -5048,8 +5058,31 @@ function parseDateSafe(dateStr) {
 
   const groupedViewTasks = groupTasksByWorkArea(editableStaffTasks || []);
   const staffTaskWorkAreas = useMemo(() => {
-    return [...new Set((editableStaffTasks || []).map((task) => task.workArea).filter(Boolean))];
+    const templateOrder = listStaffTaskTemplateWorkAreas();
+    const seen = new Set(templateOrder.map((a) => String(a).toLowerCase()));
+    const extras = [
+      ...new Set((editableStaffTasks || []).map((task) => task.workArea).filter(Boolean)),
+    ].filter((a) => !seen.has(String(a).toLowerCase()));
+    extras.sort((a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: "base" }));
+    return [...templateOrder, ...extras];
   }, [editableStaffTasks]);
+
+  const workerTripTaskCategoryOptions = useMemo(() => {
+    const canon = [...WORKER_TRIP_TASK_SECTION_OPTIONS];
+    const seen = new Set(canon.map((c) => c.toLowerCase()));
+    const extras = [];
+    for (const task of trip?.tasks || []) {
+      const cat = String(task?.category || "").trim();
+      if (!cat || cat.toLowerCase() === "worker_default") continue;
+      const k = cat.toLowerCase();
+      if (!seen.has(k)) {
+        seen.add(k);
+        extras.push(cat);
+      }
+    }
+    extras.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    return [...canon, ...extras];
+  }, [trip?.tasks]);
 
   const completedCount = (editableStaffTasks || []).filter(
     (t) => t.progress === "Complete"
@@ -8554,14 +8587,23 @@ function parseDateSafe(dateStr) {
                   setTaskDraft((current) => ({ ...current, dueDate: event.target.value }))
                 }
               />
-              <input
+              <select
                 className="input"
-                value={taskDraft.category}
+                value={
+                  workerTripTaskCategoryOptions.includes(taskDraft.category)
+                    ? taskDraft.category
+                    : "General"
+                }
                 onChange={(event) =>
                   setTaskDraft((current) => ({ ...current, category: event.target.value }))
                 }
-                placeholder="Category"
-              />
+              >
+                {workerTripTaskCategoryOptions.map((section) => (
+                  <option key={section} value={section}>
+                    {section}
+                  </option>
+                ))}
+              </select>
               <textarea
                 className="input"
                 value={taskDraft.description}
@@ -8857,12 +8899,11 @@ function parseDateSafe(dateStr) {
                   </div>
 
                   <div style={materialsGlanceRow}>
-                    <div style={{ ...materialsGlanceLabel, fontWeight: 400 }}># of workers</div>
+                    <div style={materialsGlanceLabel}># of workers</div>
                     <div>
                       <span
                         style={{
                           ...materialsGlanceValue,
-                          fontWeight: 400,
                           fontVariantNumeric: "tabular-nums",
                         }}
                       >
