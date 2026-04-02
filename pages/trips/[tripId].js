@@ -506,7 +506,7 @@ function OptionalTripWideDocumentCard({
           ) : null}
           {String(d.tutorialUrl || "").trim() ? (
             <a className="btn" href={d.tutorialUrl} target="_blank" rel="noreferrer">
-              {d.tutorialTitle || "Tutorial"}
+              Watch
             </a>
           ) : null}
           {canManageTripDocuments ? (
@@ -691,7 +691,7 @@ function OptionalTripWideDocumentCard({
           </div>
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             <a className="btn" href={d.tutorialUrl} target="_blank" rel="noreferrer">
-              {d.tutorialTitle || "Open Tutorial"}
+              Watch
             </a>
             {canManageTripDocuments ? (
               <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
@@ -8835,11 +8835,11 @@ function parseDateSafe(dateStr) {
                           <div className="tripDocumentSquareTileMeta">{t.description}</div>
                         ) : null}
                       </div>
-                      <div className="tripDocumentSquareTileFoot">
-                        <a className="btn btnPrimary" href={t.url} target="_blank" rel="noreferrer">
-                          Open tutorial
-                        </a>
-                      </div>
+                        <div className="tripDocumentSquareTileFoot">
+                          <a className="btn btnPrimary" href={t.url} target="_blank" rel="noreferrer">
+                            Watch
+                          </a>
+                        </div>
                     </div>
                   ))}
                 </div>
@@ -9528,7 +9528,7 @@ function parseDateSafe(dateStr) {
                                       target="_blank"
                                       rel="noreferrer"
                                     >
-                                      {tutorial.tutorialTitle || "Open Tutorial"}
+                                      Watch
                                     </a>
                                     {canManageTripDocuments && slot.kind === "link" && ti === 0 ? (
                                       <button

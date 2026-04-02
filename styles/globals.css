@@ -779,6 +779,25 @@ a:hover{text-decoration:underline}
 .tripDocumentTutorialTile{
   background:linear-gradient(165deg, rgba(67,164,213,.08), rgba(255,255,255,.98));
   border-color:rgba(50,84,163,.14);
+  height:auto;
+  min-height:0;
+  max-height:200px;
+}
+.tripDocumentTutorialTile .tripDocumentSquareTileFoot{
+  padding-top:4px;
+  gap:4px;
+}
+.tripDocumentTutorialTile .btn.btnPrimary{
+  font-size:12px;
+  padding:5px 10px;
+  min-height:32px;
+  line-height:1.2;
+}
+.tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .tripDocumentSquareTileFoot a.btn:not(.btnPrimary){
+  font-size:12px;
+  padding:5px 10px;
+  min-height:32px;
+  line-height:1.2;
 }
 .tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .row{
   flex-direction:column;
