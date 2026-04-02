@@ -188,6 +188,10 @@ function defaultIntlDomForLocation(location) {
   return text.includes("massachusetts") ? "Dom" : "Intl";
 }
 
+function countTripRosterMembers(teamMembersByTripId, tripId) {
+  return (teamMembersByTripId[String(tripId || "")] || []).length;
+}
+
 function mergeHousingWithTrips(trips, budgets) {
   const byTripId = new Map((budgets || []).map((b) => [b.tripId, b]));
   const orderedTrips = [...(trips || [])].sort(compareTripsForBudgetSort);
@@ -1003,6 +1007,7 @@ export default function BudgetPage() {
                   "Project Start",
                   "Project End",
                   "Site",
+                  "Workers (roster)",
                   "Team Accountant",
                   "Budget Amount",
                   "Returned Amount",
@@ -1017,6 +1022,7 @@ export default function BudgetPage() {
                   r.projectStartDate || "",
                   r.projectEndDate || "",
                   r.siteCountry || "",
+                  String(countTripRosterMembers(teamMembersByTripId, r.tripId)),
                   r.teamAccountant || "",
                   formatUsdDisplay(r.budgetAmount),
                   formatUsdDisplay(r.returnedAmount),
@@ -1063,13 +1069,14 @@ export default function BudgetPage() {
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table dataTableStriped" style={{ minWidth: 1380, fontSize: 13 }}>
+            <table className="table dataTableStriped" style={{ minWidth: 1440, fontSize: 13 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
                   <th>Project Start</th>
                   <th>Project End</th>
                   <th>Site</th>
+                  <th style={{ width: 72, textAlign: "center" }}>Workers</th>
                   <th>Team Accountant</th>
                   <th>Budget Amount</th>
                   <th>Returned Amount</th>
@@ -1134,6 +1141,17 @@ export default function BudgetPage() {
                             onChange={(e) => updateHousingDraftRow(r.tripId, "siteCountry", e.target.value)}
                             placeholder="Site"
                           />
+                        </td>
+                        <td
+                          style={{
+                            minWidth: 72,
+                            textAlign: "center",
+                            verticalAlign: "middle",
+                            fontWeight: 700,
+                          }}
+                          title="Count of people on this trip’s roster (Trip → Team)"
+                        >
+                          {countTripRosterMembers(teamMembersByTripId, r.tripId)}
                         </td>
                         <td style={{ minWidth: 160, maxWidth: 240 }}>
                           <select
@@ -1390,6 +1408,12 @@ export default function BudgetPage() {
                         <td>{r.projectStartDate || ""}</td>
                         <td>{r.projectEndDate || ""}</td>
                         <td>{r.siteCountry || ""}</td>
+                        <td
+                          style={{ textAlign: "center", fontWeight: 700 }}
+                          title="Count of people on this trip’s roster (Trip → Team)"
+                        >
+                          {countTripRosterMembers(teamMembersByTripId, r.tripId)}
+                        </td>
                         <td>{r.teamAccountant || ""}</td>
                         <td>{formatUsdDisplay(r.budgetAmount)}</td>
                         <td>{formatUsdDisplay(r.returnedAmount)}</td>
