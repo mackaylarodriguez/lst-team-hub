@@ -4880,6 +4880,15 @@ function parseDateSafe(dateStr) {
     return { optionalFlightsDocs: flights, optionalOtherDocs: other };
   }, [visibleDocs]);
 
+  /** True when there are trip-wide docs in the Flights category without a required slot key (extras under the Flights row). */
+  const hasOptionalFlightsDocuments = useMemo(
+    () =>
+      (visibleDocs || []).some(
+        (doc) => !String(doc?.resourceKey || "").trim() && isTripDocumentFlightsCategory(doc)
+      ),
+    [visibleDocs]
+  );
+
   const optionalTripWideCardProps = {
     editingDocId,
     docDraft,
@@ -5577,6 +5586,9 @@ function parseDateSafe(dateStr) {
         if (!canManageTripDocuments) return res.visibleToParticipants !== false;
         return true;
       }
+      // Optional "Flights" extras render only under the flights slot; keep the row visible if any exist
+      // so dismissing the default card does not hide user-added flight documents.
+      if (slot.key === "flights" && hasOptionalFlightsDocuments) return true;
       if (!hiddenRequiredDocumentKeys.has(slot.key)) return true;
       if (!canManageTripDocuments) return false;
       const res = slot.resource;
@@ -5589,6 +5601,7 @@ function parseDateSafe(dateStr) {
     canManageTripDocuments,
     docs,
     effectiveRequiredDocumentSlots,
+    hasOptionalFlightsDocuments,
     hiddenRequiredDocumentKeys,
     tripHousingLinkUrl,
     tripHousingPdfUrl,
