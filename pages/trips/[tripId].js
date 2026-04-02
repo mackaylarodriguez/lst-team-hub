@@ -810,6 +810,7 @@ export default function TripPage() {
   const [isEditingOverviewNote, setIsEditingOverviewNote] = useState(false);
   const [overviewNoteStatus, setOverviewNoteStatus] = useState("");
   const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoadError, setAnnouncementsLoadError] = useState("");
   const [editingAnnouncementId, setEditingAnnouncementId] = useState("");
   const [announcementDraft, setAnnouncementDraft] = useState("");
   const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false);
@@ -1658,6 +1659,7 @@ export default function TripPage() {
     async function loadAnnouncements() {
       try {
         setAnnouncements([]);
+        setAnnouncementsLoadError("");
         setEditingAnnouncementId("");
         setAnnouncementDraft("");
         setIsEditingAnnouncement(false);
@@ -1665,10 +1667,14 @@ export default function TripPage() {
         const rows = await listTripAnnouncements(trip.id);
         if (!cancelled) {
           setAnnouncements(rows);
+          setAnnouncementsLoadError("");
           setAnnouncementStatus("");
         }
       } catch (error) {
         console.error("Unable to load trip announcements", error);
+        if (!cancelled) {
+          setAnnouncementsLoadError(error.message || "Unable to load announcements.");
+        }
       }
     }
 
@@ -6284,7 +6290,9 @@ function parseDateSafe(dateStr) {
             </div>
           ) : (
             <div className="small" style={{ paddingLeft: 6 }}>
-              Updates from staff about this trip will appear here.
+              {announcementsLoadError
+                ? `Unable to load announcements: ${announcementsLoadError}`
+                : "Updates from staff about this trip will appear here."}
             </div>
           )}
         </div>

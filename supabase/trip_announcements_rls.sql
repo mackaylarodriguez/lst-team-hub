@@ -30,6 +30,12 @@ using (
     from public.trip_assignments
     where user_id = auth.uid()
   )
+  or exists (
+    select 1
+    from public.trip_team_members m
+    where m.trip_id = trip_id
+      and lower(trim(m.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+  )
 );
 
 drop policy if exists "trip_announcements_insert_access" on public.trip_announcements;
