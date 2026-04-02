@@ -654,7 +654,17 @@ function WorkerSection({
             {workers.map((worker) => (
               <tr key={worker.id}>
                 <td>
-                  <div style={{ fontWeight: 700 }}>{worker.name || worker.email}</div>
+                  <div style={{ fontWeight: 700 }}>
+                    {worker.profileId ? (
+                      <Link href={`/profile?participantId=${encodeURIComponent(worker.profileId)}`}>
+                        {worker.name || worker.email}
+                      </Link>
+                    ) : (
+                      <span title="Profile opens after this person has a Hub account (worker profile).">
+                        {worker.name || worker.email}
+                      </span>
+                    )}
+                  </div>
                   <div className="small">{worker.email}</div>
                 </td>
                 <td>

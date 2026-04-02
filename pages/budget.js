@@ -406,6 +406,31 @@ export default function BudgetPage() {
     return () => { cancelled = true; };
   }, [router]);
 
+  useEffect(() => {
+    if (tab !== "Housing" || !trips.length || isEditingHousing) return;
+
+    function onVisibilityChange() {
+      if (document.visibilityState !== "visible") return;
+      void (async () => {
+        try {
+          const housingRes = await listAllTripBudgets();
+          setHousingRows(mergeHousingWithTrips(trips, housingRes));
+        } catch (e) {
+          console.warn("[budget] refresh housing on tab visibility", e);
+        }
+        try {
+          const extraRows = await listAllTripHousingEntries();
+          setHousingExtrasByTripId(groupHousingExtrasByTripId(extraRows));
+        } catch (extrasErr) {
+          console.warn("Housing extras not loaded", extrasErr);
+        }
+      })();
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [tab, trips, isEditingHousing]);
+
   function updateHousingDraftRow(tripId, field, value) {
     setHousingRowsDraft((prev) => {
       const row = prev.find((r) => r.tripId === tripId) || {};
