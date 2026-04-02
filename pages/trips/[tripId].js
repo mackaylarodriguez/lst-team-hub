@@ -2292,11 +2292,18 @@ export default function TripPage() {
           idsToDelete.push(d.id);
         }
       } else if (String(d.resourceKey) === key) {
-        const hasContent = !!(String(d.link || "").trim() || String(d.pdfUrl || "").trim());
-        if (hasContent) {
+        // PDF required slots: never delete rows when dismissing — only clear resource_key so uploads stay
+        // linked to the trip. Empty rows become optional cards; avoids losing Flights-category docs when
+        // content fields are missing or not yet synced.
+        if (key === "flights" || key === "trip-insurance") {
           docsToDemote.push(d);
         } else {
-          idsToDelete.push(d.id);
+          const hasContent = !!(String(d.link || "").trim() || String(d.pdfUrl || "").trim());
+          if (hasContent) {
+            docsToDemote.push(d);
+          } else {
+            idsToDelete.push(d.id);
+          }
         }
       }
     }
@@ -2365,9 +2372,12 @@ export default function TripPage() {
   async function handleDeleteRequiredSlotResource(slot) {
     if (!slot?.key || !trip?.id) return;
     const isBudget = slot.key === "smartsheet-budget";
+    const isPdfSlot = slot.key === "flights" || slot.key === "trip-insurance";
     const msg1 = isBudget
       ? `FIRST CONFIRMATION — Remove "${slot.title}"?\n\nThis removes all saved Smartsheet budget / project journal links for this trip from the document list (not from Smartsheet itself).\n\nYou will have 15 seconds to undo.`
-      : `FIRST CONFIRMATION — Remove "${slot.title}" as a required card?\n\nEmpty rows for this slot are deleted. Uploads with a file or link stay on the trip as extra documents (not removed from storage).\n\nYou will have 15 seconds to undo.`;
+      : isPdfSlot
+        ? `FIRST CONFIRMATION — Remove "${slot.title}" as a required card?\n\nAll rows for this slot stay on the trip as extra documents (nothing is deleted from the database). Only the required card is hidden until you restore defaults.\n\nYou will have 15 seconds to undo.`
+        : `FIRST CONFIRMATION — Remove "${slot.title}" as a required card?\n\nEmpty rows for this slot are deleted. Uploads with a file or link stay on the trip as extra documents (not removed from storage).\n\nYou will have 15 seconds to undo.`;
     if (typeof window !== "undefined" && !window.confirm(msg1)) return;
     const msg2 = `FINAL CONFIRMATION\n\nRemove "${slot.title}" now?`;
     if (typeof window !== "undefined" && !window.confirm(msg2)) return;
