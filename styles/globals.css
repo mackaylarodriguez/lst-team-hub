@@ -735,6 +735,11 @@ table.sitesWorkbookTable thead th.sitesWorkbookQtyHead{
   vertical-align:bottom;
   word-break:break-word;
   padding:8px 5px;
+  text-align:center;
+}
+table.sitesWorkbookTable tbody td.sitesWorkbookQtyCell{
+  text-align:center;
+  vertical-align:middle;
 }
 table.sitesWorkbookTable tbody td.sitesWorkbookSiteCell{
   position:sticky;

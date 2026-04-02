@@ -333,7 +333,7 @@ export default function SitesPage() {
                     {col.label}
                   </th>
                 ))}
-                <th style={{ whiteSpace: "nowrap", textAlign: "right" }}>Total books</th>
+                <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Total books</th>
                 <th
                   style={{ whiteSpace: "nowrap", fontSize: 11, fontWeight: 800, color: "var(--muted)" }}
                   title="When workbook counts were last saved on this page"
@@ -361,7 +361,7 @@ export default function SitesPage() {
                     const hasVal = q !== undefined && q !== null;
                     if (isEditingWorkbooks) {
                       return (
-                        <td key={col.key} style={{ textAlign: "right", verticalAlign: "middle" }}>
+                        <td key={col.key} className="sitesWorkbookQtyCell" style={{ verticalAlign: "middle" }}>
                           <input
                             className="input"
                             type="number"
@@ -378,7 +378,7 @@ export default function SitesPage() {
                             disabled={savingWorkbookFor === row.siteLabel}
                             style={{
                               width: 56,
-                              textAlign: "right",
+                              textAlign: "center",
                               padding: "4px 6px",
                               fontSize: 12,
                             }}
@@ -387,7 +387,7 @@ export default function SitesPage() {
                       );
                     }
                     return (
-                      <td key={col.key} style={{ textAlign: "right", color: "var(--muted)" }}>
+                      <td key={col.key} className="sitesWorkbookQtyCell" style={{ color: "var(--muted)" }}>
                         {hasVal ? (
                           Number(q) > 0 ? (
                             <strong style={{ color: "inherit" }}>{q}</strong>
@@ -400,7 +400,7 @@ export default function SitesPage() {
                       </td>
                     );
                   })}
-                  <td style={{ textAlign: "right", fontWeight: 800 }}>
+                  <td className="sitesWorkbookQtyCell" style={{ fontWeight: 800 }}>
                     {row.totalCopies > 0 ? row.totalCopies : "—"}
                   </td>
                   <td
