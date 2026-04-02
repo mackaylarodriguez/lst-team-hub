@@ -444,7 +444,7 @@ function OptionalTripWideDocumentCard({
   editingDocId,
   docDraft,
   setDocDraft,
-  canViewTeamDashboard,
+  canManageTripDocuments,
   handleEditDoc,
   handleDeleteDoc,
   handleSaveDoc,
@@ -577,7 +577,7 @@ function OptionalTripWideDocumentCard({
                 {d.workArea ? ` • ${d.workArea}` : ""}
                 {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
               </div>
-              {canViewTeamDashboard ? (
+              {canManageTripDocuments ? (
                 <div className="small" style={{ marginTop: 4 }}>
                   {d.visibleToParticipants === false
                     ? "Hidden from participants"
@@ -602,7 +602,7 @@ function OptionalTripWideDocumentCard({
               Coming soon
             </button>
           )}
-          {canViewTeamDashboard ? (
+          {canManageTripDocuments ? (
             <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
               Edit
             </button>
@@ -629,7 +629,7 @@ function OptionalTripWideDocumentCard({
             <a className="btn" href={d.tutorialUrl} target="_blank" rel="noreferrer">
               {d.tutorialTitle || "Open Tutorial"}
             </a>
-            {canViewTeamDashboard ? (
+            {canManageTripDocuments ? (
               <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
                 Edit Tutorial
               </button>
@@ -637,7 +637,7 @@ function OptionalTripWideDocumentCard({
           </div>
         </div>
       ) : null}
-      {canViewTeamDashboard && !isEditing ? (
+      {canManageTripDocuments && !isEditing ? (
         <div
           style={{
             marginTop: "auto",
@@ -835,6 +835,19 @@ export default function TripPage() {
   const effectiveIsLeader = isLeader || isStaffPreviewingLeader;
   const canViewTeamDashboard =
     staffViewAllParticipants || (effectiveIsLeader && !isPreviewingParticipant);
+
+  const isTrainerOnTripForSession = useMemo(() => {
+    if (!trip?.teamMembers?.length || !session?.email) return false;
+    const e = normalizeEmail(session.email);
+    const row = (trip.teamMembers || []).find((m) => normalizeEmail(m.email) === e);
+    return String(row?.teamRole || "").trim().toLowerCase() === "trainer";
+  }, [trip?.teamMembers, session?.email]);
+
+  /** Trip Documents: staff and non-trainer leaders edit; trainers use the same view as workers. */
+  const canManageTripDocuments =
+    staffViewAllParticipants ||
+    (effectiveIsLeader && !isPreviewingParticipant && !isTrainerOnTripForSession);
+
   const canManageTripMeetings =
     staffViewAllParticipants || (effectiveIsLeader && !isPreviewingParticipant);
 
@@ -4718,10 +4731,10 @@ function parseDateSafe(dateStr) {
   const selectedSiteValue = isCustomSiteInput ? CUSTOM_SITE_OPTION : tripSetupDraft.location || "";
   const visibleDocs = useMemo(
     () =>
-      canViewTeamDashboard
+      canManageTripDocuments
         ? docs
         : (docs || []).filter((doc) => doc.visibleToParticipants !== false),
-    [canViewTeamDashboard, docs]
+    [canManageTripDocuments, docs]
   );
   const hiddenRequiredDocumentKeys = useMemo(
     () =>
@@ -4787,7 +4800,7 @@ function parseDateSafe(dateStr) {
     editingDocId,
     docDraft,
     setDocDraft,
-    canViewTeamDashboard,
+    canManageTripDocuments,
     handleEditDoc,
     handleDeleteDoc,
     handleSaveDoc,
@@ -5472,11 +5485,11 @@ function parseDateSafe(dateStr) {
       if (slot.key === "smartsheet-budget") {
         const res = slot.resource;
         if (!res) return true;
-        if (!canViewTeamDashboard) return res.visibleToParticipants !== false;
+        if (!canManageTripDocuments) return res.visibleToParticipants !== false;
         return true;
       }
       if (!hiddenRequiredDocumentKeys.has(slot.key)) return true;
-      if (!canViewTeamDashboard) return false;
+      if (!canManageTripDocuments) return false;
       const res = slot.resource;
       return !!(
         res &&
@@ -5484,7 +5497,7 @@ function parseDateSafe(dateStr) {
       );
     });
   }, [
-    canViewTeamDashboard,
+    canManageTripDocuments,
     docs,
     effectiveRequiredDocumentSlots,
     hiddenRequiredDocumentKeys,
@@ -5564,7 +5577,6 @@ function parseDateSafe(dateStr) {
 
     return links;
   }, [
-    canViewTeamDashboard,
     currentParticipant?.fundraisingUrl,
     effectiveHousingLinkDoc?.link,
     effectiveHousingLinkDoc?.pdfUrl,
