@@ -5316,6 +5316,22 @@ function parseDateSafe(dateStr) {
     });
   }, [trip]);
 
+  /** Materials tab: one line per roster row — first name and saved T-shirt size. */
+  const materialsRosterTshirtLines = useMemo(() => {
+    return teamTabMembers.map((m) => {
+      const firstRaw = String(m.firstName || "").trim();
+      const first =
+        firstRaw ||
+        (String(m.name || "")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)[0] ||
+          "Member");
+      const sz = String(m.tshirtSize || "").trim();
+      return `${first} - ${sz || "—"}`;
+    });
+  }, [teamTabMembers]);
+
   const referenceTableRows = useMemo(() => {
     if (!trip) return [];
     const participantEmails = new Set(
@@ -8705,25 +8721,40 @@ function parseDateSafe(dateStr) {
                   <div style={materialsGlanceRow}>
                     <div style={materialsGlanceLabel}>T-shirt sizes</div>
                     <div>
-                      {isEditingMaterialsGlance ? (
-                        <textarea
-                          className="input"
-                          rows={3}
-                          value={materialsDraft.tshirts}
-                          onChange={(e) =>
-                            setMaterialsDraft((d) => ({ ...d, tshirts: e.target.value }))
-                          }
-                          placeholder="Housing / materials field (same as Budget housing grid)"
-                        />
-                      ) : (
-                        <div style={materialsGlanceValue}>
-                          {String(materialsDraft.tshirts || "").trim() ? (
-                            <div style={{ whiteSpace: "pre-wrap" }}>{materialsDraft.tshirts}</div>
-                          ) : (
-                            <span style={materialsGlanceMuted}>—</span>
-                          )}
+                      {materialsRosterTshirtLines.length > 0 ? (
+                        <div style={{ display: "grid", gap: 4 }}>
+                          {materialsRosterTshirtLines.map((line, idx) => (
+                            <div key={`${line}-${idx}`} style={materialsGlanceValue}>
+                              {line}
+                            </div>
+                          ))}
                         </div>
+                      ) : (
+                        <span style={materialsGlanceMuted}>No roster members yet.</span>
                       )}
+                      {isEditingMaterialsGlance ? (
+                        <>
+                          <div className="small" style={{ marginTop: 10, color: "var(--muted)" }}>
+                            Optional notes (same field as Budget → Housing)
+                          </div>
+                          <textarea
+                            className="input"
+                            rows={2}
+                            value={materialsDraft.tshirts}
+                            onChange={(e) =>
+                              setMaterialsDraft((d) => ({ ...d, tshirts: e.target.value }))
+                            }
+                            placeholder="Extra sizing or shipping notes…"
+                          />
+                        </>
+                      ) : String(materialsDraft.tshirts || "").trim() ? (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={materialsGlanceMuted}>Notes</div>
+                          <div style={{ ...materialsGlanceValue, whiteSpace: "pre-wrap" }}>
+                            {materialsDraft.tshirts}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
