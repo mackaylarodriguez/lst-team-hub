@@ -1358,6 +1358,26 @@ export default function TripPage() {
   }, [trip?.id]);
 
   useEffect(() => {
+    if (!trip?.id || tab !== "Trip Documents") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const next = await fetchTripHousingState(trip.id);
+        if (!cancelled) {
+          setTripHousingDocuments(next.tripHousingDocuments);
+          setTripHousingLinkUrl(next.tripHousingLinkUrl);
+          setTripHousingPdfUrl(next.tripHousingPdfUrl);
+        }
+      } catch (e) {
+        console.warn("[trip] refetch housing for Trip Documents", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [trip?.id, tab]);
+
+  useEffect(() => {
     setHousingTripDocsDraft(null);
     setHousingTripDocsSaveStatus("");
   }, [trip?.id]);
@@ -6225,10 +6245,21 @@ function parseDateSafe(dateStr) {
   };
   const materialsGlanceRowSending = {
     ...materialsGlanceRow,
-    padding: "14px 0 10px",
-    marginTop: 4,
-    borderTop: "1px solid rgba(15, 23, 42, 0.08)",
+    display: "grid",
+    gridTemplateColumns: "minmax(124px, 140px) 1fr",
+    gap: "6px 16px",
+    alignItems: "start",
+    padding: "16px 14px 14px",
+    marginTop: 6,
+    marginLeft: -2,
+    marginRight: -2,
+    borderRadius: 12,
+    borderTop: "none",
     borderBottom: "none",
+    background:
+      "linear-gradient(135deg, rgba(124, 58, 237, 0.06), rgba(37, 99, 235, 0.04), rgba(248, 250, 252, 0.9))",
+    border: "1px solid rgba(124, 58, 237, 0.14)",
+    boxShadow: "0 1px 0 rgba(255, 255, 255, 0.85) inset",
   };
 
   const staffSiteWorkbookPlan = useMemo(() => {
@@ -6343,11 +6374,9 @@ function parseDateSafe(dateStr) {
         "Current roster count",
         "Team accountant",
         "T-shirt sizes (housing budget)",
-        "Workbooks (inventory)",
         "Ship-to address",
         "Tracking number",
         "Workbooks sending notes",
-        "Housing budget last updated",
       ];
       const row = [
         trip.name || "",
@@ -6355,13 +6384,9 @@ function parseDateSafe(dateStr) {
         materialsRosterHeadcount,
         materialsDraft.teamAccountant || "",
         materialsDraft.tshirts || "",
-        materialsDraft.workbooks || "",
         materialsDraft.materialsShipAddress || "",
         materialsDraft.materialsTrackingNumber || "",
         materialsDraft.materialsNotes || "",
-        tripBudgetRow?.updatedAt
-          ? new Date(tripBudgetRow.updatedAt).toLocaleString()
-          : "",
       ];
       const ws = XLSX.utils.aoa_to_sheet([headers, row]);
       const wb = XLSX.utils.book_new();
@@ -8833,15 +8858,19 @@ function parseDateSafe(dateStr) {
               <CollapsibleSection
                 defaultOpen
                 title="Materials at a glance"
-                subtitle="Team name and site workbook plan are read-only. Edit shipping, sizes, inventory, and sending notes."
+                subtitle="Team name and site workbook plan are read-only. Edit shipping, sizes, and sending notes."
               >
                 <div
                   className="card pad"
                   style={{
                     display: "grid",
                     gap: 0,
-                    background: "linear-gradient(180deg, rgba(248,250,252,.75), #fff 55%)",
-                    borderColor: "rgba(15, 23, 42, 0.08)",
+                    borderRadius: 14,
+                    border: "1px solid rgba(15, 23, 42, 0.1)",
+                    background:
+                      "linear-gradient(165deg, rgba(248, 250, 252, 0.96) 0%, #ffffff 44%, rgba(241, 245, 249, 0.5) 100%)",
+                    boxShadow:
+                      "0 12px 40px rgba(15, 23, 42, 0.08), 0 2px 12px rgba(15, 23, 42, 0.04)",
                   }}
                 >
                   <div
@@ -8851,9 +8880,15 @@ function parseDateSafe(dateStr) {
                       gap: 8,
                       flexWrap: "wrap",
                       justifyContent: "flex-end",
-                      marginBottom: 12,
-                      paddingBottom: 12,
-                      borderBottom: "1px solid var(--border)",
+                      marginBottom: 14,
+                      padding: "12px 14px",
+                      marginLeft: -4,
+                      marginRight: -4,
+                      marginTop: -4,
+                      borderRadius: 12,
+                      background: "rgba(255, 255, 255, 0.65)",
+                      border: "1px solid rgba(15, 23, 42, 0.06)",
+                      boxShadow: "0 1px 0 rgba(255, 255, 255, 0.9) inset",
                     }}
                   >
                     {!isEditingMaterialsGlance ? (
@@ -8892,6 +8927,43 @@ function parseDateSafe(dateStr) {
                       </span>
                     ) : null}
                   </div>
+
+                  <div
+                    aria-hidden
+                    style={{
+                      height: 3,
+                      borderRadius: 999,
+                      margin: "0 2px 16px",
+                      background: "linear-gradient(90deg, #2563eb, #6366f1, #a855f7)",
+                      opacity: 0.92,
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      borderRadius: 12,
+                      padding: "4px 14px 2px",
+                      marginBottom: 14,
+                      background:
+                        "linear-gradient(180deg, rgba(37, 99, 235, 0.08), rgba(248, 250, 252, 0.4))",
+                      border: "1px solid rgba(37, 99, 235, 0.14)",
+                      boxShadow: "0 1px 0 rgba(255, 255, 255, 0.75) inset",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.14em",
+                        textTransform: "uppercase",
+                        color: "rgba(30, 64, 175, 0.9)",
+                        padding: "8px 0 10px",
+                        borderBottom: "1px solid rgba(37, 99, 235, 0.15)",
+                        marginBottom: 2,
+                      }}
+                    >
+                      Team & site plan
+                    </div>
 
                   <div style={materialsGlanceRow}>
                     <div style={materialsGlanceLabel}>Team name</div>
@@ -8961,6 +9033,34 @@ function parseDateSafe(dateStr) {
                     </div>
                   </div>
 
+                  </div>
+
+                  <div
+                    style={{
+                      borderRadius: 12,
+                      padding: "4px 14px 2px",
+                      marginBottom: 12,
+                      background: "rgba(255, 255, 255, 0.72)",
+                      border: "1px solid rgba(15, 23, 42, 0.08)",
+                      boxShadow:
+                        "0 1px 0 rgba(255, 255, 255, 0.95) inset, 0 6px 18px rgba(15, 23, 42, 0.04)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        color: "var(--muted)",
+                        padding: "8px 0 10px",
+                        borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
+                        marginBottom: 2,
+                      }}
+                    >
+                      Logistics & accounting
+                    </div>
+
                   <div style={materialsGlanceRow}>
                     <div style={materialsGlanceLabel}>Team accountant</div>
                     {isEditingMaterialsGlance ? (
@@ -9023,38 +9123,6 @@ function parseDateSafe(dateStr) {
                   </div>
 
                   <div style={materialsGlanceRow}>
-                    <div style={materialsGlanceLabel}>Team workbook inventory</div>
-                    {isEditingMaterialsGlance ? (
-                      <textarea
-                        className="input"
-                        rows={4}
-                        value={materialsDraft.workbooks}
-                        onChange={(e) =>
-                          setMaterialsDraft((d) => ({ ...d, workbooks: e.target.value }))
-                        }
-                        placeholder="e.g. 8-Reflection; 4 Good News (housing budget workbooks field)"
-                      />
-                    ) : (
-                      <div>
-                        {String(materialsDraft.workbooks || "").trim() ? (
-                          <div
-                            style={{
-                              ...materialsGlanceValue,
-                              whiteSpace: "pre-wrap",
-                              fontFamily: "ui-monospace, monospace",
-                              color: "var(--muted)",
-                            }}
-                          >
-                            {materialsDraft.workbooks}
-                          </div>
-                        ) : (
-                          <span style={materialsGlanceMuted}>—</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={materialsGlanceRow}>
                     <div style={materialsGlanceLabel}>Ship-to address</div>
                     {isEditingMaterialsGlance ? (
                       <textarea
@@ -9108,6 +9176,8 @@ function parseDateSafe(dateStr) {
                     )}
                   </div>
 
+                  </div>
+
                   <div style={materialsGlanceRowSending}>
                     <div style={materialsGlanceLabel}>Workbooks sending</div>
                     <div>
@@ -9117,7 +9187,7 @@ function parseDateSafe(dateStr) {
                       {materialsTeamWorkbookGlance?.kind === "parsed" &&
                       materialsTeamWorkbookGlance.positiveLines?.length > 0 ? (
                         <div style={{ ...materialsGlanceMuted, marginBottom: 8 }}>
-                          From inventory: {materialsTeamWorkbookGlance.distinctTitles} titles ·{" "}
+                          From budget workbook list: {materialsTeamWorkbookGlance.distinctTitles} titles ·{" "}
                           {materialsTeamWorkbookGlance.totalCopies} copies
                         </div>
                       ) : null}
@@ -9141,11 +9211,6 @@ function parseDateSafe(dateStr) {
                     </div>
                   </div>
 
-                  {tripBudgetRow?.updatedAt ? (
-                    <div style={{ ...materialsGlanceMuted, paddingTop: 8 }}>
-                      Housing budget last updated: {new Date(tripBudgetRow.updatedAt).toLocaleString()}
-                    </div>
-                  ) : null}
                 </div>
               </CollapsibleSection>
               {(effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl) && (
@@ -9208,49 +9273,62 @@ function parseDateSafe(dateStr) {
               </ExpandableCollapsibleSection>
             );
           })()}
-          <div className="card pad">
-            <div className="cardSectionPill" style={{ marginBottom: 8 }}>Documents & links</div>
-            <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
+          <div style={{ display: "grid", gap: 10 }}>
+            <div className="tripDocumentsPageSectionPill">Documents & links</div>
+            <div className="small" style={{ marginBottom: 0, opacity: 0.88 }}>
               Trip-wide resources{canManageTripDocuments ? " and visibility for participants" : " shared for this trip"}.
             </div>
-            <div
-              className="row"
-              style={{ marginBottom: 10, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
-            >
-              <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-                <div className="small">
-                  {canManageTripDocuments
-                    ? "Default trip documents stay visible here, and staff can switch each document on or off for participants."
-                    : "Documents your leader or staff share appear here."}
-                </div>
-              </div>
-              {canManageTripDocuments ? (
-                <div
-                  className="row"
-                  style={{
-                    gap: 8,
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    marginLeft: "auto",
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  <button className="btn" type="button" onClick={handleAddLink}>
-                    Add Link
-                  </button>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={handlePrepareNewPdf}
-                  >
-                    Upload File
-                  </button>
-                </div>
-              ) : null}
+            <div className="small" style={{ opacity: 0.88 }}>
+              {canManageTripDocuments
+                ? "Default trip documents stay visible here, and staff can switch each document on or off for participants. Team housing is set on Budget → Housing and appears here automatically."
+                : "Documents your leader or staff share appear here."}
             </div>
+            {canManageTripDocuments ? (
+              <div
+                className="row"
+                style={{
+                  gap: 8,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
+                  marginTop: 2,
+                }}
+              >
+                <button className="btn" type="button" onClick={handleAddLink}>
+                  Add Link
+                </button>
+                <button className="btn" type="button" onClick={handlePrepareNewPdf}>
+                  Upload File
+                </button>
+                {(() => {
+                  const hasSite =
+                    effectiveSiteInfoDoc &&
+                    (String(effectiveSiteInfoDoc.link || "").trim() ||
+                      String(effectiveSiteInfoDoc.pdfUrl || "").trim());
+                  return !hasSite ? (
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() =>
+                        handlePrepareRequiredLink({
+                          key: "site-info-link",
+                          title: "Site Logistics",
+                          category: "Site",
+                          kind: "link",
+                          description: "Standard site logistics link for this trip.",
+                          resource: effectiveSiteInfoDoc,
+                        })
+                      }
+                    >
+                      Add site logistics
+                    </button>
+                  ) : null;
+                })()}
+              </div>
+            ) : null}
 
             {docsError && (
-              <div className="small" style={{ color: "var(--danger)", marginBottom: 12 }}>
+              <div className="small" style={{ color: "var(--danger)", marginBottom: 0 }}>
                 {docsError}
               </div>
             )}
@@ -9262,7 +9340,12 @@ function parseDateSafe(dateStr) {
             {canManageTripDocuments && pendingPdfDraft && (
               <div
                 className="card pad"
-                style={{ boxShadow: "none", marginBottom: 14, background: "rgba(255,255,255,.7)" }}
+                style={{
+                  boxShadow: "none",
+                  marginBottom: 0,
+                  background: "rgba(255,255,255,.78)",
+                  border: "1px solid rgba(15, 23, 42, 0.06)",
+                }}
               >
                 <div style={{ fontWeight: 900, marginBottom: 10 }}>
                   {pendingPdfDraft.resourceKey ? "Required PDF" : "New PDF"}
@@ -9337,157 +9420,12 @@ function parseDateSafe(dateStr) {
             )}
 
           </div>
+
           <div className="card pad">
-            {canManageTripDocuments &&
-            staffViewAllParticipants &&
-            housingTripDocsDraft &&
-            !(effectiveHousingLinkDoc && docHasAnyContent(effectiveHousingLinkDoc)) ? (
-              <div
-                className={tripDocumentTileRootClassName(true)}
-                style={{ ...tripDocumentWideCardStyle, marginBottom: 16 }}
-              >
-                <div style={{ display: "grid", gap: 8 }}>
-                  <div style={{ fontWeight: 900 }}>Edit team housing</div>
-                  <div className="small">
-                    Booking link and PDF are stored on the trip budget (same as Budget → Housing).
-                  </div>
-                  <input
-                    className="input"
-                    value={housingTripDocsDraft.housingLink}
-                    onChange={(e) =>
-                      setHousingTripDocsDraft((prev) =>
-                        prev ? { ...prev, housingLink: e.target.value } : prev
-                      )
-                    }
-                    placeholder="https://..."
-                  />
-                  <input
-                    type="file"
-                    accept="application/pdf,.pdf"
-                    onChange={(e) =>
-                      setHousingTripDocsDraft((prev) =>
-                        prev ? { ...prev, file: e.target.files?.[0] || null } : prev
-                      )
-                    }
-                  />
-                  {housingTripDocsDraft.pdfUrlKeep ? (
-                    <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={housingTripDocsDraft.clearPdf}
-                        onChange={(e) =>
-                          setHousingTripDocsDraft((prev) =>
-                            prev ? { ...prev, clearPdf: e.target.checked } : prev
-                          )
-                        }
-                      />
-                      Remove current PDF
-                    </label>
-                  ) : null}
-                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                    <button
-                      className="btn btnPrimary"
-                      type="button"
-                      onClick={() => void handleSaveHousingTripDocs()}
-                    >
-                      Save
-                    </button>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                        setHousingTripDocsDraft(null);
-                        setHousingTripDocsSaveStatus("");
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  {housingTripDocsSaveStatus ? (
-                    <div className="small">{housingTripDocsSaveStatus}</div>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {canManageTripDocuments ? (
-              <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-                {(() => {
-                  const budgetSlotSetup = requiredDocumentSlots.find((s) => s.key === "smartsheet-budget");
-                  const hasBudget =
-                    budgetSlotSetup?.resource && docHasAnyContent(budgetSlotSetup.resource);
-                  const hasSite =
-                    effectiveSiteInfoDoc &&
-                    (String(effectiveSiteInfoDoc.link || "").trim() ||
-                      String(effectiveSiteInfoDoc.pdfUrl || "").trim());
-                  const hasHousing =
-                    effectiveHousingLinkDoc && docHasAnyContent(effectiveHousingLinkDoc);
-                  return (
-                    <>
-                      {!hasBudget && budgetSlotSetup ? (
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() =>
-                            handlePrepareRequiredLink({
-                              ...budgetSlotSetup,
-                              resource: budgetSlotSetup.resource,
-                            })
-                          }
-                        >
-                          Add budget link
-                        </button>
-                      ) : null}
-                      {!hasSite ? (
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() =>
-                            handlePrepareRequiredLink({
-                              key: "site-info-link",
-                              title: "Site Logistics",
-                              category: "Site",
-                              kind: "link",
-                              description: "Standard site logistics link for this trip.",
-                              resource: effectiveSiteInfoDoc,
-                            })
-                          }
-                        >
-                          Add site logistics
-                        </button>
-                      ) : null}
-                      {!hasHousing ? (
-                        staffViewAllParticipants ? (
-                          <button
-                            type="button"
-                            className="btn"
-                            onClick={() =>
-                              setHousingTripDocsDraft({
-                                housingLink: tripHousingLinkUrl || "",
-                                pdfUrlKeep: tripHousingPdfUrl || "",
-                                clearPdf: false,
-                                file: null,
-                              })
-                            }
-                          >
-                            Add team housing
-                          </button>
-                        ) : (
-                          <Link href="/budget" className="btn">
-                            Add housing in Budget
-                          </Link>
-                        )
-                      ) : null}
-                    </>
-                  );
-                })()}
-              </div>
-            ) : null}
-
             {tripDocumentCategorySections.length === 0 ? (
               <div className="small tripDocumentsTileGridFullRow" style={{ marginBottom: 8 }}>
                 {canManageTripDocuments
-                  ? "No documents yet. Use Add Link, Upload File, or the buttons above."
+                  ? "No documents yet. Use Add Link, Upload File, or Add site logistics above."
                   : "No documents yet."}
               </div>
             ) : null}
@@ -9654,8 +9592,7 @@ function parseDateSafe(dateStr) {
                               <div style={{ display: "grid", gap: 8 }}>
                                 <div style={{ fontWeight: 900 }}>Edit team housing</div>
                                 <div className="small">
-                                  Booking link and PDF are stored on the trip budget (same as Budget →
-                                  Housing).
+                                  Saves to the same trip budget row as Budget → Housing; this page refreshes when you open Trip Documents or return to the tab.
                                 </div>
                                 <input
                                   className="input"
