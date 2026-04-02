@@ -1,4 +1,5 @@
-create schema if not exists private;
+-- Trip leaders can add/edit/delete announcements for trips they are assigned to or on via roster email.
+-- Also fixes current_profile_role() to resolve by auth.uid() so staff/leaders are not blocked when JWT email != profiles.email.
 
 create or replace function private.current_profile_role()
 returns text
@@ -42,28 +43,6 @@ $$;
 
 revoke all on function private.user_is_assigned_or_rostered_for_trip(uuid) from public;
 grant execute on function private.user_is_assigned_or_rostered_for_trip(uuid) to authenticated;
-
-alter table public.trip_announcements enable row level security;
-
-drop policy if exists "trip_announcements_select_access" on public.trip_announcements;
-create policy "trip_announcements_select_access"
-on public.trip_announcements
-for select
-to authenticated
-using (
-  private.current_profile_role() in ('admin', 'staff')
-  or trip_id in (
-    select trip_id
-    from public.trip_assignments
-    where user_id = auth.uid()
-  )
-  or exists (
-    select 1
-    from public.trip_team_members m
-    where m.trip_id = trip_id
-      and lower(trim(m.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
-  )
-);
 
 drop policy if exists "trip_announcements_insert_access" on public.trip_announcements;
 create policy "trip_announcements_insert_access"

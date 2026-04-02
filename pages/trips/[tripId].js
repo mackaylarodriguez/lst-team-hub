@@ -9113,10 +9113,11 @@ function parseDateSafe(dateStr) {
                       borderRadius: 12,
                       padding: "4px 14px 2px",
                       marginBottom: 12,
-                      background: "rgba(255, 255, 255, 0.72)",
-                      border: "1px solid rgba(15, 23, 42, 0.08)",
+                      background:
+                        "linear-gradient(180deg, rgba(22, 163, 74, 0.09), rgba(240, 253, 244, 0.45))",
+                      border: "1px solid rgba(22, 163, 74, 0.18)",
                       boxShadow:
-                        "0 1px 0 rgba(255, 255, 255, 0.95) inset, 0 6px 18px rgba(15, 23, 42, 0.04)",
+                        "0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 6px 20px rgba(22, 101, 52, 0.06)",
                     }}
                   >
                     <div
@@ -9125,9 +9126,9 @@ function parseDateSafe(dateStr) {
                         fontWeight: 800,
                         letterSpacing: "0.12em",
                         textTransform: "uppercase",
-                        color: "var(--muted)",
+                        color: "rgba(21, 128, 61, 0.92)",
                         padding: "8px 0 10px",
-                        borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
+                        borderBottom: "1px solid rgba(22, 163, 74, 0.2)",
                         marginBottom: 2,
                       }}
                     >
