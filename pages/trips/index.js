@@ -594,7 +594,6 @@ export default function Trips() {
       />
       <div className="row" style={{ marginBottom: 14 }}>
         <div>
-          <div className="appSectionBadge" style={{ marginBottom: 6 }}>Trips</div>
           <h1 className="h1" style={{ marginBottom: 0, display: "flex", alignItems: "center", gap: 10 }}>
             <AppIcon name="spark" className="pageEyebrowIcon" />
             <span>Trip Dashboard</span>
