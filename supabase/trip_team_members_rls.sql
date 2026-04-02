@@ -48,9 +48,51 @@ for update
 to authenticated
 using (
   private.current_profile_role() in ('admin', 'staff')
+  or (
+    private.current_profile_role() = 'leader'
+    and trip_id in (
+      select ta.trip_id
+      from public.trip_assignments as ta
+      where ta.user_id = auth.uid()
+    )
+  )
+  or (
+    trip_id in (
+      select ta.trip_id
+      from public.trip_assignments as ta
+      where ta.user_id = auth.uid()
+    )
+    and lower(trim(coalesce(trip_team_members.email, ''))) = (
+      select lower(trim(coalesce(p.email, '')))
+      from public.profiles as p
+      where p.id = auth.uid()
+      limit 1
+    )
+  )
 )
 with check (
   private.current_profile_role() in ('admin', 'staff')
+  or (
+    private.current_profile_role() = 'leader'
+    and trip_id in (
+      select ta.trip_id
+      from public.trip_assignments as ta
+      where ta.user_id = auth.uid()
+    )
+  )
+  or (
+    trip_id in (
+      select ta.trip_id
+      from public.trip_assignments as ta
+      where ta.user_id = auth.uid()
+    )
+    and lower(trim(coalesce(trip_team_members.email, ''))) = (
+      select lower(trim(coalesce(p.email, '')))
+      from public.profiles as p
+      where p.id = auth.uid()
+      limit 1
+    )
+  )
 );
 
 drop policy if exists "trip_team_members_delete_access" on public.trip_team_members;

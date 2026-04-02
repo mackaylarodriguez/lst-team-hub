@@ -1,22 +1,7 @@
-create schema if not exists private;
+-- Allow trip participants on trip_team_members (email match) to read and insert trip_activity,
+-- not only trip_assignments. Fixes workers completing training / tasks without an assignment row.
+-- Safe to run if trip_travel_safety_roster_access_rls.sql already created the helper (CREATE OR REPLACE).
 
-create or replace function private.current_profile_role()
-returns text
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select lower(trim(p.role))
-  from public.profiles as p
-  where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
-  limit 1;
-$$;
-
-revoke all on function private.current_profile_role() from public;
-grant execute on function private.current_profile_role() to authenticated;
-
--- Same helper as trip_travel_safety_rls: assigned to trip OR roster email matches profile.
 create or replace function private.user_is_assigned_or_rostered_for_trip(p_trip_id uuid)
 returns boolean
 language sql
@@ -41,8 +26,6 @@ $$;
 
 revoke all on function private.user_is_assigned_or_rostered_for_trip(uuid) from public;
 grant execute on function private.user_is_assigned_or_rostered_for_trip(uuid) to authenticated;
-
-alter table public.trip_activity enable row level security;
 
 drop policy if exists "trip_activity_select_access" on public.trip_activity;
 create policy "trip_activity_select_access"

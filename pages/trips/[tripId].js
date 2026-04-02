@@ -2554,10 +2554,8 @@ export default function TripPage() {
   }
 
   useEffect(() => {
-    if (!trip) return;
-    // Trip leaders see the team dashboard but should not load or view reference tracking (staff + workers only).
-    if (canViewTeamDashboard && !staffViewAllParticipants) {
-      setReferenceEmails({});
+    if (!trip?.id || isPreviewingParticipant) {
+      if (isPreviewingParticipant || !trip?.id) setReferenceEmails({});
       return;
     }
 
@@ -2595,7 +2593,7 @@ export default function TripPage() {
     return () => {
       cancelled = true;
     };
-  }, [trip?.id, canViewTeamDashboard, staffViewAllParticipants]);
+  }, [trip?.id, isPreviewingParticipant]);
 
   function updateFundraisingDraft(participantId, field, value) {
     setFundraisingDrafts((current) => ({
@@ -4388,37 +4386,49 @@ function parseDateSafe(dateStr) {
     }
   }
 
+  function resolveRosterMemberIdForTshirt(member) {
+    if (!member) return "";
+    if (member.id) return String(member.id);
+    const rowEmail = normalizeEmail(member.email);
+    if (!rowEmail) return "";
+    const rosterRow = (trip?.teamMembers || []).find(
+      (m) => m?.id && normalizeEmail(m.email) === rowEmail
+    );
+    return rosterRow?.id ? String(rosterRow.id) : "";
+  }
+
   function canEditRosterTshirtInline(member) {
-    if (!member?.id) return false;
     if (staffViewAllParticipants) return true;
     if (canViewTeamDashboard && effectiveIsLeader) return true;
     const rowEmail = normalizeEmail(member.email);
     const sessionEmail = normalizeEmail(session?.email || "");
-    return Boolean(rowEmail && sessionEmail && rowEmail === sessionEmail);
+    if (!rowEmail || !sessionEmail || rowEmail !== sessionEmail) return false;
+    return Boolean(resolveRosterMemberIdForTshirt(member));
   }
 
   async function handleInlineRosterTshirtChange(member, nextSize) {
-    if (!trip?.id || !member?.id || !canEditRosterTshirtInline(member)) return;
+    const memberId = resolveRosterMemberIdForTshirt(member);
+    if (!trip?.id || !memberId || !canEditRosterTshirtInline(member)) return;
 
     setInlineTshirtSavingKey(member.key);
     setRosterStatus("");
     try {
       const updated = await updateTripTeamMemberTshirtSize({
         tripId: trip.id,
-        memberId: member.id,
+        memberId,
         tshirtSize: nextSize,
       });
       setTrip((current) => {
         if (!current) return current;
         const nextTeam = (current.teamMembers || []).map((m) =>
-          String(m.id) === String(member.id) ? { ...m, tshirtSize: updated.tshirtSize } : m
+          String(m.id) === String(memberId) ? { ...m, tshirtSize: updated.tshirtSize } : m
         );
         return { ...current, teamMembers: nextTeam };
       });
       if (isEditingRoster) {
         setRosterDraft((draft) =>
           draft.map((row) =>
-            String(row.id) === String(member.id) ? { ...row, tshirtSize: updated.tshirtSize } : row
+            String(row.id) === String(memberId) ? { ...row, tshirtSize: updated.tshirtSize } : row
           )
         );
       }
@@ -5270,6 +5280,10 @@ function parseDateSafe(dateStr) {
   const activeParticipantEmail = currentParticipant?.email?.toLowerCase() || "";
   const canUploadOwnParticipantDocuments =
     !staffViewAllParticipants && !!currentParticipant && !isPreviewingParticipant;
+  const canEditTripReferenceEmails = staffViewAllParticipants;
+  const canViewTripReferenceSection =
+    !isPreviewingParticipant &&
+    (staffViewAllParticipants || effectiveIsLeader || !!currentParticipant);
   const participantDocumentsByUserId = useMemo(() => {
     const grouped = new Map();
 
@@ -5651,28 +5665,34 @@ function parseDateSafe(dateStr) {
       };
     }
 
-    if (canViewTeamDashboard) {
-      const total = referenceTableRows.length;
-      const completed = referenceTableRows.filter(
-        (row) => !!getReferenceStatus(row.refKey).received
-      ).length;
+    const total = referenceTableRows.length;
+    const completed = referenceTableRows.filter(
+      (row) => !!getReferenceStatus(row.refKey).received
+    ).length;
+    const percent = total ? Math.round((completed / total) * 100) : 0;
 
+    if (canViewTeamDashboard) {
       return {
         label: "References Received",
-        percent: total ? Math.round((completed / total) * 100) : 0,
+        percent,
         completed,
         total,
       };
     }
 
-    const received = currentParticipant
-      ? !!getReferenceStatus(`user:${currentParticipant.id}`).received
-      : false;
+    if (currentParticipant && total > 0) {
+      return {
+        label: total > 1 ? "References received (team)" : "My reference",
+        percent,
+        completed,
+        total,
+      };
+    }
 
     return {
       label: "My Reference",
-      percent: received ? 100 : 0,
-      completed: received ? 1 : 0,
+      percent: 0,
+      completed: 0,
       total: 1,
     };
   }, [trip, canViewTeamDashboard, currentParticipant, referenceEmails, referenceTableRows]);
@@ -7224,7 +7244,9 @@ function parseDateSafe(dateStr) {
               ) : null}
             </div>
             <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-              Members, account status, invites, and T-shirt sizes (per person on the roster).
+              {staffViewAllParticipants
+                ? "Members, account status, invites, and T-shirt sizes (per person on the roster)."
+                : "Everyone on the team can see this roster, including names and emails. Use the T-shirt column to set your own size. Contact your leader or staff for other roster changes."}
             </div>
 
             {staffViewAllParticipants && isAddingWorker ? (
@@ -7434,7 +7456,13 @@ function parseDateSafe(dateStr) {
                             {connectionStatus.accountLabel}
                           </span>
                         </td>
-                        <td>{member.email || "Not set"}</td>
+                        <td>
+                          {String(member.email || "").trim() ? (
+                            <a href={`mailto:${String(member.email).trim()}`}>{member.email}</a>
+                          ) : (
+                            "Not set"
+                          )}
+                        </td>
                         <td>{formatTripDateRange(member.startDate, member.endDate)}</td>
                         {staffViewAllParticipants ? (
                           <td>
@@ -7467,12 +7495,14 @@ function parseDateSafe(dateStr) {
           </div>
           </CollapsibleSection>
 
-          {staffViewAllParticipants && (
+          {canViewTripReferenceSection && (
             <CollapsibleSection defaultOpen>
             <div className="card pad tripSectionCard">
               <div className="cardSectionPill" style={{ marginBottom: 10 }}>Reference emails</div>
               <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-                Track reference contacts and sent/received status.
+                {canEditTripReferenceEmails
+                  ? "Track reference contacts and sent/received status."
+                  : "Team reference tracking (read-only). Ask staff to update rows."}
               </div>
               <table className="table dataTableStriped">
                 <thead>
@@ -7493,7 +7523,7 @@ function parseDateSafe(dateStr) {
                       <tr key={refRow.refKey}>
                         <td style={{ fontWeight: 800 }}>
                           <div>{refRow.displayName}</div>
-                          {referenceSaveStatus ? (
+                          {canEditTripReferenceEmails && referenceSaveStatus ? (
                             <div className="small" style={{ marginTop: 4 }}>
                               {referenceSaveStatus.type === "error" ? (
                                 <span style={{ color: "var(--danger)" }}>
@@ -7518,86 +7548,129 @@ function parseDateSafe(dateStr) {
                           ) : null}
                         </td>
                         <td style={{ minWidth: 260 }}>
-                          <div style={{ display: "grid", gap: 8 }}>
-                            <input
-                              className="input"
-                              value={referenceStatus.referenceName || ""}
-                              placeholder="Reference name"
-                              onChange={(e) =>
-                                updateReferenceField(
-                                  refRow.refKey,
-                                  "referenceName",
-                                  e.target.value
-                                )
-                              }
-                            />
-                            <input
-                              className="input"
-                              type="email"
-                              value={referenceStatus.referenceEmail || ""}
-                              placeholder="Reference email"
-                              onChange={(e) =>
-                                updateReferenceField(
-                                  refRow.refKey,
-                                  "referenceEmail",
-                                  e.target.value
-                                )
-                              }
-                            />
-                            <input
-                              className="input"
-                              type="tel"
-                              value={referenceStatus.referencePhone || ""}
-                              placeholder="Reference phone"
-                              onChange={(e) =>
-                                updateReferenceField(
-                                  refRow.refKey,
-                                  "referencePhone",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
+                          {canEditTripReferenceEmails ? (
+                            <div style={{ display: "grid", gap: 8 }}>
+                              <input
+                                className="input"
+                                value={referenceStatus.referenceName || ""}
+                                placeholder="Reference name"
+                                onChange={(e) =>
+                                  updateReferenceField(
+                                    refRow.refKey,
+                                    "referenceName",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                              <input
+                                className="input"
+                                type="email"
+                                value={referenceStatus.referenceEmail || ""}
+                                placeholder="Reference email"
+                                onChange={(e) =>
+                                  updateReferenceField(
+                                    refRow.refKey,
+                                    "referenceEmail",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                              <input
+                                className="input"
+                                type="tel"
+                                value={referenceStatus.referencePhone || ""}
+                                placeholder="Reference phone"
+                                onChange={(e) =>
+                                  updateReferenceField(
+                                    refRow.refKey,
+                                    "referencePhone",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            </div>
+                          ) : (
+                            <div className="small" style={{ display: "grid", gap: 6 }}>
+                              <div>
+                                <span style={{ color: "var(--muted)" }}>Reference name:</span>{" "}
+                                {String(referenceStatus.referenceName || "").trim() || "—"}
+                              </div>
+                              <div>
+                                <span style={{ color: "var(--muted)" }}>Email:</span>{" "}
+                                {String(referenceStatus.referenceEmail || "").trim() ? (
+                                  <a
+                                    href={`mailto:${String(referenceStatus.referenceEmail || "").trim()}`}
+                                  >
+                                    {String(referenceStatus.referenceEmail || "").trim()}
+                                  </a>
+                                ) : (
+                                  "—"
+                                )}
+                              </div>
+                              <div>
+                                <span style={{ color: "var(--muted)" }}>Phone:</span>{" "}
+                                {String(referenceStatus.referencePhone || "").trim() || "—"}
+                              </div>
+                            </div>
+                          )}
                         </td>
                         <td>
-                          <label
-                            className="row"
-                            style={{ gap: 8, alignItems: "center", cursor: "pointer" }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={!!referenceStatus.sent}
-                              onChange={() =>
-                                toggleReferenceEmail(refRow.refKey, "sent")
-                              }
-                            />
+                          {canEditTripReferenceEmails ? (
+                            <label
+                              className="row"
+                              style={{ gap: 8, alignItems: "center", cursor: "pointer" }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={!!referenceStatus.sent}
+                                onChange={() => toggleReferenceEmail(refRow.refKey, "sent")}
+                              />
+                              <span className={"badge " + (referenceStatus.sent ? "badgeSuccess" : "")}>
+                                {referenceStatus.sent ? "Sent" : "Not sent"}
+                              </span>
+                            </label>
+                          ) : (
                             <span className={"badge " + (referenceStatus.sent ? "badgeSuccess" : "")}>
                               {referenceStatus.sent ? "Sent" : "Not sent"}
                             </span>
-                          </label>
+                          )}
                         </td>
                         <td>
-                          <input
-                            className="input"
-                            type="date"
-                            value={referenceStatus.sentDate || ""}
-                            onChange={(e) =>
-                              updateReferenceSentDate(refRow.refKey, e.target.value)
-                            }
-                          />
-                        </td>
-                        <td>
-                          <label
-                            className="row"
-                            style={{ gap: 8, alignItems: "center", cursor: "pointer" }}
-                          >
+                          {canEditTripReferenceEmails ? (
                             <input
-                              type="checkbox"
-                              checked={!!referenceStatus.received}
-                              onChange={() =>
-                                toggleReferenceEmail(refRow.refKey, "received")
+                              className="input"
+                              type="date"
+                              value={referenceStatus.sentDate || ""}
+                              onChange={(e) =>
+                                updateReferenceSentDate(refRow.refKey, e.target.value)
                               }
                             />
+                          ) : (
+                            <span className="small">{referenceStatus.sentDate?.trim() || "—"}</span>
+                          )}
+                        </td>
+                        <td>
+                          {canEditTripReferenceEmails ? (
+                            <label
+                              className="row"
+                              style={{ gap: 8, alignItems: "center", cursor: "pointer" }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={!!referenceStatus.received}
+                                onChange={() =>
+                                  toggleReferenceEmail(refRow.refKey, "received")
+                                }
+                              />
+                              <span
+                                className={
+                                  "badge " + (referenceStatus.received ? "badgeSuccess" : "")
+                                }
+                              >
+                                {referenceStatus.received ? "Received" : "Not received"}
+                              </span>
+                            </label>
+                          ) : (
                             <span
                               className={
                                 "badge " + (referenceStatus.received ? "badgeSuccess" : "")
@@ -7605,7 +7678,7 @@ function parseDateSafe(dateStr) {
                             >
                               {referenceStatus.received ? "Received" : "Not received"}
                             </span>
-                          </label>
+                          )}
                         </td>
                       </tr>
                     );
@@ -10167,7 +10240,13 @@ function parseDateSafe(dateStr) {
                                     hidden
                                     onChange={(event) => {
                                       const file = event.target.files?.[0];
-                                      void handleUploadParticipantDocument(participant.id, documentType.key, file);
+                                      const uploadUserId =
+                                        session?.profileId || session?.id || participant.id;
+                                      void handleUploadParticipantDocument(
+                                        uploadUserId,
+                                        documentType.key,
+                                        file
+                                      );
                                       event.target.value = "";
                                     }}
                                   />
