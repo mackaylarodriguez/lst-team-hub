@@ -1513,9 +1513,10 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .tripOverviewHighlights{
   display:grid;
-  grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns:minmax(0, 1fr);
   gap:16px;
   align-items:start;
+  width:100%;
 }
 .tripOverviewStatsGrid{
   display:grid;

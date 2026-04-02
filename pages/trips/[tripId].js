@@ -7115,11 +7115,8 @@ function parseDateSafe(dateStr) {
         <div style={{ display: "grid", gap: 16 }}>
           <CollapsibleSection defaultOpen>
           <div className="card pad">
-            <div className="cardSectionPill" style={{ marginBottom: 8 }}>Roster</div>
-            <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-              Members, account status, invites, and T-shirt sizes (per person on the roster).
-            </div>
-            <div className="row" style={{ marginBottom: 10, alignItems: "center" }}>
+            <div className="row" style={{ marginBottom: 8, alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+              <div className="cardSectionPill" style={{ marginBottom: 0, flexShrink: 0 }}>Roster</div>
               <div className="spacer" />
               {workerAddStatus ? (
                 <div className="small" style={{ alignSelf: "center", marginRight: 8 }}>
@@ -7141,6 +7138,9 @@ function parseDateSafe(dateStr) {
                   </button>
                 </>
               ) : null}
+            </div>
+            <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
+              Members, account status, invites, and T-shirt sizes (per person on the roster).
             </div>
 
             {staffViewAllParticipants && isAddingWorker ? (
