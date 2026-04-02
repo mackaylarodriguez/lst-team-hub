@@ -6659,10 +6659,19 @@ function parseDateSafe(dateStr) {
           </div>
           </CollapsibleSection>
 
-          <CollapsibleSection defaultOpen>
+          <div
+            className="tripOverviewMeetingsNotesTasksRow"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+              gap: 16,
+              alignItems: "start",
+            }}
+          >
+          <CollapsibleSection defaultOpen style={{ minWidth: 0 }}>
             <div
-              className="card pad tripFullSpanCard"
-              style={{ gridColumn: "1 / -1", border: "1px solid rgba(47,73,147,.12)" }}
+              className="card pad"
+              style={{ border: "1px solid rgba(47,73,147,.12)", minWidth: 0 }}
             >
               <div className="cardSectionPill" style={{ marginBottom: 8 }}>Meetings</div>
               <div className="small" style={{ marginBottom: 12, color: "var(--muted)" }}>
@@ -6752,12 +6761,16 @@ function parseDateSafe(dateStr) {
                 </div>
               ) : null}
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>Upcoming</div>
+                <div className="small" style={{ fontWeight: 700, marginBottom: 6, color: "var(--foreground)" }}>
+                  Upcoming
+                </div>
                 {upcomingMeetings.length ? (
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
                     {upcomingMeetings.map((m) => (
                       <li key={m.id} style={{ marginBottom: 10 }}>
-                        <div style={{ fontWeight: 600 }}>{m.title || "Meeting"}</div>
+                        <div className="small" style={{ fontWeight: 600, color: "var(--foreground)" }}>
+                          {m.title || "Meeting"}
+                        </div>
                         <div className="small">{new Date(m.scheduledAt).toLocaleString()}</div>
                         {canManageTripMeetings ? (
                           <div className="row" style={{ gap: 8, marginTop: 4, flexWrap: "wrap" }}>
@@ -6801,12 +6814,16 @@ function parseDateSafe(dateStr) {
                 )}
               </div>
               <div>
-                <div style={{ fontWeight: 700, marginBottom: 6 }}>Past</div>
+                <div className="small" style={{ fontWeight: 700, marginBottom: 6, color: "var(--foreground)" }}>
+                  Past
+                </div>
                 {pastMeetings.length ? (
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
                     {pastMeetings.map((m) => (
                       <li key={m.id} style={{ marginBottom: 10 }}>
-                        <div style={{ fontWeight: 600 }}>{m.title || "Meeting"}</div>
+                        <div className="small" style={{ fontWeight: 600, color: "var(--foreground)" }}>
+                          {m.title || "Meeting"}
+                        </div>
                         <div className="small">{new Date(m.scheduledAt).toLocaleString()}</div>
                         {canManageTripMeetings ? (
                           m.notesAfter ? (
@@ -6863,20 +6880,9 @@ function parseDateSafe(dateStr) {
             </div>
           </CollapsibleSection>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: 16,
-            }}
-          >
-            {staffViewAllParticipants && (
-              <CollapsibleSection
-                defaultOpen
-                className="tripFullSpanCard"
-                style={{ gridColumn: "1 / -1" }}
-              >
-              <div className="card pad tripFullSpanCard">
+            {staffViewAllParticipants ? (
+              <CollapsibleSection defaultOpen style={{ minWidth: 0 }}>
+              <div className="card pad" style={{ minWidth: 0 }}>
                 <div className="cardSectionPill" style={{ marginBottom: 8 }}>Trip notes</div>
                 <div className="small" style={{ marginBottom: 6, opacity: 0.88 }}>
                   Internal context for staff and leaders.
@@ -6965,16 +6971,10 @@ function parseDateSafe(dateStr) {
                 </div>
               </div>
             </CollapsibleSection>
-            )}
-
-            {staffViewAllParticipants ? (
-              <CollapsibleSection defaultOpen style={{ gridColumn: "1 / -1" }}>
-                {renderTripSetupCard()}
-              </CollapsibleSection>
             ) : null}
 
-            <CollapsibleSection defaultOpen>
-            <div className="card pad">
+          <CollapsibleSection defaultOpen style={{ minWidth: 0 }}>
+            <div className="card pad" style={{ minWidth: 0 }}>
               <div className="cardSectionPill">
                 {staffViewAllParticipants ? "My upcoming staff tasks" : "My upcoming tasks"}
               </div>
@@ -7054,6 +7054,21 @@ function parseDateSafe(dateStr) {
               )}
             </div>
             </CollapsibleSection>
+
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: 16,
+            }}
+          >
+            {staffViewAllParticipants ? (
+              <CollapsibleSection defaultOpen style={{ gridColumn: "1 / -1" }}>
+                {renderTripSetupCard()}
+              </CollapsibleSection>
+            ) : null}
 
             {canViewTeamDashboard ? (
               <CollapsibleSection defaultOpen style={{ gridColumn: "1 / -1" }}>

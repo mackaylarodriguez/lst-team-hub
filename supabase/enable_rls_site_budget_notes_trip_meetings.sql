@@ -12,12 +12,44 @@ set search_path = public
 as $$
   select lower(trim(p.role))
   from public.profiles as p
-  where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+  where p.id = auth.uid()
+     or lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+  order by case when p.id = auth.uid() then 0 else 1 end
   limit 1;
 $$;
 
 revoke all on function private.current_profile_role() from public;
 grant execute on function private.current_profile_role() to authenticated;
+
+create or replace function private.trip_meetings_actor_on_trip(p_trip_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p_trip_id is not null
+    and (
+      exists (
+        select 1
+        from public.trip_assignments ta
+        where ta.user_id = auth.uid()
+          and ta.trip_id = p_trip_id
+      )
+      or exists (
+        select 1
+        from public.trip_team_members m
+        inner join public.profiles p on p.id = auth.uid()
+        where m.trip_id = p_trip_id
+          and nullif(trim(lower(m.email)), '') is not null
+          and nullif(trim(lower(p.email)), '') is not null
+          and lower(trim(m.email)) = lower(trim(p.email))
+      )
+    );
+$$;
+
+revoke all on function private.trip_meetings_actor_on_trip(uuid) from public;
+grant execute on function private.trip_meetings_actor_on_trip(uuid) to authenticated;
 
 -- --- site_budget_notes (admin/staff only) ---
 alter table public.site_budget_notes enable row level security;
@@ -53,11 +85,7 @@ for select
 to authenticated
 using (
   private.current_profile_role() in ('admin', 'staff')
-  or trip_id in (
-    select trip_id
-    from public.trip_assignments
-    where user_id = auth.uid()
-  )
+  or private.trip_meetings_actor_on_trip(trip_id)
 );
 
 drop policy if exists "trip_meetings_insert_access" on public.trip_meetings;
@@ -69,11 +97,7 @@ with check (
   private.current_profile_role() in ('admin', 'staff')
   or (
     private.current_profile_role() = 'leader'
-    and trip_id in (
-      select trip_id
-      from public.trip_assignments
-      where user_id = auth.uid()
-    )
+    and private.trip_meetings_actor_on_trip(trip_id)
   )
 );
 
@@ -83,25 +107,17 @@ on public.trip_meetings
 for update
 to authenticated
 using (
-  (
-    private.current_profile_role() in ('admin', 'staff')
-    or private.current_profile_role() = 'leader'
-  )
-  and trip_id in (
-    select trip_id
-    from public.trip_assignments
-    where user_id = auth.uid()
+  private.current_profile_role() in ('admin', 'staff')
+  or (
+    private.current_profile_role() = 'leader'
+    and private.trip_meetings_actor_on_trip(trip_id)
   )
 )
 with check (
-  (
-    private.current_profile_role() in ('admin', 'staff')
-    or private.current_profile_role() = 'leader'
-  )
-  and trip_id in (
-    select trip_id
-    from public.trip_assignments
-    where user_id = auth.uid()
+  private.current_profile_role() in ('admin', 'staff')
+  or (
+    private.current_profile_role() = 'leader'
+    and private.trip_meetings_actor_on_trip(trip_id)
   )
 );
 
@@ -112,9 +128,4 @@ for delete
 to authenticated
 using (
   private.current_profile_role() in ('admin', 'staff')
-  and trip_id in (
-    select trip_id
-    from public.trip_assignments
-    where user_id = auth.uid()
-  )
 );

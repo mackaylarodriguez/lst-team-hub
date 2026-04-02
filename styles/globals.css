@@ -752,6 +752,14 @@ a:hover{text-decoration:underline}
 .tripDocumentSquareTileWide .tripDocumentSquareTileScroll{
   max-height:none;
 }
+.tripDocumentSquareTileWide .tripDocumentSquareTileFoot .btn,
+.tripDocumentSquareTileWide .tripDocumentSquareTileFoot a.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  box-sizing:border-box;
+}
 .tripDocumentSquareTileScroll{
   flex:0 1 auto;
   min-height:0;
@@ -797,8 +805,12 @@ a:hover{text-decoration:underline}
   font-size:13px;
   padding:9px 12px;
   min-height:40px;
+  display:inline-flex;
+  align-items:center;
   justify-content:center;
+  text-align:center;
   width:100%;
+  box-sizing:border-box;
 }
 .tripDocumentTutorialTile{
   background:linear-gradient(165deg, rgba(67,164,213,.08), rgba(255,255,255,.98));
@@ -816,12 +828,22 @@ a:hover{text-decoration:underline}
   padding:5px 10px;
   min-height:32px;
   line-height:1.2;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  box-sizing:border-box;
 }
 .tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .tripDocumentSquareTileFoot a.btn:not(.btnPrimary){
   font-size:12px;
   padding:5px 10px;
   min-height:32px;
   line-height:1.2;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  box-sizing:border-box;
 }
 .tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .row{
   flex-direction:column;
