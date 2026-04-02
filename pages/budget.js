@@ -1568,7 +1568,6 @@ export default function BudgetPage() {
                             <button
                               type="button"
                               className="btn"
-                              style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
                               onClick={() => setBudgetRowDeleteTripId(r.tripId)}
                             >
                               Delete
@@ -1683,7 +1682,6 @@ export default function BudgetPage() {
                             <button
                               type="button"
                               className="btn"
-                              style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
                               onClick={() => setBudgetRowDeleteTripId(r.tripId)}
                             >
                               Delete

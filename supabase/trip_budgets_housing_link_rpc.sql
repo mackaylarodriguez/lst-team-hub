@@ -1,5 +1,6 @@
 -- Lets trip participants read housing_link without granting SELECT on the full trip_budgets row.
--- Requires private.current_profile_role() from trip_budgets_rls.sql (or equivalent).
+-- Requires private.current_profile_role() and private.user_is_assigned_or_rostered_for_trip()
+-- (private_trip_access_helpers.sql).
 
 create or replace function public.get_trip_housing_link(p_trip_id uuid)
 returns text
@@ -13,12 +14,7 @@ as $$
   where b.trip_id = p_trip_id
     and (
       private.current_profile_role() in ('admin', 'staff')
-      or exists (
-        select 1
-        from public.trip_assignments ta
-        where ta.trip_id = p_trip_id
-          and ta.user_id = auth.uid()
-      )
+      or private.user_is_assigned_or_rostered_for_trip(p_trip_id)
     )
   limit 1;
 $$;

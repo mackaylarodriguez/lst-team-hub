@@ -1,4 +1,5 @@
 import Shell from "@/components/Shell";
+import Link from "next/link";
 import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
 import { useRouter } from "next/router";
@@ -68,6 +69,9 @@ export default function SitesPage() {
   const [editingLogisticsSite, setEditingLogisticsSite] = useState("");
   const [logisticsUrlDraft, setLogisticsUrlDraft] = useState("");
   const [savingLogisticsFor, setSavingLogisticsFor] = useState("");
+  const [editingHousingNotesSite, setEditingHousingNotesSite] = useState("");
+  const [housingNotesDraft, setHousingNotesDraft] = useState("");
+  const [savingHousingNotesFor, setSavingHousingNotesFor] = useState("");
   const [editingWorkbookSite, setEditingWorkbookSite] = useState("");
   const [workbookQtyDraft, setWorkbookQtyDraft] = useState({});
   const [savingWorkbookFor, setSavingWorkbookFor] = useState("");
@@ -176,6 +180,7 @@ export default function SitesPage() {
         totalCopies: summary.totalCopies,
         effectiveLogisticsUrl,
         customLogisticsUrl: customUrl,
+        housingNotes: String(note?.notes || "").trim(),
       };
     });
 
@@ -226,6 +231,46 @@ export default function SitesPage() {
       showToast(msg, "error");
     } finally {
       setSavingLogisticsFor("");
+    }
+  }
+
+  async function saveSiteHousingNotes(siteOption) {
+    const matched = findSiteBudgetNoteForOption(siteOption, siteNotes);
+    try {
+      setSavingHousingNotesFor(siteOption);
+      setStatus("");
+      let saved;
+      if (matched) {
+        saved = await updateSiteBudgetNote(matched.id, {
+          siteName: siteOption,
+          workbookNotes: matched.workbookNotes ?? "",
+          notes: housingNotesDraft,
+          effectiveDate: matched.effectiveDate || null,
+          logisticsUrl: matched.logisticsUrl ?? "",
+        });
+      } else {
+        saved = await upsertSiteBudgetNote({
+          siteName: siteOption,
+          workbookNotes: "",
+          notes: housingNotesDraft,
+          logisticsUrl: null,
+        });
+      }
+      setSiteNotes((prev) => {
+        const others = prev.filter((r) => r.id !== saved.id);
+        return [...others, saved].sort((a, b) =>
+          a.siteName.localeCompare(b.siteName, undefined, { sensitivity: "base" })
+        );
+      });
+      setEditingHousingNotesSite("");
+      setHousingNotesDraft("");
+      showToast(`Saved housing note for ${siteOption}`, "success");
+    } catch (e) {
+      const msg = e.message || "Save failed.";
+      setStatus(msg);
+      showToast(msg, "error");
+    } finally {
+      setSavingHousingNotesFor("");
     }
   }
 
@@ -579,7 +624,9 @@ export default function SitesPage() {
         <div className="appSectionBadge" style={{ marginBottom: 8 }}>Logistics</div>
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics</div>
         <div className="small" style={{ marginBottom: 12, color: "var(--muted)", maxWidth: 900 }}>
-          Add a custom URL to override.
+          Map links and <strong>housing notes</strong> are stored on the same site row as workbooks (
+          <code>site_budget_notes</code>). Housing text is the same field as{" "}
+          <Link href="/budget">Budget → Site housing notes</Link>.
         </div>
         <div className="sitesLogisticsScroller">
           <table className="table sitesLogisticsTable dataTableStriped">
@@ -588,6 +635,7 @@ export default function SitesPage() {
                 <th>Site</th>
                 <th>Map</th>
                 <th>Source</th>
+                <th>Housing notes</th>
                 <th className="small" style={{ textAlign: "right", color: "var(--muted)", fontWeight: 700 }}>
                   Actions
                 </th>
@@ -621,16 +669,71 @@ export default function SitesPage() {
                           ? "Built-in directory"
                           : "—"}
                     </td>
+                    <td className="sitesLogisticsHousingCell">
+                      {row.housingNotes ? (
+                        <div
+                          className="small"
+                          style={{
+                            lineHeight: 1.45,
+                            maxHeight: "4.35em",
+                            overflow: "hidden",
+                            wordBreak: "break-word",
+                            whiteSpace: "pre-wrap",
+                          }}
+                          title={row.housingNotes}
+                        >
+                          {row.housingNotes.length > 220
+                            ? `${row.housingNotes.slice(0, 220)}…`
+                            : row.housingNotes}
+                        </div>
+                      ) : (
+                        <span className="small" style={{ color: "var(--muted)" }}>
+                          No housing note yet
+                        </span>
+                      )}
+                      <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                        <Link
+                          href="/budget"
+                          className="sitesLogisticsOpenLink"
+                          style={{ fontSize: 12 }}
+                        >
+                          Open in Budget ↗
+                        </Link>
+                        <button
+                          type="button"
+                          className="sitesBtnGhost"
+                          disabled={!!savingLogisticsFor || !!savingHousingNotesFor}
+                          onClick={() => {
+                            setEditingLogisticsSite("");
+                            setLogisticsUrlDraft("");
+                            if (editingHousingNotesSite === row.siteLabel) {
+                              setEditingHousingNotesSite("");
+                              setHousingNotesDraft("");
+                            } else {
+                              setEditingHousingNotesSite(row.siteLabel);
+                              setHousingNotesDraft(row.housingNotes || "");
+                            }
+                          }}
+                        >
+                          {editingHousingNotesSite === row.siteLabel ? "Close" : "Edit note"}
+                        </button>
+                      </div>
+                    </td>
                     <td className="sitesLogisticsActionCell">
                       <button
                         type="button"
                         className="sitesBtnGhost"
-                        disabled={!!savingLogisticsFor}
+                        disabled={!!savingLogisticsFor || !!savingHousingNotesFor}
                         onClick={() => {
-                          setEditingLogisticsSite((cur) =>
-                            cur === row.siteLabel ? "" : row.siteLabel
-                          );
-                          setLogisticsUrlDraft(row.customLogisticsUrl || "");
+                          setEditingHousingNotesSite("");
+                          setHousingNotesDraft("");
+                          if (editingLogisticsSite === row.siteLabel) {
+                            setEditingLogisticsSite("");
+                            setLogisticsUrlDraft("");
+                          } else {
+                            setEditingLogisticsSite(row.siteLabel);
+                            setLogisticsUrlDraft(row.customLogisticsUrl || "");
+                          }
                         }}
                       >
                         {editingLogisticsSite === row.siteLabel ? "Close" : "Edit URL"}
@@ -640,7 +743,7 @@ export default function SitesPage() {
                   {editingLogisticsSite === row.siteLabel ? (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={5}
                         style={{
                           background: "var(--skySoft)",
                           padding: "14px 16px",
@@ -678,6 +781,57 @@ export default function SitesPage() {
                               onClick={() => {
                                 setEditingLogisticsSite("");
                                 setLogisticsUrlDraft("");
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                  {editingHousingNotesSite === row.siteLabel ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        style={{
+                          background: "var(--skySoft)",
+                          padding: "14px 16px",
+                          borderBottom: "1px solid var(--border)",
+                        }}
+                      >
+                        <div style={{ display: "grid", gap: 10, maxWidth: 720 }}>
+                          <label className="small" style={{ fontWeight: 700, color: "var(--text)" }}>
+                            Housing / logistics note (same as Budget → Site housing notes)
+                          </label>
+                          <textarea
+                            className="input"
+                            rows={6}
+                            placeholder="Costs, contacts, utilities, shuttles, etc."
+                            value={housingNotesDraft}
+                            onChange={(e) => setHousingNotesDraft(e.target.value)}
+                          />
+                          <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
+                            Saved to <code>site_budget_notes.notes</code>. Also editable under{" "}
+                            <Link href="/budget">Budget</Link> (Housing tab).
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                            <button
+                              type="button"
+                              className="btn btnPrimary"
+                              style={{ fontSize: 12, padding: "6px 14px", borderRadius: 10 }}
+                              disabled={savingHousingNotesFor === row.siteLabel}
+                              onClick={() => void saveSiteHousingNotes(row.siteLabel)}
+                            >
+                              {savingHousingNotesFor === row.siteLabel ? "Saving…" : "Save note"}
+                            </button>
+                            <button
+                              type="button"
+                              className="sitesBtnGhost"
+                              disabled={savingHousingNotesFor === row.siteLabel}
+                              onClick={() => {
+                                setEditingHousingNotesSite("");
+                                setHousingNotesDraft("");
                               }}
                             >
                               Cancel

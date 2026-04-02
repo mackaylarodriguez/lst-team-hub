@@ -1,4 +1,5 @@
 -- Lets trip participants read housing_pdf_url without granting SELECT on the full trip_budgets row.
+-- Requires private_trip_access_helpers.sql (user_is_assigned_or_rostered_for_trip).
 
 create or replace function public.get_trip_housing_pdf_url(p_trip_id uuid)
 returns text
@@ -12,12 +13,7 @@ as $$
   where b.trip_id = p_trip_id
     and (
       private.current_profile_role() in ('admin', 'staff')
-      or exists (
-        select 1
-        from public.trip_assignments ta
-        where ta.trip_id = p_trip_id
-          and ta.user_id = auth.uid()
-      )
+      or private.user_is_assigned_or_rostered_for_trip(p_trip_id)
     )
   limit 1;
 $$;

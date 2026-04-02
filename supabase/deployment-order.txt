@@ -15,6 +15,18 @@ trip_announcements.
 
 Requires: those tables (and storage bucket) already exist.
 
+Trip Documents housing / logistics RPCs (roster must see links like assigned users)
+-----------------------------------------------------------------
+After private_trip_access_helpers.sql, run one paste:
+
+  supabase/paste_trip_housing_viewer_rpcs.sql
+
+(or the individual files: trip_budgets_housing_link_rpc.sql, trip_budgets_housing_pdf_url_rpc.sql,
+get_trip_housing_documents.sql, get_trip_site_logistics_url.sql)
+
+These use private.user_is_assigned_or_rostered_for_trip so roster-only workers get housing_link /
+PDF / extras / site logistics URL, not only trip_assignments.
+
 
 Split files (same result as the paste bundle, for repo maintenance)
 ---------------------------------------------------------------------

@@ -1,5 +1,6 @@
 -- Site logistics URL for trip Documents (workers/leaders cannot SELECT site_budget_notes).
--- Requires private.current_profile_role() from trip_budgets_rls.sql / site_budget_notes_rls.sql.
+-- Requires private.current_profile_role() and private.user_is_assigned_or_rostered_for_trip()
+-- (private_trip_access_helpers.sql).
 
 create or replace function public.get_trip_site_logistics_url(p_trip_id uuid)
 returns text
@@ -19,12 +20,7 @@ begin
 
   if not (
     private.current_profile_role() in ('admin', 'staff')
-    or exists (
-      select 1
-      from public.trip_assignments ta
-      where ta.trip_id = p_trip_id
-        and ta.user_id = auth.uid()
-    )
+    or private.user_is_assigned_or_rostered_for_trip(p_trip_id)
   ) then
     return null;
   end if;

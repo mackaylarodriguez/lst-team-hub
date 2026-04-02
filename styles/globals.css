@@ -988,22 +988,27 @@ table.sitesLogisticsTable thead th{
 }
 table.sitesLogisticsTable tbody td.sitesLogisticsSiteCell{
   font-weight:700;
-  width:22%;
+  width:18%;
   vertical-align:middle;
 }
 table.sitesLogisticsTable .sitesLogisticsLinkCell{
-  width:38%;
+  width:22%;
   word-break:break-word;
   vertical-align:middle;
 }
 table.sitesLogisticsTable .sitesLogisticsMetaCell{
-  width:22%;
+  width:12%;
   color:var(--muted);
   font-size:12px;
   vertical-align:middle;
 }
+table.sitesLogisticsTable .sitesLogisticsHousingCell{
+  width:36%;
+  vertical-align:middle;
+  font-size:12px;
+}
 table.sitesLogisticsTable .sitesLogisticsActionCell{
-  width:18%;
+  width:12%;
   text-align:right;
   vertical-align:middle;
   white-space:nowrap;
