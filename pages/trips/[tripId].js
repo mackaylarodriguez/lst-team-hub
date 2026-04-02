@@ -47,7 +47,6 @@ import {
   getDocumentSlotByKey,
   getSmartsheetBudgetTutorialCards,
   REQUIRED_TRIP_DOCUMENT_SLOTS,
-  TRIP_DOCUMENT_SLOT_ORDER,
 } from "@/lib/tripDocumentSlots";
 import { percentComplete } from "@/lib/tasks";
 import {
@@ -453,6 +452,16 @@ function isTripDocumentFlightsCategory(doc) {
   return c === "flights" || c === "flight";
 }
 
+function categoryForTripResourceDoc(doc) {
+  const rk = String(doc?.resourceKey || "").trim();
+  if (rk === "flights") return "Flights";
+  if (rk === "trip-insurance") return "Insurance";
+  const slot = getDocumentSlotByKey(rk);
+  if (slot?.category) return slot.category;
+  const c = String(doc?.category || "").trim();
+  return DOCUMENT_CATEGORY_OPTIONS.includes(c) ? c : "Other";
+}
+
 function OptionalTripWideDocumentCard({
   d,
   editingDocId,
@@ -476,9 +485,9 @@ function OptionalTripWideDocumentCard({
       <div className={tripDocumentTileRootClassName(false)}>
         <div className="tripDocumentSquareTileScroll">
           <div className="tripDocumentSquareTileTitle">{d.title || "Document"}</div>
-          <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-            {available ? (isPdf ? "PDF" : "Link") : "Soon"}
-          </span>
+          {available ? (
+            <span className={"badge badgeSuccess"}>{isPdf ? "PDF" : "Link"}</span>
+          ) : null}
           <div className="tripDocumentSquareTileMeta small">
             {isPdf ? "PDF" : "Link"}
             {d.category ? ` · ${d.category}` : ""}
@@ -494,11 +503,7 @@ function OptionalTripWideDocumentCard({
             <a className="btn btnPrimary" href={d.pdfUrl || d.link} target="_blank" rel="noreferrer">
               Open
             </a>
-          ) : (
-            <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
-              Soon
-            </button>
-          )}
+          ) : null}
           {canManageTripDocuments ? (
             <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
               Edit
@@ -508,16 +513,6 @@ function OptionalTripWideDocumentCard({
             <a className="btn" href={d.tutorialUrl} target="_blank" rel="noreferrer">
               Watch
             </a>
-          ) : null}
-          {canManageTripDocuments ? (
-            <button
-              type="button"
-              className="btn"
-              style={tripDocDeleteButtonStyle}
-              onClick={() => void requestDeleteTripDoc(d)}
-            >
-              Delete
-            </button>
           ) : null}
         </div>
       </div>
@@ -630,6 +625,14 @@ function OptionalTripWideDocumentCard({
                 <button className="btn" type="button" onClick={handleCancelEditDoc}>
                   Cancel
                 </button>
+                <button
+                  type="button"
+                  className="btn"
+                  style={tripDocDeleteButtonStyle}
+                  onClick={() => void requestDeleteTripDoc(d)}
+                >
+                  Delete
+                </button>
               </div>
             </div>
           ) : (
@@ -651,9 +654,9 @@ function OptionalTripWideDocumentCard({
             </>
           )}
         </div>
-        <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-          {available ? (isPdf ? "PDF Ready" : "Link Ready") : "Coming Soon"}
-        </span>
+        {available ? (
+          <span className={"badge badgeSuccess"}>{isPdf ? "PDF Ready" : "Link Ready"}</span>
+        ) : null}
       </div>
       {!isEditing ? (
         <div className="row" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
@@ -661,11 +664,7 @@ function OptionalTripWideDocumentCard({
             <a className="btn btnPrimary" href={d.pdfUrl || d.link} target="_blank" rel="noreferrer">
               Open
             </a>
-          ) : (
-            <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
-              Coming soon
-            </button>
-          )}
+          ) : null}
           {canManageTripDocuments ? (
             <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
               Edit
@@ -699,25 +698,6 @@ function OptionalTripWideDocumentCard({
               </button>
             ) : null}
           </div>
-        </div>
-      ) : null}
-      {canManageTripDocuments && !isEditing ? (
-        <div
-          style={{
-            marginTop: "auto",
-            paddingTop: 12,
-            display: "flex",
-            justifyContent: "flex-end",
-          }}
-        >
-          <button
-            type="button"
-            className="btn"
-            style={tripDocDeleteButtonStyle}
-            onClick={() => void requestDeleteTripDoc(d)}
-          >
-            Delete
-          </button>
         </div>
       ) : null}
     </div>
@@ -761,8 +741,6 @@ function findDismissedPersistedTripResource(docs, resourceKey) {
 }
 
 const REQUIRED_DOC_KEYS = new Set(REQUIRED_TRIP_DOCUMENT_SLOTS.map((s) => String(s.key)));
-/** PDF slots: keep every DB row in client state so dismiss can demote all uploads (dedupe used to hide duplicates). */
-const NO_DEDUPE_RESOURCE_KEYS = new Set(["flights", "trip-insurance"]);
 
 function docHasAnyContent(doc) {
   return Boolean(String(doc?.link || "").trim() || String(doc?.pdfUrl || "").trim());
@@ -800,11 +778,11 @@ function pickPreferredDocByRequiredKey(a, b) {
 function dedupeRequiredSlotResources(docs) {
   const input = Array.isArray(docs) ? docs : [];
 
-  // Compute best document per required resourceKey (except PDF slots — keep all rows there).
+  // Compute best document per required resourceKey.
   const bestByKey = new Map();
   for (const d of input) {
     const k = String(d?.resourceKey || "").trim();
-    if (!k || !REQUIRED_DOC_KEYS.has(k) || NO_DEDUPE_RESOURCE_KEYS.has(k)) continue;
+    if (!k || !REQUIRED_DOC_KEYS.has(k)) continue;
     if (!bestByKey.has(k)) {
       bestByKey.set(k, d);
       continue;
@@ -816,7 +794,6 @@ function dedupeRequiredSlotResources(docs) {
   return input.filter((d) => {
     const k = String(d?.resourceKey || "").trim();
     if (!k || !REQUIRED_DOC_KEYS.has(k)) return true;
-    if (NO_DEDUPE_RESOURCE_KEYS.has(k)) return true;
     const best = bestByKey.get(k);
     if (!best) return true;
     return String(best?.id || "") === String(d?.id || "");
@@ -2371,12 +2348,9 @@ export default function TripPage() {
   async function handleDeleteRequiredSlotResource(slot) {
     if (!slot?.key || !trip?.id) return;
     const isBudget = slot.key === "smartsheet-budget";
-    const isPdfSlot = slot.key === "flights" || slot.key === "trip-insurance";
     const msg1 = isBudget
       ? `FIRST CONFIRMATION — Remove "${slot.title}"?\n\nThis removes all saved Smartsheet budget / project journal links for this trip from the document list (not from Smartsheet itself).\n\nYou will have 15 seconds to undo.`
-      : isPdfSlot
-        ? `FIRST CONFIRMATION — Remove "${slot.title}" as a required card?\n\nAll rows for this slot stay on the trip as extra documents (nothing is deleted from the database). Only the required card is hidden until you restore defaults.\n\nYou will have 15 seconds to undo.`
-        : `FIRST CONFIRMATION — Remove "${slot.title}" as a required card?\n\nEmpty rows for this slot are deleted. Uploads with a file or link stay on the trip as extra documents (not removed from storage).\n\nYou will have 15 seconds to undo.`;
+      : `FIRST CONFIRMATION — Remove "${slot.title}" as a required card?\n\nEmpty rows for this slot are deleted. Uploads with a file or link stay on the trip as extra documents (not removed from storage).\n\nYou will have 15 seconds to undo.`;
     if (typeof window !== "undefined" && !window.confirm(msg1)) return;
     const msg2 = `FINAL CONFIRMATION\n\nRemove "${slot.title}" now?`;
     if (typeof window !== "undefined" && !window.confirm(msg2)) return;
@@ -5063,15 +5037,6 @@ function parseDateSafe(dateStr) {
         : (docs || []).filter((doc) => doc.visibleToParticipants !== false),
     [canManageTripDocuments, docs]
   );
-  const hiddenRequiredDocumentKeys = useMemo(
-    () =>
-      new Set(
-        (docs || [])
-          .filter((doc) => doc.resourceKey && doc.visibleToParticipants === false)
-          .map((doc) => doc.resourceKey)
-      ),
-    [docs]
-  );
   const requiredDocumentSlots = useMemo(() => {
     const budgetDoc = visibleDocs.find((d) => d.resourceKey === "smartsheet-budget");
     const journalDoc = visibleDocs.find((d) => d.resourceKey === "project-record-journal");
@@ -5105,32 +5070,6 @@ function parseDateSafe(dateStr) {
       };
     });
   }, [visibleDocs]);
-  const { optionalFlightsDocs, optionalOtherDocs } = useMemo(() => {
-    const all = (visibleDocs || []).filter((doc) => !doc.resourceKey);
-    const flights = [];
-    const other = [];
-    for (const doc of all) {
-      (isTripDocumentFlightsCategory(doc) ? flights : other).push(doc);
-    }
-    const byCreatedDesc = (a, b) =>
-      new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime();
-    flights.sort(byCreatedDesc);
-    other.sort((a, b) => {
-      const t = byCreatedDesc(a, b);
-      if (t !== 0) return t;
-      return String(a?.title || "").localeCompare(String(b?.title || ""));
-    });
-    return { optionalFlightsDocs: flights, optionalOtherDocs: other };
-  }, [visibleDocs]);
-
-  /** True when there are trip-wide docs in the Flights category without a required slot key (extras under the Flights row). */
-  const hasOptionalFlightsDocuments = useMemo(
-    () =>
-      (visibleDocs || []).some(
-        (doc) => !String(doc?.resourceKey || "").trim() && isTripDocumentFlightsCategory(doc)
-      ),
-    [visibleDocs]
-  );
 
   const optionalTripWideCardProps = {
     editingDocId,
@@ -5702,7 +5641,21 @@ function parseDateSafe(dateStr) {
     const pdf = String(b?.pdfUrl || j?.pdfUrl || "").trim();
     return link || pdf || "";
   }, [visibleDocs]);
-  const flightsDoc = visibleDocs.find((doc) => doc.resourceKey === "flights");
+  const flightsOpenUrl = useMemo(() => {
+    for (const d of visibleDocs || []) {
+      if (String(d.resourceKey || "") === "flights" && docHasAnyContent(d)) {
+        const u = preferredTripResourceOpenUrl(d);
+        if (u) return u;
+      }
+    }
+    const opt = (visibleDocs || []).find(
+      (d) =>
+        !String(d.resourceKey || "").trim() &&
+        isTripDocumentFlightsCategory(d) &&
+        docHasAnyContent(d)
+    );
+    return opt ? preferredTripResourceOpenUrl(opt) : "";
+  }, [visibleDocs]);
   const siteInfoDoc = docs.find((doc) => doc.resourceKey === "site-info-link");
   const visibleSiteInfoDoc = visibleDocs.find((doc) => doc.resourceKey === "site-info-link");
   const autoSiteInfoLink = useMemo(() => {
@@ -5801,55 +5754,72 @@ function parseDateSafe(dateStr) {
       visibleToParticipants: true,
     };
   }, [docs, tripHousingLinkUrl, tripHousingPdfUrl]);
-  const effectiveRequiredDocumentSlots = useMemo(
-    () =>
-      requiredDocumentSlots.map((slot) => {
-        if (slot.key === "site-info-link") {
-          return { ...slot, resource: effectiveSiteInfoDoc };
-        }
-        if (slot.key === "housing-accommodation-link") {
-          return { ...slot, resource: effectiveHousingLinkDoc };
-        }
-        return slot;
-      }),
-    [effectiveSiteInfoDoc, effectiveHousingLinkDoc, requiredDocumentSlots]
-  );
-  const viewerRequiredDocumentSlots = useMemo(() => {
-    return effectiveRequiredDocumentSlots.filter((slot) => {
-      const dismissed = findDismissedPersistedTripResource(docs, slot.key);
-      if (dismissed) {
-        const budgetHousing =
-          slot.key === "housing-accommodation-link" &&
-          (String(tripHousingLinkUrl || "").trim() || String(tripHousingPdfUrl || "").trim());
-        if (!budgetHousing) return false;
-      }
+  const tripDocumentCategorySections = useMemo(() => {
+    const buckets = Object.fromEntries(DOCUMENT_CATEGORY_OPTIONS.map((c) => [c, []]));
 
-      if (slot.key === "smartsheet-budget") {
-        const res = slot.resource;
-        if (!res) return true;
-        if (!canManageTripDocuments) return res.visibleToParticipants !== false;
-        return true;
-      }
-      // Optional "Flights" extras render only under the flights slot; keep the row visible if any exist
-      // so dismissing the default card does not hide user-added flight documents.
-      if (slot.key === "flights" && hasOptionalFlightsDocuments) return true;
-      if (!hiddenRequiredDocumentKeys.has(slot.key)) return true;
-      if (!canManageTripDocuments) return false;
-      const res = slot.resource;
-      return !!(
-        res &&
-        (String(res.link || "").trim() || String(res.pdfUrl || "").trim())
-      );
-    });
-  }, [
-    canManageTripDocuments,
-    docs,
-    effectiveRequiredDocumentSlots,
-    hasOptionalFlightsDocuments,
-    hiddenRequiredDocumentKeys,
-    tripHousingLinkUrl,
-    tripHousingPdfUrl,
-  ]);
+    const pushEntry = (category, entry) => {
+      const key = DOCUMENT_CATEGORY_OPTIONS.includes(category) ? category : "Other";
+      buckets[key].push(entry);
+    };
+
+    const byTimeDesc = (a, b) => {
+      const ta = Date.parse(a.doc?.updatedAt || a.doc?.createdAt || 0) || 0;
+      const tb = Date.parse(b.doc?.updatedAt || b.doc?.createdAt || 0) || 0;
+      return tb - ta;
+    };
+
+    const budgetSlot = requiredDocumentSlots.find((s) => s.key === "smartsheet-budget");
+    const budgetDoc = budgetSlot?.resource;
+    if (budgetSlot && budgetDoc && docHasAnyContent(budgetDoc)) {
+      pushEntry("Budget", { kind: "slot", slot: budgetSlot, doc: budgetDoc });
+    }
+
+    if (
+      effectiveSiteInfoDoc &&
+      (String(effectiveSiteInfoDoc.link || "").trim() ||
+        String(effectiveSiteInfoDoc.pdfUrl || "").trim())
+    ) {
+      pushEntry("Site", { kind: "site", doc: effectiveSiteInfoDoc });
+    }
+
+    const housingSlotDef = requiredDocumentSlots.find((s) => s.key === "housing-accommodation-link");
+    if (
+      housingSlotDef &&
+      effectiveHousingLinkDoc &&
+      docHasAnyContent(effectiveHousingLinkDoc)
+    ) {
+      pushEntry("Team", {
+        kind: "slot",
+        slot: { ...housingSlotDef, resource: effectiveHousingLinkDoc },
+        doc: effectiveHousingLinkDoc,
+      });
+    }
+
+    for (const d of visibleDocs) {
+      const rk = String(d.resourceKey || "").trim();
+      if (!docHasAnyContent(d)) continue;
+      if (rk === "project-record-journal") continue;
+      if (rk === "smartsheet-budget") continue;
+      if (rk === "site-info-link") continue;
+      if (rk === "housing-accommodation-link") continue;
+      pushEntry(categoryForTripResourceDoc(d), { kind: "doc", doc: d });
+    }
+
+    for (const c of DOCUMENT_CATEGORY_OPTIONS) {
+      buckets[c].sort((a, b) => {
+        const pa = a.kind === "doc" ? 1 : 0;
+        const pb = b.kind === "doc" ? 1 : 0;
+        if (pa !== pb) return pa - pb;
+        if (a.kind === "doc" && b.kind === "doc") return byTimeDesc(a, b);
+        return 0;
+      });
+    }
+
+    return DOCUMENT_CATEGORY_OPTIONS.map((category) => ({
+      category,
+      entries: buckets[category],
+    })).filter((section) => section.entries.length > 0);
+  }, [requiredDocumentSlots, effectiveSiteInfoDoc, effectiveHousingLinkDoc, visibleDocs]);
 
   const hasDismissedDefaultTripDocumentSlots = useMemo(() => {
     const keys = new Set(REQUIRED_TRIP_DOCUMENT_SLOTS.map((s) => s.key));
@@ -5857,28 +5827,6 @@ function parseDateSafe(dateStr) {
       (d) => keys.has(String(d.resourceKey || "")) && isPersistedTripResourceDismissedEmpty(d)
     );
   }, [docs]);
-  const viewerMainRequiredDocumentSlots = useMemo(
-    () => viewerRequiredDocumentSlots.filter((slot) => slot.key !== "site-info-link"),
-    [viewerRequiredDocumentSlots]
-  );
-  const orderedCoreTripDocumentSlots = useMemo(() => {
-    const orderIdx = (k) => {
-      const i = TRIP_DOCUMENT_SLOT_ORDER.indexOf(k);
-      return i === -1 ? 999 : i;
-    };
-    return [...viewerMainRequiredDocumentSlots]
-      .filter((s) => s.key !== "housing-accommodation-link")
-      .sort((a, b) => orderIdx(a.key) - orderIdx(b.key));
-  }, [viewerMainRequiredDocumentSlots]);
-  const housingDocumentSlot = useMemo(
-    () => viewerMainRequiredDocumentSlots.find((s) => s.key === "housing-accommodation-link") || null,
-    [viewerMainRequiredDocumentSlots]
-  );
-  const tripDocumentRows = useMemo(() => {
-    const core = orderedCoreTripDocumentSlots.map((slot) => ({ kind: "slot", slot }));
-    const tail = housingDocumentSlot ? [{ kind: "slot", slot: housingDocumentSlot }] : [];
-    return [...core, { kind: "site" }, ...tail];
-  }, [orderedCoreTripDocumentSlots, housingDocumentSlot]);
   const quickLinks = useMemo(() => {
     const links = [
       {
@@ -5902,7 +5850,6 @@ function parseDateSafe(dateStr) {
       ready: !!smartsheetBudgetOpenUrl,
     });
 
-    const flightsOpenUrl = preferredTripResourceOpenUrl(flightsDoc);
     links.push({
       label: "Flights",
       url: flightsOpenUrl,
@@ -5928,7 +5875,7 @@ function parseDateSafe(dateStr) {
     effectiveHousingLinkDoc?.pdfUrl,
     effectiveSiteInfoDoc?.link,
     effectiveSiteInfoDoc?.pdfUrl,
-    flightsDoc,
+    flightsOpenUrl,
     smartsheetBudgetOpenUrl,
     trainingAccessUrl,
     trip?.teamFundraisingUrl,
@@ -5999,7 +5946,7 @@ function parseDateSafe(dateStr) {
         const link = isChecklistTask
           ? (preferredTripResourceOpenUrl(effectiveSiteInfoDoc) || wt?.link)
           : isTicketsTask
-            ? (flightsDoc?.link || flightsDoc?.pdfUrl || wt?.link)
+            ? (flightsOpenUrl || wt?.link)
             : isDocumentsTask
               ? documentsTabUrl
               : (wt?.link || null);
@@ -6046,7 +5993,7 @@ function parseDateSafe(dateStr) {
     currentTrainingProgress?.trainingState,
     editableStaffTasks,
     effectiveSiteInfoDoc,
-    flightsDoc,
+    flightsOpenUrl,
     session?.email,
     session?.name,
     trip,
@@ -7504,6 +7451,118 @@ function parseDateSafe(dateStr) {
               Team Neon link and per-participant pages.
             </div>
 
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: 14,
+                marginBottom: 18,
+              }}
+            >
+              <div
+                className="card pad"
+                style={{
+                  boxShadow: "none",
+                  background: "linear-gradient(180deg, rgba(250,245,220,.78), #fff 55%)",
+                  borderColor: "rgba(180,140,40,.22)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  minHeight: 168,
+                }}
+              >
+                <div className="cardSectionPill" style={{ marginBottom: 2 }}>
+                  90 days before departure
+                </div>
+                <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em" }}>
+                  {formatMoney(fundraisingFirstDeadlineAmount)}
+                </div>
+                <div className="small" style={{ opacity: 0.9 }}>
+                  Target raised by{" "}
+                  <strong>{formatDeadlineDate(fundraisingFirstDeadlineDate)}</strong>
+                  {!trip?.startDate ? (
+                    <span style={{ color: "var(--muted)" }}>
+                      {" "}
+                      — add a trip start date on the trip to calculate this deadline.
+                    </span>
+                  ) : null}
+                </div>
+                <div className="small" style={{ opacity: 0.78, marginTop: "auto", lineHeight: 1.45 }}>
+                  {canViewTeamDashboard
+                    ? `First milestone for the team (${countForDeadlines} worker${
+                        countForDeadlines === 1 ? "" : "s"
+                      }): typically $2,000 per person toward the trip goal, not more than the total goal.`
+                    : "First slice of your trip goal is usually due by this date (often $2,000 toward your full amount)."}
+                </div>
+              </div>
+              <div
+                className="card pad"
+                style={{
+                  boxShadow: "none",
+                  background: "linear-gradient(180deg, rgba(232,245,232,.78), #fff 55%)",
+                  borderColor: "rgba(50,120,70,.18)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  minHeight: 168,
+                }}
+              >
+                <div className="cardSectionPill" style={{ marginBottom: 2 }}>
+                  30 days before departure
+                </div>
+                <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em" }}>
+                  {formatMoney(fundraisingSecondDeadlineAmount)}
+                </div>
+                <div className="small" style={{ opacity: 0.9 }}>
+                  Remaining goal due by{" "}
+                  <strong>{formatDeadlineDate(fundraisingSecondDeadlineDate)}</strong>
+                  {!trip?.startDate ? (
+                    <span style={{ color: "var(--muted)" }}>
+                      {" "}
+                      — add a trip start date on the trip to calculate this deadline.
+                    </span>
+                  ) : null}
+                </div>
+                <div className="small" style={{ opacity: 0.78, marginTop: "auto", lineHeight: 1.45 }}>
+                  {fundraisingSecondDeadlineAmount > 0
+                    ? "The rest of the fundraising goal should be covered before this date."
+                    : "If your total goal matches the first milestone, there is no separate 30-day balance."}
+                </div>
+              </div>
+              <div
+                className="card pad"
+                style={{
+                  boxShadow: "none",
+                  background: "linear-gradient(180deg, rgba(234,242,255,.88), #fff 55%)",
+                  borderColor: "rgba(47,73,147,.2)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                  justifyContent: "space-between",
+                  minHeight: 168,
+                }}
+              >
+                <div>
+                  <div className="cardSectionPill" style={{ marginBottom: 6 }}>Resources</div>
+                  <div style={{ fontWeight: 900, fontSize: 17, marginBottom: 6 }}>
+                    Fundraising guides and tools
+                  </div>
+                  <div className="small" style={{ opacity: 0.88, lineHeight: 1.45 }}>
+                    LST handouts, Neon tips, and training references for workers and leaders.
+                  </div>
+                </div>
+                <a
+                  className="btn btnPrimary"
+                  href={trainingAccessUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  style={{ alignSelf: "flex-start" }}
+                >
+                  Open fundraising resources
+                </a>
+              </div>
+            </div>
+
             {!canViewTeamDashboard && trip?.teamFundraisingUrl ? (
               <div
                 className="card pad"
@@ -8329,7 +8388,7 @@ function parseDateSafe(dateStr) {
                               const taskLink = isChecklistTask
                                 ? (preferredTripResourceOpenUrl(effectiveSiteInfoDoc) || workerTaskTemplate?.link)
                                 : isTicketsTask
-                                  ? (flightsDoc?.link || flightsDoc?.pdfUrl || workerTaskTemplate?.link)
+                                  ? (flightsOpenUrl || workerTaskTemplate?.link)
                                   : isDocumentsTask
                                     ? documentsTabUrl
                                     : workerTaskTemplate?.link;
@@ -8892,7 +8951,7 @@ function parseDateSafe(dateStr) {
               </div>
             )}
 
-            {canManageTripDocuments && isAddingLink && addingLinkForSlotKey === null
+            {canManageTripDocuments && isAddingLink
               ? renderTripDocumentsLinkDraftForm({ embedded: false })
               : null}
 
@@ -8975,658 +9034,759 @@ function parseDateSafe(dateStr) {
 
           </div>
           <div className="card pad">
-            <div className="tripDocumentsDocCardSectionLabel">Required trip documents</div>
-            <p className="small tripDocumentsDocCardSectionHint">
-              Built-in slots for this trip (flights, insurance, budget, site, housing). Extra items in the Flights category still show under the Flights card.
-            </p>
-            <div className="tripDocumentsTileGrid">
-              {tripDocumentRows
-                .filter((row) => {
-                  if (row.kind !== "site") return true;
-                  if (findDismissedPersistedTripResource(docs, "site-info-link")) return false;
-                  if (canManageTripDocuments) return true;
-                  return !hiddenRequiredDocumentKeys.has("site-info-link");
-                })
-                .map((row) => {
-                  if (row.kind === "site") {
-                    const siteSlotStub = {
-                      key: "site-info-link",
-                      title: "Site Logistics",
-                      category: "Site",
-                      kind: "link",
-                      description: "Standard site logistics link for this trip.",
-                      resource: effectiveSiteInfoDoc,
-                    };
-                    const siteTileWide =
-                      canManageTripDocuments && isAddingLink && addingLinkForSlotKey === "site-info-link";
-                    const siteCardMain = (
-                      <>
-                        <div className="row" style={{ alignItems: "flex-start" }}>
-                          <div style={{ flex: 1 }}>
-                            <div
-                              className={siteTileWide ? undefined : "tripDocumentSquareTileTitle"}
-                              style={siteTileWide ? { fontWeight: 900 } : undefined}
-                            >
-                              Site Logistics
-                            </div>
-                            <div
-                              className={siteTileWide ? "small" : "small tripDocumentSquareTileMeta"}
-                              style={siteTileWide ? { marginTop: 4 } : { marginTop: 2 }}
-                            >
-                              Assigned site: {trip?.location || "No site selected yet"}
-                            </div>
-                          </div>
-                          <span
-                            className={
-                              "badge " +
-                              (effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl
-                                ? "badgeSuccess"
-                                : "badgeWarn")
-                            }
-                          >
-                            {effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl
-                              ? siteTileWide
-                                ? "Site Matched"
-                                : "OK"
-                              : siteTileWide
-                                ? "Needs Link"
-                                : "Need link"}
-                          </span>
-                        </div>
-                        {canManageTripDocuments && isAddingLink && addingLinkForSlotKey === "site-info-link" ? (
-                          renderTripDocumentsLinkDraftForm({ embedded: true })
-                        ) : effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl ? (
-                          <div
-                            className="row"
-                            style={{ marginTop: siteTileWide ? 10 : 6, flexWrap: "wrap", gap: 8 }}
-                          >
-                            <a
-                              className="btn btnPrimary"
-                              href={preferredTripResourceOpenUrl(effectiveSiteInfoDoc)}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={siteTileWide ? siteLinkActionButtonStyle : undefined}
-                            >
-                              {siteTileWide ? "Open Site Logistics" : "Open"}
-                            </a>
-                            {canManageTripDocuments && siteInfoDoc ? (
-                              <button
-                                className="btn"
-                                type="button"
-                                style={siteTileWide ? siteLinkActionButtonStyle : undefined}
-                                onClick={() => handleEditDoc(siteInfoDoc)}
-                              >
-                                {siteTileWide ? "Edit Saved Link" : "Edit"}
-                              </button>
-                            ) : canManageTripDocuments ? (
-                              <button
-                                className="btn"
-                                type="button"
-                                style={siteTileWide ? siteLinkActionButtonStyle : undefined}
-                                onClick={() =>
-                                  handlePrepareRequiredLink({
-                                    key: "site-info-link",
-                                    title: "Site Logistics",
-                                    category: "Site",
-                                    resource: effectiveSiteInfoDoc,
-                                  })
-                                }
-                              >
-                                Edit
-                              </button>
-                            ) : null}
-                          </div>
-                        ) : canManageTripDocuments ? (
-                          <div className="row" style={{ marginTop: siteTileWide ? 10 : 6 }}>
-                            <button
-                              className="btn"
-                              type="button"
-                              style={siteTileWide ? siteLinkActionButtonStyle : undefined}
-                              onClick={() =>
-                                handlePrepareRequiredLink({
-                                  key: "site-info-link",
-                                  title: "Site Logistics",
-                                  category: "Site",
-                                  resource: effectiveSiteInfoDoc,
-                                })
-                              }
-                            >
-                              {siteTileWide ? "Add Site Logistics" : "Add link"}
-                            </button>
-                          </div>
-                        ) : null}
-                      </>
-                    );
-                    return (
-                      <div
-                        key="trip-site-logistics"
-                        className={tripDocumentTileRootClassName(siteTileWide)}
-                        style={siteTileWide ? tripDocumentWideCardStyle : undefined}
-                      >
-                        {siteTileWide ? (
-                          siteCardMain
-                        ) : (
-                          <div className="tripDocumentSquareTileScroll">{siteCardMain}</div>
-                        )}
-                        {canManageTripDocuments ? (
-                          <div
-                            className={siteTileWide ? undefined : "tripDocumentSquareTileFoot"}
-                            style={
-                              siteTileWide
-                                ? {
-                                    marginTop: "auto",
-                                    paddingTop: 12,
-                                    display: "flex",
-                                    justifyContent: "flex-end",
-                                  }
-                                : undefined
-                            }
-                          >
-                            <button
-                              type="button"
-                              className="btn"
-                              style={tripDocDeleteButtonStyle}
-                              onClick={() => void handleDeleteRequiredSlotResource(siteSlotStub)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  }
+            {canManageTripDocuments &&
+            staffViewAllParticipants &&
+            housingTripDocsDraft &&
+            !(effectiveHousingLinkDoc && docHasAnyContent(effectiveHousingLinkDoc)) ? (
+              <div
+                className={tripDocumentTileRootClassName(true)}
+                style={{ ...tripDocumentWideCardStyle, marginBottom: 16 }}
+              >
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ fontWeight: 900 }}>Edit team housing</div>
+                  <div className="small">
+                    Booking link and PDF are stored on the trip budget (same as Budget → Housing).
+                  </div>
+                  <input
+                    className="input"
+                    value={housingTripDocsDraft.housingLink}
+                    onChange={(e) =>
+                      setHousingTripDocsDraft((prev) =>
+                        prev ? { ...prev, housingLink: e.target.value } : prev
+                      )
+                    }
+                    placeholder="https://..."
+                  />
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    onChange={(e) =>
+                      setHousingTripDocsDraft((prev) =>
+                        prev ? { ...prev, file: e.target.files?.[0] || null } : prev
+                      )
+                    }
+                  />
+                  {housingTripDocsDraft.pdfUrlKeep ? (
+                    <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={housingTripDocsDraft.clearPdf}
+                        onChange={(e) =>
+                          setHousingTripDocsDraft((prev) =>
+                            prev ? { ...prev, clearPdf: e.target.checked } : prev
+                          )
+                        }
+                      />
+                      Remove current PDF
+                    </label>
+                  ) : null}
+                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      className="btn btnPrimary"
+                      type="button"
+                      onClick={() => void handleSaveHousingTripDocs()}
+                    >
+                      Save
+                    </button>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => {
+                        setHousingTripDocsDraft(null);
+                        setHousingTripDocsSaveStatus("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {housingTripDocsSaveStatus ? (
+                    <div className="small">{housingTripDocsSaveStatus}</div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
 
-                  const slot = row.slot;
-                  const doc = slot.resource;
-                  const available = !!(doc?.pdfUrl || doc?.link);
-                  const isEditing = editingDocId === doc?.id;
-                  const isPdf = !!doc?.pdfUrl || slot.kind === "pdf";
-                  const isAutoGenerated = !!doc?.isAutoGenerated;
-                  const isHousingSlot = slot.key === "housing-accommodation-link";
-                  const showHousingInlineForm =
-                    isHousingSlot && staffViewAllParticipants && housingTripDocsDraft;
-
-                  const slotTileWide =
-                    isEditing ||
-                    showHousingInlineForm ||
-                    (canManageTripDocuments && isAddingLink && addingLinkForSlotKey === slot.key) ||
-                    (isHousingSlot && tripHousingDocuments.length > 1);
-
-                  const slotCardInner = (
+            {canManageTripDocuments ? (
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+                {(() => {
+                  const budgetSlotSetup = requiredDocumentSlots.find((s) => s.key === "smartsheet-budget");
+                  const hasBudget =
+                    budgetSlotSetup?.resource && docHasAnyContent(budgetSlotSetup.resource);
+                  const hasSite =
+                    effectiveSiteInfoDoc &&
+                    (String(effectiveSiteInfoDoc.link || "").trim() ||
+                      String(effectiveSiteInfoDoc.pdfUrl || "").trim());
+                  const hasHousing =
+                    effectiveHousingLinkDoc && docHasAnyContent(effectiveHousingLinkDoc);
+                  return (
                     <>
-                    <div className="row" style={{ alignItems: "flex-start" }}>
-                      <div style={{ flex: 1 }}>
-                        {showHousingInlineForm ? (
-                          <div style={{ display: "grid", gap: 8 }}>
-                            <div style={{ fontWeight: 900 }}>Edit team housing</div>
-                            <div className="small">
-                              Booking link and PDF are stored on the trip budget (same as Budget → Housing).
-                            </div>
-                            <input
-                              className="input"
-                              value={housingTripDocsDraft.housingLink}
-                              onChange={(e) =>
-                                setHousingTripDocsDraft((prev) =>
-                                  prev ? { ...prev, housingLink: e.target.value } : prev
-                                )
-                              }
-                              placeholder="https://..."
-                            />
-                            <input
-                              type="file"
-                              accept="application/pdf,.pdf"
-                              onChange={(e) =>
-                                setHousingTripDocsDraft((prev) =>
-                                  prev
-                                    ? { ...prev, file: e.target.files?.[0] || null }
-                                    : prev
-                                )
-                              }
-                            />
-                            {housingTripDocsDraft.pdfUrlKeep ? (
-                              <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <input
-                                  type="checkbox"
-                                  checked={housingTripDocsDraft.clearPdf}
-                                  onChange={(e) =>
-                                    setHousingTripDocsDraft((prev) =>
-                                      prev ? { ...prev, clearPdf: e.target.checked } : prev
-                                    )
-                                  }
-                                />
-                                Remove current PDF
-                              </label>
-                            ) : null}
-                            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                              <button
-                                className="btn btnPrimary"
-                                type="button"
-                                onClick={() => void handleSaveHousingTripDocs()}
-                              >
-                                Save
-                              </button>
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={() => {
-                                  setHousingTripDocsDraft(null);
-                                  setHousingTripDocsSaveStatus("");
-                                }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                            {housingTripDocsSaveStatus ? (
-                              <div className="small">{housingTripDocsSaveStatus}</div>
-                            ) : null}
-                          </div>
-                        ) : canManageTripDocuments && isAddingLink && addingLinkForSlotKey === slot.key ? (
-                          renderTripDocumentsLinkDraftForm({ embedded: true })
-                        ) : canManageTripDocuments && doc && isEditing ? (
-                          <div style={{ display: "grid", gap: 8 }}>
-                            <input
-                              className="input"
-                              value={docDraft?.title || ""}
-                              onChange={(e) =>
-                                setDocDraft((prev) => ({ ...prev, title: e.target.value }))
-                              }
-                              placeholder="Title"
-                            />
-                            <input
-                              className="input"
-                              value={docDraft?.link || ""}
-                              onChange={(e) =>
-                                setDocDraft((prev) => ({ ...prev, link: e.target.value }))
-                              }
-                              placeholder="https://..."
-                              disabled={!!docDraft?.pdfUrl}
-                            />
-                            <select
-                              className="input"
-                              value={docDraft?.category || "Other"}
-                              onChange={(e) =>
-                                setDocDraft((prev) => ({ ...prev, category: e.target.value }))
-                              }
-                            >
-                              {DOCUMENT_CATEGORY_OPTIONS.map((category) => (
-                                <option key={category} value={category}>
-                                  {category}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              className="input"
-                              value={docDraft?.workArea || ""}
-                              onChange={(e) =>
-                                setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
-                              }
-                              placeholder="Notes / work area"
-                            />
-                            <div
-                              style={{
-                                display: "grid",
-                                gap: 8,
-                                padding: 10,
-                                borderRadius: 12,
-                                background: "rgba(15, 23, 42, 0.04)",
-                              }}
-                            >
-                              <div className="small" style={{ fontWeight: 900 }}>
-                                Tutorial
-                              </div>
-                              <input
-                                className="input"
-                                value={docDraft?.tutorialTitle || ""}
-                                onChange={(e) =>
-                                  setDocDraft((prev) => ({
-                                    ...prev,
-                                    tutorialTitle: e.target.value,
-                                  }))
-                                }
-                                placeholder="Tutorial button label"
-                              />
-                              <input
-                                className="input"
-                                value={docDraft?.tutorialUrl || ""}
-                                onChange={(e) =>
-                                  setDocDraft((prev) => ({
-                                    ...prev,
-                                    tutorialUrl: e.target.value,
-                                  }))
-                                }
-                                placeholder="Tutorial link https://..."
-                              />
-                              <input
-                                className="input"
-                                value={docDraft?.tutorialDescription || ""}
-                                onChange={(e) =>
-                                  setDocDraft((prev) => ({
-                                    ...prev,
-                                    tutorialDescription: e.target.value,
-                                  }))
-                                }
-                                placeholder="Tutorial description"
-                              />
-                            </div>
-                            <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <input
-                                type="checkbox"
-                                checked={docDraft?.visibleToParticipants !== false}
-                                onChange={(e) =>
-                                  setDocDraft((prev) => ({
-                                    ...prev,
-                                    visibleToParticipants: e.target.checked,
-                                  }))
-                                }
-                              />
-                              Visible to participants
-                            </label>
-                            {!!docDraft?.pdfUrl && (
-                              <input type="file" onChange={handleReplaceDocumentFile} />
-                            )}
-                            <div className="row">
-                              <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
-                                Save
-                              </button>
-                              <button className="btn" type="button" onClick={handleCancelEditDoc}>
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div
-                              className={slotTileWide ? undefined : "tripDocumentSquareTileTitle"}
-                              style={{ fontWeight: 900 }}
-                            >
-                              {slot.key === "smartsheet-budget" ? slot.title : doc?.title || slot.title}
-                            </div>
-                            <div
-                              className={slotTileWide ? "small" : "small tripDocumentSquareTileMeta"}
-                              style={{ marginTop: 4 }}
-                            >
-                              {slot.category} • {slot.description}
-                            </div>
-                            {isAutoGenerated ? (
-                              <div className="small" style={{ marginTop: 4 }}>
-                                {slot.key === "housing-accommodation-link"
-                                  ? tripHousingDocuments.length > 1
-                                    ? "Main housing row plus additional slots from Budget. Staff can edit link/PDF here or on the Budget page."
-                                    : "Filled from Budget → Housing. Staff can edit the link and PDF here without opening Budget."
-                                  : `Auto-added from assigned site: ${trip?.location || "Site"}`}
-                              </div>
-                            ) : doc?.createdAt ? (
-                              <div className="small" style={{ marginTop: 4 }}>
-                                Updated {new Date(doc.createdAt).toLocaleDateString()}
-                              </div>
-                            ) : (
-                              <div className="small" style={{ marginTop: 4 }}>Coming soon</div>
-                            )}
-                            {canManageTripDocuments && available ? (
-                              <div className="small" style={{ marginTop: 4 }}>
-                                {doc?.visibleToParticipants === false
-                                  ? "Hidden from participants"
-                                  : "Visible to participants"}
-                              </div>
-                            ) : null}
-                          </>
-                        )}
-                      </div>
-                      <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-                        {available
-                          ? isAutoGenerated
-                            ? slotTileWide
-                              ? "Auto Link"
-                              : "Auto"
-                            : isPdf
-                              ? slotTileWide
-                                ? "PDF Ready"
-                                : "PDF"
-                              : slotTileWide
-                                ? "Link Ready"
-                                : "Link"
-                          : slotTileWide
-                            ? "Coming Soon"
-                            : "Soon"}
-                      </span>
-                    </div>
-                    {showHousingInlineForm ? null : (
-                    <div className="row" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
-                      {available ? (
-                        slot.key === "housing-accommodation-link" &&
-                        isAutoGenerated &&
-                        tripHousingDocuments.length > 0 ? (
-                          <>
-                            {tripHousingDocuments.map((h, i) => {
-                              const pdf = String(h.pdfUrl || "").trim();
-                              const rawLink = String(h.link || "").trim();
-                              const linkHref = rawLink
-                                ? /^https?:\/\//i.test(rawLink)
-                                  ? rawLink
-                                  : `https://${rawLink}`
-                                : "";
-                              const href = pdf || linkHref;
-                              if (!href) return null;
-                              const labelPart =
-                                tripHousingDocuments.length > 1
-                                  ? h.label || (i === 0 ? "" : `Extra ${i}`)
-                                  : "";
-                              return (
-                                <a
-                                  key={`housing-doc-open-${i}-${href}`}
-                                  className={i === 0 ? "btn btnPrimary" : "btn"}
-                                  href={href}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  Open{labelPart ? ` (${labelPart})` : ""}
-                                </a>
-                              );
-                            })}
-                          </>
-                        ) : (
-                          <a className="btn btnPrimary" href={doc.pdfUrl || doc.link} target="_blank" rel="noreferrer">
-                            Open
-                          </a>
-                        )
-                      ) : (
-                        <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
-                          Coming soon
-                        </button>
-                      )}
-                      {canManageTripDocuments && !isEditing && doc && !isAutoGenerated ? (
-                        <button className="btn" type="button" onClick={() => handleEditDoc(doc)}>
-                          Edit
-                        </button>
-                      ) : null}
-                      {canManageTripDocuments &&
-                      !isEditing &&
-                      doc &&
-                      !isAutoGenerated &&
-                      isHousingSlot &&
-                      staffViewAllParticipants &&
-                      !showHousingInlineForm ? (
+                      {!hasBudget && budgetSlotSetup ? (
                         <button
                           type="button"
                           className="btn"
                           onClick={() =>
-                            setHousingTripDocsDraft({
-                              housingLink: tripHousingLinkUrl || "",
-                              pdfUrlKeep: tripHousingPdfUrl || "",
-                              clearPdf: false,
-                              file: null,
+                            handlePrepareRequiredLink({
+                              ...budgetSlotSetup,
+                              resource: budgetSlotSetup.resource,
                             })
                           }
                         >
-                          Edit housing
+                          Add budget link
                         </button>
                       ) : null}
-                      {canManageTripDocuments && (!doc || isAutoGenerated) ? (
-                        slot.kind === "pdf" ? (
-                          <button className="btn" type="button" onClick={() => handlePrepareRequiredPdf(slot)}>
-                            Upload PDF
-                          </button>
-                        ) : slot.key === "housing-accommodation-link" ? (
-                          staffViewAllParticipants ? (
-                            <button
-                              type="button"
-                              className="btn"
-                              onClick={() =>
-                                setHousingTripDocsDraft({
-                                  housingLink: tripHousingLinkUrl || "",
-                                  pdfUrlKeep: tripHousingPdfUrl || "",
-                                  clearPdf: false,
-                                  file: null,
-                                })
-                              }
-                            >
-                              Edit housing
-                            </button>
-                          ) : (
-                            <Link href="/budget" className="btn">
-                              Edit in Budget
-                            </Link>
-                          )
-                        ) : (
-                          <button className="btn" type="button" onClick={() => handlePrepareRequiredLink(slot)}>
-                            {isAutoGenerated ? "Edit" : "Add Link"}
-                          </button>
-                        )
-                      ) : null}
-                    </div>
-                    )}
-                    {showHousingInlineForm
-                      ? null
-                      : (() => {
-                          if (slot.key === "smartsheet-budget") return null;
-                          const tutorials = listEffectiveTutorials(slot, doc);
-                          if (!tutorials.length) return null;
-
-                          return (
-                            <div
-                              style={{
-                                marginTop: 12,
-                                paddingTop: 12,
-                                borderTop: "1px solid rgba(15, 23, 42, 0.08)",
-                                display: "grid",
-                                gap: 12,
-                              }}
-                            >
-                              {tutorials.map((tutorial, ti) => (
-                                <div key={`${slot.key}-tutorial-${ti}`} style={{ display: "grid", gap: 8 }}>
-                                  <div className="small" style={{ fontWeight: 900 }}>
-                                    Tutorial{ti > 0 ? ` ${ti + 1}` : ""}
-                                  </div>
-                                  <div className="small">
-                                    {tutorial.tutorialDescription || "Helpful walkthrough for this resource."}
-                                  </div>
-                                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                                    <a
-                                      className="btn"
-                                      href={tutorial.tutorialUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                    >
-                                      Watch
-                                    </a>
-                                    {canManageTripDocuments && slot.kind === "link" && ti === 0 ? (
-                                      <button
-                                        className="btn"
-                                        type="button"
-                                        onClick={() =>
-                                          doc && !isAutoGenerated
-                                            ? handleEditDoc(doc)
-                                            : handlePrepareRequiredLink(slot)
-                                        }
-                                      >
-                                        Edit Tutorial
-                                      </button>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                    </>
-                  );
-
-                  return (
-                  <Fragment key={slot.key}>
-                  <div
-                    className={tripDocumentTileRootClassName(slotTileWide)}
-                    style={slotTileWide ? tripDocumentWideCardStyle : undefined}
-                  >
-                    {slotTileWide ? (
-                      slotCardInner
-                    ) : (
-                      <div className="tripDocumentSquareTileScroll">{slotCardInner}</div>
-                    )}
-                    {canManageTripDocuments && !isEditing && !showHousingInlineForm ? (
-                      <div
-                        className={slotTileWide ? undefined : "tripDocumentSquareTileFoot"}
-                        style={
-                          slotTileWide
-                            ? {
-                                marginTop: "auto",
-                                paddingTop: 12,
-                                display: "flex",
-                                justifyContent: "flex-end",
-                              }
-                            : undefined
-                        }
-                      >
+                      {!hasSite ? (
                         <button
                           type="button"
                           className="btn"
-                          style={tripDocDeleteButtonStyle}
-                          onClick={() => void handleDeleteRequiredSlotResource(slot)}
+                          onClick={() =>
+                            handlePrepareRequiredLink({
+                              key: "site-info-link",
+                              title: "Site Logistics",
+                              category: "Site",
+                              kind: "link",
+                              description: "Standard site logistics link for this trip.",
+                              resource: effectiveSiteInfoDoc,
+                            })
+                          }
                         >
-                          Delete
+                          Add site logistics
                         </button>
-                      </div>
-                    ) : null}
-                  </div>
-                  {slot.key === "flights"
-                    ? optionalFlightsDocs.map((d) => (
+                      ) : null}
+                      {!hasHousing ? (
+                        staffViewAllParticipants ? (
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() =>
+                              setHousingTripDocsDraft({
+                                housingLink: tripHousingLinkUrl || "",
+                                pdfUrlKeep: tripHousingPdfUrl || "",
+                                clearPdf: false,
+                                file: null,
+                              })
+                            }
+                          >
+                            Add team housing
+                          </button>
+                        ) : (
+                          <Link href="/budget" className="btn">
+                            Add housing in Budget
+                          </Link>
+                        )
+                      ) : null}
+                    </>
+                  );
+                })()}
+              </div>
+            ) : null}
+
+            {tripDocumentCategorySections.length === 0 ? (
+              <div className="small tripDocumentsTileGridFullRow" style={{ marginBottom: 8 }}>
+                {canManageTripDocuments
+                  ? "No documents yet. Use Add Link, Upload File, or the buttons above."
+                  : "No documents yet."}
+              </div>
+            ) : null}
+
+            {tripDocumentCategorySections.map((section) => (
+              <Fragment key={`trip-doc-cat-${section.category}`}>
+                <div className="tripDocumentsCategoryPill">{section.category}</div>
+                <div className="tripDocumentsTileGrid" style={{ marginBottom: 22 }}>
+                  {section.entries.map((entry) => {
+                    if (entry.kind === "doc") {
+                      return (
                         <OptionalTripWideDocumentCard
-                          key={d.id}
-                          d={d}
+                          key={entry.doc.id}
+                          d={entry.doc}
                           {...optionalTripWideCardProps}
                         />
-                      ))
-                    : null}
-                  </Fragment>
-                );
-              })}
-            </div>
+                      );
+                    }
 
-            <div className="tripDocumentsDocCardSectionLabel" style={{ marginTop: 24 }}>
-              More trip documents
-            </div>
-            <p className="small tripDocumentsDocCardSectionHint">
-              Additional links and PDFs you add with Add Link or Upload File (shown here when not filed under Flights).
-            </p>
-            <div className="tripDocumentsTileGrid">
-              {optionalOtherDocs.map((d) => (
-                <OptionalTripWideDocumentCard key={d.id} d={d} {...optionalTripWideCardProps} />
-              ))}
-              {optionalOtherDocs.length === 0 ? (
-                <div className="small tripDocumentsTileGridFullRow">No extra documents yet.</div>
-              ) : null}
-              {canManageTripDocuments && hasDismissedDefaultTripDocumentSlots ? (
-                <div className="small tripDocumentsTileGridFullRow" style={{ marginTop: 12, color: "var(--muted)" }}>
-                  <button
-                    type="button"
-                    className="btn"
-                    style={{ padding: "6px 14px", fontSize: 12 }}
-                    onClick={() => void restoreDismissedDefaultTripDocuments()}
-                  >
-                    Restore default document cards (Flights, Insurance, etc.)
-                  </button>
+                    if (entry.kind === "site") {
+                      const siteDoc = entry.doc;
+                      const siteSlotStub = {
+                        key: "site-info-link",
+                        title: "Site Logistics",
+                        category: "Site",
+                        kind: "link",
+                        description: "Standard site logistics link for this trip.",
+                        resource: siteDoc,
+                      };
+                      const siteEditing = siteInfoDoc && editingDocId === siteInfoDoc.id;
+                      const siteTileWide = Boolean(
+                        siteEditing ||
+                          (canManageTripDocuments &&
+                            isAddingLink &&
+                            addingLinkForSlotKey === "site-info-link")
+                      );
+                      const siteHasOpen = !!(siteDoc?.link || siteDoc?.pdfUrl);
+                      const siteCardMain = (
+                        <>
+                          <div className="row" style={{ alignItems: "flex-start" }}>
+                            <div style={{ flex: 1 }}>
+                              <div
+                                className={siteTileWide ? undefined : "tripDocumentSquareTileTitle"}
+                                style={siteTileWide ? { fontWeight: 900 } : undefined}
+                              >
+                                Site Logistics
+                              </div>
+                              <div
+                                className={siteTileWide ? "small" : "small tripDocumentSquareTileMeta"}
+                                style={siteTileWide ? { marginTop: 4 } : { marginTop: 2 }}
+                              >
+                                Assigned site: {trip?.location || "No site selected yet"}
+                              </div>
+                            </div>
+                            {siteHasOpen ? (
+                              <span className="badge badgeSuccess">
+                                {siteDoc?.isAutoGenerated ? "Auto" : "OK"}
+                              </span>
+                            ) : null}
+                          </div>
+                          {siteHasOpen ? (
+                            <div
+                              className="row"
+                              style={{ marginTop: siteTileWide ? 10 : 6, flexWrap: "wrap", gap: 8 }}
+                            >
+                              <a
+                                className="btn btnPrimary"
+                                href={preferredTripResourceOpenUrl(siteDoc)}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={siteTileWide ? siteLinkActionButtonStyle : undefined}
+                              >
+                                Open
+                              </a>
+                              {canManageTripDocuments && siteInfoDoc ? (
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  style={siteTileWide ? siteLinkActionButtonStyle : undefined}
+                                  onClick={() => handleEditDoc(siteInfoDoc)}
+                                >
+                                  Edit
+                                </button>
+                              ) : canManageTripDocuments ? (
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  style={siteTileWide ? siteLinkActionButtonStyle : undefined}
+                                  onClick={() =>
+                                    handlePrepareRequiredLink({
+                                      key: "site-info-link",
+                                      title: "Site Logistics",
+                                      category: "Site",
+                                      resource: siteDoc,
+                                    })
+                                  }
+                                >
+                                  Edit
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </>
+                      );
+                      return (
+                        <div
+                          key="trip-site-logistics"
+                          className={tripDocumentTileRootClassName(siteTileWide)}
+                          style={siteTileWide ? tripDocumentWideCardStyle : undefined}
+                        >
+                          {siteTileWide ? (
+                            siteCardMain
+                          ) : (
+                            <div className="tripDocumentSquareTileScroll">{siteCardMain}</div>
+                          )}
+                          {canManageTripDocuments && siteInfoDoc && siteEditing ? (
+                            <div
+                              className={siteTileWide ? undefined : "tripDocumentSquareTileFoot"}
+                              style={
+                                siteTileWide
+                                  ? {
+                                      marginTop: "auto",
+                                      paddingTop: 12,
+                                      display: "flex",
+                                      justifyContent: "flex-end",
+                                    }
+                                  : undefined
+                              }
+                            >
+                              <button
+                                type="button"
+                                className="btn"
+                                style={tripDocDeleteButtonStyle}
+                                onClick={() => void handleDeleteRequiredSlotResource(siteSlotStub)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    }
+
+                    const slot = entry.slot;
+                    const doc = entry.doc;
+                    const available = !!(doc?.pdfUrl || doc?.link);
+                    const isEditing = doc?.id && editingDocId === doc.id;
+                    const isPdf = !!doc?.pdfUrl || slot.kind === "pdf";
+                    const isAutoGenerated = !!doc?.isAutoGenerated;
+                    const isHousingSlot = slot.key === "housing-accommodation-link";
+                    const showHousingInlineForm =
+                      isHousingSlot && staffViewAllParticipants && housingTripDocsDraft;
+
+                    const slotTileWide =
+                      isEditing ||
+                      showHousingInlineForm ||
+                      (isHousingSlot && tripHousingDocuments.length > 1);
+
+                    const slotCardInner = (
+                      <>
+                        <div className="row" style={{ alignItems: "flex-start" }}>
+                          <div style={{ flex: 1 }}>
+                            {showHousingInlineForm ? (
+                              <div style={{ display: "grid", gap: 8 }}>
+                                <div style={{ fontWeight: 900 }}>Edit team housing</div>
+                                <div className="small">
+                                  Booking link and PDF are stored on the trip budget (same as Budget →
+                                  Housing).
+                                </div>
+                                <input
+                                  className="input"
+                                  value={housingTripDocsDraft.housingLink}
+                                  onChange={(e) =>
+                                    setHousingTripDocsDraft((prev) =>
+                                      prev ? { ...prev, housingLink: e.target.value } : prev
+                                    )
+                                  }
+                                  placeholder="https://..."
+                                />
+                                <input
+                                  type="file"
+                                  accept="application/pdf,.pdf"
+                                  onChange={(e) =>
+                                    setHousingTripDocsDraft((prev) =>
+                                      prev
+                                        ? { ...prev, file: e.target.files?.[0] || null }
+                                        : prev
+                                    )
+                                  }
+                                />
+                                {housingTripDocsDraft.pdfUrlKeep ? (
+                                  <label
+                                    className="small"
+                                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={housingTripDocsDraft.clearPdf}
+                                      onChange={(e) =>
+                                        setHousingTripDocsDraft((prev) =>
+                                          prev ? { ...prev, clearPdf: e.target.checked } : prev
+                                        )
+                                      }
+                                    />
+                                    Remove current PDF
+                                  </label>
+                                ) : null}
+                                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                                  <button
+                                    className="btn btnPrimary"
+                                    type="button"
+                                    onClick={() => void handleSaveHousingTripDocs()}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    className="btn"
+                                    type="button"
+                                    onClick={() => {
+                                      setHousingTripDocsDraft(null);
+                                      setHousingTripDocsSaveStatus("");
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                                {housingTripDocsSaveStatus ? (
+                                  <div className="small">{housingTripDocsSaveStatus}</div>
+                                ) : null}
+                              </div>
+                            ) : canManageTripDocuments && doc && isEditing ? (
+                              <div style={{ display: "grid", gap: 8 }}>
+                                <input
+                                  className="input"
+                                  value={docDraft?.title || ""}
+                                  onChange={(e) =>
+                                    setDocDraft((prev) => ({ ...prev, title: e.target.value }))
+                                  }
+                                  placeholder="Title"
+                                />
+                                <input
+                                  className="input"
+                                  value={docDraft?.link || ""}
+                                  onChange={(e) =>
+                                    setDocDraft((prev) => ({ ...prev, link: e.target.value }))
+                                  }
+                                  placeholder="https://..."
+                                  disabled={!!docDraft?.pdfUrl}
+                                />
+                                <select
+                                  className="input"
+                                  value={docDraft?.category || "Other"}
+                                  onChange={(e) =>
+                                    setDocDraft((prev) => ({ ...prev, category: e.target.value }))
+                                  }
+                                >
+                                  {DOCUMENT_CATEGORY_OPTIONS.map((category) => (
+                                    <option key={category} value={category}>
+                                      {category}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  className="input"
+                                  value={docDraft?.workArea || ""}
+                                  onChange={(e) =>
+                                    setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))
+                                  }
+                                  placeholder="Notes / work area"
+                                />
+                                <div
+                                  style={{
+                                    display: "grid",
+                                    gap: 8,
+                                    padding: 10,
+                                    borderRadius: 12,
+                                    background: "rgba(15, 23, 42, 0.04)",
+                                  }}
+                                >
+                                  <div className="small" style={{ fontWeight: 900 }}>
+                                    Tutorial
+                                  </div>
+                                  <input
+                                    className="input"
+                                    value={docDraft?.tutorialTitle || ""}
+                                    onChange={(e) =>
+                                      setDocDraft((prev) => ({
+                                        ...prev,
+                                        tutorialTitle: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Tutorial button label"
+                                  />
+                                  <input
+                                    className="input"
+                                    value={docDraft?.tutorialUrl || ""}
+                                    onChange={(e) =>
+                                      setDocDraft((prev) => ({
+                                        ...prev,
+                                        tutorialUrl: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Tutorial link https://..."
+                                  />
+                                  <input
+                                    className="input"
+                                    value={docDraft?.tutorialDescription || ""}
+                                    onChange={(e) =>
+                                      setDocDraft((prev) => ({
+                                        ...prev,
+                                        tutorialDescription: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Tutorial description"
+                                  />
+                                </div>
+                                <label
+                                  className="small"
+                                  style={{ display: "flex", alignItems: "center", gap: 8 }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={docDraft?.visibleToParticipants !== false}
+                                    onChange={(e) =>
+                                      setDocDraft((prev) => ({
+                                        ...prev,
+                                        visibleToParticipants: e.target.checked,
+                                      }))
+                                    }
+                                  />
+                                  Visible to participants
+                                </label>
+                                {!!docDraft?.pdfUrl && (
+                                  <input type="file" onChange={handleReplaceDocumentFile} />
+                                )}
+                                <div className="row">
+                                  <button className="btn btnPrimary" type="button" onClick={handleSaveDoc}>
+                                    Save
+                                  </button>
+                                  <button className="btn" type="button" onClick={handleCancelEditDoc}>
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn"
+                                    style={tripDocDeleteButtonStyle}
+                                    onClick={() => void handleDeleteRequiredSlotResource(slot)}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div
+                                  className={slotTileWide ? undefined : "tripDocumentSquareTileTitle"}
+                                  style={{ fontWeight: 900 }}
+                                >
+                                  {slot.key === "smartsheet-budget"
+                                    ? slot.title
+                                    : doc?.title || slot.title}
+                                </div>
+                                <div
+                                  className={slotTileWide ? "small" : "small tripDocumentSquareTileMeta"}
+                                  style={{ marginTop: 4 }}
+                                >
+                                  {slot.category} • {slot.description}
+                                </div>
+                                {isAutoGenerated ? (
+                                  <div className="small" style={{ marginTop: 4 }}>
+                                    {slot.key === "housing-accommodation-link"
+                                      ? tripHousingDocuments.length > 1
+                                        ? "Main housing row plus additional slots from Budget. Staff can edit link/PDF here or on the Budget page."
+                                        : "Filled from Budget → Housing. Staff can edit the link and PDF here without opening Budget."
+                                      : `Auto-added from assigned site: ${trip?.location || "Site"}`}
+                                  </div>
+                                ) : doc?.createdAt ? (
+                                  <div className="small" style={{ marginTop: 4 }}>
+                                    Updated {new Date(doc.createdAt).toLocaleDateString()}
+                                  </div>
+                                ) : null}
+                                {canManageTripDocuments && available ? (
+                                  <div className="small" style={{ marginTop: 4 }}>
+                                    {doc?.visibleToParticipants === false
+                                      ? "Hidden from participants"
+                                      : "Visible to participants"}
+                                  </div>
+                                ) : null}
+                              </>
+                            )}
+                          </div>
+                          {available ? (
+                            <span className="badge badgeSuccess">
+                              {isAutoGenerated
+                                ? slotTileWide
+                                  ? "Auto Link"
+                                  : "Auto"
+                                : isPdf
+                                  ? slotTileWide
+                                    ? "PDF Ready"
+                                    : "PDF"
+                                  : slotTileWide
+                                    ? "Link Ready"
+                                    : "Link"}
+                            </span>
+                          ) : null}
+                        </div>
+                        {showHousingInlineForm ? null : (
+                          <div className="row" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
+                            {available ? (
+                              slot.key === "housing-accommodation-link" &&
+                              isAutoGenerated &&
+                              tripHousingDocuments.length > 0 ? (
+                                <>
+                                  {tripHousingDocuments.map((h, i) => {
+                                    const pdf = String(h.pdfUrl || "").trim();
+                                    const rawLink = String(h.link || "").trim();
+                                    const linkHref = rawLink
+                                      ? /^https?:\/\//i.test(rawLink)
+                                        ? rawLink
+                                        : `https://${rawLink}`
+                                      : "";
+                                    const href = pdf || linkHref;
+                                    if (!href) return null;
+                                    const labelPart =
+                                      tripHousingDocuments.length > 1
+                                        ? h.label || (i === 0 ? "" : `Extra ${i}`)
+                                        : "";
+                                    return (
+                                      <a
+                                        key={`housing-doc-open-${i}-${href}`}
+                                        className={i === 0 ? "btn btnPrimary" : "btn"}
+                                        href={href}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                      >
+                                        Open{labelPart ? ` (${labelPart})` : ""}
+                                      </a>
+                                    );
+                                  })}
+                                </>
+                              ) : (
+                                <a
+                                  className="btn btnPrimary"
+                                  href={doc.pdfUrl || doc.link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Open
+                                </a>
+                              )
+                            ) : null}
+                            {canManageTripDocuments && !isEditing && doc && !isAutoGenerated ? (
+                              <button className="btn" type="button" onClick={() => handleEditDoc(doc)}>
+                                Edit
+                              </button>
+                            ) : null}
+                            {canManageTripDocuments &&
+                            !isEditing &&
+                            doc &&
+                            !isAutoGenerated &&
+                            isHousingSlot &&
+                            staffViewAllParticipants &&
+                            !showHousingInlineForm ? (
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={() =>
+                                  setHousingTripDocsDraft({
+                                    housingLink: tripHousingLinkUrl || "",
+                                    pdfUrlKeep: tripHousingPdfUrl || "",
+                                    clearPdf: false,
+                                    file: null,
+                                  })
+                                }
+                              >
+                                Edit housing
+                              </button>
+                            ) : null}
+                            {canManageTripDocuments && (!doc || isAutoGenerated) ? (
+                              slot.key === "housing-accommodation-link" ? (
+                                staffViewAllParticipants ? (
+                                  <button
+                                    type="button"
+                                    className="btn"
+                                    onClick={() =>
+                                      setHousingTripDocsDraft({
+                                        housingLink: tripHousingLinkUrl || "",
+                                        pdfUrlKeep: tripHousingPdfUrl || "",
+                                        clearPdf: false,
+                                        file: null,
+                                      })
+                                    }
+                                  >
+                                    Edit housing
+                                  </button>
+                                ) : (
+                                  <Link href="/budget" className="btn">
+                                    Edit in Budget
+                                  </Link>
+                                )
+                              ) : (
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  onClick={() => handlePrepareRequiredLink(slot)}
+                                >
+                                  {isAutoGenerated ? "Edit" : "Add Link"}
+                                </button>
+                              )
+                            ) : null}
+                          </div>
+                        )}
+                        {showHousingInlineForm
+                          ? null
+                          : (() => {
+                              if (slot.key === "smartsheet-budget") return null;
+                              const tutorials = listEffectiveTutorials(slot, doc);
+                              if (!tutorials.length) return null;
+
+                              return (
+                                <div
+                                  style={{
+                                    marginTop: 12,
+                                    paddingTop: 12,
+                                    borderTop: "1px solid rgba(15, 23, 42, 0.08)",
+                                    display: "grid",
+                                    gap: 12,
+                                  }}
+                                >
+                                  {tutorials.map((tutorial, ti) => (
+                                    <div
+                                      key={`${slot.key}-tutorial-${ti}`}
+                                      style={{ display: "grid", gap: 8 }}
+                                    >
+                                      <div className="small" style={{ fontWeight: 900 }}>
+                                        Tutorial{ti > 0 ? ` ${ti + 1}` : ""}
+                                      </div>
+                                      <div className="small">
+                                        {tutorial.tutorialDescription ||
+                                          "Helpful walkthrough for this resource."}
+                                      </div>
+                                      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                                        <a
+                                          className="btn"
+                                          href={tutorial.tutorialUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                        >
+                                          Watch
+                                        </a>
+                                        {canManageTripDocuments && slot.kind === "link" && ti === 0 ? (
+                                          <button
+                                            className="btn"
+                                            type="button"
+                                            onClick={() =>
+                                              doc && !isAutoGenerated
+                                                ? handleEditDoc(doc)
+                                                : handlePrepareRequiredLink(slot)
+                                            }
+                                          >
+                                            Edit Tutorial
+                                          </button>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                      </>
+                    );
+
+                    return (
+                      <div
+                        key={slot.key}
+                        className={tripDocumentTileRootClassName(slotTileWide)}
+                        style={slotTileWide ? tripDocumentWideCardStyle : undefined}
+                      >
+                        {slotTileWide ? (
+                          slotCardInner
+                        ) : (
+                          <div className="tripDocumentSquareTileScroll">{slotCardInner}</div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              ) : null}
-            </div>
+              </Fragment>
+            ))}
+
+            {canManageTripDocuments && hasDismissedDefaultTripDocumentSlots ? (
+              <div className="small tripDocumentsTileGridFullRow" style={{ marginTop: 12, color: "var(--muted)" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ padding: "6px 14px", fontSize: 12 }}
+                  onClick={() => void restoreDismissedDefaultTripDocuments()}
+                >
+                  Restore dismissed document slots (budget, site, housing)
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
