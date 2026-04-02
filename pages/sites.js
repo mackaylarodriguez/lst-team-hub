@@ -401,10 +401,6 @@ export default function SitesPage() {
         <AppIcon name="active" className="pageEyebrowIcon" />
         <span>Sites</span>
       </h1>
-      <p className="small" style={{ marginBottom: 20, maxWidth: 760 }}>
-        Workbook counts, housing notes, and logistics URLs live in <code>site_budget_notes</code>. Edit
-        quantities in the workbook grid; set SharePoint map links in <strong>Site logistics maps</strong> below.
-      </p>
 
       {status ? (
         <div className="small" style={{ marginBottom: 16, color: "var(--danger)" }}>
@@ -623,11 +619,6 @@ export default function SitesPage() {
       <div className="card pad" style={{ marginBottom: 24 }}>
         <div className="appSectionBadge" style={{ marginBottom: 8 }}>Logistics</div>
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics</div>
-        <div className="small" style={{ marginBottom: 12, color: "var(--muted)", maxWidth: 900 }}>
-          Map links and <strong>housing notes</strong> are stored on the same site row as workbooks (
-          <code>site_budget_notes</code>). Housing text is the same field as{" "}
-          <Link href="/budget">Budget → Site housing notes</Link>.
-        </div>
         <div className="sitesLogisticsScroller">
           <table className="table sitesLogisticsTable dataTableStriped">
             <thead>
@@ -691,14 +682,7 @@ export default function SitesPage() {
                           No housing note yet
                         </span>
                       )}
-                      <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                        <Link
-                          href="/budget"
-                          className="sitesLogisticsOpenLink"
-                          style={{ fontSize: 12 }}
-                        >
-                          Open in Budget ↗
-                        </Link>
+                      <div style={{ marginTop: 8 }}>
                         <button
                           type="button"
                           className="sitesBtnGhost"
@@ -874,7 +858,6 @@ export default function SitesPage() {
               Add site
             </h2>
             <p className="small" style={{ margin: "0 0 16px 0", color: "var(--muted)", lineHeight: 1.45 }}>
-              Creates a <code>site_budget_notes</code> row with your logistics link and empty workbook counts.
               Name it like the built-in list: <strong>Country - City</strong> (spaces around{" "}
               <code> - </code>), e.g. <code>Brazil - Joao Pessoa</code>.
             </p>
