@@ -668,8 +668,8 @@ a:hover{text-decoration:underline}
 /* Trip Documents tab: compact square tiles */
 .tripDocumentsTileGrid{
   display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(152px, 152px));
-  gap:10px;
+  grid-template-columns:repeat(auto-fill, minmax(176px, 176px));
+  gap:12px;
   justify-content:start;
   align-items:start;
 }
@@ -677,10 +677,10 @@ a:hover{text-decoration:underline}
   grid-column:1 / -1;
 }
 .tripDocumentSquareTile{
-  width:152px;
-  height:152px;
+  width:176px;
+  height:176px;
   box-sizing:border-box;
-  padding:10px;
+  padding:12px;
   display:flex;
   flex-direction:column;
   border:1px solid var(--border);
@@ -718,7 +718,7 @@ a:hover{text-decoration:underline}
 }
 .tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .tripDocumentSquareTileTitle{
   font-weight:900;
-  font-size:13px;
+  font-size:14px;
   line-height:1.2;
   display:-webkit-box;
   -webkit-box-orient:vertical;
@@ -726,8 +726,8 @@ a:hover{text-decoration:underline}
   overflow:hidden;
 }
 .tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .tripDocumentSquareTileMeta{
-  font-size:11px;
-  line-height:1.25;
+  font-size:12px;
+  line-height:1.3;
   color:var(--muted);
   display:-webkit-box;
   -webkit-box-orient:vertical;
@@ -735,15 +735,20 @@ a:hover{text-decoration:underline}
   overflow:hidden;
 }
 .tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .badge{
-  font-size:10px;
-  padding:2px 7px;
+  font-size:11px;
+  padding:3px 8px;
   align-self:flex-start;
 }
 .tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .btn{
-  font-size:12px;
-  padding:6px 10px;
+  font-size:13px;
+  padding:9px 12px;
+  min-height:40px;
   justify-content:center;
   width:100%;
+}
+.tripDocumentTutorialTile{
+  background:linear-gradient(165deg, rgba(67,164,213,.08), rgba(255,255,255,.98));
+  border-color:rgba(50,84,163,.14);
 }
 .tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .row{
   flex-direction:column;
