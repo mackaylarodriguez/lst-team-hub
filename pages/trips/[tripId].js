@@ -8554,7 +8554,7 @@ function parseDateSafe(dateStr) {
           <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Documents & links</div>
             <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-              Trip-wide resources and visibility for participants.
+              Trip-wide resources{canManageTripDocuments ? " and visibility for participants" : " shared for this trip"}.
             </div>
             <div
               className="row"
@@ -8562,10 +8562,12 @@ function parseDateSafe(dateStr) {
             >
               <div style={{ flex: "1 1 260px", minWidth: 0 }}>
                 <div className="small">
-                  Default trip documents stay visible here, and staff can switch each document on or off for participants.
+                  {canManageTripDocuments
+                    ? "Default trip documents stay visible here, and staff can switch each document on or off for participants."
+                    : "Documents your leader or staff share appear here."}
                 </div>
               </div>
-              {canViewTeamDashboard ? (
+              {canManageTripDocuments ? (
                 <div
                   className="row"
                   style={{
@@ -8596,11 +8598,11 @@ function parseDateSafe(dateStr) {
               </div>
             )}
 
-            {isAddingLink && addingLinkForSlotKey === null
+            {canManageTripDocuments && isAddingLink && addingLinkForSlotKey === null
               ? renderTripDocumentsLinkDraftForm({ embedded: false })
               : null}
 
-            {pendingPdfDraft && (
+            {canManageTripDocuments && pendingPdfDraft && (
               <div
                 className="card pad"
                 style={{ boxShadow: "none", marginBottom: 14, background: "rgba(255,255,255,.7)" }}
@@ -8682,7 +8684,7 @@ function parseDateSafe(dateStr) {
                 .filter((row) => {
                   if (row.kind !== "site") return true;
                   if (findDismissedPersistedTripResource(docs, "site-info-link")) return false;
-                  if (canViewTeamDashboard) return true;
+                  if (canManageTripDocuments) return true;
                   return !hiddenRequiredDocumentKeys.has("site-info-link");
                 })
                 .map((row) => {
@@ -8726,7 +8728,7 @@ function parseDateSafe(dateStr) {
                               : "Needs Link"}
                           </span>
                         </div>
-                        {isAddingLink && addingLinkForSlotKey === "site-info-link" ? (
+                        {canManageTripDocuments && isAddingLink && addingLinkForSlotKey === "site-info-link" ? (
                           renderTripDocumentsLinkDraftForm({ embedded: true })
                         ) : effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl ? (
                           <div className="row" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
@@ -8739,7 +8741,7 @@ function parseDateSafe(dateStr) {
                             >
                               Open Site Logistics
                             </a>
-                            {canViewTeamDashboard && siteInfoDoc ? (
+                            {canManageTripDocuments && siteInfoDoc ? (
                               <button
                                 className="btn"
                                 type="button"
@@ -8748,7 +8750,7 @@ function parseDateSafe(dateStr) {
                               >
                                 Edit Saved Link
                               </button>
-                            ) : canViewTeamDashboard ? (
+                            ) : canManageTripDocuments ? (
                               <button
                                 className="btn"
                                 type="button"
@@ -8766,7 +8768,7 @@ function parseDateSafe(dateStr) {
                               </button>
                             ) : null}
                           </div>
-                        ) : canViewTeamDashboard ? (
+                        ) : canManageTripDocuments ? (
                           <div className="row" style={{ marginTop: 10 }}>
                             <button
                               className="btn"
@@ -8785,7 +8787,7 @@ function parseDateSafe(dateStr) {
                             </button>
                           </div>
                         ) : null}
-                        {canViewTeamDashboard ? (
+                        {canManageTripDocuments ? (
                           <div
                             style={{
                               marginTop: "auto",
@@ -8895,9 +8897,9 @@ function parseDateSafe(dateStr) {
                               <div className="small">{housingTripDocsSaveStatus}</div>
                             ) : null}
                           </div>
-                        ) : isAddingLink && addingLinkForSlotKey === slot.key ? (
+                        ) : canManageTripDocuments && isAddingLink && addingLinkForSlotKey === slot.key ? (
                           renderTripDocumentsLinkDraftForm({ embedded: true })
-                        ) : doc && isEditing ? (
+                        ) : canManageTripDocuments && doc && isEditing ? (
                           <div style={{ display: "grid", gap: 8 }}>
                             <input
                               className="input"
@@ -9031,7 +9033,7 @@ function parseDateSafe(dateStr) {
                             ) : (
                               <div className="small" style={{ marginTop: 4 }}>Coming soon</div>
                             )}
-                            {canViewTeamDashboard && available ? (
+                            {canManageTripDocuments && available ? (
                               <div className="small" style={{ marginTop: 4 }}>
                                 {doc?.visibleToParticipants === false
                                   ? "Hidden from participants"
@@ -9089,12 +9091,12 @@ function parseDateSafe(dateStr) {
                           Coming soon
                         </button>
                       )}
-                      {canViewTeamDashboard && !isEditing && doc && !isAutoGenerated ? (
+                      {canManageTripDocuments && !isEditing && doc && !isAutoGenerated ? (
                         <button className="btn" type="button" onClick={() => handleEditDoc(doc)}>
                           Edit
                         </button>
                       ) : null}
-                      {canViewTeamDashboard &&
+                      {canManageTripDocuments &&
                       !isEditing &&
                       doc &&
                       !isAutoGenerated &&
@@ -9116,7 +9118,7 @@ function parseDateSafe(dateStr) {
                           Edit housing
                         </button>
                       ) : null}
-                      {canViewTeamDashboard && (!doc || isAutoGenerated) ? (
+                      {canManageTripDocuments && (!doc || isAutoGenerated) ? (
                         slot.kind === "pdf" ? (
                           <button className="btn" type="button" onClick={() => handlePrepareRequiredPdf(slot)}>
                             Upload PDF
@@ -9183,7 +9185,7 @@ function parseDateSafe(dateStr) {
                                     >
                                       {tutorial.tutorialTitle || "Open Tutorial"}
                                     </a>
-                                    {canViewTeamDashboard && slot.kind === "link" && ti === 0 ? (
+                                    {canManageTripDocuments && slot.kind === "link" && ti === 0 ? (
                                       <button
                                         className="btn"
                                         type="button"
@@ -9202,7 +9204,7 @@ function parseDateSafe(dateStr) {
                             </div>
                           );
                         })()}
-                    {canViewTeamDashboard && !isEditing && !showHousingInlineForm ? (
+                    {canManageTripDocuments && !isEditing && !showHousingInlineForm ? (
                       <div
                         style={{
                           marginTop: "auto",
@@ -9240,7 +9242,7 @@ function parseDateSafe(dateStr) {
               {optionalOtherDocs.length === 0 ? (
                 <div className="small">No extra documents yet.</div>
               ) : null}
-              {canViewTeamDashboard && hasDismissedDefaultTripDocumentSlots ? (
+              {canManageTripDocuments && hasDismissedDefaultTripDocumentSlots ? (
                 <div className="small" style={{ marginTop: 12, color: "var(--muted)" }}>
                   <button
                     type="button"
