@@ -7442,6 +7442,117 @@ function parseDateSafe(dateStr) {
 
       {tab === "Fundraising" && (
         <div style={{ display: "grid", gap: 16 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: 16,
+            }}
+          >
+            <div
+              className="card pad"
+              style={{
+                boxShadow: "none",
+                background: "linear-gradient(180deg, rgba(250,245,220,.78), #fff 55%)",
+                borderColor: "rgba(180,140,40,.22)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                minHeight: 176,
+              }}
+            >
+              <div className="cardSectionPill" style={{ marginBottom: 2 }}>
+                90 days before departure
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em" }}>
+                {formatMoney(fundraisingFirstDeadlineAmount)}
+              </div>
+              <div className="small" style={{ opacity: 0.9 }}>
+                Target raised by{" "}
+                <strong>{formatDeadlineDate(fundraisingFirstDeadlineDate)}</strong>
+                {!trip?.startDate ? (
+                  <span style={{ color: "var(--muted)" }}>
+                    {" "}
+                    — add a trip start date on the trip to calculate this deadline.
+                  </span>
+                ) : null}
+              </div>
+              <div className="small" style={{ opacity: 0.78, marginTop: "auto", lineHeight: 1.45 }}>
+                {canViewTeamDashboard
+                  ? `First milestone for the team (${countForDeadlines} worker${
+                      countForDeadlines === 1 ? "" : "s"
+                    }): typically $2,000 per person toward the trip goal, not more than the total goal.`
+                  : "First slice of your trip goal is usually due by this date (often $2,000 toward your full amount)."}
+              </div>
+            </div>
+            <div
+              className="card pad"
+              style={{
+                boxShadow: "none",
+                background: "linear-gradient(180deg, rgba(232,245,232,.78), #fff 55%)",
+                borderColor: "rgba(50,120,70,.18)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                minHeight: 176,
+              }}
+            >
+              <div className="cardSectionPill" style={{ marginBottom: 2 }}>
+                30 days before departure
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em" }}>
+                {formatMoney(fundraisingSecondDeadlineAmount)}
+              </div>
+              <div className="small" style={{ opacity: 0.9 }}>
+                Remaining goal due by{" "}
+                <strong>{formatDeadlineDate(fundraisingSecondDeadlineDate)}</strong>
+                {!trip?.startDate ? (
+                  <span style={{ color: "var(--muted)" }}>
+                    {" "}
+                    — add a trip start date on the trip to calculate this deadline.
+                  </span>
+                ) : null}
+              </div>
+              <div className="small" style={{ opacity: 0.78, marginTop: "auto", lineHeight: 1.45 }}>
+                {fundraisingSecondDeadlineAmount > 0
+                  ? "The rest of the fundraising goal should be covered before this date."
+                  : "If your total goal matches the first milestone, there is no separate 30-day balance."}
+              </div>
+            </div>
+            <div
+              className="card pad"
+              style={{
+                boxShadow: "none",
+                background: "linear-gradient(180deg, rgba(234,242,255,.88), #fff 55%)",
+                borderColor: "rgba(47,73,147,.2)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                justifyContent: "space-between",
+                minHeight: 176,
+              }}
+            >
+              <div>
+                <div className="cardSectionPill" style={{ marginBottom: 6 }}>Resources</div>
+                <div style={{ fontWeight: 900, fontSize: 17, marginBottom: 6 }}>
+                  Fundraising guides and tools
+                </div>
+                <div className="small" style={{ opacity: 0.88, lineHeight: 1.45 }}>
+                  LST handouts, Neon tips, and training references for workers and leaders.
+                </div>
+              </div>
+              <a
+                className="btn btnPrimary"
+                href={trainingAccessUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                style={{ alignSelf: "flex-start" }}
+              >
+                Open fundraising resources
+              </a>
+            </div>
+          </div>
+
           <CollapsibleSection defaultOpen>
           <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>
@@ -7449,118 +7560,6 @@ function parseDateSafe(dateStr) {
             </div>
             <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
               Team Neon link and per-participant pages.
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                gap: 14,
-                marginBottom: 18,
-              }}
-            >
-              <div
-                className="card pad"
-                style={{
-                  boxShadow: "none",
-                  background: "linear-gradient(180deg, rgba(250,245,220,.78), #fff 55%)",
-                  borderColor: "rgba(180,140,40,.22)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                  minHeight: 168,
-                }}
-              >
-                <div className="cardSectionPill" style={{ marginBottom: 2 }}>
-                  90 days before departure
-                </div>
-                <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em" }}>
-                  {formatMoney(fundraisingFirstDeadlineAmount)}
-                </div>
-                <div className="small" style={{ opacity: 0.9 }}>
-                  Target raised by{" "}
-                  <strong>{formatDeadlineDate(fundraisingFirstDeadlineDate)}</strong>
-                  {!trip?.startDate ? (
-                    <span style={{ color: "var(--muted)" }}>
-                      {" "}
-                      — add a trip start date on the trip to calculate this deadline.
-                    </span>
-                  ) : null}
-                </div>
-                <div className="small" style={{ opacity: 0.78, marginTop: "auto", lineHeight: 1.45 }}>
-                  {canViewTeamDashboard
-                    ? `First milestone for the team (${countForDeadlines} worker${
-                        countForDeadlines === 1 ? "" : "s"
-                      }): typically $2,000 per person toward the trip goal, not more than the total goal.`
-                    : "First slice of your trip goal is usually due by this date (often $2,000 toward your full amount)."}
-                </div>
-              </div>
-              <div
-                className="card pad"
-                style={{
-                  boxShadow: "none",
-                  background: "linear-gradient(180deg, rgba(232,245,232,.78), #fff 55%)",
-                  borderColor: "rgba(50,120,70,.18)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                  minHeight: 168,
-                }}
-              >
-                <div className="cardSectionPill" style={{ marginBottom: 2 }}>
-                  30 days before departure
-                </div>
-                <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em" }}>
-                  {formatMoney(fundraisingSecondDeadlineAmount)}
-                </div>
-                <div className="small" style={{ opacity: 0.9 }}>
-                  Remaining goal due by{" "}
-                  <strong>{formatDeadlineDate(fundraisingSecondDeadlineDate)}</strong>
-                  {!trip?.startDate ? (
-                    <span style={{ color: "var(--muted)" }}>
-                      {" "}
-                      — add a trip start date on the trip to calculate this deadline.
-                    </span>
-                  ) : null}
-                </div>
-                <div className="small" style={{ opacity: 0.78, marginTop: "auto", lineHeight: 1.45 }}>
-                  {fundraisingSecondDeadlineAmount > 0
-                    ? "The rest of the fundraising goal should be covered before this date."
-                    : "If your total goal matches the first milestone, there is no separate 30-day balance."}
-                </div>
-              </div>
-              <div
-                className="card pad"
-                style={{
-                  boxShadow: "none",
-                  background: "linear-gradient(180deg, rgba(234,242,255,.88), #fff 55%)",
-                  borderColor: "rgba(47,73,147,.2)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 12,
-                  justifyContent: "space-between",
-                  minHeight: 168,
-                }}
-              >
-                <div>
-                  <div className="cardSectionPill" style={{ marginBottom: 6 }}>Resources</div>
-                  <div style={{ fontWeight: 900, fontSize: 17, marginBottom: 6 }}>
-                    Fundraising guides and tools
-                  </div>
-                  <div className="small" style={{ opacity: 0.88, lineHeight: 1.45 }}>
-                    LST handouts, Neon tips, and training references for workers and leaders.
-                  </div>
-                </div>
-                <a
-                  className="btn btnPrimary"
-                  href={trainingAccessUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  style={{ alignSelf: "flex-start" }}
-                >
-                  Open fundraising resources
-                </a>
-              </div>
             </div>
 
             {!canViewTeamDashboard && trip?.teamFundraisingUrl ? (
