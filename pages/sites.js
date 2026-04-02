@@ -13,7 +13,11 @@ import {
   updateSiteBudgetNote,
   upsertSiteBudgetNote,
 } from "@/lib/tripBudget";
-import { SITE_OPTIONS } from "@/lib/siteOptions";
+import {
+  SITE_OPTIONS,
+  isValidSiteOptionLabelFormat,
+  normalizeSiteOptionLabel,
+} from "@/lib/siteOptions";
 import {
   WORKBOOK_REFERENCE_COLUMNS,
   WORKBOOK_SERIES_HEADER_STYLE,
@@ -67,6 +71,30 @@ export default function SitesPage() {
   const [editingWorkbookSite, setEditingWorkbookSite] = useState("");
   const [workbookQtyDraft, setWorkbookQtyDraft] = useState({});
   const [savingWorkbookFor, setSavingWorkbookFor] = useState("");
+  const [addSiteOpen, setAddSiteOpen] = useState(false);
+  const [addSiteNameDraft, setAddSiteNameDraft] = useState("");
+  const [addSiteLogisticsDraft, setAddSiteLogisticsDraft] = useState("");
+  const [savingAddSite, setSavingAddSite] = useState(false);
+
+  const siteLabelsOrdered = useMemo(() => {
+    const matchedNoteIds = new Set();
+    for (const o of SITE_OPTIONS) {
+      const n = findSiteBudgetNoteForOption(o, siteNotes);
+      if (n?.id) matchedNoteIds.add(n.id);
+    }
+    const extras = [];
+    const seenExtraLower = new Set();
+    for (const note of siteNotes) {
+      const sn = String(note?.siteName || "").trim();
+      if (!sn || matchedNoteIds.has(note.id)) continue;
+      const k = sn.toLowerCase();
+      if (seenExtraLower.has(k)) continue;
+      seenExtraLower.add(k);
+      extras.push(sn);
+    }
+    extras.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    return [...SITE_OPTIONS, ...extras];
+  }, [siteNotes]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,7 +138,7 @@ export default function SitesPage() {
     const seen = new Set(refCols.map((c) => c.key));
 
     const extraMap = new Map();
-    for (const siteLabel of SITE_OPTIONS) {
+    for (const siteLabel of siteLabelsOrdered) {
       const note = findSiteBudgetNoteForOption(siteLabel, siteNotes);
       const raw = note?.workbookNotes ?? "";
       for (const { name, qty } of parseAnyWorkbookInventoryString(raw)) {
@@ -125,7 +153,7 @@ export default function SitesPage() {
       .map(([key, label]) => ({ key, label }));
     const columns = [...refCols, ...extraCols];
 
-    const rows = SITE_OPTIONS.map((siteLabel) => {
+    const rows = siteLabelsOrdered.map((siteLabel) => {
       const note = findSiteBudgetNoteForOption(siteLabel, siteNotes);
       const raw = note?.workbookNotes ?? "";
       const items = parseAnyWorkbookInventoryString(raw);
@@ -152,7 +180,7 @@ export default function SitesPage() {
     });
 
     return { columns, rows };
-  }, [siteNotes]);
+  }, [siteNotes, siteLabelsOrdered]);
 
   const workbookTableWidthPx = useMemo(() => {
     const { site, workbookQty, totalBooks, workbooksUpdated, workbooksActions } = WB_TABLE;
@@ -209,6 +237,54 @@ export default function SitesPage() {
       next[col.key] = q !== undefined && q !== null ? String(q) : "";
     }
     setWorkbookQtyDraft(next);
+  }
+
+  function closeAddSiteModal() {
+    setAddSiteOpen(false);
+    setAddSiteNameDraft("");
+    setAddSiteLogisticsDraft("");
+  }
+
+  async function submitAddSite() {
+    const name = normalizeSiteOptionLabel(addSiteNameDraft);
+    const url = String(addSiteLogisticsDraft || "").trim();
+    if (!name) {
+      showToast("Enter a site name.", "error");
+      return;
+    }
+    if (!isValidSiteOptionLabelFormat(name)) {
+      showToast('Use the same pattern as other sites: "Country - City" (spaces around the hyphen).', "error");
+      return;
+    }
+    const nameLower = name.toLowerCase();
+    if (siteLabelsOrdered.some((l) => l.toLowerCase() === nameLower)) {
+      showToast("That site is already listed. Edit logistics or workbooks on its row.", "error");
+      return;
+    }
+    try {
+      setSavingAddSite(true);
+      setStatus("");
+      const saved = await upsertSiteBudgetNote({
+        siteName: name,
+        notes: "",
+        workbookNotes: "",
+        logisticsUrl: url || null,
+      });
+      setSiteNotes((prev) => {
+        const others = prev.filter((r) => r.id !== saved.id);
+        return [...others, saved].sort((a, b) =>
+          a.siteName.localeCompare(b.siteName, undefined, { sensitivity: "base" })
+        );
+      });
+      closeAddSiteModal();
+      showToast(`Added site ${name}`, "success");
+    } catch (e) {
+      const msg = e.message || "Could not add site.";
+      setStatus(msg);
+      showToast(msg, "error");
+    } finally {
+      setSavingAddSite(false);
+    }
   }
 
   async function saveSiteWorkbookCounts(siteOption, columns) {
@@ -292,8 +368,33 @@ export default function SitesPage() {
       ) : null}
 
       <div className="card pad" style={{ marginBottom: 24 }}>
-        <div className="appSectionBadge" style={{ marginBottom: 8 }}>Workbooks</div>
-        <div style={{ fontWeight: 900, marginBottom: 6 }}>Workbook counts by site</div>
+        <div
+          className="row"
+          style={{
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            gap: 12,
+            marginBottom: 8,
+          }}
+        >
+          <div>
+            <div className="appSectionBadge" style={{ marginBottom: 8 }}>Workbooks</div>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>Workbook counts by site</div>
+          </div>
+          <button
+            type="button"
+            className="btn btnPrimary"
+            style={{ fontSize: 13, padding: "8px 16px", borderRadius: 10, flexShrink: 0 }}
+            onClick={() => {
+              setAddSiteNameDraft("");
+              setAddSiteLogisticsDraft("");
+              setAddSiteOpen(true);
+            }}
+          >
+            Add site
+          </button>
+        </div>
         <div className="sitesWorkbookScroller">
           <table
             className="table sitesWorkbookTable dataTableStriped"
@@ -579,6 +680,82 @@ export default function SitesPage() {
           </table>
         </div>
       </div>
+
+      {addSiteOpen ? (
+        <div
+          className="appModalOverlay"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 100,
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-site-title"
+          onClick={() => !savingAddSite && closeAddSiteModal()}
+        >
+          <div
+            className="card pad"
+            style={{ width: "min(480px, 100%)", maxHeight: "90vh", overflow: "auto" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="add-site-title" style={{ margin: "0 0 6px 0", fontSize: 18 }}>
+              Add site
+            </h2>
+            <p className="small" style={{ margin: "0 0 16px 0", color: "var(--muted)", lineHeight: 1.45 }}>
+              Creates a <code>site_budget_notes</code> row with your logistics link and empty workbook counts.
+              Name it like the built-in list: <strong>Country - City</strong> (spaces around{" "}
+              <code> - </code>), e.g. <code>Brazil - Joao Pessoa</code>.
+            </p>
+            <div style={{ display: "grid", gap: 12 }}>
+              <div>
+                <label className="small" style={{ display: "block", marginBottom: 4, fontWeight: 700 }}>
+                  Site name
+                </label>
+                <input
+                  className="input"
+                  type="text"
+                  autoComplete="off"
+                  placeholder="e.g. Italy - Padova"
+                  value={addSiteNameDraft}
+                  onChange={(e) => setAddSiteNameDraft(e.target.value)}
+                  disabled={savingAddSite}
+                />
+              </div>
+              <div>
+                <label className="small" style={{ display: "block", marginBottom: 4, fontWeight: 700 }}>
+                  Logistics link
+                </label>
+                <input
+                  className="input"
+                  type="url"
+                  placeholder="https://…"
+                  value={addSiteLogisticsDraft}
+                  onChange={(e) => setAddSiteLogisticsDraft(e.target.value)}
+                  disabled={savingAddSite}
+                />
+              </div>
+            </div>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
+              <button type="button" className="btn" disabled={savingAddSite} onClick={closeAddSiteModal}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btnPrimary"
+                disabled={savingAddSite}
+                onClick={() => void submitAddSite()}
+              >
+                {savingAddSite ? "Saving…" : "Add site"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Shell>
   );
 }
