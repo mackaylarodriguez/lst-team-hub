@@ -568,52 +568,6 @@ function OptionalTripWideDocumentCard({
                 onChange={(e) => setDocDraft((prev) => ({ ...prev, workArea: e.target.value }))}
                 placeholder="Notes / work area"
               />
-              <div
-                style={{
-                  display: "grid",
-                  gap: 8,
-                  padding: 10,
-                  borderRadius: 12,
-                  background: "rgba(15, 23, 42, 0.04)",
-                }}
-              >
-                <div className="small" style={{ fontWeight: 900 }}>
-                  Tutorial
-                </div>
-                <input
-                  className="input"
-                  value={docDraft?.tutorialTitle || ""}
-                  onChange={(e) =>
-                    setDocDraft((prev) => ({
-                      ...prev,
-                      tutorialTitle: e.target.value,
-                    }))
-                  }
-                  placeholder="Tutorial button label"
-                />
-                <input
-                  className="input"
-                  value={docDraft?.tutorialUrl || ""}
-                  onChange={(e) =>
-                    setDocDraft((prev) => ({
-                      ...prev,
-                      tutorialUrl: e.target.value,
-                    }))
-                  }
-                  placeholder="Tutorial link https://..."
-                />
-                <input
-                  className="input"
-                  value={docDraft?.tutorialDescription || ""}
-                  onChange={(e) =>
-                    setDocDraft((prev) => ({
-                      ...prev,
-                      tutorialDescription: e.target.value,
-                    }))
-                  }
-                  placeholder="Tutorial description"
-                />
-              </div>
               <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input
                   type="checkbox"
@@ -1997,6 +1951,10 @@ export default function TripPage() {
 
       if (existing) {
         const isBudgetLinkForm = key === "smartsheet-budget";
+        const linkDraftHasTutorial =
+          String(linkDraft.tutorialTitle || "").trim() ||
+          String(linkDraft.tutorialUrl || "").trim() ||
+          String(linkDraft.tutorialDescription || "").trim();
         const updated = await updateResource({
           id: existing.id,
           title: linkDraft.title,
@@ -2007,11 +1965,19 @@ export default function TripPage() {
           workArea: linkDraft.workArea,
           tutorialTitle: isBudgetLinkForm
             ? existing.tutorialTitle ?? ""
-            : linkDraft.tutorialTitle,
-          tutorialUrl: isBudgetLinkForm ? existing.tutorialUrl ?? "" : linkDraft.tutorialUrl,
+            : linkDraftHasTutorial
+              ? linkDraft.tutorialTitle
+              : existing.tutorialTitle ?? "",
+          tutorialUrl: isBudgetLinkForm
+            ? existing.tutorialUrl ?? ""
+            : linkDraftHasTutorial
+              ? linkDraft.tutorialUrl
+              : existing.tutorialUrl ?? "",
           tutorialDescription: isBudgetLinkForm
             ? existing.tutorialDescription ?? ""
-            : linkDraft.tutorialDescription,
+            : linkDraftHasTutorial
+              ? linkDraft.tutorialDescription
+              : existing.tutorialDescription ?? "",
           visibleToParticipants: linkDraft.visibleToParticipants,
         });
         setDocs((current) => {
@@ -2094,48 +2060,6 @@ export default function TripPage() {
             }
             placeholder="Notes / work area"
           />
-          {String(linkDraft.resourceKey || "") !== "smartsheet-budget" ? (
-            <div
-              style={{
-                display: "grid",
-                gap: 8,
-                padding: 10,
-                borderRadius: 12,
-                background: "rgba(15, 23, 42, 0.04)",
-              }}
-            >
-              <div className="small" style={{ fontWeight: 900 }}>
-                Tutorial
-              </div>
-              <input
-                className="input"
-                value={linkDraft.tutorialTitle || ""}
-                onChange={(e) =>
-                  setLinkDraft((prev) => ({ ...prev, tutorialTitle: e.target.value }))
-                }
-                placeholder="Tutorial button label"
-              />
-              <input
-                className="input"
-                value={linkDraft.tutorialUrl || ""}
-                onChange={(e) =>
-                  setLinkDraft((prev) => ({ ...prev, tutorialUrl: e.target.value }))
-                }
-                placeholder="Tutorial link https://..."
-              />
-              <input
-                className="input"
-                value={linkDraft.tutorialDescription || ""}
-                onChange={(e) =>
-                  setLinkDraft((prev) => ({
-                    ...prev,
-                    tutorialDescription: e.target.value,
-                  }))
-                }
-                placeholder="Tutorial description"
-              />
-            </div>
-          ) : null}
           <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <input
               type="checkbox"
@@ -9349,14 +9273,11 @@ function parseDateSafe(dateStr) {
           })()}
           <div style={{ display: "grid", gap: 10 }}>
             <div className="tripDocumentsPageSectionPill">Documents & links</div>
-            <div className="small" style={{ marginBottom: 0, opacity: 0.88 }}>
-              Trip-wide resources{canManageTripDocuments ? " and visibility for participants" : " shared for this trip"}.
-            </div>
-            <div className="small" style={{ opacity: 0.88 }}>
-              {canManageTripDocuments
-                ? "Default trip documents stay visible here, and staff can switch each document on or off for participants. Team housing is set on Budget → Housing and appears here automatically."
-                : "Documents your leader or staff share appear here."}
-            </div>
+            {!canManageTripDocuments ? (
+              <div className="small" style={{ marginBottom: 0, opacity: 0.88 }}>
+                Documents your leader or staff share appear here.
+              </div>
+            ) : null}
             {canManageTripDocuments ? (
               <div
                 className="row"
@@ -9769,52 +9690,6 @@ function parseDateSafe(dateStr) {
                                   }
                                   placeholder="Notes / work area"
                                 />
-                                <div
-                                  style={{
-                                    display: "grid",
-                                    gap: 8,
-                                    padding: 10,
-                                    borderRadius: 12,
-                                    background: "rgba(15, 23, 42, 0.04)",
-                                  }}
-                                >
-                                  <div className="small" style={{ fontWeight: 900 }}>
-                                    Tutorial
-                                  </div>
-                                  <input
-                                    className="input"
-                                    value={docDraft?.tutorialTitle || ""}
-                                    onChange={(e) =>
-                                      setDocDraft((prev) => ({
-                                        ...prev,
-                                        tutorialTitle: e.target.value,
-                                      }))
-                                    }
-                                    placeholder="Tutorial button label"
-                                  />
-                                  <input
-                                    className="input"
-                                    value={docDraft?.tutorialUrl || ""}
-                                    onChange={(e) =>
-                                      setDocDraft((prev) => ({
-                                        ...prev,
-                                        tutorialUrl: e.target.value,
-                                      }))
-                                    }
-                                    placeholder="Tutorial link https://..."
-                                  />
-                                  <input
-                                    className="input"
-                                    value={docDraft?.tutorialDescription || ""}
-                                    onChange={(e) =>
-                                      setDocDraft((prev) => ({
-                                        ...prev,
-                                        tutorialDescription: e.target.value,
-                                      }))
-                                    }
-                                    placeholder="Tutorial description"
-                                  />
-                                </div>
                                 <label
                                   className="small"
                                   style={{ display: "flex", alignItems: "center", gap: 8 }}
