@@ -111,6 +111,7 @@ import {
 import * as XLSX from "xlsx";
 import { showToast } from "@/components/Toast";
 import TripTravelSafetySection from "@/components/TripTravelSafetySection";
+import RosterTshirtSizeSelect from "@/components/RosterTshirtSizeSelect";
 import { deleteTripMeeting, listTripMeetings, saveTripMeeting } from "@/lib/tripMeetings";
 import {
   getTripBudget,
@@ -6818,11 +6819,11 @@ function parseDateSafe(dateStr) {
                         </option>
                       ))}
                     </select>
-                    <input
-                      className="input"
+                    <RosterTshirtSizeSelect
                       value={member.tshirtSize || ""}
-                      placeholder="T-shirt size (e.g. M, XL)"
-                      onChange={(event) => updateRosterDraftMember(index, "tshirtSize", event.target.value)}
+                      onChange={(event) =>
+                        updateRosterDraftMember(index, "tshirtSize", event.target.value)
+                      }
                     />
                     <input
                       className="input"
@@ -9585,7 +9586,7 @@ function parseDateSafe(dateStr) {
             {tab === "Staff Tasks" && canManageTrips && !isLeader && (
               <div style={{ display: "grid", gap: 16 }}>
             <CollapsibleSection defaultOpen>
-            <div className="card pad">
+            <div className="card pad staffTasksTripPanel">
                 <div className="cardSectionPill" style={{ marginBottom: 12 }}>Staff task list</div>
                 <div className="row" style={{ marginBottom: 10 }}>
                   <div className="small">
@@ -9800,7 +9801,7 @@ function parseDateSafe(dateStr) {
                   </div>
                 ) : null}
 
-                <table className="table dataTableStriped">
+                <table className="table dataTableStriped staffTasksTripTable">
                   <thead>
                     <tr>
                       <th style={{ width: "39%" }}>Task</th>

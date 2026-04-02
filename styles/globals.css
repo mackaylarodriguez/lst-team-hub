@@ -1671,6 +1671,38 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
     top:72px;
   }
 }
+/* Trip → Staff Tasks tab: match Checklists / My Tasks copy (13px) and compact controls */
+.staffTasksTripPanel{
+  font-size:13px;
+  line-height:1.35;
+}
+.staffTasksTripPanel .table th,
+.staffTasksTripPanel .table td{
+  padding:8px 10px;
+}
+.staffTasksTripPanel .input,
+.staffTasksTripPanel select.input,
+.staffTasksTripPanel textarea.input{
+  font-size:13px;
+  min-height:36px;
+  padding:7px 10px;
+  border-radius:10px;
+}
+.staffTasksTripPanel textarea.input{
+  min-height:52px;
+}
+.staffTasksTripPanel .staffTaskNotesInput{
+  min-height:44px;
+}
+.staffTasksTripPanel .btn{
+  font-size:12px;
+  min-height:34px;
+  padding:6px 10px;
+  border-radius:10px;
+}
+.staffTasksTripPanel .btnPrimary{
+  font-size:12px;
+}
 .staffTaskSectionHeader{
   display:flex;
   align-items:center;

@@ -26,6 +26,7 @@ import {
   DEFAULT_TRAINING_TIMELINE_TYPE,
   TRAINING_TIMELINE_OPTIONS,
 } from "@/lib/workerTaskTemplate";
+import RosterTshirtSizeSelect from "@/components/RosterTshirtSizeSelect";
 
 const CUSTOM_SITE_OPTION = "__custom__";
 function createEmptyTeamMember() {
@@ -889,11 +890,9 @@ export default function Trips() {
                           onChange={(event) => updateTeamMember(index, "email", event.target.value)}
                           placeholder="Email"
                         />
-                        <input
-                          className="input"
+                        <RosterTshirtSizeSelect
                           value={member.tshirtSize || ""}
                           onChange={(event) => updateTeamMember(index, "tshirtSize", event.target.value)}
-                          placeholder="T-shirt size (e.g. M, XL)"
                         />
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
