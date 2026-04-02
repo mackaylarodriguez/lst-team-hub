@@ -12,6 +12,7 @@ import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
   getBudgetAverages,
+  HOUSING1_BUDGET_PER_TEAM,
   listAllTripBudgets,
   listSiteBudgetNotes,
   saveTripBudget,
@@ -98,13 +99,12 @@ function computeTotalLstCost(totalTicketCost, amountWorkerPaid) {
   return formatUsdNumber(total - paid);
 }
 
-/** Green at/under team housing budget cap; amber when average is over budget. */
-function housingAverageVsBudgetColor(average, budgetCap) {
-  if (average == null || budgetCap == null) return undefined;
-  const a = Number(average);
+/** Green at/under per-team housing cap; amber when the line amount is over (grid Housing amount column). */
+function housingLineAmountVsBudgetColor(amountText, budgetCap) {
+  const n = parseCurrencyLike(amountText);
   const cap = Number(budgetCap);
-  if (!Number.isFinite(a) || !Number.isFinite(cap)) return undefined;
-  return a <= cap ? "#15803d" : "#ca8a04";
+  if (n == null || !Number.isFinite(cap)) return undefined;
+  return n <= cap ? "#15803d" : "#ca8a04";
 }
 
 /** Sort trips for Budget housing/ticketing: soonest start first; missing dates last; then name. */
@@ -782,26 +782,17 @@ export default function BudgetPage() {
                 <div className="small" style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: ".09em", marginBottom: 4, color: "#0f766e" }}>
                   Housing 1
                 </div>
-                <div
-                  style={{
-                    fontSize: 24,
-                    fontWeight: 900,
-                    marginBottom: 4,
-                    color: housingAverageVsBudgetColor(
-                      averages.housing1.average,
-                      averages.housing1.budgetPerTeam
-                    ),
-                  }}
-                >
+                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
                   {averages.housing1.average != null
                     ? formatUsdNumber(Number(averages.housing1.average))
                     : "—"}
                 </div>
                 <div className="small" style={{ color: "var(--muted)" }}>
                   Average of <strong>Housing amount</strong> only (Housing budget table). Other amount
-                  columns are not included. Non‑blank, above $0. Budget cap{" "}
-                  {formatUsdNumber(Number(averages.housing1.budgetPerTeam))} per team — number is{" "}
-                  <span style={{ color: "#15803d", fontWeight: 700 }}>green</span> at or under cap,{" "}
+                  columns are not included. Non‑blank, above $0. Cap{" "}
+                  {formatUsdNumber(Number(averages.housing1.budgetPerTeam))} per team — each trip’s{" "}
+                  <strong>Housing amount</strong> in the grid below is{" "}
+                  <span style={{ color: "#15803d", fontWeight: 700 }}>green</span> at or under that cap,{" "}
                   <span style={{ color: "#ca8a04", fontWeight: 700 }}>amber</span> if over.
                   {averages.housing1.count > 0 ? (
                     <span>
@@ -824,17 +815,7 @@ export default function BudgetPage() {
                 <div className="small" style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: ".09em", marginBottom: 4, color: "#c2410c" }}>
                   Housing 2
                 </div>
-                <div
-                  style={{
-                    fontSize: 24,
-                    fontWeight: 900,
-                    marginBottom: 4,
-                    color: housingAverageVsBudgetColor(
-                      averages.housing2.average,
-                      averages.housing2.budgetPerTeam
-                    ),
-                  }}
-                >
+                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
                   {averages.housing2.average != null
                     ? formatUsdNumber(Number(averages.housing2.average))
                     : "—"}
@@ -842,7 +823,7 @@ export default function BudgetPage() {
                 <div className="small" style={{ color: "var(--muted)" }}>
                   Same <strong>Housing amount</strong> column only. Non‑YF teams; blank housing counts
                   as $0 in this average. Same {formatUsdNumber(Number(averages.housing2.budgetPerTeam))}{" "}
-                  cap for green vs amber.
+                  per-team cap for line colors in the grid.
                   {averages.housing2.count > 0 ? (
                     <span>
                       {" "}
@@ -1214,6 +1195,9 @@ export default function BudgetPage() {
                         <td style={{ minWidth: 112 }}>
                           <input
                             className="input"
+                            style={{
+                              color: housingLineAmountVsBudgetColor(r.housingAmount, HOUSING1_BUDGET_PER_TEAM),
+                            }}
                             value={r.housingAmount || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "housingAmount", e.target.value)}
                             onBlur={(e) => {
@@ -1409,7 +1393,13 @@ export default function BudgetPage() {
                         <td>{r.teamAccountant || ""}</td>
                         <td>{formatUsdDisplay(r.budgetAmount)}</td>
                         <td>{formatUsdDisplay(r.returnedAmount)}</td>
-                        <td>{formatUsdDisplay(r.housingAmount)}</td>
+                        <td
+                          style={{
+                            color: housingLineAmountVsBudgetColor(r.housingAmount, HOUSING1_BUDGET_PER_TEAM),
+                          }}
+                        >
+                          {formatUsdDisplay(r.housingAmount)}
+                        </td>
                         <td className="small" style={{ maxWidth: 280, wordBreak: "break-word", verticalAlign: "top" }}>
                           <div style={{ marginBottom: housingExtrasList.length ? 8 : 0 }}>
                             {r.housingLink || r.housingPdfUrl ? (
