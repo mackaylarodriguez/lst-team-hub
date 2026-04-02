@@ -433,6 +433,17 @@ const tripDocDeleteButtonStyle = {
   border: "2px solid #b91c1c",
 };
 
+function tripDocumentTileRootClassName(wide) {
+  return ["card", "tripDocumentSquareTile", wide ? "tripDocumentSquareTileWide" : ""].filter(Boolean).join(" ");
+}
+
+const tripDocumentWideCardStyle = {
+  boxShadow: "none",
+  borderColor: "rgba(15, 23, 42, 0.08)",
+  display: "flex",
+  flexDirection: "column",
+};
+
 /** Optional / extra trip documents with category Flights — show directly under the Flights slot. */
 function isTripDocumentFlightsCategory(doc) {
   const c = String(doc?.category ?? "").trim().toLowerCase();
@@ -450,20 +461,70 @@ function OptionalTripWideDocumentCard({
   handleSaveDoc,
   handleCancelEditDoc,
   handleReplaceDocumentFile,
+  compactTile = false,
 }) {
   const available = !!(d.pdfUrl || d.link);
   const isEditing = editingDocId === d.id;
   const isPdf = !!d.pdfUrl;
+  const tileNarrow = compactTile && !isEditing;
+
+  if (tileNarrow) {
+    return (
+      <div className={tripDocumentTileRootClassName(false)}>
+        <div className="tripDocumentSquareTileScroll">
+          <div className="tripDocumentSquareTileTitle">{d.title || "Document"}</div>
+          <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
+            {available ? (isPdf ? "PDF" : "Link") : "Soon"}
+          </span>
+          <div className="tripDocumentSquareTileMeta small">
+            {isPdf ? "PDF" : "Link"}
+            {d.category ? ` · ${d.category}` : ""}
+          </div>
+          {canManageTripDocuments ? (
+            <div className="small tripDocumentSquareTileMeta">
+              {d.visibleToParticipants === false ? "Hidden from participants" : "Visible to participants"}
+            </div>
+          ) : null}
+        </div>
+        <div className="tripDocumentSquareTileFoot">
+          {available ? (
+            <a className="btn btnPrimary" href={d.pdfUrl || d.link} target="_blank" rel="noreferrer">
+              Open
+            </a>
+          ) : (
+            <button className="btn" type="button" disabled style={{ opacity: 0.6, cursor: "not-allowed" }}>
+              Soon
+            </button>
+          )}
+          {canManageTripDocuments ? (
+            <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
+              Edit
+            </button>
+          ) : null}
+          {String(d.tutorialUrl || "").trim() ? (
+            <a className="btn" href={d.tutorialUrl} target="_blank" rel="noreferrer">
+              {d.tutorialTitle || "Tutorial"}
+            </a>
+          ) : null}
+          {canManageTripDocuments ? (
+            <button
+              type="button"
+              className="btn"
+              style={tripDocDeleteButtonStyle}
+              onClick={() => void handleDeleteDoc(d.id)}
+            >
+              Delete
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
-      className="card pad"
-      style={{
-        boxShadow: "none",
-        borderColor: "rgba(15, 23, 42, 0.08)",
-        display: "flex",
-        flexDirection: "column",
-      }}
+      className={compactTile && isEditing ? tripDocumentTileRootClassName(true) : "card pad"}
+      style={compactTile && isEditing ? tripDocumentWideCardStyle : tripDocumentWideCardStyle}
     >
       <div className="row" style={{ alignItems: "flex-start" }}>
         <div style={{ flex: 1 }}>
@@ -4899,6 +4960,7 @@ function parseDateSafe(dateStr) {
     handleSaveDoc,
     handleCancelEditDoc,
     handleReplaceDocumentFile,
+    compactTile: true,
   };
 
   const workerPreviewOptions = useMemo(() => {
@@ -8689,7 +8751,7 @@ function parseDateSafe(dateStr) {
               </div>
             )}
 
-            <div style={{ display: "grid", gap: 12 }}>
+            <div className="tripDocumentsTileGrid">
               {tripDocumentRows
                 .filter((row) => {
                   if (row.kind !== "site") return true;
@@ -8707,21 +8769,22 @@ function parseDateSafe(dateStr) {
                       description: "Standard site logistics link for this trip.",
                       resource: effectiveSiteInfoDoc,
                     };
-                    return (
-                      <div
-                        key="trip-site-logistics"
-                        className="card pad"
-                        style={{
-                          boxShadow: "none",
-                          borderColor: "rgba(15, 23, 42, 0.08)",
-                          display: "flex",
-                          flexDirection: "column",
-                        }}
-                      >
+                    const siteTileWide =
+                      canManageTripDocuments && isAddingLink && addingLinkForSlotKey === "site-info-link";
+                    const siteCardMain = (
+                      <>
                         <div className="row" style={{ alignItems: "flex-start" }}>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 900 }}>Site Logistics</div>
-                            <div className="small" style={{ marginTop: 4 }}>
+                            <div
+                              className={siteTileWide ? undefined : "tripDocumentSquareTileTitle"}
+                              style={siteTileWide ? { fontWeight: 900 } : undefined}
+                            >
+                              Site Logistics
+                            </div>
+                            <div
+                              className={siteTileWide ? "small" : "small tripDocumentSquareTileMeta"}
+                              style={siteTileWide ? { marginTop: 4 } : { marginTop: 2 }}
+                            >
                               Assigned site: {trip?.location || "No site selected yet"}
                             </div>
                           </div>
@@ -8734,37 +8797,44 @@ function parseDateSafe(dateStr) {
                             }
                           >
                             {effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl
-                              ? "Site Matched"
-                              : "Needs Link"}
+                              ? siteTileWide
+                                ? "Site Matched"
+                                : "OK"
+                              : siteTileWide
+                                ? "Needs Link"
+                                : "Need link"}
                           </span>
                         </div>
                         {canManageTripDocuments && isAddingLink && addingLinkForSlotKey === "site-info-link" ? (
                           renderTripDocumentsLinkDraftForm({ embedded: true })
                         ) : effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl ? (
-                          <div className="row" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
+                          <div
+                            className="row"
+                            style={{ marginTop: siteTileWide ? 10 : 6, flexWrap: "wrap", gap: 8 }}
+                          >
                             <a
                               className="btn btnPrimary"
                               href={preferredTripResourceOpenUrl(effectiveSiteInfoDoc)}
                               target="_blank"
                               rel="noreferrer"
-                              style={siteLinkActionButtonStyle}
+                              style={siteTileWide ? siteLinkActionButtonStyle : undefined}
                             >
-                              Open Site Logistics
+                              {siteTileWide ? "Open Site Logistics" : "Open"}
                             </a>
                             {canManageTripDocuments && siteInfoDoc ? (
                               <button
                                 className="btn"
                                 type="button"
-                                style={siteLinkActionButtonStyle}
+                                style={siteTileWide ? siteLinkActionButtonStyle : undefined}
                                 onClick={() => handleEditDoc(siteInfoDoc)}
                               >
-                                Edit Saved Link
+                                {siteTileWide ? "Edit Saved Link" : "Edit"}
                               </button>
                             ) : canManageTripDocuments ? (
                               <button
                                 className="btn"
                                 type="button"
-                                style={siteLinkActionButtonStyle}
+                                style={siteTileWide ? siteLinkActionButtonStyle : undefined}
                                 onClick={() =>
                                   handlePrepareRequiredLink({
                                     key: "site-info-link",
@@ -8779,11 +8849,11 @@ function parseDateSafe(dateStr) {
                             ) : null}
                           </div>
                         ) : canManageTripDocuments ? (
-                          <div className="row" style={{ marginTop: 10 }}>
+                          <div className="row" style={{ marginTop: siteTileWide ? 10 : 6 }}>
                             <button
                               className="btn"
                               type="button"
-                              style={siteLinkActionButtonStyle}
+                              style={siteTileWide ? siteLinkActionButtonStyle : undefined}
                               onClick={() =>
                                 handlePrepareRequiredLink({
                                   key: "site-info-link",
@@ -8793,18 +8863,36 @@ function parseDateSafe(dateStr) {
                                 })
                               }
                             >
-                              Add Site Logistics
+                              {siteTileWide ? "Add Site Logistics" : "Add link"}
                             </button>
                           </div>
                         ) : null}
+                      </>
+                    );
+                    return (
+                      <div
+                        key="trip-site-logistics"
+                        className={tripDocumentTileRootClassName(siteTileWide)}
+                        style={siteTileWide ? tripDocumentWideCardStyle : undefined}
+                      >
+                        {siteTileWide ? (
+                          siteCardMain
+                        ) : (
+                          <div className="tripDocumentSquareTileScroll">{siteCardMain}</div>
+                        )}
                         {canManageTripDocuments ? (
                           <div
-                            style={{
-                              marginTop: "auto",
-                              paddingTop: 12,
-                              display: "flex",
-                              justifyContent: "flex-end",
-                            }}
+                            className={siteTileWide ? undefined : "tripDocumentSquareTileFoot"}
+                            style={
+                              siteTileWide
+                                ? {
+                                    marginTop: "auto",
+                                    paddingTop: 12,
+                                    display: "flex",
+                                    justifyContent: "flex-end",
+                                  }
+                                : undefined
+                            }
                           >
                             <button
                               type="button"
@@ -8830,17 +8918,15 @@ function parseDateSafe(dateStr) {
                   const showHousingInlineForm =
                     isHousingSlot && staffViewAllParticipants && housingTripDocsDraft;
 
-                  return (
-                  <Fragment key={slot.key}>
-                  <div
-                    className="card pad"
-                    style={{
-                      boxShadow: "none",
-                      borderColor: "rgba(15, 23, 42, 0.08)",
-                      display: "flex",
-                      flexDirection: "column",
-                    }}
-                  >
+                  const slotTileWide =
+                    isEditing ||
+                    showHousingInlineForm ||
+                    (canManageTripDocuments && isAddingLink && addingLinkForSlotKey === slot.key) ||
+                    slot.key === "smartsheet-budget" ||
+                    (isHousingSlot && tripHousingDocuments.length > 1);
+
+                  const slotCardInner = (
+                    <>
                     <div className="row" style={{ alignItems: "flex-start" }}>
                       <div style={{ flex: 1 }}>
                         {showHousingInlineForm ? (
@@ -9022,10 +9108,16 @@ function parseDateSafe(dateStr) {
                           </div>
                         ) : (
                           <>
-                            <div style={{ fontWeight: 900 }}>
+                            <div
+                              className={slotTileWide ? undefined : "tripDocumentSquareTileTitle"}
+                              style={{ fontWeight: 900 }}
+                            >
                               {slot.key === "smartsheet-budget" ? slot.title : doc?.title || slot.title}
                             </div>
-                            <div className="small" style={{ marginTop: 4 }}>
+                            <div
+                              className={slotTileWide ? "small" : "small tripDocumentSquareTileMeta"}
+                              style={{ marginTop: 4 }}
+                            >
                               {slot.category} • {slot.description}
                             </div>
                             {isAutoGenerated ? (
@@ -9054,7 +9146,21 @@ function parseDateSafe(dateStr) {
                         )}
                       </div>
                       <span className={"badge " + (available ? "badgeSuccess" : "badgeWarn")}>
-                        {available ? (isAutoGenerated ? "Auto Link" : (isPdf ? "PDF Ready" : "Link Ready")) : "Coming Soon"}
+                        {available
+                          ? isAutoGenerated
+                            ? slotTileWide
+                              ? "Auto Link"
+                              : "Auto"
+                            : isPdf
+                              ? slotTileWide
+                                ? "PDF Ready"
+                                : "PDF"
+                              : slotTileWide
+                                ? "Link Ready"
+                                : "Link"
+                          : slotTileWide
+                            ? "Coming Soon"
+                            : "Soon"}
                       </span>
                     </div>
                     {showHousingInlineForm ? null : (
@@ -9214,14 +9320,33 @@ function parseDateSafe(dateStr) {
                             </div>
                           );
                         })()}
+                    </>
+                  );
+
+                  return (
+                  <Fragment key={slot.key}>
+                  <div
+                    className={tripDocumentTileRootClassName(slotTileWide)}
+                    style={slotTileWide ? tripDocumentWideCardStyle : undefined}
+                  >
+                    {slotTileWide ? (
+                      slotCardInner
+                    ) : (
+                      <div className="tripDocumentSquareTileScroll">{slotCardInner}</div>
+                    )}
                     {canManageTripDocuments && !isEditing && !showHousingInlineForm ? (
                       <div
-                        style={{
-                          marginTop: "auto",
-                          paddingTop: 12,
-                          display: "flex",
-                          justifyContent: "flex-end",
-                        }}
+                        className={slotTileWide ? undefined : "tripDocumentSquareTileFoot"}
+                        style={
+                          slotTileWide
+                            ? {
+                                marginTop: "auto",
+                                paddingTop: 12,
+                                display: "flex",
+                                justifyContent: "flex-end",
+                              }
+                            : undefined
+                        }
                       >
                         <button
                           type="button"
@@ -9250,10 +9375,10 @@ function parseDateSafe(dateStr) {
                 <OptionalTripWideDocumentCard key={d.id} d={d} {...optionalTripWideCardProps} />
               ))}
               {optionalOtherDocs.length === 0 ? (
-                <div className="small">No extra documents yet.</div>
+                <div className="small tripDocumentsTileGridFullRow">No extra documents yet.</div>
               ) : null}
               {canManageTripDocuments && hasDismissedDefaultTripDocumentSlots ? (
-                <div className="small" style={{ marginTop: 12, color: "var(--muted)" }}>
+                <div className="small tripDocumentsTileGridFullRow" style={{ marginTop: 12, color: "var(--muted)" }}>
                   <button
                     type="button"
                     className="btn"

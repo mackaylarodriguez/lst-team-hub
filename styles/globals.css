@@ -664,6 +664,93 @@ a:hover{text-decoration:underline}
   border-color:rgba(50,84,163,.18);
   box-shadow:0 18px 36px rgba(15,23,42,.10);
 }
+
+/* Trip Documents tab: compact square tiles */
+.tripDocumentsTileGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(152px, 152px));
+  gap:10px;
+  justify-content:start;
+  align-items:start;
+}
+.tripDocumentsTileGridFullRow{
+  grid-column:1 / -1;
+}
+.tripDocumentSquareTile{
+  width:152px;
+  height:152px;
+  box-sizing:border-box;
+  padding:10px;
+  display:flex;
+  flex-direction:column;
+  border:1px solid var(--border);
+  box-shadow:none;
+  border-radius:var(--r);
+  background:var(--card);
+  min-width:0;
+  overflow:hidden;
+}
+.tripDocumentSquareTileWide{
+  grid-column:1 / -1;
+  width:100%;
+  max-width:min(720px, 100%);
+  height:auto;
+  min-height:unset;
+  aspect-ratio:unset;
+  padding:18px;
+}
+.tripDocumentSquareTileScroll{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.tripDocumentSquareTileFoot{
+  flex-shrink:0;
+  margin-top:auto;
+  padding-top:6px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .tripDocumentSquareTileTitle{
+  font-weight:900;
+  font-size:13px;
+  line-height:1.2;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+}
+.tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .tripDocumentSquareTileMeta{
+  font-size:11px;
+  line-height:1.25;
+  color:var(--muted);
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+}
+.tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .badge{
+  font-size:10px;
+  padding:2px 7px;
+  align-self:flex-start;
+}
+.tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .btn{
+  font-size:12px;
+  padding:6px 10px;
+  justify-content:center;
+  width:100%;
+}
+.tripDocumentSquareTile:not(.tripDocumentSquareTileWide) .row{
+  flex-direction:column;
+  align-items:stretch;
+  gap:6px;
+}
+
 .tripPageTabs .tab{
   flex:0 0 auto;
   min-height:44px;
