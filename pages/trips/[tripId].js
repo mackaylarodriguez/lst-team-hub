@@ -926,6 +926,8 @@ export default function TripPage() {
   const [meetingDraft, setMeetingDraft] = useState({ title: "", scheduledAt: "", notesAfter: "" });
   const [editingMeetingId, setEditingMeetingId] = useState("");
   const [meetingStatus, setMeetingStatus] = useState("");
+  /** Staff/leaders: scheduling form hidden until Add meeting (or when editing an existing row). */
+  const [meetingAddFormOpen, setMeetingAddFormOpen] = useState(false);
   const [tripBudgetRow, setTripBudgetRow] = useState(null);
   const [tripHousingLinkUrl, setTripHousingLinkUrl] = useState("");
   const [tripHousingPdfUrl, setTripHousingPdfUrl] = useState("");
@@ -4029,6 +4031,7 @@ function parseDateSafe(dateStr) {
       });
       setMeetingDraft({ title: "", scheduledAt: "", notesAfter: "" });
       setEditingMeetingId("");
+      setMeetingAddFormOpen(false);
       setMeetingStatus("Saved.");
     } catch (error) {
       console.error("Unable to save meeting", error);
@@ -6625,17 +6628,34 @@ function parseDateSafe(dateStr) {
           </div>
           </CollapsibleSection>
 
-          {canViewTeamDashboard ? (
-            <CollapsibleSection defaultOpen>
+          <CollapsibleSection defaultOpen>
             <div
               className="card pad tripFullSpanCard"
               style={{ gridColumn: "1 / -1", border: "1px solid rgba(47,73,147,.12)" }}
             >
               <div className="cardSectionPill" style={{ marginBottom: 8 }}>Meetings</div>
               <div className="small" style={{ marginBottom: 12, color: "var(--muted)" }}>
-                Upcoming and past meetings. Staff and trip leaders can schedule meetings and add notes afterward.
+                {canManageTripMeetings
+                  ? "Upcoming and past meetings. Use Add meeting to schedule. After-meeting notes are only visible to staff and trip leaders."
+                  : "Upcoming and past meetings for your team (date and time only)."}
               </div>
-              {canManageTripMeetings ? (
+              {canManageTripMeetings && !meetingAddFormOpen && !editingMeetingId ? (
+                <div style={{ marginBottom: 14 }}>
+                  <button
+                    type="button"
+                    className="btn btnPrimary"
+                    onClick={() => {
+                      setMeetingAddFormOpen(true);
+                      setEditingMeetingId("");
+                      setMeetingDraft({ title: "", scheduledAt: "", notesAfter: "" });
+                      setMeetingStatus("");
+                    }}
+                  >
+                    Add meeting
+                  </button>
+                </div>
+              ) : null}
+              {canManageTripMeetings && (meetingAddFormOpen || editingMeetingId) ? (
                 <div
                   style={{
                     display: "grid",
@@ -6668,7 +6688,7 @@ function parseDateSafe(dateStr) {
                   />
                   <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                     <button type="button" className="btn btnPrimary" onClick={() => void handleSaveTripMeeting()}>
-                      {editingMeetingId ? "Update meeting" : "Add meeting"}
+                      {editingMeetingId ? "Update meeting" : "Save meeting"}
                     </button>
                     {editingMeetingId ? (
                       <button
@@ -6676,13 +6696,26 @@ function parseDateSafe(dateStr) {
                         className="btn"
                         onClick={() => {
                           setEditingMeetingId("");
+                          setMeetingAddFormOpen(false);
                           setMeetingDraft({ title: "", scheduledAt: "", notesAfter: "" });
                           setMeetingStatus("");
                         }}
                       >
                         Cancel edit
                       </button>
-                    ) : null}
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => {
+                          setMeetingAddFormOpen(false);
+                          setMeetingDraft({ title: "", scheduledAt: "", notesAfter: "" });
+                          setMeetingStatus("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    )}
                   </div>
                   {meetingStatus ? <div className="small">{meetingStatus}</div> : null}
                 </div>
@@ -6701,6 +6734,7 @@ function parseDateSafe(dateStr) {
                               type="button"
                               className="btn"
                               onClick={() => {
+                                setMeetingAddFormOpen(true);
                                 setEditingMeetingId(m.id);
                                 setMeetingDraft({
                                   title: m.title,
@@ -6743,21 +6777,24 @@ function parseDateSafe(dateStr) {
                       <li key={m.id} style={{ marginBottom: 10 }}>
                         <div style={{ fontWeight: 600 }}>{m.title || "Meeting"}</div>
                         <div className="small">{new Date(m.scheduledAt).toLocaleString()}</div>
-                        {m.notesAfter ? (
-                          <div className="small" style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>
-                            {m.notesAfter}
-                          </div>
-                        ) : (
-                          <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
-                            No notes yet.
-                          </div>
-                        )}
+                        {canManageTripMeetings ? (
+                          m.notesAfter ? (
+                            <div className="small" style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>
+                              {m.notesAfter}
+                            </div>
+                          ) : (
+                            <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                              No notes yet.
+                            </div>
+                          )
+                        ) : null}
                         {canManageTripMeetings ? (
                           <div className="row" style={{ gap: 8, marginTop: 4, flexWrap: "wrap" }}>
                             <button
                               type="button"
                               className="btn"
                               onClick={() => {
+                                setMeetingAddFormOpen(true);
                                 setEditingMeetingId(m.id);
                                 setMeetingDraft({
                                   title: m.title,
@@ -6793,8 +6830,7 @@ function parseDateSafe(dateStr) {
                 )}
               </div>
             </div>
-            </CollapsibleSection>
-          ) : null}
+          </CollapsibleSection>
 
           <div
             style={{
