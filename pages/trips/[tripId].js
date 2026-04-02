@@ -1808,6 +1808,15 @@ export default function TripPage() {
         );
       }
 
+      const linkTrim = String(linkDraft.link || "").trim();
+      // If we’re creating a brand-new link resource, we need a non-empty URL.
+      // Otherwise the resource can be saved but won’t qualify as "ready",
+      // which makes it look like it "disappeared" from the document slots.
+      if (!existing && !linkTrim) {
+        setDocsError("Add a link URL before saving.");
+        return;
+      }
+
       if (existing) {
         const updated = await updateResource({
           id: existing.id,
@@ -6206,101 +6215,6 @@ function parseDateSafe(dateStr) {
           )}
         </div>
 
-        <div
-          className="card pad"
-          style={{
-            background: "linear-gradient(180deg, rgba(234,242,255,.95), #ffffff 42%)",
-            borderColor: "rgba(47,73,147,.22)",
-            position: "relative",
-            overflow: "hidden",
-            minWidth: 0,
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              inset: "0 auto 0 0",
-              width: 6,
-              background: "linear-gradient(180deg, var(--primary), var(--primary2))",
-            }}
-          />
-          <div style={{ paddingLeft: 6 }}>
-            <div style={{ fontWeight: 900, marginBottom: 4 }}>Fundraising & resources</div>
-            <div className="small" style={{ marginBottom: 12, opacity: 0.9 }}>
-              {canViewTeamDashboard
-                ? "Team fundraising goal and trip-wide links."
-                : "Your fundraising goal, deadlines, and shortcuts to trip links."}
-            </div>
-
-            {!canViewTeamDashboard ? (
-              <>
-                <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.15 }}>
-                  {overviewFundraisingValue}
-                </div>
-                <div className="small" style={{ marginTop: 8, marginBottom: 12, lineHeight: 1.45 }}>
-                  {overviewFundraisingDetail}
-                </div>
-                {currentParticipant?.fundraisingUrl || trip?.teamFundraisingUrl ? (
-                  <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-                    {currentParticipant?.fundraisingUrl ? (
-                      <a
-                        className="btn btnPrimary"
-                        href={currentParticipant.fundraisingUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        My fundraising page
-                      </a>
-                    ) : null}
-                    {trip?.teamFundraisingUrl ? (
-                      <a
-                        className="btn"
-                        href={trip.teamFundraisingUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Team fundraising
-                      </a>
-                    ) : null}
-                  </div>
-                ) : null}
-              </>
-            ) : tripFundraisingGoal > 0 ? (
-              <div className="small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-                <strong>Team fundraising goal:</strong> {formatMoney(tripFundraisingGoal)}
-              </div>
-            ) : null}
-
-            <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 12, letterSpacing: "0.04em" }}>
-              QUICK LINKS
-            </div>
-            <div style={{ display: "grid", gap: 8 }}>
-              {quickLinks.map((link) => (
-                <div
-                  key={link.label}
-                  className="row"
-                  style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: 14, minWidth: 0 }}>{link.label}</div>
-                  {link.ready ? (
-                    <a className="btn btnPrimary" href={link.url} target="_blank" rel="noreferrer">
-                      Open
-                    </a>
-                  ) : (
-                    <button
-                      className="btn"
-                      type="button"
-                      disabled
-                      style={{ opacity: 0.6, cursor: "not-allowed" }}
-                    >
-                      Coming soon
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="tabs tripPageTabs appPolishToolbar" style={{ marginBottom: 14 }}>
