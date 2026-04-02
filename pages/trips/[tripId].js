@@ -880,6 +880,8 @@ export default function TripPage() {
   const [announcementStatus, setAnnouncementStatus] = useState("");
   const [teamFundraisingDraft, setTeamFundraisingDraft] = useState({
     teamFundraisingUrl: "",
+    fundraisingMode: "individual",
+    fundraisingGoalAmount: "",
   });
   const [teamFundraisingStatus, setTeamFundraisingStatus] = useState("");
   const [isEditingTeamFundraising, setIsEditingTeamFundraising] = useState(false);
@@ -1250,6 +1252,11 @@ export default function TripPage() {
     setFundraisingDrafts(nextDrafts);
     setTeamFundraisingDraft({
       teamFundraisingUrl: trip.teamFundraisingUrl || "",
+      fundraisingMode: trip.fundraisingMode === "team" ? "team" : "individual",
+      fundraisingGoalAmount:
+        trip.fundraisingGoalAmount != null && trip.fundraisingGoalAmount !== ""
+          ? String(trip.fundraisingGoalAmount)
+          : "",
     });
     setIsEditingTeamFundraising(false);
     setEditingParticipantFundraisingId("");
@@ -2664,7 +2671,13 @@ export default function TripPage() {
       const savedTrip = await saveTripFundraisingSettings({
         tripId: trip.id,
         teamFundraisingUrl: teamFundraisingDraft.teamFundraisingUrl,
-        fundraisingGoalAmount: trip.fundraisingGoalAmount,
+        fundraisingGoalAmount: (() => {
+          const raw = teamFundraisingDraft.fundraisingGoalAmount;
+          if (raw === "" || raw == null) return null;
+          const n = Number.parseFloat(String(raw), 10);
+          return Number.isFinite(n) ? n : null;
+        })(),
+        fundraisingMode: teamFundraisingDraft.fundraisingMode,
       });
 
       setTrip((current) =>
@@ -2673,6 +2686,10 @@ export default function TripPage() {
               ...current,
               teamFundraisingUrl: savedTrip.team_fundraising_url || "",
               fundraisingGoalAmount: Number(savedTrip.fundraising_goal_amount || 0),
+              fundraisingMode:
+                String(savedTrip.fundraising_mode || "").toLowerCase() === "team"
+                  ? "team"
+                  : "individual",
             }
           : current
       );
@@ -5615,13 +5632,16 @@ function parseDateSafe(dateStr) {
   const overviewTrainingPct = canViewTeamDashboard
     ? trainingPct
     : currentTrainingProgress?.percent || 0;
+  const isTeamFundraisingMode = trip?.fundraisingMode === "team";
   const tripFundraisingGoal = Number(trip?.fundraisingGoalAmount || 0);
   const fundraisingGoalAmount =
-    !canViewTeamDashboard &&
-    currentParticipant?.fundraisingGoalAmount != null &&
-    Number(currentParticipant.fundraisingGoalAmount) > 0
-      ? Number(currentParticipant.fundraisingGoalAmount)
-      : tripFundraisingGoal;
+    !canViewTeamDashboard && isTeamFundraisingMode
+      ? tripFundraisingGoal
+      : !canViewTeamDashboard &&
+        currentParticipant?.fundraisingGoalAmount != null &&
+        Number(currentParticipant.fundraisingGoalAmount) > 0
+        ? Number(currentParticipant.fundraisingGoalAmount)
+        : tripFundraisingGoal;
   const fundraisingWorkerCount = Math.max(
     (trip?.participants || []).filter((participant) =>
       String(participant?.role || "").toLowerCase() === "worker"
@@ -5630,9 +5650,11 @@ function parseDateSafe(dateStr) {
   );
   const useIndividualGoal =
     !canViewTeamDashboard &&
+    !isTeamFundraisingMode &&
     currentParticipant?.fundraisingGoalAmount != null &&
     Number(currentParticipant.fundraisingGoalAmount) > 0;
-  const countForDeadlines = useIndividualGoal ? 1 : fundraisingWorkerCount;
+  const countForDeadlines =
+    useIndividualGoal || isTeamFundraisingMode ? 1 : fundraisingWorkerCount;
   const fundraisingFirstDeadlineAmount = Math.min(
     2000 * countForDeadlines,
     fundraisingGoalAmount || 2000 * countForDeadlines
@@ -5669,14 +5691,15 @@ function parseDateSafe(dateStr) {
           label: "30-day deadline",
         }
       : null;
-  const overviewFundraisingLabel = trip?.teamFundraisingUrl
-    ? "Team Fundraising"
-    : canViewTeamDashboard
-      ? "Fundraising Links"
-      : "My Fundraising";
+  const overviewFundraisingLabel =
+    isTeamFundraisingMode || trip?.teamFundraisingUrl
+      ? "Team Fundraising"
+      : canViewTeamDashboard
+        ? "Fundraising Links"
+        : "My Fundraising";
   const overviewFundraisingValue = fundraisingGoalAmount
     ? formatMoney(fundraisingGoalAmount)
-    : trip?.teamFundraisingUrl
+    : isTeamFundraisingMode || trip?.teamFundraisingUrl
       ? "Page Ready"
       : canViewTeamDashboard
         ? `${savedFundraisingLinksCount} Links`
@@ -5687,8 +5710,10 @@ function parseDateSafe(dateStr) {
     ? `${nextFundraisingDeadline.label}: ${formatMoney(
         nextFundraisingDeadline.amount
       )} by ${formatDeadlineDate(nextFundraisingDeadline.date)}.`
-    : trip?.teamFundraisingUrl
-      ? "Shared Neon page is ready for the full team."
+    : isTeamFundraisingMode || trip?.teamFundraisingUrl
+      ? trip?.teamFundraisingUrl
+        ? "Shared Neon page is ready for the full team."
+        : "Team mode — add the shared Neon link on the Fundraising tab."
       : canViewTeamDashboard
         ? `${savedFundraisingLinksCount} worker links saved.`
         : currentParticipant?.fundraisingUrl
@@ -5938,6 +5963,7 @@ function parseDateSafe(dateStr) {
     flightsOpenUrl,
     smartsheetBudgetOpenUrl,
     trainingAccessUrl,
+    trip?.fundraisingMode,
     trip?.teamFundraisingUrl,
   ]);
   const visibleTaskParticipants = canViewTeamDashboard
@@ -7541,6 +7567,7 @@ function parseDateSafe(dateStr) {
               tripId={trip.id}
               session={session}
               participants={trip.participants || []}
+              teamMembers={trip.teamMembers || []}
               canEdit={staffViewAllParticipants && !isPreviewingParticipant}
               isPreviewingParticipant={isPreviewingParticipant}
             />
@@ -7667,10 +7694,14 @@ function parseDateSafe(dateStr) {
               {canViewTeamDashboard ? "Fundraising pages" : "My fundraising"}
             </div>
             <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
-              Team Neon link and per-participant pages.
+              {canViewTeamDashboard
+                ? "Choose individual Neon pages or one team/family campaign, then manage links."
+                : isTeamFundraisingMode
+                  ? "Shared fundraising for your family or team."
+                  : "Your Neon fundraising page and team updates."}
             </div>
 
-            {!canViewTeamDashboard && trip?.teamFundraisingUrl ? (
+            {!canViewTeamDashboard && (isTeamFundraisingMode || trip?.teamFundraisingUrl) ? (
               <div
                 className="card pad"
                 style={{
@@ -7683,21 +7714,34 @@ function parseDateSafe(dateStr) {
                   gap: 12,
                 }}
               >
-                <div className="cardSectionPill" style={{ marginBottom: 4 }}>Team Page</div>
-                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>Shared Team Fundraising Page</div>
-                <a
-                  className="btn btnPrimary"
-                  href={trip.teamFundraisingUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ padding: "10px 16px", fontSize: 14, alignSelf: "flex-start" }}
-                >
-                  Open Team Neon Page
-                </a>
+                <div className="cardSectionPill" style={{ marginBottom: 4 }}>
+                  {isTeamFundraisingMode ? "Family / team fundraising" : "Team Page"}
+                </div>
+                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>
+                  {isTeamFundraisingMode
+                    ? "Shared fundraising page for your family or team"
+                    : "Shared Team Fundraising Page"}
+                </div>
+                {trip.teamFundraisingUrl ? (
+                  <a
+                    className="btn btnPrimary"
+                    href={trip.teamFundraisingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ padding: "10px 16px", fontSize: 14, alignSelf: "flex-start" }}
+                  >
+                    Open shared Neon page
+                  </a>
+                ) : (
+                  <div className="small" style={{ color: "var(--muted)" }}>
+                    Your leader hasn&apos;t added the shared Neon link yet. Check back soon or ask your team
+                    contact.
+                  </div>
+                )}
               </div>
             ) : null}
 
-            {canViewTeamDashboard && trip?.teamFundraisingUrl && (
+            {canViewTeamDashboard && (
               <div
                 className="card pad"
                 style={{
@@ -7710,17 +7754,34 @@ function parseDateSafe(dateStr) {
                   gap: 12,
                 }}
               >
-                <div className="cardSectionPill" style={{ marginBottom: 4 }}>Team Page</div>
-                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>Shared Team Fundraising Page</div>
+                <div className="cardSectionPill" style={{ marginBottom: 4 }}>Fundraising setup</div>
+                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>
+                  Individual vs family / team fundraising
+                </div>
+                <div className="small" style={{ opacity: 0.9, lineHeight: 1.45 }}>
+                  Most teams use individual Neon pages. Choose team/family when everyone shares one campaign and one
+                  trip goal.
+                </div>
                 {!isEditingTeamFundraising ? (
                   <div style={{ display: "grid", gap: 10 }}>
+                    <div className="small">
+                      <strong>Current:</strong>{" "}
+                      {trip.fundraisingMode === "team"
+                        ? "Team / family — one shared Neon link and trip fundraising goal."
+                        : "Individual — each worker has their own Neon page (default)."}
+                    </div>
+                    <div className="small">
+                      <strong>Trip goal:</strong> {formatMoney(Number(trip.fundraisingGoalAmount || 0))}
+                    </div>
                     {trip.teamFundraisingUrl ? (
                       <a className="btn" href={trip.teamFundraisingUrl} target="_blank" rel="noreferrer">
-                        Open Team Neon Page
+                        Open shared Neon page
                       </a>
-                    ) : (
-                      <div className="small">No shared team Neon link added yet.</div>
-                    )}
+                    ) : trip.fundraisingMode === "team" ? (
+                      <div className="small" style={{ color: "var(--danger)" }}>
+                        Team mode is on — add a shared Neon link in Edit setup.
+                      </div>
+                    ) : null}
                     <div className="row">
                       <button
                         className="btn"
@@ -7728,9 +7789,17 @@ function parseDateSafe(dateStr) {
                         onClick={() => {
                           setIsEditingTeamFundraising(true);
                           setTeamFundraisingStatus("");
+                          setTeamFundraisingDraft({
+                            teamFundraisingUrl: trip.teamFundraisingUrl || "",
+                            fundraisingMode: trip.fundraisingMode === "team" ? "team" : "individual",
+                            fundraisingGoalAmount:
+                              trip.fundraisingGoalAmount != null && trip.fundraisingGoalAmount !== ""
+                                ? String(trip.fundraisingGoalAmount)
+                                : "",
+                          });
                         }}
                       >
-                        {trip.teamFundraisingUrl ? "Edit Link" : "Add Link"}
+                        Edit setup
                       </button>
                       {teamFundraisingStatus ? (
                         <div className="small" style={{ alignSelf: "center" }}>
@@ -7740,21 +7809,77 @@ function parseDateSafe(dateStr) {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: "grid", gap: 10 }}>
-                    <input
-                      className="input"
-                      value={teamFundraisingDraft.teamFundraisingUrl}
-                      onChange={(event) =>
-                        setTeamFundraisingDraft((current) => ({
-                          ...current,
-                          teamFundraisingUrl: event.target.value,
-                        }))
-                      }
-                      placeholder="Shared team Neon link"
-                    />
+                  <div style={{ display: "grid", gap: 12 }}>
+                    <div>
+                      <div className="small" style={{ marginBottom: 8, fontWeight: 700 }}>
+                        How is this trip fundraising?
+                      </div>
+                      <label style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                        <input
+                          type="radio"
+                          name="fundraisingMode"
+                          checked={teamFundraisingDraft.fundraisingMode !== "team"}
+                          onChange={() =>
+                            setTeamFundraisingDraft((c) => ({ ...c, fundraisingMode: "individual" }))
+                          }
+                        />
+                        <span className="small">
+                          Individual — each worker has their own Neon link (most common)
+                        </span>
+                      </label>
+                      <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                        <input
+                          type="radio"
+                          name="fundraisingMode"
+                          checked={teamFundraisingDraft.fundraisingMode === "team"}
+                          onChange={() =>
+                            setTeamFundraisingDraft((c) => ({ ...c, fundraisingMode: "team" }))
+                          }
+                        />
+                        <span className="small">
+                          Team / family — one shared Neon link and one trip goal for everyone (e.g. one family
+                          campaign)
+                        </span>
+                      </label>
+                    </div>
+                    <div>
+                      <div className="small" style={{ marginBottom: 6 }}>
+                        {teamFundraisingDraft.fundraisingMode === "team"
+                          ? "Shared Neon link (required for team mode)"
+                          : "Optional shared Neon link"}
+                      </div>
+                      <input
+                        className="input"
+                        value={teamFundraisingDraft.teamFundraisingUrl}
+                        onChange={(event) =>
+                          setTeamFundraisingDraft((current) => ({
+                            ...current,
+                            teamFundraisingUrl: event.target.value,
+                          }))
+                        }
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <div>
+                      <div className="small" style={{ marginBottom: 6 }}>Trip fundraising goal (dollars)</div>
+                      <input
+                        className="input"
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={teamFundraisingDraft.fundraisingGoalAmount}
+                        onChange={(event) =>
+                          setTeamFundraisingDraft((current) => ({
+                            ...current,
+                            fundraisingGoalAmount: event.target.value,
+                          }))
+                        }
+                        placeholder="e.g. 5000"
+                      />
+                    </div>
                     <div className="row">
                       <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
-                        Save Link
+                        Save setup
                       </button>
                       <button
                         className="btn"
@@ -7764,6 +7889,11 @@ function parseDateSafe(dateStr) {
                           setTeamFundraisingStatus("");
                           setTeamFundraisingDraft({
                             teamFundraisingUrl: trip.teamFundraisingUrl || "",
+                            fundraisingMode: trip.fundraisingMode === "team" ? "team" : "individual",
+                            fundraisingGoalAmount:
+                              trip.fundraisingGoalAmount != null && trip.fundraisingGoalAmount !== ""
+                                ? String(trip.fundraisingGoalAmount)
+                                : "",
                           });
                         }}
                       >
@@ -7780,7 +7910,18 @@ function parseDateSafe(dateStr) {
               </div>
             )}
 
-            {visibleFundraisingParticipants.length === 0 ? (
+            {canViewTeamDashboard && isTeamFundraisingMode ? (
+              <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
+                Team/family mode: workers only see the shared Neon link above. Per-person links below are optional
+                (e.g. exceptions).
+              </div>
+            ) : null}
+            {!canViewTeamDashboard && isTeamFundraisingMode ? (
+              <div className="small" style={{ marginTop: 4 }}>
+                This trip uses one shared fundraising page for the whole family or team — personal Neon tiles are
+                hidden. Use the shared link above.
+              </div>
+            ) : visibleFundraisingParticipants.length === 0 ? (
               <div className="small">No fundraising record found for this login.</div>
             ) : (
               <div

@@ -8,6 +8,10 @@ import {
 } from "@/lib/tripTravelSafety";
 import { showToast } from "@/components/Toast";
 
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function daysBetween(isoDate) {
   if (!isoDate) return null;
   const d = new Date(`${String(isoDate).slice(0, 10)}T12:00:00`);
@@ -58,6 +62,8 @@ export default function TripTravelSafetySection({
   tripId,
   session,
   participants = [],
+  /** Roster rows; used so assigned workers still see Acknowledge if they are on the roster but missing from trip.participants. */
+  teamMembers = [],
   canEdit = false,
   isPreviewingParticipant = false,
 }) {
@@ -111,6 +117,15 @@ export default function TripTravelSafetySection({
     () => participants.some((p) => String(p.id) === String(currentUserId)),
     [participants, currentUserId]
   );
+
+  const isOnTripRosterByEmail = useMemo(() => {
+    const em = normalizeEmail(session?.email);
+    if (!em) return false;
+    return (teamMembers || []).some((m) => normalizeEmail(m.email) === em);
+  }, [teamMembers, session?.email]);
+
+  /** Assigned participant or anyone on this trip's roster (covers workers not yet in trip_assignments). */
+  const canAcknowledgeAsTripMember = isParticipant || isOnTripRosterByEmail;
 
   const myAck = useMemo(
     () => acks.find((a) => String(a.userId) === String(currentUserId)),
@@ -171,10 +186,10 @@ export default function TripTravelSafetySection({
   }
 
   const showAckButton =
-    !isPreviewingParticipant && isParticipant && !hasAcknowledgedCurrent && !canEdit;
+    !isPreviewingParticipant && canAcknowledgeAsTripMember && !hasAcknowledgedCurrent && !canEdit;
 
   const showAckButtonStaffParticipant =
-    !isPreviewingParticipant && isParticipant && !hasAcknowledgedCurrent && canEdit;
+    !isPreviewingParticipant && canAcknowledgeAsTripMember && !hasAcknowledgedCurrent && canEdit;
 
   const subsection = (key, title, lastVerifiedKey, bodyKey) => {
     const lastVerified = draft[lastVerifiedKey];
@@ -361,7 +376,7 @@ export default function TripTravelSafetySection({
                 </div>
               ) : null}
 
-              {canEdit && isParticipant && hasAcknowledgedCurrent ? (
+              {canEdit && canAcknowledgeAsTripMember && hasAcknowledgedCurrent ? (
                 <div
                   className="small"
                   style={{
