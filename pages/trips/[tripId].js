@@ -9801,7 +9801,7 @@ function parseDateSafe(dateStr) {
                   </div>
                 ) : null}
 
-                <table className="table dataTableStriped staffTasksTripTable">
+                <table className="table dataTableStriped">
                   <thead>
                     <tr>
                       <th style={{ width: "39%" }}>Task</th>
