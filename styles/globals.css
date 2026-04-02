@@ -1326,8 +1326,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .tripOverviewHighlights{
   display:grid;
-  grid-template-columns:minmax(0, 1.1fr) minmax(0, 1.4fr);
+  grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
   gap:16px;
+  align-items:start;
 }
 .tripOverviewStatsGrid{
   display:grid;
@@ -1886,12 +1887,6 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
   gap:18px;
-  align-items:start;
-}
-.tripOverviewHighlights{
-  display:grid;
-  grid-template-columns:minmax(260px, 320px) minmax(0, 1fr);
-  gap:14px;
   align-items:start;
 }
 .tripSetupColumnsSingle{

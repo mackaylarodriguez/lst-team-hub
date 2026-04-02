@@ -21,6 +21,7 @@ import {
   listTripTeamMembers,
   saveTripTeamMemberFundraisingUrl,
   saveTripTeamMembers,
+  updateTripTeamMemberTshirtSize,
 } from "@/lib/tripTeamMembers";
 import { pruneTripTicketsForNonTravelingLeaders } from "@/lib/tripTickets";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
@@ -769,6 +770,7 @@ export default function TripPage() {
   const [isEditingRoster, setIsEditingRoster] = useState(false);
   const [rosterDraft, setRosterDraft] = useState([]);
   const [rosterStatus, setRosterStatus] = useState("");
+  const [inlineTshirtSavingKey, setInlineTshirtSavingKey] = useState("");
   const [isAddingWorker, setIsAddingWorker] = useState(false);
   const [newWorkerDraft, setNewWorkerDraft] = useState(() => createEmptyWorkerDraft());
   const [workerAddStatus, setWorkerAddStatus] = useState("");
@@ -2667,6 +2669,7 @@ export default function TripPage() {
       );
       setTaskDraft({ title: "", dueDate: "", category: "", description: "" });
       setTaskStatusMessage("");
+      setIsAddingTask(false);
     } catch (error) {
       console.error("Unable to create trip task", error);
       setTaskStatusMessage(error.message || "Unable to create task.");
@@ -4008,6 +4011,51 @@ function parseDateSafe(dateStr) {
       return false;
     } finally {
       setInvitingWorkerEmail("");
+    }
+  }
+
+  function canEditRosterTshirtInline(member) {
+    if (!member?.id) return false;
+    if (staffViewAllParticipants) return true;
+    if (canViewTeamDashboard && effectiveIsLeader) return true;
+    const rowEmail = normalizeEmail(member.email);
+    const sessionEmail = normalizeEmail(session?.email || "");
+    return Boolean(rowEmail && sessionEmail && rowEmail === sessionEmail);
+  }
+
+  async function handleInlineRosterTshirtChange(member, nextSize) {
+    if (!trip?.id || !member?.id || !canEditRosterTshirtInline(member)) return;
+
+    setInlineTshirtSavingKey(member.key);
+    setRosterStatus("");
+    try {
+      const updated = await updateTripTeamMemberTshirtSize({
+        tripId: trip.id,
+        memberId: member.id,
+        tshirtSize: nextSize,
+      });
+      setTrip((current) => {
+        if (!current) return current;
+        const nextTeam = (current.teamMembers || []).map((m) =>
+          String(m.id) === String(member.id) ? { ...m, tshirtSize: updated.tshirtSize } : m
+        );
+        return { ...current, teamMembers: nextTeam };
+      });
+      if (isEditingRoster) {
+        setRosterDraft((draft) =>
+          draft.map((row) =>
+            String(row.id) === String(member.id) ? { ...row, tshirtSize: updated.tshirtSize } : row
+          )
+        );
+      }
+      showToast("T-shirt size saved.");
+    } catch (error) {
+      console.error("Unable to save T-shirt size", error);
+      const msg = error?.message || "Could not save T-shirt size.";
+      setRosterStatus(msg);
+      showToast(msg, "error");
+    } finally {
+      setInlineTshirtSavingKey("");
     }
   }
 
@@ -5495,6 +5543,13 @@ function parseDateSafe(dateStr) {
       ready: !!smartsheetBudgetOpenUrl,
     });
 
+    const flightsOpenUrl = preferredTripResourceOpenUrl(flightsDoc);
+    links.push({
+      label: "Flights",
+      url: flightsOpenUrl,
+      ready: !!flightsOpenUrl,
+    });
+
     links.push({
       label: "Site Logistics",
       url: preferredTripResourceOpenUrl(effectiveSiteInfoDoc),
@@ -5515,6 +5570,7 @@ function parseDateSafe(dateStr) {
     effectiveHousingLinkDoc?.pdfUrl,
     effectiveSiteInfoDoc?.link,
     effectiveSiteInfoDoc?.pdfUrl,
+    flightsDoc,
     smartsheetBudgetOpenUrl,
     trainingAccessUrl,
     trip?.teamFundraisingUrl,
@@ -6046,7 +6102,7 @@ function parseDateSafe(dateStr) {
             borderColor: "rgba(47,73,147,.22)",
             position: "relative",
             overflow: "hidden",
-            gridColumn: "1 / -1",
+            minWidth: 0,
           }}
         >
           <div
@@ -6136,6 +6192,102 @@ function parseDateSafe(dateStr) {
               Updates from staff about this trip will appear here.
             </div>
           )}
+        </div>
+
+        <div
+          className="card pad"
+          style={{
+            background: "linear-gradient(180deg, rgba(234,242,255,.95), #ffffff 42%)",
+            borderColor: "rgba(47,73,147,.22)",
+            position: "relative",
+            overflow: "hidden",
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: "0 auto 0 0",
+              width: 6,
+              background: "linear-gradient(180deg, var(--primary), var(--primary2))",
+            }}
+          />
+          <div style={{ paddingLeft: 6 }}>
+            <div style={{ fontWeight: 900, marginBottom: 4 }}>Fundraising & resources</div>
+            <div className="small" style={{ marginBottom: 12, opacity: 0.9 }}>
+              {canViewTeamDashboard
+                ? "Team fundraising goal and trip-wide links."
+                : "Your fundraising goal, deadlines, and shortcuts to trip links."}
+            </div>
+
+            {!canViewTeamDashboard ? (
+              <>
+                <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.15 }}>
+                  {overviewFundraisingValue}
+                </div>
+                <div className="small" style={{ marginTop: 8, marginBottom: 12, lineHeight: 1.45 }}>
+                  {overviewFundraisingDetail}
+                </div>
+                {currentParticipant?.fundraisingUrl || trip?.teamFundraisingUrl ? (
+                  <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+                    {currentParticipant?.fundraisingUrl ? (
+                      <a
+                        className="btn btnPrimary"
+                        href={currentParticipant.fundraisingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        My fundraising page
+                      </a>
+                    ) : null}
+                    {trip?.teamFundraisingUrl ? (
+                      <a
+                        className="btn"
+                        href={trip.teamFundraisingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Team fundraising
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
+            ) : tripFundraisingGoal > 0 ? (
+              <div className="small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
+                <strong>Team fundraising goal:</strong> {formatMoney(tripFundraisingGoal)}
+              </div>
+            ) : null}
+
+            <div style={{ fontWeight: 800, marginBottom: 8, fontSize: 12, letterSpacing: "0.04em" }}>
+              QUICK LINKS
+            </div>
+            <div style={{ display: "grid", gap: 8 }}>
+              {quickLinks.map((link) => (
+                <div
+                  key={link.label}
+                  className="row"
+                  style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}
+                >
+                  <div style={{ fontWeight: 700, fontSize: 14, minWidth: 0 }}>{link.label}</div>
+                  {link.ready ? (
+                    <a className="btn btnPrimary" href={link.url} target="_blank" rel="noreferrer">
+                      Open
+                    </a>
+                  ) : (
+                    <button
+                      className="btn"
+                      type="button"
+                      disabled
+                      style={{ opacity: 0.6, cursor: "not-allowed" }}
+                    >
+                      Coming soon
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -6598,40 +6750,6 @@ function parseDateSafe(dateStr) {
             </div>
             </CollapsibleSection>
 
-            <CollapsibleSection defaultOpen>
-            <div className="card pad">
-              <div className="cardSectionPill">Quick links</div>
-              <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-                Hand-picked resources for this trip.
-              </div>
-              <div style={{ display: "grid", gap: 10 }}>
-                {quickLinks.map((link) => (
-                  <div
-                    key={link.label}
-                    className="row"
-                    style={{ justifyContent: "space-between", alignItems: "center" }}
-                  >
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{link.label}</div>
-                    {link.ready ? (
-                      <a className="btn btnPrimary" href={link.url} target="_blank" rel="noreferrer">
-                        Open
-                      </a>
-                    ) : (
-                      <button
-                        className="btn"
-                        type="button"
-                        disabled
-                        style={{ opacity: 0.6, cursor: "not-allowed" }}
-                      >
-                        Coming soon
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            </CollapsibleSection>
-
             {canViewTeamDashboard ? (
               <CollapsibleSection defaultOpen style={{ gridColumn: "1 / -1" }}>
               <div className="card pad">
@@ -6886,7 +7004,27 @@ function parseDateSafe(dateStr) {
                           )}
                         </td>
                         <td>{member.teamRole || member.role || "Worker"}</td>
-                        <td className="small">{member.tshirtSize?.trim() || "—"}</td>
+                        <td style={{ minWidth: 108, maxWidth: 140, verticalAlign: "middle" }}>
+                          {canEditRosterTshirtInline(member) ? (
+                            <RosterTshirtSizeSelect
+                              aria-label={`T-shirt size for ${member.name || member.email || "member"}`}
+                              className="input"
+                              disabled={inlineTshirtSavingKey === member.key}
+                              value={member.tshirtSize || ""}
+                              onChange={(event) =>
+                                void handleInlineRosterTshirtChange(member, event.target.value)
+                              }
+                              style={{
+                                minHeight: 38,
+                                padding: "6px 8px",
+                                fontSize: 13,
+                                borderRadius: 10,
+                              }}
+                            />
+                          ) : (
+                            <span className="small">{member.tshirtSize?.trim() || "—"}</span>
+                          )}
+                        </td>
                         <td>
                           <span className={`badge ${connectionStatus.accountBadgeClass}`.trim()}>
                             {connectionStatus.accountLabel}
@@ -7726,75 +7864,6 @@ function parseDateSafe(dateStr) {
 
       {tab === "Tasks" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {canManageTrips && staffViewAllParticipants && (
-            <CollapsibleSection defaultOpen>
-            <div className="card pad tripSectionCard">
-              <div className="cardSectionPill" style={{ marginBottom: 10 }}>Manage worker tasks</div>
-              <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-                Add or edit tasks for this trip.
-              </div>
-              <div className="row">
-                <div className="spacer" />
-                <button
-                  className="btn btnPrimary"
-                  type="button"
-                  onClick={() => setIsAddingTask((current) => !current)}
-                >
-                  {isAddingTask ? "Close" : "Add Task"}
-                </button>
-              </div>
-
-              {isAddingTask && (
-                <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-                  <input
-                    className="input"
-                    value={taskDraft.title}
-                    onChange={(event) =>
-                      setTaskDraft((current) => ({ ...current, title: event.target.value }))
-                    }
-                    placeholder="Task title"
-                  />
-                  <input
-                    className="input"
-                    type="date"
-                    value={taskDraft.dueDate}
-                    onChange={(event) =>
-                      setTaskDraft((current) => ({ ...current, dueDate: event.target.value }))
-                    }
-                  />
-                  <input
-                    className="input"
-                    value={taskDraft.category}
-                    onChange={(event) =>
-                      setTaskDraft((current) => ({ ...current, category: event.target.value }))
-                    }
-                    placeholder="Category"
-                  />
-                  <textarea
-                    className="input"
-                    value={taskDraft.description}
-                    onChange={(event) =>
-                      setTaskDraft((current) => ({ ...current, description: event.target.value }))
-                    }
-                    placeholder="Description"
-                    rows={3}
-                  />
-                  {taskStatusMessage && (
-                    <div className="small" style={{ color: "var(--danger)" }}>
-                      {taskStatusMessage}
-                    </div>
-                  )}
-                  <div className="row">
-                    <button className="btn btnPrimary" type="button" onClick={handleCreateTask}>
-                      Save Task
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-            </CollapsibleSection>
-          )}
-
             <CollapsibleSection defaultOpen>
             <div className="card pad tripSectionCard">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Task progress</div>
@@ -7851,10 +7920,98 @@ function parseDateSafe(dateStr) {
           </CollapsibleSection>
 
           <CollapsibleSection defaultOpen>
-          <div className="cardSectionPill" style={{ marginBottom: 8 }}>Checklists</div>
-          <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
-            Worker tasks by section.
+          <div
+            className="row"
+            style={{
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ minWidth: 0, flex: "1 1 220px" }}>
+              <div className="cardSectionPill" style={{ marginBottom: 8 }}>Checklists</div>
+              <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
+                Worker tasks by section.
+              </div>
+            </div>
+            {canManageTrips && staffViewAllParticipants ? (
+              <button
+                type="button"
+                className="btn btnPrimary"
+                style={{ flexShrink: 0, alignSelf: "flex-start" }}
+                onClick={() => {
+                  setIsAddingTask((current) => {
+                    if (current) setTaskStatusMessage("");
+                    return !current;
+                  });
+                }}
+              >
+                {isAddingTask ? "Cancel" : "Add task"}
+              </button>
+            ) : null}
           </div>
+
+          {isAddingTask && canManageTrips && staffViewAllParticipants ? (
+            <div
+              style={{
+                display: "grid",
+                gap: 10,
+                marginBottom: 16,
+                marginTop: -4,
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "1px solid var(--border)",
+                background: "rgba(255,255,255,.92)",
+              }}
+            >
+              <input
+                className="input"
+                value={taskDraft.title}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({ ...current, title: event.target.value }))
+                }
+                placeholder="Task title"
+              />
+              <input
+                className="input"
+                type="date"
+                value={taskDraft.dueDate}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({ ...current, dueDate: event.target.value }))
+                }
+              />
+              <input
+                className="input"
+                value={taskDraft.category}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({ ...current, category: event.target.value }))
+                }
+                placeholder="Category"
+              />
+              <textarea
+                className="input"
+                value={taskDraft.description}
+                onChange={(event) =>
+                  setTaskDraft((current) => ({ ...current, description: event.target.value }))
+                }
+                placeholder="Description"
+                rows={3}
+              />
+              {taskStatusMessage ? (
+                <div className="small" style={{ color: "var(--danger)" }}>
+                  {taskStatusMessage}
+                </div>
+              ) : null}
+              <div className="row">
+                <button className="btn btnPrimary" type="button" onClick={handleCreateTask}>
+                  Save task
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div
             className="tripTaskParticipantGrid"
             style={{

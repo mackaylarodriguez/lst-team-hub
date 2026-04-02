@@ -10,6 +10,8 @@ export default function RosterTshirtSizeSelect({
   className = "input",
   id,
   "aria-label": ariaLabel,
+  disabled = false,
+  style,
 }) {
   const v = normalizeTshirtSizeForSelect(value);
   const legacy = v !== "" && !TSHIRT_SIZE_OPTION_SET.has(v);
@@ -19,6 +21,8 @@ export default function RosterTshirtSizeSelect({
       className={className}
       id={id}
       aria-label={ariaLabel}
+      disabled={disabled}
+      style={style}
       value={v}
       onChange={onChange}
     >
