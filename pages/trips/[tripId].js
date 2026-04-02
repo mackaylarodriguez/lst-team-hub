@@ -2025,7 +2025,8 @@ export default function TripPage() {
       tripId: trip.id,
       workArea: [DISMISS_SLOT_WORKAREA_MARKER, trip?.name || ""].filter(Boolean).join("\n"),
       visibleToParticipants: false,
-      allowVisibilityFallback: false,
+      // Omit column on DBs without trip_resources_add_visibility.sql; dismiss is still detected via workArea marker.
+      allowVisibilityFallback: true,
     });
     setDocs((current) => {
       const filtered = (current || []).filter((e) => !idsToDelete.includes(e.id));
