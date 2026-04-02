@@ -16,6 +16,7 @@ import {
 } from "@/lib/tripBudget";
 import {
   SITE_OPTIONS,
+  isLegacyCombinedVicenzaPadovaSiteName,
   isValidSiteOptionLabelFormat,
   normalizeSiteOptionLabel,
 } from "@/lib/siteOptions";
@@ -37,8 +38,10 @@ const WB_TABLE = {
   site: 172,
   workbookQty: 86,
   totalBooks: 92,
-  /** Date + Edit counts / Save (actions merged here so there is no extra trailing column). */
-  workbooksUpdated: 300,
+  /** Medium-style date only; keep narrow (table-layout: fixed). */
+  lastEdited: 108,
+  /** Edit counts / Save / Cancel */
+  workbookActions: 200,
 };
 
 function formatWorkbookInventoryUpdatedAt(iso) {
@@ -91,6 +94,7 @@ export default function SitesPage() {
     for (const note of siteNotes) {
       const sn = String(note?.siteName || "").trim();
       if (!sn || matchedNoteIds.has(note.id)) continue;
+      if (isLegacyCombinedVicenzaPadovaSiteName(sn)) continue;
       const k = sn.toLowerCase();
       if (seenExtraLower.has(k)) continue;
       seenExtraLower.add(k);
@@ -188,9 +192,9 @@ export default function SitesPage() {
   }, [siteNotes, siteLabelsOrdered]);
 
   const workbookTableWidthPx = useMemo(() => {
-    const { site, workbookQty, totalBooks, workbooksUpdated } = WB_TABLE;
+    const { site, workbookQty, totalBooks, lastEdited, workbookActions } = WB_TABLE;
     const n = workbookCountsMatrix.columns.length;
-    return site + n * workbookQty + totalBooks + workbooksUpdated;
+    return site + n * workbookQty + totalBooks + lastEdited + workbookActions;
   }, [workbookCountsMatrix.columns.length]);
 
   async function saveSiteLogisticsUrl(siteOption) {
@@ -451,7 +455,8 @@ export default function SitesPage() {
                 <col key={col.key} style={{ width: WB_TABLE.workbookQty }} />
               ))}
               <col style={{ width: WB_TABLE.totalBooks }} />
-              <col style={{ width: WB_TABLE.workbooksUpdated }} />
+              <col style={{ width: WB_TABLE.lastEdited }} />
+              <col style={{ width: WB_TABLE.workbookActions }} />
             </colgroup>
             <thead>
               <tr>
@@ -476,10 +481,29 @@ export default function SitesPage() {
                 ))}
                 <th style={{ whiteSpace: "nowrap", textAlign: "center" }}>Total books</th>
                 <th
-                  style={{ whiteSpace: "nowrap", fontSize: 11, fontWeight: 800, color: "var(--muted)", textAlign: "center" }}
-                  title="Last save date and row actions"
+                  className="sitesWorkbookLastEditedHead"
+                  style={{
+                    whiteSpace: "nowrap",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: "var(--muted)",
+                    textAlign: "center",
+                  }}
+                  title="When workbook inventory was last saved"
                 >
-                  Inventory updated
+                  Last edited
+                </th>
+                <th
+                  className="sitesWorkbookActionsHead"
+                  style={{
+                    whiteSpace: "nowrap",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: "var(--muted)",
+                    textAlign: "center",
+                  }}
+                >
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -543,69 +567,55 @@ export default function SitesPage() {
                   <td className="sitesWorkbookQtyCell" style={{ fontWeight: 800 }}>
                     {row.totalCopies > 0 ? row.totalCopies : "—"}
                   </td>
-                  <td
-                    className="sitesWorkbookQtyCell"
-                    style={{
-                      verticalAlign: "middle",
-                      textAlign: "center",
-                    }}
-                  >
-                    <div
+                  <td className="sitesWorkbookQtyCell sitesWorkbookLastEditedCell" style={{ verticalAlign: "middle" }}>
+                    <span
                       style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "4px 0",
+                        fontSize: 11,
+                        color: "var(--muted)",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: "var(--muted)",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {formatWorkbookInventoryUpdatedAt(row.workbookNotesUpdatedAt)}
-                      </span>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-                        {isEditingWorkbooks ? (
-                          <>
-                            <button
-                              type="button"
-                              className="btn btnPrimary"
-                              style={{ fontSize: 12, padding: "6px 14px", borderRadius: 10 }}
-                              disabled={savingWorkbookFor === row.siteLabel}
-                              onClick={() => void saveSiteWorkbookCounts(row.siteLabel, cols)}
-                            >
-                              {savingWorkbookFor === row.siteLabel ? "Saving…" : "Save"}
-                            </button>
-                            <button
-                              type="button"
-                              className="sitesBtnGhost"
-                              disabled={savingWorkbookFor === row.siteLabel}
-                              onClick={() => {
-                                setEditingWorkbookSite("");
-                                setWorkbookQtyDraft({});
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
+                      {formatWorkbookInventoryUpdatedAt(row.workbookNotesUpdatedAt)}
+                    </span>
+                  </td>
+                  <td className="sitesWorkbookQtyCell sitesWorkbookActionsCell" style={{ verticalAlign: "middle" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                      {isEditingWorkbooks ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btnPrimary"
+                            style={{ fontSize: 12, padding: "6px 14px", borderRadius: 10 }}
+                            disabled={savingWorkbookFor === row.siteLabel}
+                            onClick={() => void saveSiteWorkbookCounts(row.siteLabel, cols)}
+                          >
+                            {savingWorkbookFor === row.siteLabel ? "Saving…" : "Save"}
+                          </button>
                           <button
                             type="button"
                             className="sitesBtnGhost"
-                            disabled={
-                              !!savingWorkbookFor ||
-                              (!!editingWorkbookSite && editingWorkbookSite !== row.siteLabel)
-                            }
-                            onClick={() => openWorkbookEdit(row.siteLabel, row, cols)}
+                            disabled={savingWorkbookFor === row.siteLabel}
+                            onClick={() => {
+                              setEditingWorkbookSite("");
+                              setWorkbookQtyDraft({});
+                            }}
                           >
-                            Edit counts
+                            Cancel
                           </button>
-                        )}
-                      </div>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="sitesBtnGhost"
+                          disabled={
+                            !!savingWorkbookFor ||
+                            (!!editingWorkbookSite && editingWorkbookSite !== row.siteLabel)
+                          }
+                          onClick={() => openWorkbookEdit(row.siteLabel, row, cols)}
+                        >
+                          Edit counts
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

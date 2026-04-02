@@ -928,6 +928,16 @@ table.sitesWorkbookTable tbody td.sitesWorkbookQtyCell{
   text-align:center;
   vertical-align:middle;
 }
+table.sitesWorkbookTable thead th.sitesWorkbookLastEditedHead,
+table.sitesWorkbookTable tbody td.sitesWorkbookLastEditedCell{
+  padding-left:6px;
+  padding-right:6px;
+}
+table.sitesWorkbookTable thead th.sitesWorkbookActionsHead,
+table.sitesWorkbookTable tbody td.sitesWorkbookActionsCell{
+  padding-left:8px;
+  padding-right:8px;
+}
 table.sitesWorkbookTable tbody td.sitesWorkbookSiteCell{
   position:sticky;
   left:0;
