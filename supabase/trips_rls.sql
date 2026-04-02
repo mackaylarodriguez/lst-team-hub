@@ -1,20 +1,4 @@
-create schema if not exists private;
-
-create or replace function private.current_profile_role()
-returns text
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select lower(trim(p.role))
-  from public.profiles as p
-  where p.id = auth.uid()
-  limit 1;
-$$;
-
-revoke all on function private.current_profile_role() from public;
-grant execute on function private.current_profile_role() to authenticated;
+-- Requires: private_trip_access_helpers.sql
 
 alter table public.trips enable row level security;
 
@@ -30,6 +14,7 @@ using (
     from public.trip_assignments
     where user_id = auth.uid()
   )
+  or private.user_is_assigned_or_rostered_for_trip(id)
 );
 
 drop policy if exists "trips_insert_access" on public.trips;

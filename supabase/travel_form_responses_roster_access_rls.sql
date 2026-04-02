@@ -1,31 +1,7 @@
 -- Workers on the roster save travel forms with trip_team_member_id set and user_id null.
 -- Extend RLS so those inserts/updates/selects pass when roster email matches auth profile.
 -- Leaders: trip access via assignment OR roster (same helper).
-
-create or replace function private.user_is_assigned_or_rostered_for_trip(p_trip_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1
-    from public.trip_assignments as ta
-    where ta.trip_id = p_trip_id
-      and ta.user_id = auth.uid()
-  )
-  or exists (
-    select 1
-    from public.trip_team_members as m
-    inner join public.profiles as p on p.id = auth.uid()
-    where m.trip_id = p_trip_id
-      and lower(trim(coalesce(m.email, ''))) = lower(trim(coalesce(p.email, '')))
-  );
-$$;
-
-revoke all on function private.user_is_assigned_or_rostered_for_trip(uuid) from public;
-grant execute on function private.user_is_assigned_or_rostered_for_trip(uuid) to authenticated;
+-- Requires: private_trip_access_helpers.sql (run first). Then run after travel_form_responses_rls.sql on existing DBs.
 
 drop policy if exists "travel_form_responses_select_access" on public.travel_form_responses;
 create policy "travel_form_responses_select_access"

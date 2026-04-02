@@ -1,7 +1,5 @@
--- Allow trip leaders and assigned workers to update roster rows on their trips:
---   - Leaders: any row for trips they are assigned to (inline T-shirt + roster edits).
---   - Workers: only the row whose email matches their profile email (own T-shirt size).
--- Staff/admin keep full update access.
+-- Requires: private_trip_access_helpers.sql
+-- Leaders/workers on a trip (assignment or roster email): update roster rows; workers only their own email row.
 
 drop policy if exists "trip_team_members_update_access" on public.trip_team_members;
 
@@ -13,18 +11,10 @@ using (
   private.current_profile_role() in ('admin', 'staff')
   or (
     private.current_profile_role() = 'leader'
-    and trip_id in (
-      select ta.trip_id
-      from public.trip_assignments as ta
-      where ta.user_id = auth.uid()
-    )
+    and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    trip_id in (
-      select ta.trip_id
-      from public.trip_assignments as ta
-      where ta.user_id = auth.uid()
-    )
+    private.user_is_assigned_or_rostered_for_trip(trip_id)
     and lower(trim(coalesce(trip_team_members.email, ''))) = (
       select lower(trim(coalesce(p.email, '')))
       from public.profiles as p
@@ -37,18 +27,10 @@ with check (
   private.current_profile_role() in ('admin', 'staff')
   or (
     private.current_profile_role() = 'leader'
-    and trip_id in (
-      select ta.trip_id
-      from public.trip_assignments as ta
-      where ta.user_id = auth.uid()
-    )
+    and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    trip_id in (
-      select ta.trip_id
-      from public.trip_assignments as ta
-      where ta.user_id = auth.uid()
-    )
+    private.user_is_assigned_or_rostered_for_trip(trip_id)
     and lower(trim(coalesce(trip_team_members.email, ''))) = (
       select lower(trim(coalesce(p.email, '')))
       from public.profiles as p

@@ -12,12 +12,15 @@ import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
   getBudgetAverages,
+  groupTripsBySiteForMaterials,
   HOUSING1_BUDGET_PER_TEAM,
   listAllTripBudgets,
   listSiteBudgetNotes,
   saveTripBudget,
   deleteTripBudget,
   updateSiteBudgetNote,
+  cleanupSiteBudgetNotesRows,
+  saveSiteHousingNoteForSiteLabel,
   uploadTripHousingPdf,
 } from "@/lib/tripBudget";
 import {
@@ -34,6 +37,7 @@ import {
 import { listAllTripTeamMembers } from "@/lib/tripTeamMembers";
 import { listTripsForCurrentUser } from "@/lib/trips";
 import { resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
+import { SITE_OPTIONS } from "@/lib/siteOptions";
 
 function n(val) {
   return val === null || val === undefined ? "" : String(val).trim();
@@ -252,6 +256,9 @@ export default function BudgetPage() {
   const [housingExtraPdfUploadKey, setHousingExtraPdfUploadKey] = useState(null);
   const [editingSiteNoteId, setEditingSiteNoteId] = useState("");
   const [editingSiteNoteDraft, setEditingSiteNoteDraft] = useState("");
+  const [newSiteHousingSelect, setNewSiteHousingSelect] = useState("");
+  const [newSiteHousingActiveLabel, setNewSiteHousingActiveLabel] = useState(null);
+  const [newSiteHousingDraft, setNewSiteHousingDraft] = useState("");
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
 
@@ -325,12 +332,40 @@ export default function BudgetPage() {
         byCanonicalSite.set(key, { ...note, siteName: canonical || note?.siteName || "" });
       }
     }
-    return [...byCanonicalSite.values()].sort((a, b) =>
+    const merged = [...byCanonicalSite.values()].sort((a, b) =>
       String(a.siteName || "").localeCompare(String(b.siteName || ""), undefined, {
         sensitivity: "base",
       })
     );
+    return merged.filter((n) => String(n.notes || "").trim() !== "");
   }, [siteHousingNotes]);
+
+  const siteLabelsForNewHousingNote = useMemo(() => {
+    const notes = siteHousingNotes || [];
+    const tripGroups = groupTripsBySiteForMaterials(trips, housingRows);
+    const fromTrips = tripGroups.map((g) => g.siteLabel).filter(Boolean);
+    const seenCanon = new Set();
+    const out = [];
+    const pushLabel = (lbl) => {
+      const raw = String(lbl || "").trim();
+      if (!raw) return;
+      const canon = resolveCanonicalSiteLabelForTrip(raw, notes).toLowerCase();
+      if (!canon || seenCanon.has(canon)) return;
+      seenCanon.add(canon);
+      out.push(raw);
+    };
+    for (const o of SITE_OPTIONS) pushLabel(o);
+    for (const t of fromTrips) pushLabel(t);
+    out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    return out.filter((lbl) => {
+      const key = resolveCanonicalSiteLabelForTrip(lbl, notes).toLowerCase();
+      const row = notes.find(
+        (n) =>
+          resolveCanonicalSiteLabelForTrip(n.siteName || "", notes).toLowerCase() === key
+      );
+      return !row || !String(row.notes || "").trim();
+    });
+  }, [siteHousingNotes, trips, housingRows]);
 
   useEffect(() => {
     let cancelled = false;
@@ -346,18 +381,16 @@ export default function BudgetPage() {
 
       try {
         setLoading(true);
-        const [avgRes, tripsRes, housingRes, ticketsRes, siteNotesRes, rosterMembers] =
-          await Promise.all([
-            getBudgetAverages(),
-            listTripsForCurrentUser(),
-            listAllTripBudgets(),
-            listAllTripTickets(),
-            listSiteBudgetNotes(),
-            listAllTripTeamMembers().catch((err) => {
-              console.warn("Could not load roster for accountant dropdown", err);
-              return [];
-            }),
-          ]);
+        const [avgRes, tripsRes, housingRes, ticketsRes, rosterMembers] = await Promise.all([
+          getBudgetAverages(),
+          listTripsForCurrentUser(),
+          listAllTripBudgets(),
+          listAllTripTickets(),
+          listAllTripTeamMembers().catch((err) => {
+            console.warn("Could not load roster for accountant dropdown", err);
+            return [];
+          }),
+        ]);
         if (cancelled) return;
         const rosterByTrip = {};
         for (const mem of rosterMembers || []) {
@@ -382,7 +415,22 @@ export default function BudgetPage() {
         }
         setHousingExtrasByTripId(extrasGrouped);
         setTicketRows(refreshedTickets.length ? refreshedTickets : ticketsRes);
-        setSiteHousingNotes(siteNotesRes || []);
+        let siteNotesFinal = [];
+        try {
+          const { notes: cleaned, deletedCount } = await cleanupSiteBudgetNotesRows();
+          siteNotesFinal = cleaned;
+          if (deletedCount > 0) {
+            showToast(`Removed ${deletedCount} empty or duplicate site row(s).`, "success");
+          }
+        } catch (cleanupErr) {
+          console.warn("[budget] site notes cleanup", cleanupErr);
+          try {
+            siteNotesFinal = await listSiteBudgetNotes();
+          } catch (e) {
+            console.warn("[budget] site notes fallback load", e);
+          }
+        }
+        setSiteHousingNotes(siteNotesFinal);
         if (tripsRes?.length > 0 && !newTicketTripId) {
           const sorted = [...tripsRes].sort(compareTripsForBudgetSort);
           setNewTicketTripId(sorted[0].id);
@@ -661,6 +709,44 @@ export default function BudgetPage() {
     }
   }
 
+  function beginAddSiteHousingNote() {
+    const pick = String(newSiteHousingSelect || "").trim();
+    if (!pick) {
+      showToast("Choose a site first.", "error");
+      return;
+    }
+    setNewSiteHousingActiveLabel(pick);
+    setNewSiteHousingDraft("");
+  }
+
+  function cancelAddSiteHousingNote() {
+    setNewSiteHousingActiveLabel(null);
+    setNewSiteHousingDraft("");
+  }
+
+  async function saveNewSiteHousingNote() {
+    const label = String(newSiteHousingActiveLabel || "").trim();
+    if (!label) return;
+    if (!String(newSiteHousingDraft || "").trim()) {
+      showToast("Add note text before saving.", "error");
+      return;
+    }
+    try {
+      setStatus("Saving site note...");
+      const saved = await saveSiteHousingNoteForSiteLabel(label, newSiteHousingDraft);
+      const fresh = await listSiteBudgetNotes();
+      setSiteHousingNotes(fresh);
+      cancelAddSiteHousingNote();
+      setNewSiteHousingSelect("");
+      setStatus("Saved.");
+      showToast(`Saved housing note for ${saved.siteName || label}`, "success");
+    } catch (e) {
+      const msg = e.message || "Unable to save site note.";
+      setStatus(msg);
+      showToast(msg, "error");
+    }
+  }
+
   async function handleAddTicket() {
     const tripId = newTicketTripId || trips[0]?.id;
     if (!tripId) {
@@ -872,11 +958,88 @@ export default function BudgetPage() {
           defaultOpen={false}
           style={{ marginBottom: 24 }}
         >
-          {siteHousingNotesForDisplay.length === 0 ? (
+          <p className="small" style={{ margin: "0 0 12px", color: "var(--muted)" }}>
+            Per-site logistics and workbook data stay on{" "}
+            <Link href="/sites">Sites</Link>. Here you only see sites with housing note text. Empty and duplicate
+            rows are cleaned when this page loads.
+          </p>
+          <div
+            className="row"
+            style={{
+              flexWrap: "wrap",
+              gap: 10,
+              alignItems: "flex-end",
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+              <label
+                className="small"
+                htmlFor="budget-add-site-housing-note"
+                style={{ display: "block", marginBottom: 4, color: "var(--muted)" }}
+              >
+                Site
+              </label>
+              <select
+                id="budget-add-site-housing-note"
+                className="input"
+                value={newSiteHousingSelect}
+                onChange={(e) => setNewSiteHousingSelect(e.target.value)}
+                disabled={!siteLabelsForNewHousingNote.length}
+              >
+                <option value="">
+                  {siteLabelsForNewHousingNote.length ? "Choose site…" : "All sites have a housing note"}
+                </option>
+                {siteLabelsForNewHousingNote.map((lbl) => (
+                  <option key={lbl} value={lbl}>
+                    {lbl}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              className="btn btnPrimary"
+              type="button"
+              disabled={!siteLabelsForNewHousingNote.length}
+              onClick={beginAddSiteHousingNote}
+            >
+              Add site note
+            </button>
+          </div>
+          {newSiteHousingActiveLabel ? (
+            <div
+              style={{
+                border: "1px solid rgba(14, 116, 144, 0.35)",
+                borderRadius: 10,
+                padding: "12px 14px 14px",
+                marginBottom: 16,
+                background: "rgba(240, 249, 255, 0.6)",
+              }}
+            >
+              <div style={{ fontWeight: 800, fontSize: 12, marginBottom: 8 }}>{newSiteHousingActiveLabel}</div>
+              <textarea
+                className="input"
+                rows={5}
+                value={newSiteHousingDraft}
+                onChange={(e) => setNewSiteHousingDraft(e.target.value)}
+                placeholder="Enter housing / logistics note for this site"
+              />
+              <div className="row" style={{ gap: 8, marginTop: 8 }}>
+                <button className="btn btnPrimary" type="button" onClick={() => void saveNewSiteHousingNote()}>
+                  Save
+                </button>
+                <button className="btn" type="button" onClick={cancelAddSiteHousingNote}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {siteHousingNotesForDisplay.length === 0 && !newSiteHousingActiveLabel ? (
             <p className="small" style={{ margin: 0, color: "var(--muted)" }}>
-              No site notes loaded. Open <Link href="/sites">Sites</Link> to add or update mission site records.
+              No housing notes yet. Use <strong>Add site note</strong> above, or edit workbook counts on{" "}
+              <Link href="/sites">Sites</Link>.
             </p>
-          ) : (
+          ) : siteHousingNotesForDisplay.length > 0 ? (
             <div
               style={{
                 display: "grid",
@@ -937,13 +1100,11 @@ export default function BudgetPage() {
                             style={{
                               lineHeight: 1.5,
                               fontSize: 12,
-                              color: noteText ? "inherit" : "var(--muted)",
-                              fontStyle: noteText ? "normal" : "italic",
                               wordBreak: "break-word",
                               whiteSpace: "pre-wrap",
                             }}
                           >
-                            {noteText || "No note"}
+                            {noteText}
                           </div>
                           <div className="row" style={{ marginTop: 8 }}>
                             <button className="btn" type="button" onClick={() => beginEditSiteHousingNote(n)}>
@@ -956,7 +1117,7 @@ export default function BudgetPage() {
                   );
                 })}
             </div>
-          )}
+          ) : null}
         </CollapsibleSection>
 
         <div className="card pad">

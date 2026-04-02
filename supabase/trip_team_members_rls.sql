@@ -1,20 +1,4 @@
-create schema if not exists private;
-
-create or replace function private.current_profile_role()
-returns text
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select lower(trim(p.role))
-  from public.profiles as p
-  where lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
-  limit 1;
-$$;
-
-revoke all on function private.current_profile_role() from public;
-grant execute on function private.current_profile_role() to authenticated;
+-- Requires: private_trip_access_helpers.sql (private.current_profile_role + private.user_is_assigned_or_rostered_for_trip)
 
 alter table public.trip_team_members enable row level security;
 
@@ -25,11 +9,7 @@ for select
 to authenticated
 using (
   private.current_profile_role() in ('admin', 'staff')
-  or trip_id in (
-    select trip_id
-    from public.trip_assignments
-    where user_id = auth.uid()
-  )
+  or private.user_is_assigned_or_rostered_for_trip(trip_id)
 );
 
 drop policy if exists "trip_team_members_insert_access" on public.trip_team_members;
@@ -50,18 +30,10 @@ using (
   private.current_profile_role() in ('admin', 'staff')
   or (
     private.current_profile_role() = 'leader'
-    and trip_id in (
-      select ta.trip_id
-      from public.trip_assignments as ta
-      where ta.user_id = auth.uid()
-    )
+    and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    trip_id in (
-      select ta.trip_id
-      from public.trip_assignments as ta
-      where ta.user_id = auth.uid()
-    )
+    private.user_is_assigned_or_rostered_for_trip(trip_id)
     and lower(trim(coalesce(trip_team_members.email, ''))) = (
       select lower(trim(coalesce(p.email, '')))
       from public.profiles as p
@@ -74,18 +46,10 @@ with check (
   private.current_profile_role() in ('admin', 'staff')
   or (
     private.current_profile_role() = 'leader'
-    and trip_id in (
-      select ta.trip_id
-      from public.trip_assignments as ta
-      where ta.user_id = auth.uid()
-    )
+    and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    trip_id in (
-      select ta.trip_id
-      from public.trip_assignments as ta
-      where ta.user_id = auth.uid()
-    )
+    private.user_is_assigned_or_rostered_for_trip(trip_id)
     and lower(trim(coalesce(trip_team_members.email, ''))) = (
       select lower(trim(coalesce(p.email, '')))
       from public.profiles as p
