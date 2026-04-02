@@ -721,6 +721,8 @@ export default function TripPage() {
   const [recentActivity, setRecentActivity] = useState([]);
   const [recentActivityError, setRecentActivityError] = useState("");
   const [isAddingLink, setIsAddingLink] = useState(false);
+  /** When set, the add/required link form is shown inside that default document card instead of at the top. */
+  const [addingLinkForSlotKey, setAddingLinkForSlotKey] = useState(null);
   const [linkDraft, setLinkDraft] = useState(buildDocumentDraft());
   const [pendingPdfDraft, setPendingPdfDraft] = useState(null);
   const [editingDocId, setEditingDocId] = useState(null);
@@ -1629,6 +1631,11 @@ export default function TripPage() {
   }, [trip]);
 
   useEffect(() => {
+    setIsAddingLink(false);
+    setAddingLinkForSlotKey(null);
+  }, [trip?.id]);
+
+  useEffect(() => {
     if (!trip || !staffViewAllParticipants) return;
 
     let cancelled = false;
@@ -1668,6 +1675,8 @@ export default function TripPage() {
   }, [trip?.id, staffViewAllParticipants]);
 
   function handlePrepareNewPdf() {
+    setIsAddingLink(false);
+    setAddingLinkForSlotKey(null);
     setPendingPdfDraft({
       file: null,
       title: "",
@@ -1679,6 +1688,8 @@ export default function TripPage() {
   }
 
   function handlePrepareRequiredPdf(slot) {
+    setIsAddingLink(false);
+    setAddingLinkForSlotKey(null);
     setPendingPdfDraft({
       file: null,
       title: slot.title,
@@ -1691,6 +1702,7 @@ export default function TripPage() {
 
   function handlePrepareRequiredLink(slot) {
     setIsAddingLink(true);
+    setAddingLinkForSlotKey(String(slot?.key || ""));
     setLinkDraft(buildDocumentDraft({
       title: slot.resource?.title || slot.title,
       link: slot.resource?.link || slot.resource?.pdfUrl || "",
@@ -1742,6 +1754,7 @@ export default function TripPage() {
 
   function handleAddLink() {
     setIsAddingLink(true);
+    setAddingLinkForSlotKey(null);
     setLinkDraft(
       buildDocumentDraft({
         workArea: trip?.name || "",
@@ -1751,6 +1764,7 @@ export default function TripPage() {
 
   function handleCancelAddLink() {
     setIsAddingLink(false);
+    setAddingLinkForSlotKey(null);
     setLinkDraft(
       buildDocumentDraft({
         workArea: trip?.name || "",
@@ -1819,8 +1833,146 @@ export default function TripPage() {
     }
   }
 
+  function renderTripDocumentsLinkDraftForm({ embedded }) {
+    const formBody = (
+      <>
+        <div style={{ fontWeight: 900, marginBottom: 10 }}>
+          {linkDraft.resourceKey ? "Required Link" : "New Link"}
+        </div>
+        <div style={{ display: "grid", gap: 10 }}>
+          <input
+            className="input"
+            value={linkDraft.title}
+            onChange={(e) =>
+              setLinkDraft((prev) => ({ ...prev, title: e.target.value }))
+            }
+            placeholder="Document title"
+          />
+          <input
+            className="input"
+            value={linkDraft.link}
+            onChange={(e) =>
+              setLinkDraft((prev) => ({ ...prev, link: e.target.value }))
+            }
+            placeholder="https://..."
+          />
+          <select
+            className="input"
+            value={linkDraft.category}
+            onChange={(e) =>
+              setLinkDraft((prev) => ({ ...prev, category: e.target.value }))
+            }
+          >
+            {DOCUMENT_CATEGORY_OPTIONS.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+          <input
+            className="input"
+            value={linkDraft.workArea}
+            onChange={(e) =>
+              setLinkDraft((prev) => ({ ...prev, workArea: e.target.value }))
+            }
+            placeholder="Notes / work area"
+          />
+          <div
+            style={{
+              display: "grid",
+              gap: 8,
+              padding: 10,
+              borderRadius: 12,
+              background: "rgba(15, 23, 42, 0.04)",
+            }}
+          >
+            <div className="small" style={{ fontWeight: 900 }}>
+              Tutorial
+            </div>
+            <input
+              className="input"
+              value={linkDraft.tutorialTitle || ""}
+              onChange={(e) =>
+                setLinkDraft((prev) => ({ ...prev, tutorialTitle: e.target.value }))
+              }
+              placeholder="Tutorial button label"
+            />
+            <input
+              className="input"
+              value={linkDraft.tutorialUrl || ""}
+              onChange={(e) =>
+                setLinkDraft((prev) => ({ ...prev, tutorialUrl: e.target.value }))
+              }
+              placeholder="Tutorial link https://..."
+            />
+            <input
+              className="input"
+              value={linkDraft.tutorialDescription || ""}
+              onChange={(e) =>
+                setLinkDraft((prev) => ({
+                  ...prev,
+                  tutorialDescription: e.target.value,
+                }))
+              }
+              placeholder="Tutorial description"
+            />
+          </div>
+          <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={linkDraft.visibleToParticipants !== false}
+              onChange={(e) =>
+                setLinkDraft((prev) => ({
+                  ...prev,
+                  visibleToParticipants: e.target.checked,
+                }))
+              }
+            />
+            Visible to participants
+          </label>
+        </div>
+        <div className="row" style={{ marginTop: 10 }}>
+          <button className="btn btnPrimary" type="button" onClick={() => void handleSaveLink()}>
+            Save Link
+          </button>
+          <button className="btn" type="button" onClick={handleCancelAddLink}>
+            Cancel
+          </button>
+        </div>
+      </>
+    );
+
+    if (embedded) {
+      return (
+        <div
+          style={{
+            marginTop: 4,
+            marginBottom: 8,
+            padding: 12,
+            borderRadius: 12,
+            background: "rgba(15, 23, 42, 0.05)",
+            border: "1px solid rgba(15, 23, 42, 0.08)",
+          }}
+        >
+          {formBody}
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className="card pad"
+        style={{ boxShadow: "none", marginBottom: 14, background: "rgba(255,255,255,.7)" }}
+      >
+        {formBody}
+      </div>
+    );
+  }
+
   function handleEditDoc(doc) {
     const slot = getDocumentSlotByKey(doc?.resourceKey);
+    setIsAddingLink(false);
+    setAddingLinkForSlotKey(null);
     setEditingDocId(doc.id);
     setDocDraft(
       buildDocumentDraft({
@@ -8260,116 +8412,9 @@ function parseDateSafe(dateStr) {
               </div>
             )}
 
-            {isAddingLink && (
-              <div
-                className="card pad"
-                style={{ boxShadow: "none", marginBottom: 14, background: "rgba(255,255,255,.7)" }}
-              >
-                <div style={{ fontWeight: 900, marginBottom: 10 }}>
-                  {linkDraft.resourceKey ? "Required Link" : "New Link"}
-                </div>
-                <div style={{ display: "grid", gap: 10 }}>
-                  <input
-                    className="input"
-                    value={linkDraft.title}
-                    onChange={(e) =>
-                      setLinkDraft((prev) => ({ ...prev, title: e.target.value }))
-                    }
-                    placeholder="Document title"
-                  />
-                  <input
-                    className="input"
-                    value={linkDraft.link}
-                    onChange={(e) =>
-                      setLinkDraft((prev) => ({ ...prev, link: e.target.value }))
-                    }
-                    placeholder="https://..."
-                  />
-                  <select
-                    className="input"
-                    value={linkDraft.category}
-                    onChange={(e) =>
-                      setLinkDraft((prev) => ({ ...prev, category: e.target.value }))
-                    }
-                  >
-                    {DOCUMENT_CATEGORY_OPTIONS.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    className="input"
-                    value={linkDraft.workArea}
-                    onChange={(e) =>
-                      setLinkDraft((prev) => ({ ...prev, workArea: e.target.value }))
-                    }
-                    placeholder="Notes / work area"
-                  />
-                  <div
-                    style={{
-                      display: "grid",
-                      gap: 8,
-                      padding: 10,
-                      borderRadius: 12,
-                      background: "rgba(15, 23, 42, 0.04)",
-                    }}
-                  >
-                    <div className="small" style={{ fontWeight: 900 }}>
-                      Tutorial
-                    </div>
-                    <input
-                      className="input"
-                      value={linkDraft.tutorialTitle || ""}
-                      onChange={(e) =>
-                        setLinkDraft((prev) => ({ ...prev, tutorialTitle: e.target.value }))
-                      }
-                      placeholder="Tutorial button label"
-                    />
-                    <input
-                      className="input"
-                      value={linkDraft.tutorialUrl || ""}
-                      onChange={(e) =>
-                        setLinkDraft((prev) => ({ ...prev, tutorialUrl: e.target.value }))
-                      }
-                      placeholder="Tutorial link https://..."
-                    />
-                    <input
-                      className="input"
-                      value={linkDraft.tutorialDescription || ""}
-                      onChange={(e) =>
-                        setLinkDraft((prev) => ({
-                          ...prev,
-                          tutorialDescription: e.target.value,
-                        }))
-                      }
-                      placeholder="Tutorial description"
-                    />
-                  </div>
-                  <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input
-                      type="checkbox"
-                      checked={linkDraft.visibleToParticipants !== false}
-                      onChange={(e) =>
-                        setLinkDraft((prev) => ({
-                          ...prev,
-                          visibleToParticipants: e.target.checked,
-                        }))
-                      }
-                    />
-                    Visible to participants
-                  </label>
-                  <div className="row">
-                    <button className="btn btnPrimary" type="button" onClick={handleSaveLink}>
-                      Save Link
-                    </button>
-                    <button className="btn" type="button" onClick={handleCancelAddLink}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            {isAddingLink && addingLinkForSlotKey === null
+              ? renderTripDocumentsLinkDraftForm({ embedded: false })
+              : null}
 
             {pendingPdfDraft && (
               <div
@@ -8497,7 +8542,9 @@ function parseDateSafe(dateStr) {
                               : "Needs Link"}
                           </span>
                         </div>
-                        {effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl ? (
+                        {isAddingLink && addingLinkForSlotKey === "site-info-link" ? (
+                          renderTripDocumentsLinkDraftForm({ embedded: true })
+                        ) : effectiveSiteInfoDoc?.link || effectiveSiteInfoDoc?.pdfUrl ? (
                           <div className="row" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
                             <a
                               className="btn btnPrimary"
@@ -8664,6 +8711,8 @@ function parseDateSafe(dateStr) {
                               <div className="small">{housingTripDocsSaveStatus}</div>
                             ) : null}
                           </div>
+                        ) : isAddingLink && addingLinkForSlotKey === slot.key ? (
+                          renderTripDocumentsLinkDraftForm({ embedded: true })
                         ) : doc && isEditing ? (
                           <div style={{ display: "grid", gap: 8 }}>
                             <input
