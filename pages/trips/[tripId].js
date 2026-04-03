@@ -5718,6 +5718,13 @@ function parseDateSafe(dateStr) {
         : currentParticipant?.fundraisingUrl
         ? "Your personal Neon page is available."
         : "No personal Neon page added yet.";
+  const workerOverviewFundraisingUrl = !canViewTeamDashboard
+    ? String(
+        (isTeamFundraisingMode || trip?.teamFundraisingUrl
+          ? trip?.teamFundraisingUrl
+          : currentParticipant?.fundraisingUrl) || ""
+      ).trim()
+    : "";
   const smartsheetBudgetOpenUrl = useMemo(() => {
     const b = visibleDocs.find((d) => d.resourceKey === "smartsheet-budget");
     const j = visibleDocs.find((d) => d.resourceKey === "project-record-journal");
@@ -6668,13 +6675,38 @@ function parseDateSafe(dateStr) {
               </div>
             </div>
 
-            <div className="card pad">
-              <div className="small" style={{ marginBottom: 8 }}>{overviewFundraisingLabel}</div>
-              <div style={{ fontSize: 28, fontWeight: 900 }}>{overviewFundraisingValue}</div>
-              <div className="small" style={{ marginTop: 8 }}>
-                {overviewFundraisingDetail}
+            {!canViewTeamDashboard ? (
+              <div className="card pad">
+                <div className="small" style={{ marginBottom: 8 }}>{overviewFundraisingLabel}</div>
+                {fundraisingGoalAmount ? (
+                  <div style={{ fontSize: 28, fontWeight: 900 }}>{formatMoney(fundraisingGoalAmount)}</div>
+                ) : null}
+                {workerOverviewFundraisingUrl ? (
+                  <div style={{ marginTop: fundraisingGoalAmount ? 10 : 6 }}>
+                    <a
+                      className="btn btnPrimary"
+                      href={workerOverviewFundraisingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ padding: "10px 16px", fontSize: 14, alignSelf: "flex-start" }}
+                    >
+                      {isTeamFundraisingMode || trip?.teamFundraisingUrl
+                        ? "Open shared Neon page"
+                        : "Open Neon Page"}
+                    </a>
+                  </div>
+                ) : !fundraisingGoalAmount ? (
+                  <div style={{ fontSize: 28, fontWeight: 900 }}>No Link</div>
+                ) : null}
+                <div className="small" style={{ marginTop: 8 }}>{overviewFundraisingDetail}</div>
               </div>
-            </div>
+            ) : (
+              <div className="card pad">
+                <div className="small" style={{ marginBottom: 8 }}>{overviewFundraisingLabel}</div>
+                <div style={{ fontSize: 28, fontWeight: 900 }}>{overviewFundraisingValue}</div>
+                <div className="small" style={{ marginTop: 8 }}>{overviewFundraisingDetail}</div>
+              </div>
+            )}
 
             {(staffViewAllParticipants || !canViewTeamDashboard) &&
             referenceReceivedProgress.showOnOverview ? (
