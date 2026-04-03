@@ -8,7 +8,7 @@ on public.trip_travel_safety
 for select
 to authenticated
 using (
-  private.current_profile_role() in ('admin', 'staff')
+  private.current_profile_role() in ('admin', 'staff', 'leader')
   or private.user_is_assigned_or_rostered_for_trip(trip_id)
 );
 

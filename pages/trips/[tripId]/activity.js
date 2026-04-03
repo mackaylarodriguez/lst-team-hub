@@ -2,9 +2,10 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
+import AppIcon from "@/components/AppIcon";
 import { requireSession } from "@/lib/auth";
 import { getTripForCurrentUser } from "@/lib/trips";
-import { isManagerRole } from "@/lib/roles";
+import { isLeaderRole, isManagerRole } from "@/lib/roles";
 import { listTripActivity } from "@/lib/tripActivity";
 
 function formatActivityTimestamp(value) {
@@ -37,7 +38,8 @@ export default function TripActivityPage() {
         const nextSession = await requireSession(router);
         if (!nextSession || cancelled) return;
 
-        if (!isManagerRole(nextSession.permissionRole || nextSession.role)) {
+        const sessionRole = nextSession.permissionRole || nextSession.role;
+        if (!isManagerRole(sessionRole) && !isLeaderRole(sessionRole)) {
           router.replace(`/trips/${encodeURIComponent(tripId)}`);
           return;
         }
@@ -96,7 +98,7 @@ export default function TripActivityPage() {
           <div className="row" style={{ marginBottom: 10 }}>
             <div style={{ fontWeight: 900 }}>Full History</div>
             <div className="spacer" />
-            {session ? <span className="badge">Staff only</span> : null}
+            {session ? <span className="badge">Staff &amp; trip leaders</span> : null}
           </div>
 
           {activity.length === 0 ? (

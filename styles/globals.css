@@ -2143,6 +2143,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .cardSectionPill{
   display:inline-flex;
   align-items:center;
+  align-self:flex-start;
+  width:fit-content;
+  max-width:100%;
   margin-bottom:12px;
   padding:7px 12px;
   border-radius:999px;

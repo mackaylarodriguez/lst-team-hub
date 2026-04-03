@@ -50,6 +50,14 @@ as $$
     inner join public.profiles as p on p.id = auth.uid()
     where m.trip_id = p_trip_id
       and lower(trim(coalesce(m.email, ''))) = lower(trim(coalesce(p.email, '')))
+  )
+  or exists (
+    select 1
+    from public.trip_team_members as m
+    where m.trip_id = p_trip_id
+      and nullif(trim(coalesce(auth.jwt()->>'email', '')), '') is not null
+      and lower(trim(coalesce(m.email, ''))) =
+          lower(trim(coalesce(auth.jwt()->>'email', '')))
   );
 $$;
 
@@ -230,7 +238,7 @@ on public.trip_travel_safety
 for select
 to authenticated
 using (
-  private.current_profile_role() in ('admin', 'staff')
+  private.current_profile_role() in ('admin', 'staff', 'leader')
   or private.user_is_assigned_or_rostered_for_trip(trip_id)
 );
 
@@ -317,7 +325,7 @@ on public.trip_activity
 for select
 to authenticated
 using (
-  private.current_profile_role() in ('admin', 'staff')
+  private.current_profile_role() in ('admin', 'staff', 'leader')
   or private.user_is_assigned_or_rostered_for_trip(trip_id)
 );
 
@@ -327,7 +335,7 @@ on public.trip_activity
 for insert
 to authenticated
 with check (
-  private.current_profile_role() in ('admin', 'staff')
+  private.current_profile_role() in ('admin', 'staff', 'leader')
   or private.user_is_assigned_or_rostered_for_trip(trip_id)
 );
 

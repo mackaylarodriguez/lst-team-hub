@@ -1430,7 +1430,7 @@ export default function TripPage() {
   }, [canManageTrips, staffViewAllParticipants]);
 
   useEffect(() => {
-    if (!trip?.id || !canManageTrips) return;
+    if (!trip?.id || !canViewTeamDashboard) return;
 
     let cancelled = false;
 
@@ -1455,7 +1455,7 @@ export default function TripPage() {
     return () => {
       cancelled = true;
     };
-  }, [canManageTrips, trip?.id]);
+  }, [canViewTeamDashboard, trip?.id]);
 
   function pushRecentActivity(entry) {
     if (!entry) return;

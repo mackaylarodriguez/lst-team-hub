@@ -8,7 +8,7 @@ on public.trip_activity
 for select
 to authenticated
 using (
-  private.current_profile_role() in ('admin', 'staff')
+  private.current_profile_role() in ('admin', 'staff', 'leader')
   or private.user_is_assigned_or_rostered_for_trip(trip_id)
 );
 
@@ -18,6 +18,6 @@ on public.trip_activity
 for insert
 to authenticated
 with check (
-  private.current_profile_role() in ('admin', 'staff')
+  private.current_profile_role() in ('admin', 'staff', 'leader')
   or private.user_is_assigned_or_rostered_for_trip(trip_id)
 );
