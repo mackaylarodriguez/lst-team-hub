@@ -22,13 +22,24 @@ using (
   or (
     user_id is null
     and trip_team_member_id is not null
-    and exists (
-      select 1
-      from public.trip_team_members as m
-      inner join public.profiles as p on p.id = auth.uid()
-      where m.id = trip_team_member_id
-        and m.trip_id = trip_id
-        and lower(trim(coalesce(m.email, ''))) = lower(trim(coalesce(p.email, '')))
+    and (
+      exists (
+        select 1
+        from public.trip_team_members as m
+        inner join public.profiles as p on p.id = auth.uid()
+        where m.id = trip_team_member_id
+          and m.trip_id = trip_id
+          and lower(trim(coalesce(m.email, ''))) = lower(trim(coalesce(p.email, '')))
+      )
+      or exists (
+        select 1
+        from public.trip_team_members as m
+        where m.id = trip_team_member_id
+          and m.trip_id = trip_id
+          and nullif(trim(coalesce(auth.jwt()->>'email', '')), '') is not null
+          and lower(trim(coalesce(m.email, ''))) =
+              lower(trim(coalesce(auth.jwt()->>'email', '')))
+      )
     )
   )
 );
@@ -52,13 +63,24 @@ with check (
   or (
     user_id is null
     and trip_team_member_id is not null
-    and exists (
-      select 1
-      from public.trip_team_members as m
-      inner join public.profiles as p on p.id = auth.uid()
-      where m.id = trip_team_member_id
-        and m.trip_id = trip_id
-        and lower(trim(coalesce(m.email, ''))) = lower(trim(coalesce(p.email, '')))
+    and (
+      exists (
+        select 1
+        from public.trip_team_members as m
+        inner join public.profiles as p on p.id = auth.uid()
+        where m.id = trip_team_member_id
+          and m.trip_id = trip_id
+          and lower(trim(coalesce(m.email, ''))) = lower(trim(coalesce(p.email, '')))
+      )
+      or exists (
+        select 1
+        from public.trip_team_members as m
+        where m.id = trip_team_member_id
+          and m.trip_id = trip_id
+          and nullif(trim(coalesce(auth.jwt()->>'email', '')), '') is not null
+          and lower(trim(coalesce(m.email, ''))) =
+              lower(trim(coalesce(auth.jwt()->>'email', '')))
+      )
     )
   )
 );
@@ -82,13 +104,24 @@ using (
   or (
     user_id is null
     and trip_team_member_id is not null
-    and exists (
-      select 1
-      from public.trip_team_members as m
-      inner join public.profiles as p on p.id = auth.uid()
-      where m.id = trip_team_member_id
-        and m.trip_id = trip_id
-        and lower(trim(coalesce(m.email, ''))) = lower(trim(coalesce(p.email, '')))
+    and (
+      exists (
+        select 1
+        from public.trip_team_members as m
+        inner join public.profiles as p on p.id = auth.uid()
+        where m.id = trip_team_member_id
+          and m.trip_id = trip_id
+          and lower(trim(coalesce(m.email, ''))) = lower(trim(coalesce(p.email, '')))
+      )
+      or exists (
+        select 1
+        from public.trip_team_members as m
+        where m.id = trip_team_member_id
+          and m.trip_id = trip_id
+          and nullif(trim(coalesce(auth.jwt()->>'email', '')), '') is not null
+          and lower(trim(coalesce(m.email, ''))) =
+              lower(trim(coalesce(auth.jwt()->>'email', '')))
+      )
     )
   )
 )
@@ -106,13 +139,24 @@ with check (
   or (
     user_id is null
     and trip_team_member_id is not null
-    and exists (
-      select 1
-      from public.trip_team_members as m
-      inner join public.profiles as p on p.id = auth.uid()
-      where m.id = trip_team_member_id
-        and m.trip_id = trip_id
-        and lower(trim(coalesce(m.email, ''))) = lower(trim(coalesce(p.email, '')))
+    and (
+      exists (
+        select 1
+        from public.trip_team_members as m
+        inner join public.profiles as p on p.id = auth.uid()
+        where m.id = trip_team_member_id
+          and m.trip_id = trip_id
+          and lower(trim(coalesce(m.email, ''))) = lower(trim(coalesce(p.email, '')))
+      )
+      or exists (
+        select 1
+        from public.trip_team_members as m
+        where m.id = trip_team_member_id
+          and m.trip_id = trip_id
+          and nullif(trim(coalesce(auth.jwt()->>'email', '')), '') is not null
+          and lower(trim(coalesce(m.email, ''))) =
+              lower(trim(coalesce(auth.jwt()->>'email', '')))
+      )
     )
   )
 );
