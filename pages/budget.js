@@ -1212,7 +1212,106 @@ export default function BudgetPage() {
             style={{ ...budgetSectionHeaderStyle, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
-              <div className="appSectionBadge" style={{ marginBottom: 6 }}>Housing</div>
+              <div
+                className="row"
+                style={{ gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
+              >
+                <div className="appSectionBadge" style={{ marginBottom: 0 }}>Housing</div>
+                <div
+                  className="row"
+                  style={{
+                    gap: 8,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    marginLeft: "auto",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className={isEditingHousing ? "btn btnPrimary" : "btn"}
+                    onClick={() => {
+                      if (isEditingHousing) void saveHousingBudget();
+                      else beginHousingEdit();
+                    }}
+                  >
+                    {isEditingHousing ? "Save" : "Edit"}
+                  </button>
+                  {isEditingHousing ? (
+                    <button type="button" className="btn" onClick={() => setIsEditingHousing(false)}>
+                      Cancel
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => {
+                      const header = [
+                        "Team Name",
+                        "Project Start",
+                        "Project End",
+                        "Site",
+                        "Workers (roster)",
+                        "Team Accountant",
+                        "Budget Amount",
+                        "Returned Amount",
+                        "Housing Amount",
+                        "Housing Link",
+                        "Housing PDF URL",
+                        "Additional housing (extra slots)",
+                        "Notes",
+                      ];
+                      const rows = (isEditingHousing ? housingRowsDraft : housingRows).map((r) => [
+                        r.teamName || "",
+                        r.projectStartDate || "",
+                        r.projectEndDate || "",
+                        r.siteCountry || "",
+                        String(countTripRosterMembers(teamMembersByTripId, r.tripId)),
+                        r.teamAccountant || "",
+                        formatUsdDisplay(r.budgetAmount),
+                        formatUsdDisplay(r.returnedAmount),
+                        formatUsdDisplay(r.housingAmount),
+                        r.housingLink || "",
+                        r.housingPdfUrl || "",
+                        formatHousingExtrasForCsv(
+                          r.tripId,
+                          housingExtrasDraft,
+                          housingExtrasByTripId,
+                          isEditingHousing
+                        ),
+                        r.notes || "",
+                      ]);
+                      const csvContent = [header, ...rows]
+                        .map((cols) =>
+                          cols
+                            .map((val) => {
+                              const s = String(val ?? "");
+                              if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+                              return s;
+                            })
+                            .join(",")
+                        )
+                        .join("\n");
+                      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      const dateStr = new Date().toISOString().slice(0, 10);
+                      const housingFilename = `budget-housing-${dateStr}.csv`;
+                      link.download = housingFilename;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                      setStatus(`Exported ${housingFilename}`);
+                      setTimeout(() => setStatus(""), 4000);
+                      showToast(`Exported ${housingFilename}`);
+                    }}
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              </div>
               <div className="small" style={{ color: "var(--muted)" }}>
                 Budget amount, housing amount, links, and PDFs for each trip.
               </div>
@@ -1247,100 +1346,6 @@ export default function BudgetPage() {
                   </button>
                 </div>
               ) : null}
-            </div>
-            <div
-              className="row"
-              style={{
-                gap: 8,
-                flexWrap: "wrap",
-                alignItems: "center",
-                marginLeft: "auto",
-                justifyContent: "flex-end",
-              }}
-            >
-            <button
-              type="button"
-              className={isEditingHousing ? "btn btnPrimary" : "btn"}
-              onClick={() => {
-                if (isEditingHousing) void saveHousingBudget();
-                else beginHousingEdit();
-              }}
-            >
-              {isEditingHousing ? "Save" : "Edit"}
-            </button>
-            {isEditingHousing ? (
-              <button type="button" className="btn" onClick={() => setIsEditingHousing(false)}>
-                Cancel
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="btn"
-              onClick={() => {
-                const header = [
-                  "Team Name",
-                  "Project Start",
-                  "Project End",
-                  "Site",
-                  "Workers (roster)",
-                  "Team Accountant",
-                  "Budget Amount",
-                  "Returned Amount",
-                  "Housing Amount",
-                  "Housing Link",
-                  "Housing PDF URL",
-                  "Additional housing (extra slots)",
-                  "Notes",
-                ];
-                const rows = (isEditingHousing ? housingRowsDraft : housingRows).map((r) => [
-                  r.teamName || "",
-                  r.projectStartDate || "",
-                  r.projectEndDate || "",
-                  r.siteCountry || "",
-                  String(countTripRosterMembers(teamMembersByTripId, r.tripId)),
-                  r.teamAccountant || "",
-                  formatUsdDisplay(r.budgetAmount),
-                  formatUsdDisplay(r.returnedAmount),
-                  formatUsdDisplay(r.housingAmount),
-                  r.housingLink || "",
-                  r.housingPdfUrl || "",
-                  formatHousingExtrasForCsv(
-                    r.tripId,
-                    housingExtrasDraft,
-                    housingExtrasByTripId,
-                    isEditingHousing
-                  ),
-                  r.notes || "",
-                ]);
-                const csvContent = [header, ...rows]
-                  .map((cols) =>
-                    cols
-                      .map((val) => {
-                        const s = String(val ?? "");
-                        if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-                        return s;
-                      })
-                      .join(",")
-                  )
-                  .join("\n");
-                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                const dateStr = new Date().toISOString().slice(0, 10);
-                const housingFilename = `budget-housing-${dateStr}.csv`;
-                link.download = housingFilename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                setStatus(`Exported ${housingFilename}`);
-                setTimeout(() => setStatus(""), 4000);
-                showToast(`Exported ${housingFilename}`);
-              }}
-            >
-              Export CSV
-            </button>
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
@@ -1807,7 +1812,94 @@ export default function BudgetPage() {
             style={{ ...budgetSectionHeaderStyle, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
-              <div className="appSectionBadge" style={{ marginBottom: 6 }}>Ticketing</div>
+              <div
+                className="row"
+                style={{ gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
+              >
+                <div className="appSectionBadge" style={{ marginBottom: 0 }}>Ticketing</div>
+                <div
+                  className="row"
+                  style={{
+                    gap: 8,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    marginLeft: "auto",
+                  }}
+                >
+                  <button
+                    type="button"
+                    className={isEditingTickets ? "btn btnPrimary" : "btn"}
+                    onClick={() => setIsEditingTickets((current) => !current)}
+                  >
+                    {isEditingTickets ? "Save" : "Edit"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => {
+                      const header = [
+                        "Team",
+                        "Intl/Dom",
+                        "Worker Name",
+                        "Site",
+                        "Departure Date",
+                        "Ticket Agency",
+                        "Total Ticket Cost",
+                        "Amount Worker Paid",
+                        "Total LST Cost",
+                        "Total Charge",
+                        "Date Approved to Withdraw",
+                        "Notes",
+                      ];
+                      const rows = ticketsSortedWithBands.sorted.map((t) => {
+                        const siteDisplay = (t.projectCountry || t.projectCity || "").trim() || "";
+                        return [
+                          t.tripName || t.tripId?.slice(0, 8) || "",
+                          t.intlDom || "",
+                          t.workerName || "",
+                          siteDisplay,
+                          t.departureDate || "",
+                          t.ticketAgency || "",
+                          formatUsdDisplay(t.totalTicketCost),
+                          formatUsdDisplay(t.amountWorkerPaid),
+                          computeTotalLstCost(t.totalTicketCost, t.amountWorkerPaid),
+                          formatUsdDisplay(t.hpTotalCharge),
+                          t.dateApprovedToWithdraw || "",
+                          t.notes || "",
+                        ];
+                      });
+                      const csvContent = [header, ...rows]
+                        .map((cols) =>
+                          cols
+                            .map((val) => {
+                              const s = String(val ?? "");
+                              if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+                              return s;
+                            })
+                            .join(",")
+                        )
+                        .join("\n");
+                      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement("a");
+                      link.href = url;
+                      const dateStr = new Date().toISOString().slice(0, 10);
+                      const airfareFilename = `budget-airfare-${dateStr}.csv`;
+                      link.download = airfareFilename;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                      setStatus(`Exported ${airfareFilename}`);
+                      setTimeout(() => setStatus(""), 4000);
+                      showToast(`Exported ${airfareFilename}`);
+                    }}
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              </div>
               <div className="small" style={{ color: "var(--muted)" }}>
                 Airfare rows, worker-paid offsets, and calculated LST cost.
               </div>
@@ -1838,88 +1930,6 @@ export default function BudgetPage() {
                   </button>
                 </div>
               ) : null}
-            </div>
-            <div
-              className="row"
-              style={{
-                gap: 8,
-                flexWrap: "wrap",
-                alignItems: "center",
-                marginLeft: "auto",
-                justifyContent: "flex-end",
-              }}
-            >
-            <button
-              type="button"
-              className={isEditingTickets ? "btn btnPrimary" : "btn"}
-              onClick={() => setIsEditingTickets((current) => !current)}
-            >
-              {isEditingTickets ? "Save" : "Edit"}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => {
-                const header = [
-                  "Team",
-                  "Intl/Dom",
-                  "Worker Name",
-                  "Site",
-                  "Departure Date",
-                  "Ticket Agency",
-                  "Total Ticket Cost",
-                  "Amount Worker Paid",
-                  "Total LST Cost",
-                  "Total Charge",
-                  "Date Approved to Withdraw",
-                  "Notes",
-                ];
-                const rows = ticketsSortedWithBands.sorted.map((t) => {
-                  const siteDisplay = (t.projectCountry || t.projectCity || "").trim() || "";
-                  return [
-                    t.tripName || t.tripId?.slice(0, 8) || "",
-                    t.intlDom || "",
-                    t.workerName || "",
-                    siteDisplay,
-                    t.departureDate || "",
-                    t.ticketAgency || "",
-                    formatUsdDisplay(t.totalTicketCost),
-                    formatUsdDisplay(t.amountWorkerPaid),
-                    computeTotalLstCost(t.totalTicketCost, t.amountWorkerPaid),
-                    formatUsdDisplay(t.hpTotalCharge),
-                    t.dateApprovedToWithdraw || "",
-                    t.notes || "",
-                  ];
-                });
-                const csvContent = [header, ...rows]
-                  .map((cols) =>
-                    cols
-                      .map((val) => {
-                        const s = String(val ?? "");
-                        if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-                        return s;
-                      })
-                      .join(",")
-                  )
-                  .join("\n");
-                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                const dateStr = new Date().toISOString().slice(0, 10);
-                const airfareFilename = `budget-airfare-${dateStr}.csv`;
-                link.download = airfareFilename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                setStatus(`Exported ${airfareFilename}`);
-                setTimeout(() => setStatus(""), 4000);
-                showToast(`Exported ${airfareFilename}`);
-              }}
-            >
-              Export CSV
-            </button>
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
