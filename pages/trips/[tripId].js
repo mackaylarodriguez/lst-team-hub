@@ -9930,53 +9930,64 @@ normalizeEmail(participant.email) === activeParticipantEmail
             );
           })()}
           <div style={{ display: "grid", gap: 10 }}>
-            <div className="tripDocumentsPageSectionPill">Documents & links</div>
+            <div
+              className="row"
+              style={{
+                gap: 12,
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+              }}
+            >
+              <div className="tripDocumentsPageSectionPill" style={{ marginBottom: 0 }}>
+                Documents & links
+              </div>
+              {canManageTripDocuments ? (
+                <div
+                  className="row"
+                  style={{
+                    gap: 8,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <button className="btn" type="button" onClick={handleAddLink}>
+                    Add Link
+                  </button>
+                  <button className="btn" type="button" onClick={handlePrepareNewPdf}>
+                    Upload File
+                  </button>
+                  {(() => {
+                    const hasSite =
+                      effectiveSiteInfoDoc &&
+                      (String(effectiveSiteInfoDoc.link || "").trim() ||
+                        String(effectiveSiteInfoDoc.pdfUrl || "").trim());
+                    return !hasSite ? (
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() =>
+                          handlePrepareRequiredLink({
+                            key: "site-info-link",
+                            title: "Site Logistics",
+                            category: "Site",
+                            kind: "link",
+                            description: "Standard site logistics link for this trip.",
+                            resource: effectiveSiteInfoDoc,
+                          })
+                        }
+                      >
+                        Add site logistics
+                      </button>
+                    ) : null;
+                  })()}
+                </div>
+              ) : null}
+            </div>
             {!canManageTripDocuments ? (
               <div className="small" style={{ marginBottom: 0, opacity: 0.88 }}>
                 Documents your leader or staff share appear here.
-              </div>
-            ) : null}
-            {canManageTripDocuments ? (
-              <div
-                className="row"
-                style={{
-                  gap: 8,
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  justifyContent: "flex-start",
-                  marginTop: 2,
-                }}
-              >
-                <button className="btn" type="button" onClick={handleAddLink}>
-                  Add Link
-                </button>
-                <button className="btn" type="button" onClick={handlePrepareNewPdf}>
-                  Upload File
-                </button>
-                {(() => {
-                  const hasSite =
-                    effectiveSiteInfoDoc &&
-                    (String(effectiveSiteInfoDoc.link || "").trim() ||
-                      String(effectiveSiteInfoDoc.pdfUrl || "").trim());
-                  return !hasSite ? (
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() =>
-                        handlePrepareRequiredLink({
-                          key: "site-info-link",
-                          title: "Site Logistics",
-                          category: "Site",
-                          kind: "link",
-                          description: "Standard site logistics link for this trip.",
-                          resource: effectiveSiteInfoDoc,
-                        })
-                      }
-                    >
-                      Add site logistics
-                    </button>
-                  ) : null;
-                })()}
               </div>
             ) : null}
 
