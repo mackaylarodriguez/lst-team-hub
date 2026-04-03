@@ -5473,20 +5473,21 @@ function parseDateSafe(dateStr) {
     () => getTripUserDocumentTypes(trip?.participantDocumentTypes || []),
     [trip?.participantDocumentTypes]
   );
+  const tripTasks = useMemo(() => (Array.isArray(trip?.tasks) ? trip.tasks : []), [trip?.tasks]);
 
   const participantTaskProgress = useMemo(() => {
     if (!trip) return [];
 
     const base = (trip.participants || []).map((participant) => {
       const taskState = participantTaskStates[normalizeEmail(participant.email)] || {};
-      const completed = trip.tasks.filter((task) => !!taskState[task.id]).length;
+      const completed = tripTasks.filter((task) => !!taskState[task.id]).length;
 
       return {
         ...participant,
         taskState,
         completed,
-        total: trip.tasks.length,
-        percent: percentComplete(trip.tasks, taskState),
+        total: tripTasks.length,
+        percent: percentComplete(tripTasks, taskState),
       };
     });
 
@@ -5504,7 +5505,7 @@ function parseDateSafe(dateStr) {
       })
       .map((member) => {
         const taskState = participantTaskStates[normalizeEmail(member.email)] || {};
-        const completed = trip.tasks.filter((task) => !!taskState[task.id]).length;
+        const completed = tripTasks.filter((task) => !!taskState[task.id]).length;
         return {
           id: member.id ? `roster-member-${member.id}` : `roster-${normalizeEmail(member.email)}`,
           assignmentId: "",
@@ -5517,14 +5518,14 @@ function parseDateSafe(dateStr) {
           fundraisingUrl: "",
           taskState,
           completed,
-          total: trip.tasks.length,
-          percent: percentComplete(trip.tasks, taskState),
+          total: tripTasks.length,
+          percent: percentComplete(tripTasks, taskState),
           rosterOnly: true,
         };
       });
 
     return [...base, ...extras];
-  }, [trip, participantTaskStates, canViewTeamDashboard]);
+  }, [trip, tripTasks, participantTaskStates, canViewTeamDashboard]);
 
   const currentParticipantProgress = useMemo(() => {
     if (!activeParticipantEmail) return null;
@@ -5783,7 +5784,6 @@ function parseDateSafe(dateStr) {
   const tripHealthItems = useMemo(() => {
     const items = [];
     if (!trip) return items;
-    const tripTasks = Array.isArray(trip.tasks) ? trip.tasks : [];
     const materialsRosterCount = workerDocumentParticipants.length;
     const rawMaterialsWorkers = materialsDraft?.numWorkers;
     const materialsBudgetCount =
@@ -6520,8 +6520,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
       ? [currentParticipantProgress]
       : [];
   const groupedWorkerTasks = useMemo(
-    () => groupWorkerTasks(trip?.tasks || []),
-    [trip?.tasks]
+    () => groupWorkerTasks(tripTasks),
+    [tripTasks]
   );
   const visibleTrainingParticipants = canViewTeamDashboard
     ? trainingProgress
@@ -6566,7 +6566,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     const hideSectionLabelTitles = [
       "Proofread my tickets",
     ];
-    const upcomingTasks = (trip.tasks || [])
+    const upcomingTasks = tripTasks
       .filter((task) => !taskState[task.id])
       .map((task) => {
         const wt = findWorkerTaskTemplate(task);
@@ -6633,6 +6633,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     session?.email,
     session?.name,
     trip,
+    tripTasks,
   ]);
 
   const { upcomingMeetings, pastMeetings } = useMemo(() => {
@@ -9451,7 +9452,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     <span className="badge">{participant.percent}% complete</span>
                   </div>
 
-                  {trip.tasks.length > 0 ? (
+                  {tripTasks.length > 0 ? (
                     <div style={{ display: "grid", gap: 14 }}>
                       {groupedWorkerTasks.map(([section, sectionTasks]) => (
                         <div key={`${participant.email}-${section}`}>
