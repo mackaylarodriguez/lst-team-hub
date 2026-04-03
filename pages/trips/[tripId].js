@@ -8237,15 +8237,26 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   LST handouts, Neon tips, and training references for workers and leaders.
                 </div>
               </div>
-              <a
-                className="btn btnPrimary"
-                href={trainingAccessUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                style={{ alignSelf: "flex-start" }}
-              >
-                Open fundraising resources
-              </a>
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <a
+                  className="btn btnPrimary"
+                  href={trainingAccessUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  style={{ alignSelf: "flex-start" }}
+                >
+                  Open fundraising resources
+                </a>
+                <a
+                  className="btn"
+                  href="https://lst.org/projects/general-financial-information/"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  style={{ alignSelf: "flex-start" }}
+                >
+                  General financial information
+                </a>
+              </div>
             </div>
           </div>
 
@@ -10654,48 +10665,56 @@ normalizeEmail(participant.email) === activeParticipantEmail
         <div style={{ display: "grid", gap: 16 }}>
           <CollapsibleSection defaultOpen>
           <div className="card pad">
-            <div className="cardSectionPill" style={{ marginBottom: 8 }}>
-              {canViewTeamDashboard ? "Worker uploads" : "My documents"}
+            <div
+              className="row"
+              style={{
+                marginBottom: 8,
+                gap: 12,
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+              }}
+            >
+              <div className="cardSectionPill" style={{ marginBottom: 0 }}>
+                {canViewTeamDashboard ? "Worker uploads" : "My documents"}
+              </div>
+              {canViewTeamDashboard ? (
+                <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <input
+                    className="input"
+                    value={customParticipantDocumentLabel}
+                    onChange={(event) => setCustomParticipantDocumentLabel(event.target.value)}
+                    placeholder="Add upload item"
+                    style={{ minWidth: 220 }}
+                  />
+                  <button className="btn" type="button" onClick={handleAddParticipantDocumentType}>
+                    Add Upload
+                  </button>
+                </div>
+              ) : null}
             </div>
             <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
               {canViewTeamDashboard
                 ? "Per-participant uploads and review."
                 : "Your uploads for this trip."}
             </div>
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div className="spacer" />
-              {canViewTeamDashboard ? (
-                <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
-                  <div className="row" style={{ gap: 8 }}>
-                    <input
-                      className="input"
-                      value={customParticipantDocumentLabel}
-                      onChange={(event) => setCustomParticipantDocumentLabel(event.target.value)}
-                      placeholder="Add upload item"
-                      style={{ minWidth: 220 }}
-                    />
-                    <button className="btn" type="button" onClick={handleAddParticipantDocumentType}>
-                      Add Upload
-                    </button>
-                  </div>
-                  <AppStatusMessage
-                    message={participantDocumentTypeStatus}
-                    tone={
-                      participantDocumentTypeStatus === "Saved."
-                        ? "success"
-                        : participantDocumentTypeStatus === "Saving..."
-                          ? "info"
-                          : "danger"
-                    }
-                    compact
-                  />
-                </div>
-              ) : (
-                <div className="small">
-                  Upload your documents here. Staff can review them from your profile later too.
-                </div>
-              )}
-            </div>
+            {canViewTeamDashboard ? (
+              <AppStatusMessage
+                message={participantDocumentTypeStatus}
+                tone={
+                  participantDocumentTypeStatus === "Saved."
+                    ? "success"
+                    : participantDocumentTypeStatus === "Saving..."
+                      ? "info"
+                      : "danger"
+                }
+                compact
+              />
+            ) : (
+              <div className="small" style={{ marginBottom: 10 }}>
+                Upload your documents here. Staff can review them from your profile later too.
+              </div>
+            )}
 
             <AppStatusMessage message={participantDocumentsError} tone="danger" />
 
