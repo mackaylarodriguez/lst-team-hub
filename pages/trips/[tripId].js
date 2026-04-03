@@ -3449,6 +3449,11 @@ export default function TripPage() {
       return;
     }
 
+    if (item.destinationTab === "Trip Documents") {
+      setTab("Trip Documents");
+      return;
+    }
+
     if (item.destinationTab === "Training") {
       setPendingTrainingModuleJumpId(item.destinationId);
       setTab("Training");
@@ -6146,10 +6151,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
         const documentsTabUrl = trip?.id
           ? `/trips/${encodeURIComponent(trip.id)}?tab=documents`
           : null;
+        const openTripDocumentsTab = isTicketsTask;
         const link = isChecklistTask
           ? (preferredTripResourceOpenUrl(effectiveSiteInfoDoc) || wt?.link)
           : isTicketsTask
-            ? (flightsOpenUrl || wt?.link)
+            ? null
             : isDocumentsTask
               ? documentsTabUrl
               : (wt?.link || null);
@@ -6158,9 +6164,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
           title: task.title,
           dueDate: task.due,
           detail: hideSectionLabelTitles.includes(task.title) ? "" : section,
-          destinationTab: "Tasks",
+          destinationTab: openTripDocumentsTab ? "Trip Documents" : "Tasks",
           destinationId: task.id,
           link: link || null,
+          openTripDocumentsTab,
           /** Same trip My Documents / Worker Docs tab — open in-app instead of new window */
           openDocumentsTab: !!(isDocumentsTask && link && documentsTabUrl && link === documentsTabUrl),
           details: task.description || wt?.details || null,
@@ -7194,8 +7201,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           ? `Due ${formatSingleDate(task.dueDate)}`
                           : "Due when ready"}
                       </div>
-                      {task.link ? (
-                        task.openDocumentsTab ? (
+                      {task.link || task.openTripDocumentsTab ? (
+                        task.openTripDocumentsTab ? (
+                          <button
+                            type="button"
+                            className="small overviewTaskJumpButton"
+                            style={{ display: "inline-block", marginTop: 4 }}
+                            onClick={() => setTab(tripDocumentsTabLabel)}
+                          >
+                            View details →
+                          </button>
+                        ) : task.openDocumentsTab ? (
                           <button
                             type="button"
                             className="small overviewTaskJumpButton"
@@ -8904,7 +8920,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                               const taskLink = isChecklistTask
                                 ? (preferredTripResourceOpenUrl(effectiveSiteInfoDoc) || workerTaskTemplate?.link)
                                 : isTicketsTask
-                                  ? (flightsOpenUrl || workerTaskTemplate?.link)
+                                  ? null
                                   : isDocumentsTask
                                     ? documentsTabUrl
                                     : workerTaskTemplate?.link;
@@ -8942,8 +8958,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                       }}
                                     >
                                       {task.title}
-                                      {taskLink ? (
-                                        isDocumentsTask ? (
+                                      {taskLink || isTicketsTask ? (
+                                        isTicketsTask ? (
+                                          <button
+                                            type="button"
+                                            className="btn"
+                                            style={{ marginLeft: 8, padding: "4px 10px", fontSize: 12 }}
+                                            onClick={() => setTab(tripDocumentsTabLabel)}
+                                          >
+                                            View details
+                                          </button>
+                                        ) : isDocumentsTask ? (
                                           <button
                                             type="button"
                                             className="btn"
