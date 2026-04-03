@@ -9055,82 +9055,70 @@ normalizeEmail(participant.email) === activeParticipantEmail
             <CollapsibleSection defaultOpen>
             <div className="card pad tripSectionCard">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Task progress</div>
-            <div className="small" style={{ marginBottom: 10, opacity: 0.88 }}>
-              Completion summary by participant.
-            </div>
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div className="spacer" />
-              <span className="badge">{overviewTaskPct}% complete</span>
-            </div>
-
-            <div className="progress">
-              <div style={{ width: `${overviewTaskPct}%` }} />
-            </div>
-
-            <div className="small" style={{ marginTop: 8 }}>
-              {canViewTeamDashboard
-                ? "Overall completion across all participant task lists."
-                : "Your current task completion for this trip."}
-            </div>
-
-            <div
-              className="tripTaskSummaryGrid"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: 12,
-                marginTop: 14,
-              }}
-            >
-              <AppMetricCard
-                label="Participants"
-                value={visibleTaskParticipants.length}
-                detail={
-                  canViewTeamDashboard
-                    ? "People currently represented in the task board."
-                    : "Your personal task checklist for this trip."
-                }
-                tone="info"
-              />
-              <AppMetricCard
-                label="Open Tasks"
-                value={
-                  canViewTeamDashboard
-                    ? visibleTaskParticipants.reduce(
-                        (sum, participant) => sum + Math.max(participant.total - participant.completed, 0),
-                        0
-                      )
-                    : Math.max(
-                        (currentParticipantProgress?.total || 0) -
-                          (currentParticipantProgress?.completed || 0),
-                        0
-                      )
-                }
-                detail="Tasks still not marked complete."
-                tone={overviewTaskPct >= 80 ? "success" : "warning"}
-              />
-              {visibleTaskParticipants.map((participant) => (
-                <div
-                  key={`${participant.email}-summary`}
-                  className="card pad"
-                  style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
-                >
-                  <div className="row" style={{ marginBottom: 8 }}>
-                    <div style={{ fontWeight: 900 }}>
-                      {canViewTeamDashboard ? participant.name : "My Tasks"}
-                    </div>
-                    <div className="spacer" />
-                    <span className="badge badgeSuccess">{participant.percent}%</span>
-                  </div>
-                  <div className="progress">
-                    <div style={{ width: `${participant.percent}%` }} />
-                  </div>
-                  <div className="small" style={{ marginTop: 8 }}>
-                    {participant.completed} of {participant.total} tasks complete.
-                  </div>
+            {canViewTeamDashboard ? (
+              <>
+                <div className="small" style={{ marginBottom: 10, opacity: 0.88 }}>
+                  Completion summary by participant.
                 </div>
-              ))}
-            </div>
+                <div className="row" style={{ marginBottom: 10 }}>
+                  <div className="spacer" />
+                  <span className="badge">{overviewTaskPct}% complete</span>
+                </div>
+
+                <div className="progress">
+                  <div style={{ width: `${overviewTaskPct}%` }} />
+                </div>
+
+                <div className="small" style={{ marginTop: 8 }}>
+                  Overall completion across all participant task lists.
+                </div>
+
+                <div
+                  className="tripTaskSummaryGrid"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: 12,
+                    marginTop: 14,
+                  }}
+                >
+                  <AppMetricCard
+                    label="Participants"
+                    value={visibleTaskParticipants.length}
+                    detail="People currently represented in the task board."
+                    tone="info"
+                  />
+                  <AppMetricCard
+                    label="Open Tasks"
+                    value={visibleTaskParticipants.reduce(
+                      (sum, participant) => sum + Math.max(participant.total - participant.completed, 0),
+                      0
+                    )}
+                    detail="Tasks still not marked complete."
+                    tone={overviewTaskPct >= 80 ? "success" : "warning"}
+                  />
+                  {visibleTaskParticipants.map((participant) => (
+                    <div
+                      key={`${participant.email}-summary`}
+                      className="card pad"
+                      style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
+                    >
+                      <div className="row" style={{ marginBottom: 8 }}>
+                        <div style={{ fontWeight: 900 }}>{participant.name}</div>
+                        <div className="spacer" />
+                        <span className="badge badgeSuccess">{participant.percent}%</span>
+                      </div>
+                      <div className="progress">
+                        <div style={{ width: `${participant.percent}%` }} />
+                      </div>
+                      <div className="small" style={{ marginTop: 8 }}>
+                        {participant.completed} of {participant.total} tasks complete.
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : null}
           </div>
           </CollapsibleSection>
 
@@ -11083,39 +11071,41 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 </>
               ) : null}
             </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 12,
-                marginBottom: 16,
-              }}
-            >
-              <AppMetricCard
-                label="Expected Responses"
-                value={travelFormsSummary.totalParticipants}
-                detail="Team members represented in travel form review."
-                tone="info"
-              />
-              <AppMetricCard
-                label="Submitted"
-                value={travelFormsSummary.completedCount}
-                detail="Responses with at least core travel fields filled in."
-                tone={travelFormsSummary.completedCount > 0 ? "success" : "neutral"}
-              />
-              <AppMetricCard
-                label="Still Missing"
-                value={travelFormsSummary.missingCount}
-                detail="Participants who still need to submit their travel details."
-                tone={travelFormsSummary.missingCount > 0 ? "warning" : "success"}
-              />
-              <AppMetricCard
-                label="Passport Gaps"
-                value={travelFormsSummary.passportGaps}
-                detail="Submitted responses still missing passport number or expiration date."
-                tone={travelFormsSummary.passportGaps > 0 ? "warning" : "success"}
-              />
-            </div>
+            {canViewTeamDashboard ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: 12,
+                  marginBottom: 16,
+                }}
+              >
+                <AppMetricCard
+                  label="Expected Responses"
+                  value={travelFormsSummary.totalParticipants}
+                  detail="Team members represented in travel form review."
+                  tone="info"
+                />
+                <AppMetricCard
+                  label="Submitted"
+                  value={travelFormsSummary.completedCount}
+                  detail="Responses with at least core travel fields filled in."
+                  tone={travelFormsSummary.completedCount > 0 ? "success" : "neutral"}
+                />
+                <AppMetricCard
+                  label="Still Missing"
+                  value={travelFormsSummary.missingCount}
+                  detail="Participants who still need to submit their travel details."
+                  tone={travelFormsSummary.missingCount > 0 ? "warning" : "success"}
+                />
+                <AppMetricCard
+                  label="Passport Gaps"
+                  value={travelFormsSummary.passportGaps}
+                  detail="Submitted responses still missing passport number or expiration date."
+                  tone={travelFormsSummary.passportGaps > 0 ? "warning" : "success"}
+                />
+              </div>
+            ) : null}
 
             <div
               style={{
