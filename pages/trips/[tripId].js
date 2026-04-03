@@ -9444,11 +9444,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
             </div>
           ) : (
             <>
-              <CollapsibleSection
-                defaultOpen
-                title="Materials at a glance"
-                subtitle="Team name and site workbook plan are read-only. Edit shipping, sizes, and sending notes."
-              >
+              <CollapsibleSection defaultOpen>
                 <div
                   className="card pad"
                   style={{
@@ -9462,6 +9458,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       "0 12px 40px rgba(15, 23, 42, 0.08), 0 2px 12px rgba(15, 23, 42, 0.04)",
                   }}
                 >
+                  <div className="cardSectionPill" style={{ marginBottom: 8 }}>
+                    Materials at a glance
+                  </div>
+                  <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
+                    Team name and site workbook plan are read-only. Edit shipping, sizes, and sending notes.
+                  </div>
                   <div
                     className="row"
                     style={{
