@@ -8237,26 +8237,15 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   LST handouts, Neon tips, and training references for workers and leaders.
                 </div>
               </div>
-              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                <a
-                  className="btn btnPrimary"
-                  href={trainingAccessUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  style={{ alignSelf: "flex-start" }}
-                >
-                  Open fundraising resources
-                </a>
-                <a
-                  className="btn"
-                  href="https://lst.org/projects/general-financial-information/"
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  style={{ alignSelf: "flex-start" }}
-                >
-                  General financial information
-                </a>
-              </div>
+              <a
+                className="btn btnPrimary"
+                href="https://lst.org/projects/general-financial-information/"
+                target="_blank"
+                rel="noreferrer noopener"
+                style={{ alignSelf: "flex-start" }}
+              >
+                General financial information
+              </a>
             </div>
           </div>
 
