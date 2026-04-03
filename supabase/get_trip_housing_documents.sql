@@ -1,5 +1,5 @@
 -- Merged primary (trip_budgets) + extra rows for trip Documents / workers.
--- Same visibility as get_trip_housing_link (staff/admin or assigned or rostered for trip).
+-- Same visibility as get_trip_housing_link (admin/staff/leader or assigned or rostered for trip).
 -- Requires private.user_is_assigned_or_rostered_for_trip from private_trip_access_helpers.sql.
 
 create or replace function public.get_trip_housing_documents(p_trip_id uuid)
@@ -13,7 +13,7 @@ declare
   ok boolean;
   result jsonb;
 begin
-  ok := private.current_profile_role() in ('admin', 'staff')
+  ok := private.current_profile_role() in ('admin', 'staff', 'leader')
      or private.user_is_assigned_or_rostered_for_trip(p_trip_id);
 
   if not ok then

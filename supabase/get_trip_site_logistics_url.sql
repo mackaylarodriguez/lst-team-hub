@@ -1,4 +1,4 @@
--- Site logistics URL for trip Documents (workers/leaders cannot SELECT site_budget_notes).
+-- Site logistics URL for trip Documents (workers cannot SELECT site_budget_notes; leaders use this RPC).
 -- Requires private.current_profile_role() and private.user_is_assigned_or_rostered_for_trip()
 -- (private_trip_access_helpers.sql).
 
@@ -19,7 +19,7 @@ begin
   end if;
 
   if not (
-    private.current_profile_role() in ('admin', 'staff')
+    private.current_profile_role() in ('admin', 'staff', 'leader')
     or private.user_is_assigned_or_rostered_for_trip(p_trip_id)
   ) then
     return null;

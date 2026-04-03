@@ -16,7 +16,7 @@ as $$
   from trip_budgets b
   where b.trip_id = p_trip_id
     and (
-      private.current_profile_role() in ('admin', 'staff')
+      private.current_profile_role() in ('admin', 'staff', 'leader')
       or private.user_is_assigned_or_rostered_for_trip(p_trip_id)
     )
   limit 1;
@@ -37,7 +37,7 @@ as $$
   from trip_budgets b
   where b.trip_id = p_trip_id
     and (
-      private.current_profile_role() in ('admin', 'staff')
+      private.current_profile_role() in ('admin', 'staff', 'leader')
       or private.user_is_assigned_or_rostered_for_trip(p_trip_id)
     )
   limit 1;
@@ -58,7 +58,7 @@ declare
   ok boolean;
   result jsonb;
 begin
-  ok := private.current_profile_role() in ('admin', 'staff')
+  ok := private.current_profile_role() in ('admin', 'staff', 'leader')
      or private.user_is_assigned_or_rostered_for_trip(p_trip_id);
 
   if not ok then
@@ -124,7 +124,7 @@ begin
   end if;
 
   if not (
-    private.current_profile_role() in ('admin', 'staff')
+    private.current_profile_role() in ('admin', 'staff', 'leader')
     or private.user_is_assigned_or_rostered_for_trip(p_trip_id)
   ) then
     return null;
