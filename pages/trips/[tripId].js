@@ -9055,54 +9055,56 @@ normalizeEmail(participant.email) === activeParticipantEmail
             <CollapsibleSection defaultOpen>
             <div className="card pad tripSectionCard">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Task progress</div>
+            <div className="small" style={{ marginBottom: 10, opacity: 0.88 }}>
+              {canViewTeamDashboard
+                ? "Completion summary by participant."
+                : "Your current task completion for this trip."}
+            </div>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div className="spacer" />
+              <span className="badge">{overviewTaskPct}% complete</span>
+            </div>
+
+            <div className="progress">
+              <div style={{ width: `${overviewTaskPct}%` }} />
+            </div>
+
+            <div className="small" style={{ marginTop: 8 }}>
+              {canViewTeamDashboard
+                ? "Overall completion across all participant task lists."
+                : `${currentParticipantProgress?.completed || 0} of ${currentParticipantProgress?.total || 0} tasks complete.`}
+            </div>
+
             {canViewTeamDashboard ? (
-              <>
-                <div className="small" style={{ marginBottom: 10, opacity: 0.88 }}>
-                  Completion summary by participant.
-                </div>
-                <div className="row" style={{ marginBottom: 10 }}>
-                  <div className="spacer" />
-                  <span className="badge">{overviewTaskPct}% complete</span>
-                </div>
-
-                <div className="progress">
-                  <div style={{ width: `${overviewTaskPct}%` }} />
-                </div>
-
-                <div className="small" style={{ marginTop: 8 }}>
-                  Overall completion across all participant task lists.
-                </div>
-
-                <div
-                  className="tripTaskSummaryGrid"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                    gap: 12,
-                    marginTop: 14,
-                  }}
-                >
-                  {visibleTaskParticipants.map((participant) => (
-                    <div
-                      key={`${participant.email}-summary`}
-                      className="card pad"
-                      style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
-                    >
-                      <div className="row" style={{ marginBottom: 8 }}>
-                        <div style={{ fontWeight: 900 }}>{participant.name}</div>
-                        <div className="spacer" />
-                        <span className="badge badgeSuccess">{participant.percent}%</span>
-                      </div>
-                      <div className="progress">
-                        <div style={{ width: `${participant.percent}%` }} />
-                      </div>
-                      <div className="small" style={{ marginTop: 8 }}>
-                        {participant.completed} of {participant.total} tasks complete.
-                      </div>
+              <div
+                className="tripTaskSummaryGrid"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: 12,
+                  marginTop: 14,
+                }}
+              >
+                {visibleTaskParticipants.map((participant) => (
+                  <div
+                    key={`${participant.email}-summary`}
+                    className="card pad"
+                    style={{ boxShadow: "none", borderColor: "rgba(15, 23, 42, 0.08)" }}
+                  >
+                    <div className="row" style={{ marginBottom: 8 }}>
+                      <div style={{ fontWeight: 900 }}>{participant.name}</div>
+                      <div className="spacer" />
+                      <span className="badge badgeSuccess">{participant.percent}%</span>
                     </div>
-                  ))}
-                </div>
-              </>
+                    <div className="progress">
+                      <div style={{ width: `${participant.percent}%` }} />
+                    </div>
+                    <div className="small" style={{ marginTop: 8 }}>
+                      {participant.completed} of {participant.total} tasks complete.
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : null}
           </div>
           </CollapsibleSection>

@@ -142,6 +142,55 @@ const ticketComputedFieldStyle = {
   cursor: "not-allowed",
 };
 
+const budgetSectionCardStyle = {
+  borderRadius: 16,
+  border: "1px solid rgba(15, 23, 42, 0.08)",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.92))",
+  boxShadow: "0 14px 36px rgba(15, 23, 42, 0.06)",
+};
+
+const budgetSectionHeaderStyle = {
+  display: "grid",
+  gap: 14,
+  marginBottom: 16,
+  padding: "14px 16px",
+  borderRadius: 14,
+  border: "1px solid rgba(15, 23, 42, 0.06)",
+  background: "rgba(255,255,255,0.76)",
+};
+
+const budgetSectionSummaryGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  gap: 10,
+};
+
+const budgetSectionSummaryCardStyle = {
+  borderRadius: 12,
+  border: "1px solid rgba(15, 23, 42, 0.08)",
+  background: "rgba(248, 250, 252, 0.88)",
+  padding: "12px 14px",
+  display: "grid",
+  gap: 6,
+  minWidth: 0,
+};
+
+const budgetSectionSummaryLabelStyle = {
+  fontSize: 10,
+  fontWeight: 800,
+  letterSpacing: ".12em",
+  textTransform: "uppercase",
+  color: "var(--muted)",
+};
+
+const budgetSectionSummaryValueStyle = {
+  fontSize: 24,
+  lineHeight: 1,
+  fontWeight: 900,
+  color: "var(--text)",
+};
+
 function createDraftHousingExtraId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `draft-${crypto.randomUUID()}`;
@@ -314,6 +363,43 @@ export default function BudgetPage() {
     }
     return { sorted, bands };
   }, [ticketRows, trips]);
+
+  const visibleHousingRows = isEditingHousing ? housingRowsDraft : housingRows;
+  const visibleHousingExtras = isEditingHousing ? housingExtrasDraft : housingExtrasByTripId;
+  const housingSummary = useMemo(() => {
+    const rows = visibleHousingRows || [];
+    const totalTeams = rows.length;
+    const docsReadyCount = rows.filter(
+      (row) =>
+        String(row?.housingLink || "").trim() ||
+        String(row?.housingPdfUrl || "").trim() ||
+        ((visibleHousingExtras[row.tripId] || []).some(
+          (extra) =>
+            String(extra?.housingLink || "").trim() || String(extra?.housingPdfUrl || "").trim()
+        ))
+    ).length;
+    const totalHousingAmount = rows.reduce(
+      (sum, row) => sum + (parseCurrencyLike(row?.housingAmount) ?? 0),
+      0
+    );
+    const totalExtraLines = rows.reduce(
+      (sum, row) => sum + ((visibleHousingExtras[row.tripId] || []).length || 0),
+      0
+    );
+    return { totalTeams, docsReadyCount, totalHousingAmount, totalExtraLines };
+  }, [visibleHousingExtras, visibleHousingRows]);
+
+  const ticketingSummary = useMemo(() => {
+    const rows = ticketsSortedWithBands.sorted || [];
+    const totalRows = rows.length;
+    const teamCount = new Set(rows.map((row) => String(row.tripId || "")).filter(Boolean)).size;
+    const avgTicketCost =
+      totalRows > 0
+        ? rows.reduce((sum, row) => sum + (parseCurrencyLike(row.totalTicketCost) ?? 0), 0) / totalRows
+        : null;
+    const workerPaidCount = rows.filter((row) => (parseCurrencyLike(row.amountWorkerPaid) ?? 0) > 0).length;
+    return { totalRows, teamCount, avgTicketCost, workerPaidCount };
+  }, [ticketsSortedWithBands.sorted]);
 
   const siteHousingNotesForDisplay = useMemo(() => {
     const byCanonicalSite = new Map();
@@ -1120,13 +1206,16 @@ export default function BudgetPage() {
           ) : null}
         </CollapsibleSection>
 
-        <div className="card pad">
+        <div className="card pad" style={budgetSectionCardStyle}>
           <div
             className="row appPolishToolbar"
-            style={{ alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+            style={{ ...budgetSectionHeaderStyle, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
               <div className="appSectionBadge" style={{ marginBottom: 6 }}>Housing</div>
+              <div className="small" style={{ color: "var(--muted)" }}>
+                Budget amount, housing amount, links, and PDFs for each trip.
+              </div>
               {tripsSortedForBudget.length > 0 ? (
                 <div
                   className="row"
@@ -1252,6 +1341,40 @@ export default function BudgetPage() {
             >
               Export CSV
             </button>
+            </div>
+          </div>
+          <div style={{ ...budgetSectionSummaryGridStyle, marginBottom: 16 }}>
+            <div style={budgetSectionSummaryCardStyle}>
+              <div style={budgetSectionSummaryLabelStyle}>Teams</div>
+              <div style={budgetSectionSummaryValueStyle}>{housingSummary.totalTeams}</div>
+              <div className="small" style={{ color: "var(--muted)" }}>
+                Trip rows currently represented in housing.
+              </div>
+            </div>
+            <div style={budgetSectionSummaryCardStyle}>
+              <div style={budgetSectionSummaryLabelStyle}>Docs Ready</div>
+              <div style={budgetSectionSummaryValueStyle}>{housingSummary.docsReadyCount}</div>
+              <div className="small" style={{ color: "var(--muted)" }}>
+                Teams with at least one housing link or PDF saved.
+              </div>
+            </div>
+            <div style={budgetSectionSummaryCardStyle}>
+              <div style={budgetSectionSummaryLabelStyle}>Housing Total</div>
+              <div style={budgetSectionSummaryValueStyle}>
+                {housingSummary.totalHousingAmount > 0
+                  ? formatUsdNumber(housingSummary.totalHousingAmount)
+                  : "—"}
+              </div>
+              <div className="small" style={{ color: "var(--muted)" }}>
+                Sum of the Housing amount column.
+              </div>
+            </div>
+            <div style={budgetSectionSummaryCardStyle}>
+              <div style={budgetSectionSummaryLabelStyle}>Extra Lines</div>
+              <div style={budgetSectionSummaryValueStyle}>{housingSummary.totalExtraLines}</div>
+              <div className="small" style={{ color: "var(--muted)" }}>
+                Additional housing slots beyond the main row.
+              </div>
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
@@ -1712,13 +1835,16 @@ export default function BudgetPage() {
         )}
 
         {tab === "Ticketing" && (
-        <div className="card pad">
+        <div className="card pad" style={budgetSectionCardStyle}>
           <div
             className="row appPolishToolbar"
-            style={{ alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+            style={{ ...budgetSectionHeaderStyle, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
               <div className="appSectionBadge" style={{ marginBottom: 6 }}>Ticketing</div>
+              <div className="small" style={{ color: "var(--muted)" }}>
+                Airfare rows, worker-paid offsets, and calculated LST cost.
+              </div>
               {trips.length > 0 ? (
                 <div
                   className="row"
@@ -1828,6 +1954,40 @@ export default function BudgetPage() {
             >
               Export CSV
             </button>
+            </div>
+          </div>
+          <div style={{ ...budgetSectionSummaryGridStyle, marginBottom: 16 }}>
+            <div style={budgetSectionSummaryCardStyle}>
+              <div style={budgetSectionSummaryLabelStyle}>Ticket Rows</div>
+              <div style={budgetSectionSummaryValueStyle}>{ticketingSummary.totalRows}</div>
+              <div className="small" style={{ color: "var(--muted)" }}>
+                Saved ticket entries across all visible teams.
+              </div>
+            </div>
+            <div style={budgetSectionSummaryCardStyle}>
+              <div style={budgetSectionSummaryLabelStyle}>Teams</div>
+              <div style={budgetSectionSummaryValueStyle}>{ticketingSummary.teamCount}</div>
+              <div className="small" style={{ color: "var(--muted)" }}>
+                Trips currently represented in ticketing.
+              </div>
+            </div>
+            <div style={budgetSectionSummaryCardStyle}>
+              <div style={budgetSectionSummaryLabelStyle}>Average Ticket</div>
+              <div style={budgetSectionSummaryValueStyle}>
+                {ticketingSummary.avgTicketCost != null
+                  ? formatUsdNumber(ticketingSummary.avgTicketCost)
+                  : "—"}
+              </div>
+              <div className="small" style={{ color: "var(--muted)" }}>
+                Average of Total Ticket Cost in the current list.
+              </div>
+            </div>
+            <div style={budgetSectionSummaryCardStyle}>
+              <div style={budgetSectionSummaryLabelStyle}>Worker Paid</div>
+              <div style={budgetSectionSummaryValueStyle}>{ticketingSummary.workerPaidCount}</div>
+              <div className="small" style={{ color: "var(--muted)" }}>
+                Rows where a worker contribution has been entered.
+              </div>
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
