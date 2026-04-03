@@ -9082,21 +9082,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     marginTop: 14,
                   }}
                 >
-                  <AppMetricCard
-                    label="Participants"
-                    value={visibleTaskParticipants.length}
-                    detail="People currently represented in the task board."
-                    tone="info"
-                  />
-                  <AppMetricCard
-                    label="Open Tasks"
-                    value={visibleTaskParticipants.reduce(
-                      (sum, participant) => sum + Math.max(participant.total - participant.completed, 0),
-                      0
-                    )}
-                    detail="Tasks still not marked complete."
-                    tone={overviewTaskPct >= 80 ? "success" : "warning"}
-                  />
                   {visibleTaskParticipants.map((participant) => (
                     <div
                       key={`${participant.email}-summary`}
