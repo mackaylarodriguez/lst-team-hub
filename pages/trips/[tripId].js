@@ -5205,7 +5205,7 @@ function parseDateSafe(dateStr) {
   const canEditTripReferenceEmails = staffViewAllParticipants;
   const canViewTripReferenceSection =
     !isPreviewingParticipant &&
-    (staffViewAllParticipants || effectiveIsLeader || !!currentParticipant);
+    (staffViewAllParticipants || effectiveIsLeader);
   const participantDocumentsByUserId = useMemo(() => {
     const grouped = new Map();
 
