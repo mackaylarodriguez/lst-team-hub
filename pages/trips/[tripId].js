@@ -902,6 +902,7 @@ export default function TripPage() {
   const [travelFormStatus, setTravelFormStatus] = useState("");
   const [travelFormResponses, setTravelFormResponses] = useState([]);
   const [tripMeetings, setTripMeetings] = useState([]);
+  const [tripMeetingsLoadError, setTripMeetingsLoadError] = useState("");
   const [meetingDraft, setMeetingDraft] = useState({ title: "", scheduledAt: "", notesAfter: "" });
   const [editingMeetingId, setEditingMeetingId] = useState("");
   const [meetingStatus, setMeetingStatus] = useState("");
@@ -1297,9 +1298,16 @@ export default function TripPage() {
     async function loadMeetings() {
       try {
         const rows = await listTripMeetings(trip.id);
-        if (!cancelled) setTripMeetings(rows);
+        if (!cancelled) {
+          setTripMeetings(rows);
+          setTripMeetingsLoadError("");
+        }
       } catch (e) {
         console.error("Unable to load meetings", e);
+        if (!cancelled) {
+          setTripMeetings([]);
+          setTripMeetingsLoadError(e?.message || "Unable to load meetings.");
+        }
       }
     }
     void loadMeetings();
@@ -6778,12 +6786,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
 
             {!canViewTeamDashboard ? (
               <div className="card pad">
-                <div className="small" style={{ marginBottom: 8 }}>{overviewFundraisingLabel}</div>
+                <div className="small" style={{ marginBottom: 14 }}>{overviewFundraisingLabel}</div>
                 {fundraisingGoalAmount ? (
                   <div style={{ fontSize: 28, fontWeight: 900 }}>{formatMoney(fundraisingGoalAmount)}</div>
                 ) : null}
                 {workerOverviewFundraisingUrl ? (
-                  <div style={{ marginTop: fundraisingGoalAmount ? 10 : 6 }}>
+                  <div style={{ marginTop: fundraisingGoalAmount ? 18 : 16 }}>
                     <a
                       className="btn btnPrimary"
                       href={workerOverviewFundraisingUrl}
@@ -6797,9 +6805,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     </a>
                   </div>
                 ) : !fundraisingGoalAmount ? (
-                  <div style={{ fontSize: 28, fontWeight: 900 }}>No Link</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, marginTop: 16 }}>No Link</div>
                 ) : null}
-                <div className="small" style={{ marginTop: 8 }}>{overviewFundraisingDetail}</div>
+                <div className="small" style={{ marginTop: 12 }}>{overviewFundraisingDetail}</div>
               </div>
             ) : (
               <div className="card pad">
@@ -6847,6 +6855,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   ? "Upcoming and past meetings. Use Add meeting to schedule. After-meeting notes are only visible to staff and trip leaders."
                   : "Upcoming and past meetings for your team (date and time only)."}
               </div>
+              {tripMeetingsLoadError ? (
+                <div className="small" style={{ marginBottom: 12, color: "var(--danger)" }}>
+                  {tripMeetingsLoadError} If this persists, contact your trip coordinator.
+                </div>
+              ) : null}
               {canManageTripMeetings && !meetingAddFormOpen && !editingMeetingId ? (
                 <div style={{ marginBottom: 14 }}>
                   <button
