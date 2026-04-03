@@ -6084,7 +6084,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     }
 
     return (trip.participants || []).filter(
-      (participant) => String(participant.id) === String(currentParticipant.id)
+      (participant) => String(participant.id) === String(currentParticipant?.id || "")
     );
   }, [trip, canViewTeamDashboard, currentParticipant]);
 
@@ -6165,15 +6165,19 @@ normalizeEmail(participant.email) === activeParticipantEmail
   const overviewTrainingPct = canViewTeamDashboard
     ? trainingPct
     : currentTrainingProgress?.percent || 0;
+  const currentParticipantFundraisingGoalAmount =
+    currentParticipant?.fundraisingGoalAmount != null &&
+    Number.isFinite(Number(currentParticipant.fundraisingGoalAmount))
+      ? Number(currentParticipant.fundraisingGoalAmount)
+      : 0;
   const isTeamFundraisingMode = trip?.fundraisingMode === "team";
   const tripFundraisingGoal = Number(trip?.fundraisingGoalAmount || 0);
   const fundraisingGoalAmount =
     !canViewTeamDashboard && isTeamFundraisingMode
       ? tripFundraisingGoal
       : !canViewTeamDashboard &&
-        currentParticipant?.fundraisingGoalAmount != null &&
-        Number(currentParticipant.fundraisingGoalAmount) > 0
-        ? Number(currentParticipant.fundraisingGoalAmount)
+        currentParticipantFundraisingGoalAmount > 0
+        ? currentParticipantFundraisingGoalAmount
         : tripFundraisingGoal;
   const fundraisingWorkerCount = Math.max(
     (trip?.participants || []).filter((participant) =>
@@ -6184,8 +6188,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
   const useIndividualGoal =
     !canViewTeamDashboard &&
     !isTeamFundraisingMode &&
-    currentParticipant?.fundraisingGoalAmount != null &&
-    Number(currentParticipant.fundraisingGoalAmount) > 0;
+    currentParticipantFundraisingGoalAmount > 0;
   const countForDeadlines =
     useIndividualGoal || isTeamFundraisingMode ? 1 : fundraisingWorkerCount;
   const fundraisingFirstDeadlineAmount = Math.min(
