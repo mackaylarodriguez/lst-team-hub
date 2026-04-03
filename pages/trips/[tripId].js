@@ -7278,17 +7278,36 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 </div>
               ) : null}
               <div style={{ marginBottom: 12 }}>
-                <div className="small" style={{ fontWeight: 700, marginBottom: 6, color: "var(--foreground)" }}>
+                <div
+                  className="small"
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 13,
+                    lineHeight: 1.45,
+                    marginBottom: 6,
+                    color: "var(--foreground)",
+                  }}
+                >
                   Upcoming
                 </div>
                 {upcomingMeetings.length ? (
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
                     {upcomingMeetings.map((m) => (
                       <li key={m.id} style={{ marginBottom: 10 }}>
-                        <div className="small" style={{ fontWeight: 600, color: "var(--foreground)" }}>
+                        <div
+                          className="small"
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 13,
+                            lineHeight: 1.45,
+                            color: "var(--foreground)",
+                          }}
+                        >
                           {m.title || "Meeting"}
                         </div>
-                        <div className="small">{formatMeetingDateTime(m.scheduledAt)}</div>
+                        <div className="small" style={{ fontSize: 13, lineHeight: 1.45 }}>
+                          {formatMeetingDateTime(m.scheduledAt)}
+                        </div>
                         {canManageTripMeetings ? (
                           <div className="row" style={{ gap: 8, marginTop: 4, flexWrap: "wrap" }}>
                             <button
@@ -7341,17 +7360,36 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 )}
               </div>
               <div>
-                <div className="small" style={{ fontWeight: 700, marginBottom: 6, color: "var(--foreground)" }}>
+                <div
+                  className="small"
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 13,
+                    lineHeight: 1.45,
+                    marginBottom: 6,
+                    color: "var(--foreground)",
+                  }}
+                >
                   Past
                 </div>
                 {pastMeetings.length ? (
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
                     {pastMeetings.map((m) => (
                       <li key={m.id} style={{ marginBottom: 10 }}>
-                        <div className="small" style={{ fontWeight: 600, color: "var(--foreground)" }}>
+                        <div
+                          className="small"
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 13,
+                            lineHeight: 1.45,
+                            color: "var(--foreground)",
+                          }}
+                        >
                           {m.title || "Meeting"}
                         </div>
-                        <div className="small">{formatMeetingDateTime(m.scheduledAt)}</div>
+                        <div className="small" style={{ fontSize: 13, lineHeight: 1.45 }}>
+                          {formatMeetingDateTime(m.scheduledAt)}
+                        </div>
                         {canManageTripMeetings ? (
                           m.notesAfter ? (
                             <div className="small" style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>
