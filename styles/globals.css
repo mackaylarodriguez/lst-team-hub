@@ -1013,12 +1013,12 @@ table.sitesLogisticsTable .sitesLogisticsMetaCell{
   vertical-align:middle;
 }
 table.sitesLogisticsTable .sitesLogisticsHousingCell{
-  width:36%;
+  width:33%;
   vertical-align:middle;
   font-size:12px;
 }
 table.sitesLogisticsTable .sitesLogisticsActionCell{
-  width:12%;
+  width:15%;
   text-align:right;
   vertical-align:middle;
   white-space:nowrap;
