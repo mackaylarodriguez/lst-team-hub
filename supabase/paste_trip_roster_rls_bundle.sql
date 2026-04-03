@@ -42,7 +42,22 @@ as $$
     select 1
     from public.trip_assignments as ta
     where ta.trip_id = p_trip_id
-      and ta.user_id = auth.uid()
+      and (
+        ta.user_id = auth.uid()
+        or exists (
+          select 1
+          from public.profiles as p
+          where p.id = ta.user_id
+            and (
+              p.id = auth.uid()
+              or (
+                nullif(trim(coalesce(auth.jwt()->>'email', '')), '') is not null
+                and nullif(trim(coalesce(p.email, '')), '') is not null
+                and lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+              )
+            )
+        )
+      )
   )
   or exists (
     select 1
