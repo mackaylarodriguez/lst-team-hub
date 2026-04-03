@@ -289,7 +289,7 @@ export default function TripTravelSafetySection({
     >
       <div style={{ display: "grid", gap: 12 }}>
         <div>
-          <div style={{ fontWeight: 900, marginBottom: 4 }}>Travel & Safety</div>
+          <div className="cardSectionPill" style={{ marginBottom: 8 }}>Travel & Safety</div>
           {record?.updatedAt ? (
             <div className="small" style={{ opacity: 0.9 }}>
               Last updated {new Date(record.updatedAt).toLocaleString()}

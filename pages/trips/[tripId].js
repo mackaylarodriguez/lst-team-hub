@@ -7392,11 +7392,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         </div>
                         {canManageTripMeetings ? (
                           m.notesAfter ? (
-                            <div className="small" style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>
+                            <div
+                              className="small"
+                              style={{ marginTop: 4, whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.45 }}
+                            >
                               {m.notesAfter}
                             </div>
                           ) : (
-                            <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                            <div
+                              className="small"
+                              style={{ marginTop: 4, color: "var(--muted)", fontSize: 13, lineHeight: 1.45 }}
+                            >
                               No notes yet.
                             </div>
                           )
