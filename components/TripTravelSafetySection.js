@@ -33,12 +33,6 @@ function formatSubsectionDate(isoDate) {
   return d.toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
-function trimPreview(text, max = 90) {
-  const t = String(text || "").replace(/\s+/g, " ").trim();
-  if (!t) return "";
-  return t.length > max ? `${t.slice(0, max)}…` : t;
-}
-
 function ReviewBadge() {
   return (
     <span
@@ -208,14 +202,13 @@ export default function TripTravelSafetySection({
     const lastVerified = draft[lastVerifiedKey];
     const showReview = needsReviewBadge(lastVerified);
     const body = draft[bodyKey];
-    const preview = trimPreview(body);
 
     return (
       <CollapsibleSection
         key={key}
         defaultOpen={false}
         title={title}
-        subtitle={preview ? preview : "Expand to view details"}
+        subtitle="Expand to view details"
         badge={showReview ? <ReviewBadge /> : null}
       >
         <div className="small" style={{ marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
@@ -262,7 +255,7 @@ export default function TripTravelSafetySection({
       key="ref"
       defaultOpen={false}
       title="Reference Links"
-      subtitle={trimPreview(draft.referenceLinks) || "Expand to view links or notes"}
+      subtitle="Expand to view details"
     >
       {canEdit ? (
         <textarea
@@ -381,7 +374,7 @@ export default function TripTravelSafetySection({
                     color: "#166534",
                   }}
                 >
-                  You acknowledged version {contentVersion} on{" "}
+                  You acknowledged Travel & Safety on{" "}
                   {myAck?.acknowledgedAt
                     ? new Date(myAck.acknowledgedAt).toLocaleString()
                     : "—"}
@@ -400,7 +393,7 @@ export default function TripTravelSafetySection({
                     color: "#166534",
                   }}
                 >
-                  You acknowledged version {contentVersion} as a trip participant.
+                  You acknowledged Travel & Safety as a trip participant.
                 </div>
               ) : null}
 
