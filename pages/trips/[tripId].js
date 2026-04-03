@@ -1213,6 +1213,10 @@ export default function TripPage() {
     (trip.participants || []).forEach((participant) => {
       nextDrafts[participant.id] = {
         fundraisingUrl: participant.fundraisingUrl || "",
+        fundraisingGoalAmount:
+          participant.fundraisingGoalAmount != null && participant.fundraisingGoalAmount !== ""
+            ? String(participant.fundraisingGoalAmount)
+            : "",
       };
     });
     const participantEmailsForFundraising = new Set(
@@ -1224,6 +1228,10 @@ export default function TripPage() {
       if (em && participantEmailsForFundraising.has(em)) return;
       nextDrafts[`roster-member-${member.id}`] = {
         fundraisingUrl: member.fundraisingUrl || "",
+        fundraisingGoalAmount:
+          member.fundraisingGoalAmount != null && member.fundraisingGoalAmount !== ""
+            ? String(member.fundraisingGoalAmount)
+            : "",
       };
     });
     setFundraisingDrafts(nextDrafts);
@@ -2533,13 +2541,17 @@ export default function TripPage() {
   }, [trip?.id, isPreviewingParticipant]);
 
   function updateFundraisingDraft(participantId, field, value) {
-    setFundraisingDrafts((current) => ({
-      ...current,
-      [participantId]: {
-        fundraisingUrl: current[participantId]?.fundraisingUrl || "",
-        [field]: value,
-      },
-    }));
+    setFundraisingDrafts((current) => {
+      const prev = current[participantId] || {};
+      return {
+        ...current,
+        [participantId]: {
+          fundraisingUrl: prev.fundraisingUrl ?? "",
+          fundraisingGoalAmount: prev.fundraisingGoalAmount ?? "",
+          [field]: value,
+        },
+      };
+    });
   }
 
   async function handleSaveFundraising(participant) {
@@ -2547,6 +2559,7 @@ export default function TripPage() {
 
     const draft = fundraisingDrafts[participant.id] || {
       fundraisingUrl: "",
+      fundraisingGoalAmount: "",
     };
 
     try {
@@ -2560,7 +2573,13 @@ export default function TripPage() {
           tripId: trip.id,
           memberId: participant.tripTeamMemberId,
           fundraisingUrl: draft.fundraisingUrl,
+          fundraisingGoalAmount: draft.fundraisingGoalAmount,
         });
+
+        const nextGoal =
+          savedMember.fundraisingGoalAmount != null && savedMember.fundraisingGoalAmount !== ""
+            ? Number(savedMember.fundraisingGoalAmount)
+            : undefined;
 
         setTrip((current) => {
           if (!current) return current;
@@ -2568,8 +2587,21 @@ export default function TripPage() {
             ...current,
             teamMembers: (current.teamMembers || []).map((m) =>
               m.id === participant.tripTeamMemberId
-                ? { ...m, fundraisingUrl: savedMember.fundraisingUrl }
+                ? {
+                    ...m,
+                    fundraisingUrl: savedMember.fundraisingUrl,
+                    fundraisingGoalAmount: nextGoal,
+                  }
                 : m
+            ),
+            participants: (current.participants || []).map((item) =>
+              item.id === participant.id
+                ? {
+                    ...item,
+                    fundraisingUrl: savedMember.fundraisingUrl,
+                    fundraisingGoalAmount: nextGoal,
+                  }
+                : item
             ),
           };
         });
@@ -2578,9 +2610,22 @@ export default function TripPage() {
           ...current,
           [participant.id]: {
             fundraisingUrl: savedMember.fundraisingUrl || "",
+            fundraisingGoalAmount:
+              savedMember.fundraisingGoalAmount != null && savedMember.fundraisingGoalAmount !== ""
+                ? String(savedMember.fundraisingGoalAmount)
+                : "",
           },
         }));
       } else {
+        if (
+          String(draft.fundraisingGoalAmount || "").trim() !== "" &&
+          canViewTeamDashboard
+        ) {
+          throw new Error(
+            "Individual goals are stored on the trip roster. Add this worker to the team roster (Team tab) or ensure their roster row exists, then try again."
+          );
+        }
+
         const savedProfile = await saveFundraisingProfile({
           tripId: trip.id,
           userId: participant.id,
@@ -2607,6 +2652,7 @@ export default function TripPage() {
           ...current,
           [participant.id]: {
             fundraisingUrl: savedProfile.fundraisingUrl || "",
+            fundraisingGoalAmount: "",
           },
         }));
       }
