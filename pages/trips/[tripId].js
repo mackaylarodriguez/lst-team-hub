@@ -5784,7 +5784,20 @@ function parseDateSafe(dateStr) {
   const tripHealthItems = useMemo(() => {
     const items = [];
     if (!trip) return items;
-    const materialsRosterCount = workerDocumentParticipants.length;
+    const materialsRosterCount = !canViewTeamDashboard
+      ? currentParticipant
+        ? 1
+        : 0
+      : (() => {
+          const participantEmails = new Set(
+            (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+          );
+          const rosterOnlyCount = (trip.teamMembers || []).filter((member) => {
+            const email = normalizeEmail(member.email);
+            return email && !participantEmails.has(email);
+          }).length;
+          return (trip.participants || []).length + rosterOnlyCount;
+        })();
     const rawMaterialsWorkers = materialsDraft?.numWorkers;
     const materialsBudgetCount =
       rawMaterialsWorkers === "" || rawMaterialsWorkers === null || rawMaterialsWorkers === undefined
@@ -5933,6 +5946,7 @@ function parseDateSafe(dateStr) {
     tripMeetings,
     staffViewAllParticipants,
     canViewTeamDashboard,
+    currentParticipant,
     editableStaffTasks,
     currentParticipantProgress?.completed,
     activeParticipantEmail,
