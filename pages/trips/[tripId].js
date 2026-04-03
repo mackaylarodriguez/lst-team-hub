@@ -1,7 +1,6 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
-import EmptyState from "@/components/EmptyState";
 import ConfirmModal from "@/components/ConfirmModal";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -183,6 +182,175 @@ function CollapsibleSection({
       ) : null}
       <div>{children}</div>
     </div>
+  );
+}
+
+const APP_STATUS_TONES = {
+  neutral: {
+    color: "var(--muted)",
+    background: "rgba(148, 163, 184, 0.10)",
+    border: "1px solid rgba(148, 163, 184, 0.18)",
+  },
+  info: {
+    color: "var(--info)",
+    background: "rgba(59, 130, 246, 0.10)",
+    border: "1px solid rgba(59, 130, 246, 0.18)",
+  },
+  success: {
+    color: "var(--success)",
+    background: "rgba(34, 197, 94, 0.10)",
+    border: "1px solid rgba(34, 197, 94, 0.18)",
+  },
+  warning: {
+    color: "var(--warn)",
+    background: "rgba(245, 158, 11, 0.10)",
+    border: "1px solid rgba(245, 158, 11, 0.18)",
+  },
+  danger: {
+    color: "var(--danger)",
+    background: "rgba(239, 68, 68, 0.10)",
+    border: "1px solid rgba(239, 68, 68, 0.18)",
+  },
+};
+
+function AppStatusMessage({
+  message,
+  tone = "neutral",
+  compact = false,
+  actionLabel,
+  onAction,
+}) {
+  if (!message) return null;
+  const palette = APP_STATUS_TONES[tone] || APP_STATUS_TONES.neutral;
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        flexWrap: "wrap",
+        padding: compact ? "4px 8px" : "8px 10px",
+        borderRadius: 12,
+        fontSize: compact ? 12 : 13,
+        lineHeight: 1.45,
+        ...palette,
+      }}
+    >
+      <span>{message}</span>
+      {actionLabel && onAction ? (
+        <button type="button" className="btn btnPrimary" onClick={onAction}>
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function AppEmptyState({
+  title,
+  description,
+  actionLabel,
+  onAction,
+}) {
+  return (
+    <div
+      style={{
+        padding: "16px 18px",
+        borderRadius: 14,
+        border: "1px dashed rgba(15, 23, 42, 0.16)",
+        background: "rgba(248, 250, 252, 0.75)",
+        display: "grid",
+        gap: 6,
+      }}
+    >
+      <div style={{ fontWeight: 800, color: "var(--text)" }}>{title}</div>
+      {description ? (
+        <div className="small" style={{ color: "var(--muted)", lineHeight: 1.5 }}>
+          {description}
+        </div>
+      ) : null}
+      {actionLabel && onAction ? (
+        <div style={{ marginTop: 4 }}>
+          <button type="button" className="btn" onClick={onAction}>
+            {actionLabel}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AppMetricCard({
+  label,
+  value,
+  detail,
+  tone = "neutral",
+}) {
+  const palette = APP_STATUS_TONES[tone] || APP_STATUS_TONES.neutral;
+  return (
+    <div
+      style={{
+        padding: "14px 16px",
+        borderRadius: 16,
+        minHeight: 112,
+        background: "#fff",
+        border: palette.border,
+        boxShadow: "0 12px 28px rgba(15, 23, 42, 0.06)",
+        display: "grid",
+        gap: 8,
+        alignContent: "start",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 800,
+          textTransform: "uppercase",
+          letterSpacing: "0.12em",
+          color: palette.color,
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ fontSize: 28, lineHeight: 1, fontWeight: 900, color: "var(--text)" }}>
+        {value}
+      </div>
+      {detail ? (
+        <div className="small" style={{ color: "var(--muted)", lineHeight: 1.5 }}>
+          {detail}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AppDetailAction({
+  href,
+  onClick,
+  children = "View details",
+  compact = false,
+}) {
+  const commonStyle = compact
+    ? { display: "inline-block", marginTop: 4, padding: "4px 10px", fontSize: 12 }
+    : undefined;
+  if (onClick) {
+    return (
+      <button type="button" className="btn" style={commonStyle} onClick={onClick}>
+        {children}
+      </button>
+    );
+  }
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="btn"
+      style={commonStyle}
+    >
+      {children}
+    </a>
   );
 }
 
@@ -4790,20 +4958,6 @@ function parseDateSafe(dateStr) {
                   style={{ fontWeight: 800, alignItems: "center", gap: 6, flexWrap: "wrap" }}
                 >
                   <span>{tripSiteCanonicalLabel || "Not set"}</span>
-                  {tripSiteHasStaffHousingNote ? (
-                    <span
-                      title="Staff housing / logistics note on Sites — open Sites → Site notes (above workbook fields)"
-                      aria-label="Staff housing note on Sites"
-                      style={{
-                        fontWeight: 900,
-                        color: "#b45309",
-                        lineHeight: 1,
-                        cursor: "help",
-                      }}
-                    >
-                      !
-                    </span>
-                  ) : null}
                 </div>
                 <div style={{ height: 12 }} />
                 <div className="small">Project Leave Date</div>
@@ -4838,20 +4992,6 @@ function parseDateSafe(dateStr) {
                     style={{ fontWeight: 800, alignItems: "center", gap: 6, flexWrap: "wrap" }}
                   >
                     <span>{tripSiteCanonicalLabel || "Not set"}</span>
-                    {tripSiteHasStaffHousingNote ? (
-                      <span
-                        title="Staff housing / logistics note on Sites — open Sites → Site notes"
-                        aria-label="Staff housing note on Sites"
-                        style={{
-                          fontWeight: 900,
-                          color: "#b45309",
-                          lineHeight: 1,
-                          cursor: "help",
-                        }}
-                      >
-                        !
-                      </span>
-                    ) : null}
                   </div>
                 </div>
                 <div className="tripSetupInfoItem">
@@ -5530,6 +5670,272 @@ function parseDateSafe(dateStr) {
 
     return rows.sort((a, b) => a.name.localeCompare(b.name));
   }, [trip]);
+
+  const participantDocumentsSummary = useMemo(() => {
+    if (!trip) {
+      return {
+        totalParticipants: 0,
+        totalDocTypes: tripUserDocumentTypes.length,
+        totalExpected: 0,
+        uploadedCount: 0,
+        missingCount: 0,
+        participantsMissingAny: 0,
+      };
+    }
+    const summaryParticipants = !canViewTeamDashboard
+      ? currentParticipant
+        ? [currentParticipant]
+        : []
+      : (() => {
+          const participantEmails = new Set(
+            (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+          );
+          const rosterOnly = (trip.teamMembers || [])
+            .filter((member) => {
+              const email = normalizeEmail(member.email);
+              return email && !participantEmails.has(email);
+            })
+            .map((member) => ({
+              id: member.id ? `roster-member-${member.id}` : `roster-${normalizeEmail(member.email)}`,
+            }));
+          return [...(trip.participants || []), ...rosterOnly];
+        })();
+    const totalParticipants = summaryParticipants.length;
+    const totalDocTypes = tripUserDocumentTypes.length;
+    let uploadedCount = 0;
+    let missingCount = 0;
+    let participantsMissingAny = 0;
+
+    for (const participant of summaryParticipants) {
+      const slots = participantDocumentsByUserId.get(String(participant.id)) || {};
+      let participantMissing = false;
+      for (const docType of tripUserDocumentTypes) {
+        if (slots[docType.key]) {
+          uploadedCount += 1;
+        } else {
+          missingCount += 1;
+          participantMissing = true;
+        }
+      }
+      if (participantMissing) participantsMissingAny += 1;
+    }
+
+    return {
+      totalParticipants,
+      totalDocTypes,
+      totalExpected: totalParticipants * totalDocTypes,
+      uploadedCount,
+      missingCount,
+      participantsMissingAny,
+    };
+  }, [trip, canViewTeamDashboard, currentParticipant, participantDocumentsByUserId, tripUserDocumentTypes]);
+
+  const travelFormsSummary = useMemo(() => {
+    const totalParticipants = travelFormTableRows.length;
+    let completedCount = 0;
+    let missingCount = 0;
+    let passportGaps = 0;
+
+    for (const row of travelFormTableRows) {
+      const form =
+        travelFormResponses.find(
+          (entry) => String(travelFormRowToRefKey(entry) || "") === String(row.refKey || "")
+        ) || null;
+      const hasSubmission = !!(
+        form &&
+        [
+          form.firstNamePassport,
+          form.lastNamePassport,
+          form.passportNumber,
+          form.email,
+          form.departureDate,
+          form.returnDate,
+        ].some((value) => String(value || "").trim())
+      );
+      if (hasSubmission) {
+        completedCount += 1;
+      } else {
+        missingCount += 1;
+      }
+      if (
+        hasSubmission &&
+        (!String(form?.passportNumber || "").trim() ||
+          !String(form?.passportExpirationDate || "").trim())
+      ) {
+        passportGaps += 1;
+      }
+    }
+
+    return {
+      totalParticipants,
+      completedCount,
+      missingCount,
+      passportGaps,
+    };
+  }, [travelFormResponses, travelFormTableRows]);
+
+  const visibleTravelFormParticipants = useMemo(() => {
+    if (canViewTeamDashboard) return travelFormTableRows;
+    if (!currentParticipant) return [];
+    return [{ ...currentParticipant, refKey: `user:${currentParticipant.id}` }];
+  }, [canViewTeamDashboard, currentParticipant, travelFormTableRows]);
+
+  const tripHealthItems = useMemo(() => {
+    const items = [];
+    if (!trip) return items;
+    const materialsRosterCount = workerDocumentParticipants.length;
+    const rawMaterialsWorkers = materialsDraft?.numWorkers;
+    const materialsBudgetCount =
+      rawMaterialsWorkers === "" || rawMaterialsWorkers === null || rawMaterialsWorkers === undefined
+        ? null
+        : typeof rawMaterialsWorkers === "number"
+          ? rawMaterialsWorkers
+          : Number.parseInt(String(rawMaterialsWorkers), 10);
+    const hasUpcomingMeetings = (tripMeetings || []).some((meeting) => {
+      const t = new Date(meeting.scheduledAt).getTime();
+      return !Number.isNaN(t) && t >= Date.now();
+    });
+
+    const unresolvedTripDocs = requiredDocumentSlots.filter(
+      (slot) => !docHasAnyContent(slot.resource)
+    ).length;
+    const tasksRemaining = staffViewAllParticipants
+      ? (editableStaffTasks || []).filter((task) => task.progress !== "Complete").length
+      : trip.tasks.length - (currentParticipantProgress?.completed || 0);
+    const trainingParticipantsForHealth = staffViewAllParticipants
+      ? (() => {
+          const participantEmails = new Set(
+            (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+          );
+          const rosterOnly = (trip.teamMembers || []).filter((member) => {
+            const email = normalizeEmail(member.email);
+            return email && !participantEmails.has(email);
+          });
+          return [...(trip.participants || []), ...rosterOnly];
+        })()
+      : [];
+    const trainingsRemaining = staffViewAllParticipants
+      ? trainingParticipantsForHealth.reduce((sum, participant) => {
+          const trainingState =
+            participantTrainingStates[normalizeEmail(participant.email)] || {};
+          const completed = allTrainingModules.filter((module) => !!trainingState[module.id]).length;
+          return sum + Math.max(allTrainingModules.length - completed, 0);
+        }, 0)
+      : (() => {
+          const trainingState = participantTrainingStates[activeParticipantEmail] || {};
+          const completed = allTrainingModules.filter((module) => !!trainingState[module.id]).length;
+          return Math.max(allTrainingModules.length - completed, 0);
+        })();
+
+    if (!trip.startDate || !trip.endDate) {
+      items.push({
+        tone: "warning",
+        title: "Trip dates need attention",
+        detail: "Set the trip start and end dates in Overview so deadlines and exports stay accurate.",
+        tab: "Overview",
+      });
+    }
+
+    if (unresolvedTripDocs > 0) {
+      items.push({
+        tone: "warning",
+        title: `${unresolvedTripDocs} trip document slot${unresolvedTripDocs === 1 ? "" : "s"} still empty`,
+        detail: "Budget, housing, site logistics, or other required trip resources still need links or files.",
+        tab: "Trip Documents",
+      });
+    }
+
+    if (participantDocumentsSummary.missingCount > 0 && tripUserDocumentTypes.length > 0) {
+      items.push({
+        tone: "warning",
+        title: `${participantDocumentsSummary.missingCount} worker upload${participantDocumentsSummary.missingCount === 1 ? "" : "s"} missing`,
+        detail: `${participantDocumentsSummary.participantsMissingAny} participant${participantDocumentsSummary.participantsMissingAny === 1 ? "" : "s"} still need at least one required file.`,
+        tab: canViewTeamDashboard ? "Worker Docs" : "My Documents",
+      });
+    }
+
+    if (travelFormsSummary.missingCount > 0) {
+      items.push({
+        tone: "warning",
+        title: `${travelFormsSummary.missingCount} travel form response${travelFormsSummary.missingCount === 1 ? "" : "s"} missing`,
+        detail: "Travel details are incomplete for at least one team member.",
+        tab: "Travel Form",
+      });
+    }
+
+    if (travelFormsSummary.passportGaps > 0) {
+      items.push({
+        tone: "warning",
+        title: `${travelFormsSummary.passportGaps} travel form${travelFormsSummary.passportGaps === 1 ? "" : "s"} missing passport info`,
+        detail: "Some submitted responses still need passport number or expiration date.",
+        tab: "Travel Form",
+      });
+    }
+
+    if (materialsBudgetCount !== null && materialsBudgetCount !== materialsRosterCount) {
+      items.push({
+        tone: "warning",
+        title: "Materials worker count does not match the roster",
+        detail: `Materials shows ${materialsBudgetCount}, while the roster currently has ${materialsRosterCount}.`,
+        tab: "Materials",
+      });
+    }
+
+    if (!hasUpcomingMeetings) {
+      items.push({
+        tone: "info",
+        title: "No upcoming meetings scheduled",
+        detail: "Add the next team meeting so the date and time are visible from Overview.",
+        tab: "Overview",
+      });
+    }
+
+    if (tasksRemaining > 0) {
+      items.push({
+        tone: tasksRemaining > 5 ? "warning" : "info",
+        title: `${tasksRemaining} ${staffViewAllParticipants ? "staff/worker" : "personal"} task${tasksRemaining === 1 ? "" : "s"} still open`,
+        detail: "Use Tasks to work through the next due items and clear blockers.",
+        tab: staffViewAllParticipants ? "Staff Tasks" : "Tasks",
+      });
+    }
+
+    if (trainingsRemaining > 0) {
+      items.push({
+        tone: "info",
+        title: `${trainingsRemaining} training item${trainingsRemaining === 1 ? "" : "s"} still incomplete`,
+        detail: "Training progress is not fully complete yet.",
+        tab: "Training",
+      });
+    }
+
+    if (items.length === 0) {
+      items.push({
+        tone: "success",
+        title: "Trip health looks strong",
+        detail: "No major missing items were detected in the key trip workflows right now.",
+        tab: "Overview",
+      });
+    }
+
+    return items.slice(0, 6);
+  }, [
+    trip,
+    requiredDocumentSlots,
+    participantDocumentsSummary,
+    tripUserDocumentTypes.length,
+    travelFormsSummary,
+    trip?.participants,
+    trip?.teamMembers,
+    materialsDraft?.numWorkers,
+    tripMeetings,
+    staffViewAllParticipants,
+    canViewTeamDashboard,
+    editableStaffTasks,
+    currentParticipantProgress?.completed,
+    activeParticipantEmail,
+    participantTrainingStates,
+    allTrainingModules,
+  ]);
 
   const participantTaskPct = useMemo(() => {
     const totalPossible = participantTaskProgress.reduce(
@@ -6711,11 +7117,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     Delete
                   </button>
                 ) : null}
-                {announcementStatus ? (
-                  <div className="small" style={{ alignSelf: "center" }}>
-                    {announcementStatus}
-                  </div>
-                ) : null}
+                <AppStatusMessage
+                  message={announcementStatus}
+                  tone={
+                    announcementStatus === "Saved."
+                      ? "success"
+                      : announcementStatus === "Saving..."
+                        ? "info"
+                        : "danger"
+                  }
+                  compact
+                />
               </div>
             </div>
           ) : announcements.length > 0 ? (
@@ -6778,6 +7190,65 @@ normalizeEmail(participant.email) === activeParticipantEmail
 
         {tab === "Overview" && (
           <div style={{ display: "grid", gap: 16 }}>
+          <CollapsibleSection
+            defaultOpen
+            title="Trip health"
+            subtitle="The highest-impact follow-ups across docs, travel, meetings, and progress."
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: 12,
+              }}
+            >
+              {tripHealthItems.map((item, index) => (
+                <div
+                  key={`${item.title}-${index}`}
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: 16,
+                    background: "#fff",
+                    border: (APP_STATUS_TONES[item.tone] || APP_STATUS_TONES.neutral).border,
+                    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.06)",
+                    display: "grid",
+                    gap: 8,
+                  }}
+                >
+                  <div className="row" style={{ alignItems: "center", gap: 8 }}>
+                    <span className={`badge ${
+                      item.tone === "success"
+                        ? "badgeSuccess"
+                        : item.tone === "warning"
+                          ? "badgeWarn"
+                          : item.tone === "danger"
+                            ? "badgeDanger"
+                            : ""
+                    }`}>
+                      {item.tone === "success"
+                        ? "Healthy"
+                        : item.tone === "warning"
+                          ? "Needs attention"
+                          : item.tone === "danger"
+                            ? "Urgent"
+                            : "Heads up"}
+                    </span>
+                    <div className="spacer" />
+                    {item.tab && item.tab !== "Overview" ? (
+                      <button type="button" className="btn" onClick={() => setTab(item.tab)}>
+                        Open {item.tab}
+                      </button>
+                    ) : null}
+                  </div>
+                  <div style={{ fontWeight: 800, color: "var(--text)" }}>{item.title}</div>
+                  <div className="small" style={{ color: "var(--muted)", lineHeight: 1.5 }}>
+                    {item.detail}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CollapsibleSection>
+
           <CollapsibleSection defaultOpen>
           <div className="cardSectionPill" style={{ marginBottom: 8 }}>
             Progress at a glance
@@ -6797,51 +7268,45 @@ normalizeEmail(participant.email) === activeParticipantEmail
               gap: 16,
             }}
           >
-            <div className="card pad">
-              <div className="small" style={{ marginBottom: 8 }}>{overviewTaskLabel}</div>
-              <div style={{ fontSize: 28, fontWeight: 900 }}>{overviewTaskPct}%</div>
-              <div className="progress" style={{ marginTop: 10 }}>
-                <div style={{ width: `${overviewTaskPct}%` }} />
-              </div>
-              <div className="small" style={{ marginTop: 8 }}>
-                {canViewTeamDashboard
+            <AppMetricCard
+              label={overviewTaskLabel}
+              value={`${overviewTaskPct}%`}
+              detail={
+                canViewTeamDashboard
                   ? "Combined completion across all participant task lists."
-                  : "Your task completion progress for this trip."}
-              </div>
-            </div>
+                  : "Your task completion progress for this trip."
+              }
+              tone={overviewTaskPct >= 80 ? "success" : overviewTaskPct >= 50 ? "info" : "warning"}
+            />
 
             {staffViewAllParticipants && (
-              <div className="card pad">
-                <div className="small" style={{ marginBottom: 8 }}>Staff Tasks</div>
-                <div style={{ fontSize: 28, fontWeight: 900 }}>{completionPct}%</div>
-                <div className="progress" style={{ marginTop: 10 }}>
-                  <div style={{ width: `${completionPct}%` }} />
-                </div>
-                <div className="small" style={{ marginTop: 8 }}>
-                  {completedCount} of {totalCount} staff tasks marked complete.
-                </div>
-              </div>
+              <AppMetricCard
+                label="Staff Tasks"
+                value={`${completionPct}%`}
+                detail={`${completedCount} of ${totalCount} staff tasks marked complete.`}
+                tone={completionPct >= 80 ? "success" : completionPct >= 50 ? "info" : "warning"}
+              />
             )}
 
-            <div className="card pad">
-              <div className="small" style={{ marginBottom: 8 }}>{overviewTrainingLabel}</div>
-              <div style={{ fontSize: 28, fontWeight: 900 }}>{overviewTrainingPct}%</div>
-              <div className="progress" style={{ marginTop: 10 }}>
-                <div style={{ width: `${overviewTrainingPct}%` }} />
-              </div>
-              <div className="small" style={{ marginTop: 8 }}>
-                {canViewTeamDashboard
+            <AppMetricCard
+              label={overviewTrainingLabel}
+              value={`${overviewTrainingPct}%`}
+              detail={
+                canViewTeamDashboard
                   ? "Combined completion across all participant training checklists."
-                  : "Your training completion progress for this trip."}
-              </div>
-            </div>
+                  : "Your training completion progress for this trip."
+              }
+              tone={overviewTrainingPct >= 80 ? "success" : overviewTrainingPct >= 50 ? "info" : "warning"}
+            />
 
             {!canViewTeamDashboard ? (
-              <div className="card pad">
+              <div className="card pad" style={{ borderRadius: 16 }}>
                 <div className="small" style={{ marginBottom: 14 }}>{overviewFundraisingLabel}</div>
                 {fundraisingGoalAmount ? (
                   <div style={{ fontSize: 28, fontWeight: 900 }}>{formatMoney(fundraisingGoalAmount)}</div>
-                ) : null}
+                ) : (
+                  <div style={{ fontSize: 28, fontWeight: 900, marginTop: 4 }}>No Link</div>
+                )}
                 {workerOverviewFundraisingUrl ? (
                   <div style={{ marginTop: fundraisingGoalAmount ? 18 : 16 }}>
                     <a
@@ -6856,33 +7321,30 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         : "Open Neon Page"}
                     </a>
                   </div>
-                ) : !fundraisingGoalAmount ? (
-                  <div style={{ fontSize: 28, fontWeight: 900, marginTop: 16 }}>No Link</div>
                 ) : null}
                 <div className="small" style={{ marginTop: 12 }}>{overviewFundraisingDetail}</div>
               </div>
             ) : (
-              <div className="card pad">
-                <div className="small" style={{ marginBottom: 8 }}>{overviewFundraisingLabel}</div>
-                <div style={{ fontSize: 28, fontWeight: 900 }}>{overviewFundraisingValue}</div>
-                <div className="small" style={{ marginTop: 8 }}>{overviewFundraisingDetail}</div>
-              </div>
+              <AppMetricCard
+                label={overviewFundraisingLabel}
+                value={overviewFundraisingValue}
+                detail={overviewFundraisingDetail}
+                tone={savedFundraisingLinksCount > 0 || trip?.teamFundraisingUrl ? "success" : "warning"}
+              />
             )}
 
             {(staffViewAllParticipants || !canViewTeamDashboard) &&
             referenceReceivedProgress.showOnOverview ? (
-              <div className="card pad">
-                <div className="small" style={{ marginBottom: 8 }}>{referenceReceivedProgress.label}</div>
-                <div style={{ fontSize: 28, fontWeight: 900 }}>{referenceReceivedProgress.percent}%</div>
-                <div className="progress" style={{ marginTop: 10 }}>
-                  <div style={{ width: `${referenceReceivedProgress.percent}%` }} />
-                </div>
-                <div className="small" style={{ marginTop: 8 }}>
-                  {canViewTeamDashboard
+              <AppMetricCard
+                label={referenceReceivedProgress.label}
+                value={`${referenceReceivedProgress.percent}%`}
+                detail={
+                  canViewTeamDashboard
                     ? `${referenceReceivedProgress.completed} of ${referenceReceivedProgress.total} received.`
-                    : "Your LST reference has been received."}
-                </div>
-              </div>
+                    : "Your LST reference has been received."
+                }
+                tone={referenceReceivedProgress.percent === 100 ? "success" : "info"}
+              />
             ) : null}
           </div>
           </CollapsibleSection>
@@ -6990,7 +7452,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       </button>
                     )}
                   </div>
-                  {meetingStatus ? <div className="small">{meetingStatus}</div> : null}
+                  <AppStatusMessage
+                    message={meetingStatus}
+                    tone={
+                      meetingStatus === "Saved."
+                        ? "success"
+                        : meetingStatus === "Saving..."
+                          ? "info"
+                          : "danger"
+                    }
+                    compact
+                  />
                 </div>
               ) : null}
               <div style={{ marginBottom: 12 }}>
@@ -7043,7 +7515,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     ))}
                   </ul>
                 ) : (
-                  <div className="small">No upcoming meetings.</div>
+                  <AppEmptyState
+                    title="No upcoming meetings"
+                    description="Add the next team meeting so workers can see when the team meets next."
+                    actionLabel={canManageTripMeetings ? "Add meeting" : undefined}
+                    onAction={canManageTripMeetings ? () => {
+                      setMeetingAddFormOpen(true);
+                      setEditingMeetingId("");
+                      setMeetingDraft({ title: "", scheduledAt: "", notesAfter: "" });
+                      setMeetingStatus("");
+                    } : undefined}
+                  />
                 )}
               </div>
               <div>
@@ -7107,7 +7589,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     ))}
                   </ul>
                 ) : (
-                  <div className="small">No past meetings.</div>
+                  <AppEmptyState
+                    title="No past meetings"
+                    description="Past meetings and after-meeting notes will collect here once a meeting date has passed."
+                  />
                 )}
               </div>
             </div>
@@ -7153,11 +7638,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           Delete
                         </button>
                       ) : null}
-                      {overviewNoteStatus ? (
-                        <div className="small" style={{ alignSelf: "center" }}>
-                          {overviewNoteStatus}
-                        </div>
-                      ) : null}
+                      <AppStatusMessage
+                        message={overviewNoteStatus}
+                        tone={
+                          overviewNoteStatus === "Saved." || overviewNoteStatus === "Deleted."
+                            ? "success"
+                            : overviewNoteStatus === "Saving..." || overviewNoteStatus === "Deleting..."
+                              ? "info"
+                              : "danger"
+                        }
+                        compact
+                      />
                     </div>
                   </>
                 ) : null}
@@ -7199,7 +7690,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     </div>
                   ))}
                   {!overviewNotes.length && !isEditingOverviewNote ? (
-                    <div className="small">No notes yet.</div>
+                    <AppEmptyState
+                      title="No notes yet"
+                      description="Use trip notes for context that leaders and staff should see later."
+                    />
                   ) : null}
                 </div>
               </div>
@@ -7247,35 +7741,19 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           : "Due when ready"}
                       </div>
                       {task.link || task.openTripDocumentsTab ? (
-                        task.openTripDocumentsTab ? (
-                          <button
-                            type="button"
-                            className="small overviewTaskJumpButton"
-                            style={{ display: "inline-block", marginTop: 4 }}
-                            onClick={() => setTab(tripDocumentsTabLabel)}
-                          >
-                            View details →
-                          </button>
-                        ) : task.openDocumentsTab ? (
-                          <button
-                            type="button"
-                            className="small overviewTaskJumpButton"
-                            style={{ display: "inline-block", marginTop: 4 }}
-                            onClick={() => setTab(participantDocumentsTabLabel)}
-                          >
-                            View details →
-                          </button>
-                        ) : (
-                          <a
-                            href={task.link}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="small"
-                            style={{ display: "inline-block", marginTop: 4 }}
-                          >
-                            View details →
-                          </a>
-                        )
+                        <AppDetailAction
+                          href={task.openTripDocumentsTab || task.openDocumentsTab ? undefined : task.link}
+                          onClick={
+                            task.openTripDocumentsTab
+                              ? () => setTab(tripDocumentsTabLabel)
+                              : task.openDocumentsTab
+                                ? () => setTab(participantDocumentsTabLabel)
+                                : undefined
+                          }
+                          compact
+                        >
+                          View details
+                        </AppDetailAction>
                       ) : null}
                       {task.details && !task.link ? (
                         <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>{task.details}</div>
@@ -7284,11 +7762,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   ))}
                 </div>
               ) : (
-                <div className="small">
-                  {canViewTeamDashboard
-                    ? "No upcoming staff tasks assigned to you right now."
-                    : "No upcoming worker tasks right now."}
-                </div>
+                <AppEmptyState
+                  title="Nothing urgent right now"
+                  description={
+                    canViewTeamDashboard
+                      ? "No upcoming staff tasks are assigned to you right now."
+                      : "No upcoming worker tasks are assigned to you right now."
+                  }
+                />
               )}
             </div>
             </CollapsibleSection>
@@ -7340,7 +7821,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     ))}
                   </div>
                 ) : (
-                  <div className="small">No recent activity yet.</div>
+                  <AppEmptyState
+                    title="No recent activity yet"
+                    description="Trip updates, edits, and workflow activity will start showing here once the team is active."
+                  />
                 )}
               </div>
               </CollapsibleSection>
@@ -8786,6 +9270,32 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 marginTop: 14,
               }}
             >
+              <AppMetricCard
+                label="Participants"
+                value={visibleTaskParticipants.length}
+                detail={
+                  canViewTeamDashboard
+                    ? "People currently represented in the task board."
+                    : "Your personal task checklist for this trip."
+                }
+                tone="info"
+              />
+              <AppMetricCard
+                label="Open Tasks"
+                value={
+                  canViewTeamDashboard
+                    ? visibleTaskParticipants.reduce(
+                        (sum, participant) => sum + Math.max(participant.total - participant.completed, 0),
+                        0
+                      )
+                    : Math.max(
+                        (currentParticipantProgress?.total || 0) - (currentParticipantProgress?.completed || 0),
+                        0
+                      )
+                }
+                detail="Tasks still not marked complete."
+                tone={overviewTaskPct >= 80 ? "success" : "warning"}
+              />
               {visibleTaskParticipants.map((participant) => (
                 <div
                   key={`${participant.email}-summary`}
@@ -8900,11 +9410,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 placeholder="Description"
                 rows={3}
               />
-              {taskStatusMessage ? (
-                <div className="small" style={{ color: "var(--danger)" }}>
-                  {taskStatusMessage}
-                </div>
-              ) : null}
+              <AppStatusMessage message={taskStatusMessage} tone="danger" />
               <div className="row">
                 <button className="btn btnPrimary" type="button" onClick={handleCreateTask}>
                   Save task
@@ -9004,35 +9510,21 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                     >
                                       {task.title}
                                       {taskLink || isTicketsTask ? (
-                                        isTicketsTask ? (
-                                          <button
-                                            type="button"
-                                            className="btn"
-                                            style={{ marginLeft: 8, padding: "4px 10px", fontSize: 12 }}
-                                            onClick={() => setTab(tripDocumentsTabLabel)}
+                                        <span style={{ marginLeft: 8 }}>
+                                          <AppDetailAction
+                                            href={isTicketsTask || isDocumentsTask ? undefined : taskLink}
+                                            onClick={
+                                              isTicketsTask
+                                                ? () => setTab(tripDocumentsTabLabel)
+                                                : isDocumentsTask
+                                                  ? () => setTab(participantDocumentsTabLabel)
+                                                  : undefined
+                                            }
+                                            compact
                                           >
                                             View details
-                                          </button>
-                                        ) : isDocumentsTask ? (
-                                          <button
-                                            type="button"
-                                            className="btn"
-                                            style={{ marginLeft: 8, padding: "4px 10px", fontSize: 12 }}
-                                            onClick={() => setTab(participantDocumentsTabLabel)}
-                                          >
-                                            View details
-                                          </button>
-                                        ) : (
-                                          <a
-                                            href={taskLink}
-                                            target="_blank"
-                                            rel="noreferrer noopener"
-                                            className="btn"
-                                            style={{ marginLeft: 8, padding: "4px 10px", fontSize: 12 }}
-                                          >
-                                            View details
-                                          </a>
-                                        )
+                                          </AppDetailAction>
+                                        </span>
                                       ) : null}
                                       {canFillTravelForm ? (
                                         <button
@@ -9192,11 +9684,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         </button>
                       </>
                     )}
-                    {materialsSaveStatus ? (
-                      <span className="small" style={{ color: "var(--muted)" }}>
-                        {materialsSaveStatus}
-                      </span>
-                    ) : null}
+                    <AppStatusMessage
+                      message={materialsSaveStatus}
+                      tone={
+                        materialsSaveStatus === "Saved."
+                          ? "success"
+                          : materialsSaveStatus === "Saving..."
+                            ? "info"
+                            : "danger"
+                      }
+                      compact
+                    />
                   </div>
 
                   <div
@@ -10368,9 +10866,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       Add Upload
                     </button>
                   </div>
-                  {participantDocumentTypeStatus ? (
-                    <div className="small">{participantDocumentTypeStatus}</div>
-                  ) : null}
+                  <AppStatusMessage
+                    message={participantDocumentTypeStatus}
+                    tone={
+                      participantDocumentTypeStatus === "Saved."
+                        ? "success"
+                        : participantDocumentTypeStatus === "Saving..."
+                          ? "info"
+                          : "danger"
+                    }
+                    compact
+                  />
                 </div>
               ) : (
                 <div className="small">
@@ -10379,11 +10885,41 @@ normalizeEmail(participant.email) === activeParticipantEmail
               )}
             </div>
 
-            {participantDocumentsError ? (
-              <div className="small" style={{ color: "var(--danger)", marginBottom: 12 }}>
-                {participantDocumentsError}
-              </div>
-            ) : null}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 12,
+                marginBottom: 16,
+              }}
+            >
+              <AppMetricCard
+                label="Participants"
+                value={participantDocumentsSummary.totalParticipants}
+                detail="People represented in this upload checklist."
+                tone="info"
+              />
+              <AppMetricCard
+                label="Required Uploads"
+                value={participantDocumentsSummary.totalExpected}
+                detail={`${participantDocumentsSummary.totalDocTypes} upload type${participantDocumentsSummary.totalDocTypes === 1 ? "" : "s"} per participant.`}
+                tone="neutral"
+              />
+              <AppMetricCard
+                label="Uploaded"
+                value={participantDocumentsSummary.uploadedCount}
+                detail="Files currently uploaded across this trip."
+                tone={participantDocumentsSummary.uploadedCount > 0 ? "success" : "neutral"}
+              />
+              <AppMetricCard
+                label="Still Missing"
+                value={participantDocumentsSummary.missingCount}
+                detail={`${participantDocumentsSummary.participantsMissingAny} participant${participantDocumentsSummary.participantsMissingAny === 1 ? "" : "s"} still need at least one file.`}
+                tone={participantDocumentsSummary.missingCount > 0 ? "warning" : "success"}
+              />
+            </div>
+
+            <AppStatusMessage message={participantDocumentsError} tone="danger" />
 
             <div
               style={{
@@ -10396,11 +10932,27 @@ normalizeEmail(participant.email) === activeParticipantEmail
             >
               {workerDocumentParticipants.map((participant) => {
                 const documentSlots = participantDocumentsByUserId.get(String(participant.id)) || {};
+                const participantUploadedCount = tripUserDocumentTypes.filter(
+                  (documentType) => !!documentSlots[documentType.key]
+                ).length;
+                const participantMissingCount = Math.max(
+                  tripUserDocumentTypes.length - participantUploadedCount,
+                  0
+                );
 
                 return (
-                  <div key={participant.id} className="card pad" style={{ boxShadow: "none" }}>
-                    <div className="row" style={{ marginBottom: 10 }}>
-                      <div>
+                  <div
+                    key={participant.id}
+                    className="card pad"
+                    style={{
+                      boxShadow: "none",
+                      borderRadius: 18,
+                      border: "1px solid rgba(15, 23, 42, 0.08)",
+                      background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.92))",
+                    }}
+                  >
+                    <div className="row" style={{ marginBottom: 14, alignItems: "flex-start", gap: 12 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontWeight: 900 }}>
                           {canViewTeamDashboard && !participant.rosterOnly ? (
                             <Link href={`/profile?participantId=${encodeURIComponent(participant.id)}`}>
@@ -10410,7 +10962,13 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             canViewTeamDashboard ? participant.name : "My Uploads"
                           )}
                         </div>
+                        <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                          {participantUploadedCount} uploaded · {participantMissingCount} missing
+                        </div>
                       </div>
+                      <span className={`badge ${participantMissingCount > 0 ? "badgeWarn" : "badgeSuccess"}`}>
+                        {participantMissingCount > 0 ? "Needs review" : "Complete"}
+                      </span>
                     </div>
 
                     <div style={{ display: "grid", gap: 12 }}>
@@ -10512,23 +11070,18 @@ normalizeEmail(participant.email) === activeParticipantEmail
                               ) : null}
 
                               {slotStatus?.message ? (
-                                <div
-                                  className="small"
-                                  style={{
-                                    alignSelf: "center",
-                                    color:
-                                      slotStatus.type === "error"
-                                        ? "var(--danger)"
-                                        : "var(--muted)",
-                                  }}
-                                >
-                                  {slotStatus.message}
-                                </div>
+                                <AppStatusMessage
+                                  message={slotStatus.message}
+                                  tone={slotStatus.type === "error" ? "danger" : slotStatus.type === "success" ? "success" : "info"}
+                                  compact
+                                />
                               ) : null}
                               {canViewTeamDashboard && participant.rosterOnly ? (
-                                <div className="small" style={{ color: "var(--muted)", alignSelf: "center" }}>
-                                  Waiting for worker account before upload.
-                                </div>
+                                <AppStatusMessage
+                                  message="Waiting for worker account before upload."
+                                  tone="warning"
+                                  compact
+                                />
                               ) : null}
                             </div>
                           </div>
@@ -10547,7 +11100,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
       {tab === "Travel Form" && (
         <div style={{ display: "grid", gap: 16 }}>
           <CollapsibleSection defaultOpen>
-          <div className="card pad" style={{ overflowX: "auto" }}>
+          <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Travel form responses</div>
             <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
               Passport, emergency contacts, and travel preferences.
@@ -10617,11 +11170,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     "Travel Insurance-I understand LST will purchase a basic international travel insurance plan and that you can upgrade by calling the company directly after receiving your card from LST. (www.faithventures.com/compare-plans)\n\n(RESPOND \"\"YES\"\")",
                   ];
 
-                  const exportRows = canViewTeamDashboard
-                    ? travelFormTableRows
-                    : currentParticipant
-                      ? [{ ...currentParticipant, refKey: `user:${currentParticipant.id}` }]
-                      : [];
+                  const exportRows = visibleTravelFormParticipants;
 
                   const rows = exportRows.map((p) => {
                     const form = getTravelFormByRefKey(p.refKey) || null;
@@ -10704,11 +11253,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       return;
                     }
                     const ab = await res.arrayBuffer();
-                    const exportParticipants = canViewTeamDashboard
-                      ? travelFormTableRows
-                      : currentParticipant
-                        ? [{ ...currentParticipant, refKey: `user:${currentParticipant.id}` }]
-                        : [];
+                    const exportParticipants = visibleTravelFormParticipants;
                     const { blob, error } = fillTravelFormExportTemplate(ab, {
                       participants: exportParticipants,
                       travelFormResponses,
@@ -10746,96 +11291,208 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 </>
               ) : null}
             </div>
-            <table className="table dataTableStriped" style={{ minWidth: 2400, fontSize: 12 }}>
-              <thead>
-                <tr>
-                  {canViewTeamDashboard && <th>Actions</th>}
-                  <th>Team Name</th>
-                  <th>First Name (passport)</th>
-                  <th>Middle Name (passport)</th>
-                  <th>Last Name (passport)</th>
-                  <th>Suffix</th>
-                  <th>Email</th>
-                  <th>Birthdate (M/D/Y)</th>
-                  <th>Gender</th>
-                  <th>Citizenship</th>
-                  <th>Passport Number</th>
-                  <th>Passport Expiration</th>
-                  <th>Issuing Country</th>
-                  <th>Special Travel Preferences</th>
-                  <th>Frequent Flyer / Pre-check</th>
-                  <th>Site (city &amp; country)</th>
-                  <th>Gateway City</th>
-                  <th>Departure Date</th>
-                  <th>Return Date</th>
-                  <th>Minor?</th>
-                  <th>Passport 6mo valid?</th>
-                  <th>Base Ticket Ack</th>
-                  <th>Team Travel Ack</th>
-                  <th>EndMeeting Ack</th>
-                  <th>Travel Insurance Ack</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(canViewTeamDashboard
-                  ? travelFormTableRows
-                  : currentParticipant
-                    ? [{ ...currentParticipant, refKey: `user:${currentParticipant.id}` }]
-                    : []
-                ).map((p) => {
-                  const form = getTravelFormByRefKey(p.refKey) || null;
-                  return (
-                    <tr key={p.refKey || p.id}>
-                      {canViewTeamDashboard && (
-                        <td>
-                          <button
-                            type="button"
-                            className="btn"
-                            style={{ padding: "4px 10px", fontSize: 12 }}
-                            onClick={() => openTravelFormModal({ refKey: p.refKey, email: p.email || "" })}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 12,
+                marginBottom: 16,
+              }}
+            >
+              <AppMetricCard
+                label="Expected Responses"
+                value={travelFormsSummary.totalParticipants}
+                detail="Team members represented in travel form review."
+                tone="info"
+              />
+              <AppMetricCard
+                label="Submitted"
+                value={travelFormsSummary.completedCount}
+                detail="Responses with at least core travel fields filled in."
+                tone={travelFormsSummary.completedCount > 0 ? "success" : "neutral"}
+              />
+              <AppMetricCard
+                label="Still Missing"
+                value={travelFormsSummary.missingCount}
+                detail="Participants who still need to submit their travel details."
+                tone={travelFormsSummary.missingCount > 0 ? "warning" : "success"}
+              />
+              <AppMetricCard
+                label="Passport Gaps"
+                value={travelFormsSummary.passportGaps}
+                detail="Submitted responses still missing passport number or expiration date."
+                tone={travelFormsSummary.passportGaps > 0 ? "warning" : "success"}
+              />
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: canViewTeamDashboard
+                  ? "repeat(auto-fit, minmax(320px, 1fr))"
+                  : "1fr",
+                gap: 16,
+              }}
+            >
+              {visibleTravelFormParticipants.map((p) => {
+                const form = getTravelFormByRefKey(p.refKey) || null;
+                const hasSubmission = !!(
+                  form &&
+                  [
+                    form.firstNamePassport,
+                    form.lastNamePassport,
+                    form.passportNumber,
+                    form.email,
+                    form.departureDate,
+                    form.returnDate,
+                  ].some((value) => String(value || "").trim())
+                );
+                const hasPassportGap =
+                  hasSubmission &&
+                  (!String(form?.passportNumber || "").trim() ||
+                    !String(form?.passportExpirationDate || "").trim());
+                const infoSections = [
+                  {
+                    title: "Identity",
+                    fields: [
+                      ["Team", form?.teamName || trip?.name || "—"],
+                      ["Email", form?.email || p?.email || "—"],
+                      ["Passport name", [form?.firstNamePassport, form?.middleNamePassport, form?.lastNamePassport].filter(Boolean).join(" ") || "—"],
+                      ["Birthdate", [form?.birthdateMonth, form?.birthdateDay, form?.birthdateYear].filter(Boolean).join("/") || "—"],
+                      ["Gender", form?.gender || "—"],
+                      ["Citizenship", form?.citizenship || "—"],
+                    ],
+                  },
+                  {
+                    title: "Passport & travel",
+                    fields: [
+                      ["Passport #", form?.passportNumber || "—"],
+                      ["Expiration", form?.passportExpirationDate || "—"],
+                      ["Issuing country", form?.passportIssuingCountry || "—"],
+                      ["Gateway city", form?.gatewayCity || "—"],
+                      ["Departure", form?.departureDate ? formatSingleDate(form.departureDate) : "—"],
+                      ["Return", form?.returnDate ? formatSingleDate(form.returnDate) : "—"],
+                    ],
+                  },
+                  {
+                    title: "Project & preferences",
+                    fields: [
+                      ["Project site", form?.siteProject || "—"],
+                      ["Frequent flyer / Pre-check", form?.frequentFlyerPrecheck || "—"],
+                      ["Minor", form?.isMinor || "—"],
+                      ["Passport valid 6+ months", form?.passportValidSixMonths || "—"],
+                    ],
+                    wideValue: form?.specialTravelPreferences || "—",
+                    wideLabel: "Special travel preferences",
+                  },
+                  {
+                    title: "Acknowledgments",
+                    fields: [
+                      ["Base ticket", form?.baseTicketAck || "—"],
+                      ["Team travel", form?.teamTravelAck || "—"],
+                      ["EndMeeting", form?.endMeetingAck || "—"],
+                      ["Insurance", form?.travelInsuranceAck || "—"],
+                    ],
+                  },
+                ];
+
+                return (
+                  <div
+                    key={p.refKey || p.id}
+                    className="card pad"
+                    style={{
+                      borderRadius: 18,
+                      border: "1px solid rgba(15, 23, 42, 0.08)",
+                      background: "linear-gradient(180deg, rgba(255,255,255,0.97), rgba(248,250,252,0.92))",
+                    }}
+                  >
+                    <div className="row" style={{ alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontWeight: 900, color: "var(--text)" }}>
+                          {canViewTeamDashboard ? p.name || p.email || "Participant" : "My response"}
+                        </div>
+                        <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                          {hasSubmission
+                            ? hasPassportGap
+                              ? "Response submitted, but passport details are incomplete."
+                              : "Response submitted and ready for review."
+                            : "No travel form response submitted yet."}
+                        </div>
+                      </div>
+                      <span className={`badge ${hasSubmission ? (hasPassportGap ? "badgeWarn" : "badgeSuccess") : "badgeWarn"}`}>
+                        {hasSubmission ? (hasPassportGap ? "Needs passport info" : "Submitted") : "Missing"}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => openTravelFormModal({ refKey: p.refKey, email: p.email || "" })}
+                      >
+                        {canViewTeamDashboard ? "View / Edit" : "Edit"}
+                      </button>
+                    </div>
+
+                    <div style={{ display: "grid", gap: 12 }}>
+                      {infoSections.map((section) => (
+                        <div
+                          key={`${p.refKey}-${section.title}`}
+                          style={{
+                            borderRadius: 14,
+                            border: "1px solid rgba(15, 23, 42, 0.08)",
+                            background: "rgba(255,255,255,0.78)",
+                            padding: "12px 14px",
+                            display: "grid",
+                            gap: 10,
+                          }}
+                        >
+                          <div className="small" style={{ fontWeight: 900, color: "var(--foreground)" }}>
+                            {section.title}
+                          </div>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                              gap: 10,
+                            }}
                           >
-                            View / Edit
-                          </button>
-                        </td>
-                      )}
-                      <td>{form?.teamName || trip?.name || ""}</td>
-                      <td>{form?.firstNamePassport || ""}</td>
-                      <td>{form?.middleNamePassport || ""}</td>
-                      <td>{form?.lastNamePassport || ""}</td>
-                      <td>{form?.suffix || ""}</td>
-                      <td>{form?.email || p?.email || ""}</td>
-                      <td>{[form?.birthdateMonth, form?.birthdateDay, form?.birthdateYear].filter(Boolean).join("/") || ""}</td>
-                      <td>{form?.gender || ""}</td>
-                      <td>{form?.citizenship || ""}</td>
-                      <td>{form?.passportNumber || ""}</td>
-                      <td>{form?.passportExpirationDate || ""}</td>
-                      <td>{form?.passportIssuingCountry || ""}</td>
-                      <td style={{ maxWidth: 200 }}>{form?.specialTravelPreferences || ""}</td>
-                      <td>{form?.frequentFlyerPrecheck || ""}</td>
-                      <td>{form?.siteProject || ""}</td>
-                      <td>{form?.gatewayCity || ""}</td>
-                      <td>{form?.departureDate || ""}</td>
-                      <td>{form?.returnDate || ""}</td>
-                      <td>{form?.isMinor || ""}</td>
-                      <td>{form?.passportValidSixMonths || ""}</td>
-                      <td>{form?.baseTicketAck || ""}</td>
-                      <td>{form?.teamTravelAck || ""}</td>
-                      <td>{form?.endMeetingAck || ""}</td>
-                      <td>{form?.travelInsuranceAck || ""}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {canViewTeamDashboard && workerDocumentParticipants.length === 0 && (
-              <EmptyState
-                icon="empty"
+                            {section.fields.map(([label, value]) => (
+                              <div key={`${p.refKey}-${section.title}-${label}`} style={{ minWidth: 0 }}>
+                                <div className="small" style={{ color: "var(--muted)", marginBottom: 2 }}>
+                                  {label}
+                                </div>
+                                <div style={{ fontSize: 13, lineHeight: 1.5, wordBreak: "break-word" }}>
+                                  {value || "—"}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {section.wideLabel ? (
+                            <div>
+                              <div className="small" style={{ color: "var(--muted)", marginBottom: 2 }}>
+                                {section.wideLabel}
+                              </div>
+                              <div style={{ fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                                {section.wideValue}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {canViewTeamDashboard && visibleTravelFormParticipants.length === 0 && (
+              <AppEmptyState
                 title="No participants yet"
                 description="Add team members in the Team tab roster to see and export their travel form responses here."
               />
             )}
             {!canViewTeamDashboard && !currentParticipant && (
-              <div className="small">You are not assigned to this trip.</div>
+              <AppEmptyState
+                title="You are not assigned to this trip"
+                description="Once you are assigned, your travel form response will appear here."
+              />
             )}
           </div>
           </CollapsibleSection>
@@ -11292,7 +11949,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
             </div>
             {travelFormStatus ? (
               <div className="row" style={{ marginBottom: 10, alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span className="small" style={travelFormStatus !== "Saving..." && travelFormStatus !== "Saved." ? { color: "var(--danger)" } : {}}>{travelFormStatus}</span>
+                <AppStatusMessage
+                  message={travelFormStatus}
+                  tone={travelFormStatus === "Saved." ? "success" : travelFormStatus === "Saving..." ? "info" : "danger"}
+                />
                 {travelFormStatus !== "Saving..." && travelFormStatus !== "Saved." ? (
                   <button type="button" className="btn btnPrimary" onClick={() => handleSaveTravelForm()}>
                     Try again
