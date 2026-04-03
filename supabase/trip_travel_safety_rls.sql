@@ -61,7 +61,10 @@ for insert
 to authenticated
 with check (
   user_id = auth.uid()
-  and private.user_is_assigned_or_rostered_for_trip(trip_id)
+  and (
+    private.current_profile_role() in ('admin', 'staff', 'leader')
+    or private.user_is_assigned_or_rostered_for_trip(trip_id)
+  )
 );
 
 drop policy if exists "trip_travel_safety_ack_update_access" on public.trip_travel_safety_acknowledgments;
@@ -74,7 +77,10 @@ using (
 )
 with check (
   user_id = auth.uid()
-  and private.user_is_assigned_or_rostered_for_trip(trip_id)
+  and (
+    private.current_profile_role() in ('admin', 'staff', 'leader')
+    or private.user_is_assigned_or_rostered_for_trip(trip_id)
+  )
 );
 
 drop policy if exists "trip_travel_safety_ack_delete_access" on public.trip_travel_safety_acknowledgments;

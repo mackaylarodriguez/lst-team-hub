@@ -112,10 +112,18 @@ export default function TripTravelSafetySection({
 
   const contentVersion = record?.contentVersion || 1;
 
-  const currentUserId = session?.profileId || session?.id || "";
+  /** Prefer Supabase Auth id so it matches `trip_travel_safety_acknowledgments.user_id` and RLS. */
+  const authUserId = session?.authUserId || "";
+  const profileSessionId = session?.profileId || session?.id || "";
+  const currentUserId = authUserId || profileSessionId;
   const isParticipant = useMemo(
-    () => participants.some((p) => String(p.id) === String(currentUserId)),
-    [participants, currentUserId]
+    () =>
+      participants.some(
+        (p) =>
+          String(p.id) === String(authUserId) ||
+          (!!profileSessionId && String(p.id) === String(profileSessionId))
+      ),
+    [participants, authUserId, profileSessionId]
   );
 
   const isOnTripRosterByEmail = useMemo(() => {
@@ -128,8 +136,13 @@ export default function TripTravelSafetySection({
   const canAcknowledgeAsTripMember = isParticipant || isOnTripRosterByEmail;
 
   const myAck = useMemo(
-    () => acks.find((a) => String(a.userId) === String(currentUserId)),
-    [acks, currentUserId]
+    () =>
+      acks.find(
+        (a) =>
+          String(a.userId) === String(authUserId) ||
+          (!!profileSessionId && String(a.userId) === String(profileSessionId))
+      ),
+    [acks, authUserId, profileSessionId]
   );
 
   const hasAcknowledgedCurrent = !!(myAck && Number(myAck.acknowledgedVersion) === Number(contentVersion));
