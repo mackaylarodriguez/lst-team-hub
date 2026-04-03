@@ -3755,21 +3755,6 @@ function parseDateSafe(dateStr) {
     });
   }
 
-  function formatRelativeToTripStart(dueDate, startDate) {
-    const due = parseDateSafe(dueDate);
-    const start = parseDateSafe(startDate);
-    if (!due || !start) return "";
-
-    const diffMs = start.getTime() - due.getTime();
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays <= 0) return "after trip starts";
-    if (diffDays >= 75) return "about 3 months out";
-    if (diffDays >= 45) return "about 2 months out";
-    if (diffDays >= 15) return "about 1 month out";
-    return "coming up soon";
-  }
-
   function formatTripDateRange(startDate, endDate) {
     if (!startDate && !endDate) return "Dates to be confirmed";
 
@@ -7054,10 +7039,7 @@ function parseDateSafe(dateStr) {
                       <div className="small">
                         {task.detail ? `${task.detail} • ` : ""}
                         {task.dueDate
-                          ? `Due ${formatSingleDate(task.dueDate)} • ${formatRelativeToTripStart(
-                              task.dueDate,
-                              trip?.startDate
-                            )}`
+                          ? `Due ${formatSingleDate(task.dueDate)}`
                           : "Due when ready"}
                       </div>
                       {task.link ? (

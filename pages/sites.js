@@ -1,5 +1,4 @@
 import Shell from "@/components/Shell";
-import Link from "next/link";
 import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
 import { useRouter } from "next/router";
@@ -805,10 +804,6 @@ export default function SitesPage() {
                             value={housingNotesDraft}
                             onChange={(e) => setHousingNotesDraft(e.target.value)}
                           />
-                          <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
-                            Saved to <code>site_budget_notes.notes</code>. Also editable under{" "}
-                            <Link href="/budget">Budget</Link> (Housing tab).
-                          </div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                             <button
                               type="button"

@@ -13,6 +13,11 @@
 --   update public.site_budget_notes set site_name = 'Germany - Hannover' where site_name = 'Hannover, Germany';
 --
 -- Vicenza/Padova: keep "Italy - Vicenza" and "Italy - Padova" separate; delete combined rows only.
+--
+-- Venice / typo "Vencie": not production sites; safe to remove test rows from site_budget_notes.
+--
+-- Murcia: canonical row is "Spain - Murcia Alcantarilla". Legacy "Murcia, Spain" is merged into it when both
+-- exist; if only the legacy row exists, it is renamed (no duplicate key). Step 2 then deletes "Murcia, Spain".
 
 -- ── Step 1: merge duplicate Hannover rows into "Germany - Hannover" (only when canonical + legacy both exist) ──
 update public.site_budget_notes as canon
@@ -111,6 +116,47 @@ where canon.site_name = 'Germany - Hannover'
 -- If you use logistics_url (site_budget_notes_logistics_url.sql) and it was only set on the legacy
 -- Hannover row, copy it in the Supabase UI or with a one-off update before/after this script.
 
+-- ── Step 1b: merge "Murcia, Spain" into "Spain - Murcia Alcantarilla" when both rows exist ──
+update public.site_budget_notes as canon
+set
+  effective_date = coalesce(
+    canon.effective_date,
+    (select min(l.effective_date) from public.site_budget_notes l where l.site_name = 'Murcia, Spain')
+  ),
+  notes = nullif(
+    trim(both from concat_ws(
+      e'\n\n',
+      nullif(trim(canon.notes), ''),
+      (select nullif(trim(l.notes), '') from public.site_budget_notes l where l.site_name = 'Murcia, Spain' limit 1)
+    )),
+    ''
+  ),
+  workbook_notes = nullif(
+    trim(both from concat_ws(
+      e'\n',
+      nullif(trim(canon.workbook_notes), ''),
+      (select nullif(trim(l.workbook_notes), '') from public.site_budget_notes l where l.site_name = 'Murcia, Spain' limit 1)
+    )),
+    ''
+  ),
+  workbook_notes_updated_at = greatest(
+    canon.workbook_notes_updated_at,
+    (select max(l.workbook_notes_updated_at) from public.site_budget_notes l where l.site_name = 'Murcia, Spain')
+  ),
+  updated_at = now()
+where canon.site_name = 'Spain - Murcia Alcantarilla'
+  and exists (select 1 from public.site_budget_notes l where l.site_name = 'Murcia, Spain' and l.id <> canon.id);
+
+-- If you use logistics_url and it was only set on "Murcia, Spain", copy it to the canonical row before Step 2.
+
+-- If ONLY "Murcia, Spain" exists (no canonical row yet), rename — do not delete data in Step 2.
+update public.site_budget_notes
+set site_name = 'Spain - Murcia Alcantarilla', updated_at = now()
+where site_name = 'Murcia, Spain'
+  and not exists (
+    select 1 from public.site_budget_notes s where s.site_name = 'Spain - Murcia Alcantarilla'
+  );
+
 -- Step 2: delete retired / duplicate rows (after Hannover merge above)
 delete from public.site_budget_notes
 where site_name in (
@@ -130,7 +176,16 @@ where site_name in (
   'Vicenza / Padova',
   'Padova / Vicenza',
   'Vicenza-Padova',
-  'Padova-Vicenza'
+  'Padova-Vicenza',
+  /* Venice / "Vencie" Italy test sites (not in SITE_OPTIONS) */
+  'Italy - Venice',
+  'Italy - Vencie',
+  'Venice, Italy',
+  'Vencie, Italy',
+  'Venice Italy',
+  'Vencie Italy',
+  /* Legacy Murcia label; canonical is "Spain - Murcia Alcantarilla" (SITE_OPTIONS) */
+  'Murcia, Spain'
 )
 OR (
   /* Any other one-row combo of Vicenza + Padova */
@@ -147,4 +202,14 @@ OR (
     AND lower(site_name) like '%germany%'
   )
   AND lower(trim(site_name)) <> 'germany - hannover'
+)
+OR (
+  /* Any row whose name contains typo "vencie" (not a real mission site label) */
+  lower(site_name) like '%vencie%'
+)
+OR (
+  /* "Venice" + "Italy" + "test" in the site name (covers e.g. "Italy - Venice test") */
+  lower(site_name) like '%venice%'
+  AND lower(site_name) like '%italy%'
+  AND lower(site_name) like '%test%'
 );
