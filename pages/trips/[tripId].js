@@ -5584,6 +5584,7 @@ function parseDateSafe(dateStr) {
         percent: 0,
         completed: 0,
         total: 0,
+        showOnOverview: false,
       };
     }
 
@@ -5599,23 +5600,26 @@ function parseDateSafe(dateStr) {
         percent,
         completed,
         total,
+        showOnOverview: true,
       };
     }
 
-    if (currentParticipant && total > 0) {
-      return {
-        label: total > 1 ? "References received (team)" : "My reference",
-        percent,
-        completed,
-        total,
-      };
-    }
+    const refKeyForCurrent = (() => {
+      if (!currentParticipant?.id) return "";
+      const id = String(currentParticipant.id);
+      if (id.startsWith("roster-member-")) return `roster:${id.slice("roster-member-".length)}`;
+      return `user:${id}`;
+    })();
+
+    const mineReceived =
+      refKeyForCurrent && !!getReferenceStatus(refKeyForCurrent).received;
 
     return {
-      label: "My Reference",
-      percent: 0,
-      completed: 0,
+      label: "My reference",
+      percent: mineReceived ? 100 : 0,
+      completed: mineReceived ? 1 : 0,
       total: 1,
+      showOnOverview: mineReceived,
     };
   }, [trip, canViewTeamDashboard, currentParticipant, referenceEmails, referenceTableRows]);
 
@@ -6615,7 +6619,7 @@ function parseDateSafe(dateStr) {
               ? "Task, training, fundraising, and reference completion."
               : canViewTeamDashboard
                 ? "Task, training, and fundraising completion."
-                : "Task, training, fundraising, and your reference status."}
+                : "Task, training, and fundraising. A note appears here after LST receives your reference."}
           </div>
           <div
             className="tripOverviewStatsGrid"
@@ -6672,7 +6676,8 @@ function parseDateSafe(dateStr) {
               </div>
             </div>
 
-            {staffViewAllParticipants || !canViewTeamDashboard ? (
+            {(staffViewAllParticipants || !canViewTeamDashboard) &&
+            referenceReceivedProgress.showOnOverview ? (
               <div className="card pad">
                 <div className="small" style={{ marginBottom: 8 }}>{referenceReceivedProgress.label}</div>
                 <div style={{ fontSize: 28, fontWeight: 900 }}>{referenceReceivedProgress.percent}%</div>
@@ -6680,7 +6685,9 @@ function parseDateSafe(dateStr) {
                   <div style={{ width: `${referenceReceivedProgress.percent}%` }} />
                 </div>
                 <div className="small" style={{ marginTop: 8 }}>
-                  {referenceReceivedProgress.completed} of {referenceReceivedProgress.total} received.
+                  {canViewTeamDashboard
+                    ? `${referenceReceivedProgress.completed} of ${referenceReceivedProgress.total} received.`
+                    : "Your LST reference has been received."}
                 </div>
               </div>
             ) : null}
