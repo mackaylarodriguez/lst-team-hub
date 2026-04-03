@@ -3835,6 +3835,20 @@ function parseDateSafe(dateStr) {
     });
   }
 
+  function formatMeetingDateTime(value) {
+    if (!value) return "Date and time unavailable";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Date and time unavailable";
+    return date.toLocaleString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    });
+  }
+
   function formatSingleDate(value) {
     if (!value) return "Not set";
 
@@ -6332,6 +6346,37 @@ normalizeEmail(participant.email) === activeParticipantEmail
     border: "1px solid rgba(124, 58, 237, 0.14)",
     boxShadow: "0 1px 0 rgba(255, 255, 255, 0.85) inset",
   };
+  const materialsMetricCard = {
+    minHeight: 104,
+    borderRadius: 14,
+    border: "1px solid rgba(15, 23, 42, 0.08)",
+    background: "rgba(255, 255, 255, 0.8)",
+    padding: "14px 16px",
+    boxShadow: "0 8px 26px rgba(15, 23, 42, 0.05)",
+    display: "grid",
+    alignContent: "start",
+    gap: 8,
+  };
+  const materialsMetricLabel = {
+    fontSize: 10,
+    fontWeight: 800,
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    color: "var(--muted)",
+  };
+  const materialsMetricValue = {
+    fontSize: 28,
+    lineHeight: 1,
+    fontWeight: 900,
+    color: "var(--text)",
+  };
+  const materialsPanelBase = {
+    borderRadius: 14,
+    padding: "4px 14px 2px",
+    boxShadow: "0 1px 0 rgba(255, 255, 255, 0.75) inset",
+    minWidth: 0,
+    height: "100%",
+  };
 
   const staffSiteWorkbookPlan = useMemo(() => {
     if (!trip?.location?.trim()) {
@@ -6959,7 +7004,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         <div className="small" style={{ fontWeight: 600, color: "var(--foreground)" }}>
                           {m.title || "Meeting"}
                         </div>
-                        <div className="small">{new Date(m.scheduledAt).toLocaleString()}</div>
+                        <div className="small">{formatMeetingDateTime(m.scheduledAt)}</div>
                         {canManageTripMeetings ? (
                           <div className="row" style={{ gap: 8, marginTop: 4, flexWrap: "wrap" }}>
                             <button
@@ -7012,7 +7057,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         <div className="small" style={{ fontWeight: 600, color: "var(--foreground)" }}>
                           {m.title || "Meeting"}
                         </div>
-                        <div className="small">{new Date(m.scheduledAt).toLocaleString()}</div>
+                        <div className="small">{formatMeetingDateTime(m.scheduledAt)}</div>
                         {canManageTripMeetings ? (
                           m.notesAfter ? (
                             <div className="small" style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>
@@ -9167,242 +9212,327 @@ normalizeEmail(participant.email) === activeParticipantEmail
 
                   <div
                     style={{
-                      borderRadius: 12,
-                      padding: "4px 14px 2px",
-                      marginBottom: 14,
-                      background:
-                        "linear-gradient(180deg, rgba(37, 99, 235, 0.08), rgba(248, 250, 252, 0.4))",
-                      border: "1px solid rgba(37, 99, 235, 0.14)",
-                      boxShadow: "0 1px 0 rgba(255, 255, 255, 0.75) inset",
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                      gap: 12,
+                      margin: "0 0 16px",
                     }}
                   >
                     <div
                       style={{
-                        fontSize: 10,
-                        fontWeight: 800,
-                        letterSpacing: "0.14em",
-                        textTransform: "uppercase",
-                        color: "rgba(30, 64, 175, 0.9)",
-                        padding: "8px 0 10px",
-                        borderBottom: "1px solid rgba(37, 99, 235, 0.15)",
-                        marginBottom: 2,
+                        ...materialsMetricCard,
+                        background:
+                          "linear-gradient(180deg, rgba(219, 234, 254, 0.92), rgba(255, 255, 255, 0.86))",
                       }}
                     >
-                      Team & site plan
-                    </div>
-
-                  <div style={materialsGlanceRow}>
-                    <div style={materialsGlanceLabel}>Team name</div>
-                    <div style={materialsGlanceValue}>{trip.name || "—"}</div>
-                  </div>
-
-                  <div style={materialsGlanceRow}>
-                    <div style={materialsGlanceLabel}># of workers</div>
-                    <div>
-                      <span
-                        style={{
-                          ...materialsGlanceValue,
-                          fontVariantNumeric: "tabular-nums",
-                        }}
-                      >
-                        {materialsWorkersDisplayCount}
-                      </span>
-                      {materialsBudgetWorkerCount !== null ? (
-                        <div style={{ ...materialsGlanceMuted, marginTop: 4 }}>
-                          {`Saved on budget row · Roster on file: ${materialsRosterHeadcount}`}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div style={materialsGlanceRow}>
-                    <div style={materialsGlanceLabel}>Site plan (Sites)</div>
-                    <div>
-                      <div style={{ ...materialsGlanceMuted, marginBottom: 6 }}>
-                        Site:{" "}
-                        <span style={{ color: "var(--text)", fontWeight: 500 }}>
-                          {tripSiteCanonicalLabel || trip.location || "—"}
-                        </span>
+                      <div style={materialsMetricLabel}>Workers</div>
+                      <div style={materialsMetricValue}>{materialsWorkersDisplayCount}</div>
+                      <div style={materialsGlanceMuted}>
+                        {materialsBudgetWorkerCount !== null
+                          ? `Budget row saved · roster has ${materialsRosterHeadcount}`
+                          : `Pulled from roster · ${materialsRosterHeadcount} on file`}
                       </div>
-                      {staffSiteWorkbookPlan?.noLocation ? (
-                        <div style={materialsGlanceMuted}>
-                          Set the trip location in setup to match a site on{" "}
-                          <Link href="/sites">Sites</Link>.
-                        </div>
-                      ) : staffSiteWorkbookPlan?.empty ? (
-                        <div style={materialsGlanceMuted}>No workbooks found.</div>
-                      ) : (
-                        <>
-                          <div style={{ ...materialsGlanceMuted, marginBottom: 6 }}>
-                            {staffSiteWorkbookPlan.distinctTitles} titles ·{" "}
-                            {staffSiteWorkbookPlan.totalCopies} copies
-                          </div>
-                          <ul
-                            style={{
-                              margin: 0,
-                              paddingLeft: 18,
-                              ...materialsGlanceValue,
-                              lineHeight: 1.55,
-                              color: "var(--muted)",
-                            }}
-                          >
-                            {staffSiteWorkbookPlan.positiveLines.map((line, idx) => (
-                              <li key={`site-${line.name}-${idx}`}>
-                                <span style={{ color: "var(--text)", fontWeight: 500 }}>{line.qty}</span>
-                                {" · "}
-                                {line.name}
-                              </li>
-                            ))}
-                          </ul>
-                        </>
-                      )}
                     </div>
-                  </div>
-
+                    <div
+                      style={{
+                        ...materialsMetricCard,
+                        background:
+                          "linear-gradient(180deg, rgba(220, 252, 231, 0.92), rgba(255, 255, 255, 0.86))",
+                      }}
+                    >
+                      <div style={materialsMetricLabel}>Site Workbook Plan</div>
+                      <div style={materialsMetricValue}>
+                        {staffSiteWorkbookPlan?.empty || staffSiteWorkbookPlan?.noLocation
+                          ? "0"
+                          : staffSiteWorkbookPlan?.totalCopies || 0}
+                      </div>
+                      <div style={materialsGlanceMuted}>
+                        {staffSiteWorkbookPlan?.noLocation
+                          ? "Set a trip location to load site workbook guidance"
+                          : staffSiteWorkbookPlan?.empty
+                            ? "No workbook quantities found on the matched site"
+                            : `${staffSiteWorkbookPlan?.distinctTitles || 0} titles from Sites`}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        ...materialsMetricCard,
+                        background:
+                          "linear-gradient(180deg, rgba(254, 249, 195, 0.92), rgba(255, 255, 255, 0.86))",
+                      }}
+                    >
+                      <div style={materialsMetricLabel}>T-Shirt Sizes</div>
+                      <div style={materialsMetricValue}>{materialsRosterTshirtLines.length}</div>
+                      <div style={materialsGlanceMuted}>
+                        {materialsRosterTshirtLines.length
+                          ? "Roster rows with saved size info"
+                          : "No roster members with saved sizes yet"}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        ...materialsMetricCard,
+                        background:
+                          "linear-gradient(180deg, rgba(243, 232, 255, 0.92), rgba(255, 255, 255, 0.86))",
+                      }}
+                    >
+                      <div style={materialsMetricLabel}>Shipping Status</div>
+                      <div style={{ ...materialsMetricValue, fontSize: 18, lineHeight: 1.15 }}>
+                        {String(materialsDraft.materialsTrackingNumber || "").trim()
+                          ? "Tracking added"
+                          : String(materialsDraft.materialsShipAddress || "").trim()
+                            ? "Address ready"
+                            : "Needs shipping info"}
+                      </div>
+                      <div style={materialsGlanceMuted}>
+                        {String(materialsDraft.materialsTrackingNumber || "").trim()
+                          ? String(materialsDraft.materialsTrackingNumber || "").trim()
+                          : "Add ship-to address and tracking when books go out"}
+                      </div>
+                    </div>
                   </div>
 
                   <div
                     style={{
-                      borderRadius: 12,
-                      padding: "4px 14px 2px",
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                      gap: 14,
+                      alignItems: "start",
                       marginBottom: 12,
-                      background:
-                        "linear-gradient(180deg, rgba(22, 163, 74, 0.09), rgba(240, 253, 244, 0.45))",
-                      border: "1px solid rgba(22, 163, 74, 0.18)",
-                      boxShadow:
-                        "0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 6px 20px rgba(22, 101, 52, 0.06)",
                     }}
                   >
                     <div
                       style={{
-                        fontSize: 10,
-                        fontWeight: 800,
-                        letterSpacing: "0.12em",
-                        textTransform: "uppercase",
-                        color: "rgba(21, 128, 61, 0.92)",
-                        padding: "8px 0 10px",
-                        borderBottom: "1px solid rgba(22, 163, 74, 0.2)",
-                        marginBottom: 2,
+                        ...materialsPanelBase,
+                        background:
+                          "linear-gradient(180deg, rgba(37, 99, 235, 0.08), rgba(248, 250, 252, 0.4))",
+                        border: "1px solid rgba(37, 99, 235, 0.14)",
                       }}
                     >
-                      Logistics & accounting
-                    </div>
-
-                  <div style={materialsGlanceRow}>
-                    <div style={materialsGlanceLabel}>Team accountant</div>
-                    {isEditingMaterialsGlance ? (
-                      <input
-                        className="input"
-                        value={materialsDraft.teamAccountant}
-                        onChange={(e) =>
-                          setMaterialsDraft((d) => ({ ...d, teamAccountant: e.target.value }))
-                        }
-                        placeholder="Name"
-                        style={{ maxWidth: 400 }}
-                      />
-                    ) : (
-                      <div style={materialsGlanceValue}>
-                        {String(materialsDraft.teamAccountant || "").trim() || (
-                          <span style={materialsGlanceMuted}>—</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={materialsGlanceRow}>
-                    <div style={materialsGlanceLabel}>T-shirt sizes</div>
-                    <div>
-                      {materialsRosterTshirtLines.length > 0 ? (
-                        <div style={{ display: "grid", gap: 4 }}>
-                          {materialsRosterTshirtLines.map((line, idx) => (
-                            <div key={`${line}-${idx}`} style={materialsGlanceValue}>
-                              {line}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span style={materialsGlanceMuted}>No roster members yet.</span>
-                      )}
-                      {isEditingMaterialsGlance ? (
-                        <>
-                          <div className="small" style={{ marginTop: 10, color: "var(--muted)" }}>
-                            Optional notes (same field as Budget → Housing)
-                          </div>
-                          <textarea
-                            className="input"
-                            rows={2}
-                            value={materialsDraft.tshirts}
-                            onChange={(e) =>
-                              setMaterialsDraft((d) => ({ ...d, tshirts: e.target.value }))
-                            }
-                            placeholder="Extra sizing or shipping notes…"
-                          />
-                        </>
-                      ) : String(materialsDraft.tshirts || "").trim() ? (
-                        <div style={{ marginTop: 8 }}>
-                          <div style={materialsGlanceMuted}>Notes</div>
-                          <div style={{ ...materialsGlanceValue, whiteSpace: "pre-wrap" }}>
-                            {materialsDraft.tshirts}
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div style={materialsGlanceRow}>
-                    <div style={materialsGlanceLabel}>Ship-to address</div>
-                    {isEditingMaterialsGlance ? (
-                      <textarea
-                        className="input"
-                        rows={3}
-                        value={materialsDraft.materialsShipAddress}
-                        onChange={(e) =>
-                          setMaterialsDraft((d) => ({
-                            ...d,
-                            materialsShipAddress: e.target.value,
-                          }))
-                        }
-                        placeholder="If different from workers’ home addresses"
-                      />
-                    ) : (
-                      <div style={{ ...materialsGlanceValue, whiteSpace: "pre-wrap" }}>
-                        {String(materialsDraft.materialsShipAddress || "").trim() || (
-                          <span style={materialsGlanceMuted}>—</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={materialsGlanceRow}>
-                    <div style={materialsGlanceLabel}>Tracking #</div>
-                    {isEditingMaterialsGlance ? (
-                      <input
-                        className="input"
-                        value={materialsDraft.materialsTrackingNumber}
-                        onChange={(e) =>
-                          setMaterialsDraft((d) => ({
-                            ...d,
-                            materialsTrackingNumber: e.target.value,
-                          }))
-                        }
-                        placeholder="Carrier tracking #"
-                        style={{ maxWidth: 420 }}
-                      />
-                    ) : (
                       <div
                         style={{
-                          ...materialsGlanceValue,
-                          fontFamily: "ui-monospace, monospace",
-                          wordBreak: "break-all",
+                          fontSize: 10,
+                          fontWeight: 800,
+                          letterSpacing: "0.14em",
+                          textTransform: "uppercase",
+                          color: "rgba(30, 64, 175, 0.9)",
+                          padding: "8px 0 10px",
+                          borderBottom: "1px solid rgba(37, 99, 235, 0.15)",
+                          marginBottom: 2,
                         }}
                       >
-                        {String(materialsDraft.materialsTrackingNumber || "").trim() || (
-                          <span style={{ ...materialsGlanceMuted, fontFamily: "inherit" }}>—</span>
+                        Team & site plan
+                      </div>
+
+                      <div style={materialsGlanceRow}>
+                        <div style={materialsGlanceLabel}>Team name</div>
+                        <div style={materialsGlanceValue}>{trip.name || "—"}</div>
+                      </div>
+
+                      <div style={materialsGlanceRow}>
+                        <div style={materialsGlanceLabel}># of workers</div>
+                        <div>
+                          <span
+                            style={{
+                              ...materialsGlanceValue,
+                              fontVariantNumeric: "tabular-nums",
+                            }}
+                          >
+                            {materialsWorkersDisplayCount}
+                          </span>
+                          {materialsBudgetWorkerCount !== null ? (
+                            <div style={{ ...materialsGlanceMuted, marginTop: 4 }}>
+                              {`Saved on budget row · Roster on file: ${materialsRosterHeadcount}`}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div style={materialsGlanceRow}>
+                        <div style={materialsGlanceLabel}>Site plan (Sites)</div>
+                        <div>
+                          <div style={{ ...materialsGlanceMuted, marginBottom: 6 }}>
+                            Site:{" "}
+                            <span style={{ color: "var(--text)", fontWeight: 500 }}>
+                              {tripSiteCanonicalLabel || trip.location || "—"}
+                            </span>
+                          </div>
+                          {staffSiteWorkbookPlan?.noLocation ? (
+                            <div style={materialsGlanceMuted}>
+                              Set the trip location in setup to match a site on{" "}
+                              <Link href="/sites">Sites</Link>.
+                            </div>
+                          ) : staffSiteWorkbookPlan?.empty ? (
+                            <div style={materialsGlanceMuted}>No workbooks found.</div>
+                          ) : (
+                            <>
+                              <div style={{ ...materialsGlanceMuted, marginBottom: 6 }}>
+                                {staffSiteWorkbookPlan.distinctTitles} titles ·{" "}
+                                {staffSiteWorkbookPlan.totalCopies} copies
+                              </div>
+                              <ul
+                                style={{
+                                  margin: 0,
+                                  paddingLeft: 18,
+                                  ...materialsGlanceValue,
+                                  lineHeight: 1.55,
+                                  color: "var(--muted)",
+                                }}
+                              >
+                                {staffSiteWorkbookPlan.positiveLines.map((line, idx) => (
+                                  <li key={`site-${line.name}-${idx}`}>
+                                    <span style={{ color: "var(--text)", fontWeight: 500 }}>{line.qty}</span>
+                                    {" · "}
+                                    {line.name}
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        ...materialsPanelBase,
+                        background:
+                          "linear-gradient(180deg, rgba(22, 163, 74, 0.09), rgba(240, 253, 244, 0.45))",
+                        border: "1px solid rgba(22, 163, 74, 0.18)",
+                        boxShadow:
+                          "0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 6px 20px rgba(22, 101, 52, 0.06)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          letterSpacing: "0.12em",
+                          textTransform: "uppercase",
+                          color: "rgba(21, 128, 61, 0.92)",
+                          padding: "8px 0 10px",
+                          borderBottom: "1px solid rgba(22, 163, 74, 0.2)",
+                          marginBottom: 2,
+                        }}
+                      >
+                        Logistics & accounting
+                      </div>
+
+                      <div style={materialsGlanceRow}>
+                        <div style={materialsGlanceLabel}>Team accountant</div>
+                        {isEditingMaterialsGlance ? (
+                          <input
+                            className="input"
+                            value={materialsDraft.teamAccountant}
+                            onChange={(e) =>
+                              setMaterialsDraft((d) => ({ ...d, teamAccountant: e.target.value }))
+                            }
+                            placeholder="Name"
+                            style={{ maxWidth: 400 }}
+                          />
+                        ) : (
+                          <div style={materialsGlanceValue}>
+                            {String(materialsDraft.teamAccountant || "").trim() || (
+                              <span style={materialsGlanceMuted}>—</span>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
 
+                      <div style={materialsGlanceRow}>
+                        <div style={materialsGlanceLabel}>T-shirt sizes</div>
+                        <div>
+                          {materialsRosterTshirtLines.length > 0 ? (
+                            <div style={{ display: "grid", gap: 4 }}>
+                              {materialsRosterTshirtLines.map((line, idx) => (
+                                <div key={`${line}-${idx}`} style={materialsGlanceValue}>
+                                  {line}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={materialsGlanceMuted}>No roster members yet.</span>
+                          )}
+                          {isEditingMaterialsGlance ? (
+                            <>
+                              <div className="small" style={{ marginTop: 10, color: "var(--muted)" }}>
+                                Optional notes (same field as Budget → Housing)
+                              </div>
+                              <textarea
+                                className="input"
+                                rows={2}
+                                value={materialsDraft.tshirts}
+                                onChange={(e) =>
+                                  setMaterialsDraft((d) => ({ ...d, tshirts: e.target.value }))
+                                }
+                                placeholder="Extra sizing or shipping notes…"
+                              />
+                            </>
+                          ) : String(materialsDraft.tshirts || "").trim() ? (
+                            <div style={{ marginTop: 8 }}>
+                              <div style={materialsGlanceMuted}>Notes</div>
+                              <div style={{ ...materialsGlanceValue, whiteSpace: "pre-wrap" }}>
+                                {materialsDraft.tshirts}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div style={materialsGlanceRow}>
+                        <div style={materialsGlanceLabel}>Ship-to address</div>
+                        {isEditingMaterialsGlance ? (
+                          <textarea
+                            className="input"
+                            rows={3}
+                            value={materialsDraft.materialsShipAddress}
+                            onChange={(e) =>
+                              setMaterialsDraft((d) => ({
+                                ...d,
+                                materialsShipAddress: e.target.value,
+                              }))
+                            }
+                            placeholder="If different from workers’ home addresses"
+                          />
+                        ) : (
+                          <div style={{ ...materialsGlanceValue, whiteSpace: "pre-wrap" }}>
+                            {String(materialsDraft.materialsShipAddress || "").trim() || (
+                              <span style={materialsGlanceMuted}>—</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={materialsGlanceRow}>
+                        <div style={materialsGlanceLabel}>Tracking #</div>
+                        {isEditingMaterialsGlance ? (
+                          <input
+                            className="input"
+                            value={materialsDraft.materialsTrackingNumber}
+                            onChange={(e) =>
+                              setMaterialsDraft((d) => ({
+                                ...d,
+                                materialsTrackingNumber: e.target.value,
+                              }))
+                            }
+                            placeholder="Carrier tracking #"
+                            style={{ maxWidth: 420 }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              ...materialsGlanceValue,
+                              fontFamily: "ui-monospace, monospace",
+                              wordBreak: "break-all",
+                            }}
+                          >
+                            {String(materialsDraft.materialsTrackingNumber || "").trim() || (
+                              <span style={{ ...materialsGlanceMuted, fontFamily: "inherit" }}>—</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   <div style={materialsGlanceRowSending}>
