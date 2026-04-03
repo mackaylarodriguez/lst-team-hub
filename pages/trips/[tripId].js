@@ -5783,6 +5783,7 @@ function parseDateSafe(dateStr) {
   const tripHealthItems = useMemo(() => {
     const items = [];
     if (!trip) return items;
+    const tripTasks = Array.isArray(trip.tasks) ? trip.tasks : [];
     const materialsRosterCount = workerDocumentParticipants.length;
     const rawMaterialsWorkers = materialsDraft?.numWorkers;
     const materialsBudgetCount =
@@ -5801,17 +5802,19 @@ function parseDateSafe(dateStr) {
     ).length;
     const tasksRemaining = staffViewAllParticipants
       ? (editableStaffTasks || []).filter((task) => task.progress !== "Complete").length
-      : trip.tasks.length - (currentParticipantProgress?.completed || 0);
+      : tripTasks.length - (currentParticipantProgress?.completed || 0);
     const trainingParticipantsForHealth = staffViewAllParticipants
       ? (() => {
+          const tripParticipants = Array.isArray(trip.participants) ? trip.participants : [];
+          const tripTeamMembers = Array.isArray(trip.teamMembers) ? trip.teamMembers : [];
           const participantEmails = new Set(
-            (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
+            tripParticipants.map((p) => normalizeEmail(p.email)).filter(Boolean)
           );
-          const rosterOnly = (trip.teamMembers || []).filter((member) => {
+          const rosterOnly = tripTeamMembers.filter((member) => {
             const email = normalizeEmail(member.email);
             return email && !participantEmails.has(email);
           });
-          return [...(trip.participants || []), ...rosterOnly];
+          return [...tripParticipants, ...rosterOnly];
         })()
       : [];
     const trainingsRemaining = staffViewAllParticipants
@@ -9292,7 +9295,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         0
                       )
                     : Math.max(
-                        (currentParticipantProgress?.total || 0) - (currentParticipantProgress?.completed || 0),
+                        (currentParticipantProgress?.total || 0) -
+                          (currentParticipantProgress?.completed || 0),
                         0
                       )
                 }
