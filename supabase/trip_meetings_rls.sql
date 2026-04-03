@@ -19,7 +19,8 @@ $$;
 revoke all on function private.current_profile_role() from public;
 grant execute on function private.current_profile_role() to authenticated;
 
--- Trip access: assignment row OR same email on trip roster (covers leaders without a trip_assignments row).
+-- Trip access: mirrors private.user_is_assigned_or_rostered_for_trip — assignment, roster↔profile email,
+-- and roster↔JWT email (workers often match roster by auth email while profiles.email differs).
 create or replace function private.trip_meetings_actor_on_trip(p_trip_id uuid)
 returns boolean
 language sql
@@ -27,24 +28,27 @@ stable
 security definer
 set search_path = public
 as $$
-  select p_trip_id is not null
-    and (
-      exists (
-        select 1
-        from public.trip_assignments ta
-        where ta.user_id = auth.uid()
-          and ta.trip_id = p_trip_id
-      )
-      or exists (
-        select 1
-        from public.trip_team_members m
-        inner join public.profiles p on p.id = auth.uid()
-        where m.trip_id = p_trip_id
-          and nullif(trim(lower(m.email)), '') is not null
-          and nullif(trim(lower(p.email)), '') is not null
-          and lower(trim(m.email)) = lower(trim(p.email))
-      )
-    );
+  select exists (
+    select 1
+    from public.trip_assignments as ta
+    where ta.trip_id = p_trip_id
+      and ta.user_id = auth.uid()
+  )
+  or exists (
+    select 1
+    from public.trip_team_members as m
+    inner join public.profiles as p on p.id = auth.uid()
+    where m.trip_id = p_trip_id
+      and lower(trim(coalesce(m.email, ''))) = lower(trim(coalesce(p.email, '')))
+  )
+  or exists (
+    select 1
+    from public.trip_team_members as m
+    where m.trip_id = p_trip_id
+      and nullif(trim(coalesce(auth.jwt()->>'email', '')), '') is not null
+      and lower(trim(coalesce(m.email, ''))) =
+          lower(trim(coalesce(auth.jwt()->>'email', '')))
+  );
 $$;
 
 revoke all on function private.trip_meetings_actor_on_trip(uuid) from public;

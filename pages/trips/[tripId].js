@@ -2959,7 +2959,11 @@ export default function TripPage() {
           });
         }
       })
-      .catch(() => setTravelFormDraft({ ...TRAVEL_FORM_EMPTY, teamName: trip?.name || "", email: target?.email || "" }));
+      .catch((error) => {
+        console.error("Unable to load travel form", error);
+        showToast(error?.message || "Unable to load travel form.", "error");
+        setTravelFormDraft({ ...TRAVEL_FORM_EMPTY, teamName: trip?.name || "", email: target?.email || "" });
+      });
   }
 
   async function handleSaveTravelForm() {
@@ -5264,15 +5268,20 @@ function parseDateSafe(dateStr) {
     if (!session) return null;
     if (staffViewAllParticipants) return null;
 
+    const sessionUserId = String(session.profileId || session.id || session.authUserId || "").trim();
+    const sessionEmail = normalizeEmail(session.email);
+
     return (
-      trip.participants.find(
-        (participant) =>
-          participant.email.toLowerCase() === session.email.toLowerCase()
-      ) || null
+      trip.participants.find((participant) => {
+        if (sessionUserId && String(participant.id) === sessionUserId) return true;
+        const pe = normalizeEmail(participant.email);
+        return Boolean(pe && sessionEmail && pe === sessionEmail);
+      }) || null
     );
   }, [trip, session, staffViewAllParticipants, isPreviewingParticipant, previewParticipantId]);
 
-  const activeParticipantEmail = currentParticipant?.email?.toLowerCase() || "";
+  const activeParticipantEmail =
+    normalizeEmail(currentParticipant?.email) || normalizeEmail(session?.email) || "";
   const canUploadOwnParticipantDocuments =
     !staffViewAllParticipants && !!currentParticipant && !isPreviewingParticipant;
   const canEditTripReferenceEmails = staffViewAllParticipants;
@@ -5355,8 +5364,7 @@ function parseDateSafe(dateStr) {
 
     return (
       participantTaskProgress.find(
-        (participant) =>
-          participant.email.toLowerCase() === activeParticipantEmail
+        (participant) => normalizeEmail(participant.email) === activeParticipantEmail
       ) || null
     );
   }, [participantTaskProgress, activeParticipantEmail]);
@@ -5575,7 +5583,7 @@ function parseDateSafe(dateStr) {
     return (
       trainingProgress.find(
         (participant) =>
-          participant.email.toLowerCase() === activeParticipantEmail
+normalizeEmail(participant.email) === activeParticipantEmail
       ) || null
     );
   }, [trainingProgress, activeParticipantEmail]);
