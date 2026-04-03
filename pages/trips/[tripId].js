@@ -7037,7 +7037,6 @@ function parseDateSafe(dateStr) {
                         </button>
                       )}
                       <div className="small">
-                        {task.detail ? `${task.detail} • ` : ""}
                         {task.dueDate
                           ? `Due ${formatSingleDate(task.dueDate)}`
                           : "Due when ready"}
