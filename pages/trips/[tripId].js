@@ -9977,7 +9977,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
           })()}
           <div style={{ display: "grid", gap: 10 }}>
             <div
-              className="row"
+              className="row mobileSectionHeader"
               style={{
                 gap: 12,
                 alignItems: "center",
@@ -9990,7 +9990,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
               </div>
               {canManageTripDocuments ? (
                 <div
-                  className="row"
+                  className="row mobileSectionHeaderActions"
                   style={{
                     gap: 8,
                     flexWrap: "wrap",
@@ -10701,7 +10701,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
           <CollapsibleSection defaultOpen>
           <div className="card pad">
             <div
-              className="row"
+              className="row mobileSectionHeader"
               style={{
                 marginBottom: 8,
                 gap: 12,
@@ -10714,9 +10714,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 {canViewTeamDashboard ? "Worker uploads" : "My documents"}
               </div>
               {canViewTeamDashboard ? (
-                <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <div className="row mobileSectionHeaderActions" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                   <input
-                    className="input"
+                    className="input mobileHeaderInput"
                     value={customParticipantDocumentLabel}
                     onChange={(event) => setCustomParticipantDocumentLabel(event.target.value)}
                     placeholder="Add upload item"
@@ -10938,7 +10938,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
               Passport, emergency contacts, and travel preferences.
             </div>
             <div
-              className="row"
+              className="row mobileSectionHeader"
               style={{
                 marginBottom: 12,
                 alignItems: "flex-start",
@@ -10952,26 +10952,27 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   ? "Team travel form responses. Rows auto-generate as workers fill out the form from the Tasks tab."
                   : "Your travel form response. Fill out or update from the Tasks tab (Fill out Travel Form) or edit below."}
               </div>
-              {!staffViewAllParticipants && currentParticipant ? (
+              <div className="row mobileSectionHeaderActions" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {!staffViewAllParticipants && currentParticipant ? (
+                  <button
+                    type="button"
+                    className="btn btnPrimary"
+                    onClick={() =>
+                      openTravelFormModal({
+                        refKey: `user:${currentParticipant.id}`,
+                        email: currentParticipant.email || "",
+                      })
+                    }
+                  >
+                    Edit my response
+                  </button>
+                ) : null}
+                {canViewTeamDashboard ? (
+                  <>
                 <button
                   type="button"
-                  className="btn btnPrimary"
-                  onClick={() =>
-                    openTravelFormModal({
-                      refKey: `user:${currentParticipant.id}`,
-                      email: currentParticipant.email || "",
-                    })
-                  }
-                >
-                  Edit my response
-                </button>
-              ) : null}
-              {canViewTeamDashboard ? (
-                <>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => {
+                  className="btn"
+                  onClick={() => {
                   if (!trip) return;
                   const header = [
                     "Team Name",
@@ -11068,13 +11069,13 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   URL.revokeObjectURL(url);
                   showToast(`Exported ${safeTripName || "trip"}-travel-form-responses.csv`);
                 }}
-              >
-                Export CSV
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={async () => {
+                >
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={async () => {
                   if (!trip) return;
                   try {
                     const res = await fetch(TRAVEL_FORM_TEMPLATE_PATH);
@@ -11117,11 +11118,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     showToast(msg, "error");
                   }
                 }}
-              >
-                Export for travel agency (Excel)
-              </button>
-                </>
-              ) : null}
+                >
+                  Export for travel agency (Excel)
+                </button>
+                  </>
+                ) : null}
+              </div>
             </div>
             {canViewTeamDashboard ? (
               <div
@@ -11240,7 +11242,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       background: "linear-gradient(180deg, rgba(255,255,255,0.97), rgba(248,250,252,0.92))",
                     }}
                   >
-                    <div className="row" style={{ alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
+                    <div className="row mobileCardTopRow" style={{ alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontWeight: 900, color: "var(--text)" }}>
                           {canViewTeamDashboard ? p.name || p.email || "Participant" : "My response"}

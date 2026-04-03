@@ -1208,17 +1208,17 @@ export default function BudgetPage() {
 
         <div className="card pad" style={budgetSectionCardStyle}>
           <div
-            className="row appPolishToolbar"
+            className="row appPolishToolbar mobileSectionHeader"
             style={{ ...budgetSectionHeaderStyle, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
               <div
-                className="row"
+                className="row mobileSectionHeader"
                 style={{ gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
               >
                 <div className="appSectionBadge" style={{ marginBottom: 0 }}>Housing</div>
                 <div
-                  className="row"
+                  className="row mobileSectionHeaderActions"
                   style={{
                     gap: 8,
                     flexWrap: "wrap",
@@ -1808,17 +1808,17 @@ export default function BudgetPage() {
         {tab === "Ticketing" && (
         <div className="card pad" style={budgetSectionCardStyle}>
           <div
-            className="row appPolishToolbar"
+            className="row appPolishToolbar mobileSectionHeader"
             style={{ ...budgetSectionHeaderStyle, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
             <div style={{ flex: "1 1 280px", minWidth: 0 }}>
               <div
-                className="row"
+                className="row mobileSectionHeader"
                 style={{ gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
               >
                 <div className="appSectionBadge" style={{ marginBottom: 0 }}>Ticketing</div>
                 <div
-                  className="row"
+                  className="row mobileSectionHeaderActions"
                   style={{
                     gap: 8,
                     flexWrap: "wrap",

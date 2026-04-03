@@ -9,6 +9,7 @@ import {
   SESSION_UPDATED_EVENT,
   setImpersonatedProfile,
 } from "@/lib/auth";
+import { listTripsForCurrentUser } from "@/lib/trips";
 import { useEffect, useState } from "react";
 import { isManagerRole, isStaffRole, ROLE_ADMIN } from "@/lib/roles";
 
@@ -94,6 +95,11 @@ export default function Shell({ children }) {
   const router = useRouter();
   const [session, setSession] = useState(null);
   const [profiles, setProfiles] = useState([]);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
+  const [commandTrips, setCommandTrips] = useState([]);
+  const [commandTripsLoaded, setCommandTripsLoaded] = useState(false);
+  const [commandLoading, setCommandLoading] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [showInstallHint, setShowInstallHint] = useState(false);
@@ -149,6 +155,28 @@ export default function Shell({ children }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    function handleKeyDown(event) {
+      const isShortcut = (event.metaKey || event.ctrlKey) && String(event.key || "").toLowerCase() === "k";
+      if (isShortcut) {
+        event.preventDefault();
+        setCommandOpen(true);
+        return;
+      }
+
+      if (event.key === "Escape") {
+        setCommandOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const dismissed = window.localStorage.getItem("lst-install-hint-dismissed") === "true";
     const isStandalone = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
     const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent || "");
@@ -194,6 +222,39 @@ export default function Shell({ children }) {
     };
   }, [isAdminUser]);
 
+  useEffect(() => {
+    if (!commandOpen || commandTripsLoaded || commandLoading) return;
+
+    let cancelled = false;
+
+    async function loadCommandTrips() {
+      setCommandLoading(true);
+      try {
+        const rows = await listTripsForCurrentUser();
+        if (!cancelled) {
+          setCommandTrips(rows || []);
+          setCommandTripsLoaded(true);
+        }
+      } catch (error) {
+        console.error("Unable to load command bar trips", error);
+        if (!cancelled) {
+          setCommandTrips([]);
+          setCommandTripsLoaded(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setCommandLoading(false);
+        }
+      }
+    }
+
+    void loadCommandTrips();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [commandLoading, commandOpen, commandTripsLoaded]);
+
   async function handleProfileSwitch(event) {
     const email = event.target.value;
 
@@ -226,6 +287,37 @@ export default function Shell({ children }) {
       : null,
     { href: "/profile", label: "Profile", active: path === "/profile", icon: "profile" },
   ].filter(Boolean);
+
+  const commandItems = [
+    ...navItems.map((item) => ({
+      id: `nav:${item.href}`,
+      title: item.label,
+      subtitle: "Page",
+      href: item.href,
+      keywords: `${item.label} ${item.href}`,
+    })),
+    ...commandTrips.map((trip) => ({
+      id: `trip:${trip.id}`,
+      title: trip.name || "Untitled trip",
+      subtitle: ["Trip", trip.location, trip.dates].filter(Boolean).join(" • "),
+      href: `/trips/${encodeURIComponent(trip.id)}`,
+      keywords: `${trip.name || ""} ${trip.location || ""} ${trip.dates || ""}`,
+    })),
+  ];
+
+  const normalizedCommandQuery = String(commandQuery || "").trim().toLowerCase();
+  const filteredCommandItems = normalizedCommandQuery
+    ? commandItems.filter((item) =>
+        `${item.title} ${item.subtitle} ${item.keywords}`.toLowerCase().includes(normalizedCommandQuery)
+      )
+    : commandItems;
+
+  function handleCommandNavigate(href) {
+    if (!href) return;
+    setCommandOpen(false);
+    setCommandQuery("");
+    void router.push(href);
+  }
 
   return (
     <div className={`shell ${isSidebarCollapsed ? "shellCollapsed" : ""}`}>
@@ -268,6 +360,23 @@ export default function Shell({ children }) {
         </div>
         <div style={{ height: 14 }} />
         <nav className="nav">
+          <button
+            type="button"
+            className="sidebarNavLink sidebarCommandButton"
+            aria-label="Open command bar"
+            title="Open command bar"
+            onClick={() => setCommandOpen(true)}
+          >
+            <span className="sidebarNavIcon">
+              <SidebarIcon name="recruiting" />
+            </span>
+            {!isSidebarCollapsed ? (
+              <span className="sidebarCommandLabel">
+                <span>Jump to…</span>
+                <span className="sidebarCommandHint">⌘K</span>
+              </span>
+            ) : null}
+          </button>
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -370,6 +479,57 @@ export default function Shell({ children }) {
         ) : null}
         {children}
       </main>
+      {commandOpen ? (
+        <div
+          className="commandPaletteOverlay"
+          role="presentation"
+          onClick={() => setCommandOpen(false)}
+        >
+          <div
+            className="commandPaletteCard"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Global search"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="commandPaletteHeader">
+              <input
+                autoFocus
+                className="input commandPaletteInput"
+                value={commandQuery}
+                onChange={(event) => setCommandQuery(event.target.value)}
+                placeholder="Search pages and trips…"
+              />
+              <button type="button" className="btn" onClick={() => setCommandOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="commandPaletteMeta">
+              <span>Jump anywhere in the app</span>
+              <span>Press `Esc` to close</span>
+            </div>
+            <div className="commandPaletteResults">
+              {commandLoading && !commandTripsLoaded ? (
+                <div className="small">Loading results…</div>
+              ) : filteredCommandItems.length ? (
+                filteredCommandItems.slice(0, 12).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="commandPaletteItem"
+                    onClick={() => handleCommandNavigate(item.href)}
+                  >
+                    <span className="commandPaletteItemTitle">{item.title}</span>
+                    <span className="commandPaletteItemMeta">{item.subtitle}</span>
+                  </button>
+                ))
+              ) : (
+                <div className="small">No matches yet.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <Toast />
     </div>
   );
