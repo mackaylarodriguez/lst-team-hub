@@ -10675,40 +10675,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
               )}
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 12,
-                marginBottom: 16,
-              }}
-            >
-              <AppMetricCard
-                label="Participants"
-                value={participantDocumentsSummary.totalParticipants}
-                detail="People represented in this upload checklist."
-                tone="info"
-              />
-              <AppMetricCard
-                label="Required Uploads"
-                value={participantDocumentsSummary.totalExpected}
-                detail={`${participantDocumentsSummary.totalDocTypes} upload type${participantDocumentsSummary.totalDocTypes === 1 ? "" : "s"} per participant.`}
-                tone="neutral"
-              />
-              <AppMetricCard
-                label="Uploaded"
-                value={participantDocumentsSummary.uploadedCount}
-                detail="Files currently uploaded across this trip."
-                tone={participantDocumentsSummary.uploadedCount > 0 ? "success" : "neutral"}
-              />
-              <AppMetricCard
-                label="Still Missing"
-                value={participantDocumentsSummary.missingCount}
-                detail={`${participantDocumentsSummary.participantsMissingAny} participant${participantDocumentsSummary.participantsMissingAny === 1 ? "" : "s"} still need at least one file.`}
-                tone={participantDocumentsSummary.missingCount > 0 ? "warning" : "success"}
-              />
-            </div>
-
             <AppStatusMessage message={participantDocumentsError} tone="danger" />
 
             <div
