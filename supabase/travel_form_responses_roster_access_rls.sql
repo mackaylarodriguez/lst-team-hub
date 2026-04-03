@@ -1,7 +1,7 @@
 -- Workers on the roster save travel forms with trip_team_member_id set and user_id null.
 -- Extend RLS so those inserts/updates/selects pass when roster email matches auth profile.
 -- Leaders: trip access via assignment OR roster (same helper).
--- Requires: private_trip_access_helpers.sql (run first). Then run after travel_form_responses_rls.sql on existing DBs.
+-- Requires: private_trip_access_helpers.sql (incl. trip_travel_safety_ack_user_id_matches_session). Run after travel_form_responses_rls.sql on existing DBs.
 
 drop policy if exists "travel_form_responses_select_access" on public.travel_form_responses;
 create policy "travel_form_responses_select_access"
@@ -16,7 +16,7 @@ using (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
@@ -57,7 +57,7 @@ with check (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
@@ -98,7 +98,7 @@ using (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
@@ -133,7 +133,7 @@ with check (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (

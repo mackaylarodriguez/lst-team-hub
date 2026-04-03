@@ -64,6 +64,32 @@ $$;
 revoke all on function private.user_is_assigned_or_rostered_for_trip(uuid) from public;
 grant execute on function private.user_is_assigned_or_rostered_for_trip(uuid) to authenticated;
 
+create or replace function private.trip_travel_safety_ack_user_id_matches_session(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p_user_id is not null
+    and exists (
+      select 1
+      from public.profiles as p
+      where p.id = p_user_id
+        and (
+          p.id = auth.uid()
+          or (
+            nullif(trim(coalesce(auth.jwt()->>'email', '')), '') is not null
+            and nullif(trim(coalesce(p.email, '')), '') is not null
+            and lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+          )
+        )
+    );
+$$;
+
+revoke all on function private.trip_travel_safety_ack_user_id_matches_session(uuid) from public;
+grant execute on function private.trip_travel_safety_ack_user_id_matches_session(uuid) to authenticated;
+
 -- --- profiles_rls ---
 alter table public.profiles enable row level security;
 
@@ -281,7 +307,7 @@ for select
 to authenticated
 using (
   private.current_profile_role() in ('admin', 'staff')
-  or user_id = auth.uid()
+  or private.trip_travel_safety_ack_user_id_matches_session(user_id)
 );
 
 drop policy if exists "trip_travel_safety_ack_insert_access" on public.trip_travel_safety_acknowledgments;
@@ -290,7 +316,7 @@ on public.trip_travel_safety_acknowledgments
 for insert
 to authenticated
 with check (
-  user_id = auth.uid()
+  private.trip_travel_safety_ack_user_id_matches_session(user_id)
   and (
     private.current_profile_role() in ('admin', 'staff', 'leader')
     or private.user_is_assigned_or_rostered_for_trip(trip_id)
@@ -303,10 +329,10 @@ on public.trip_travel_safety_acknowledgments
 for update
 to authenticated
 using (
-  user_id = auth.uid()
+  private.trip_travel_safety_ack_user_id_matches_session(user_id)
 )
 with check (
-  user_id = auth.uid()
+  private.trip_travel_safety_ack_user_id_matches_session(user_id)
   and (
     private.current_profile_role() in ('admin', 'staff', 'leader')
     or private.user_is_assigned_or_rostered_for_trip(trip_id)
@@ -547,7 +573,7 @@ using (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
@@ -588,7 +614,7 @@ with check (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
@@ -629,7 +655,7 @@ using (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
@@ -664,7 +690,7 @@ with check (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (

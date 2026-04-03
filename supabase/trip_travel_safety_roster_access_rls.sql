@@ -18,7 +18,7 @@ on public.trip_travel_safety_acknowledgments
 for insert
 to authenticated
 with check (
-  user_id = auth.uid()
+  private.trip_travel_safety_ack_user_id_matches_session(user_id)
   and (
     private.current_profile_role() in ('admin', 'staff', 'leader')
     or private.user_is_assigned_or_rostered_for_trip(trip_id)
@@ -31,10 +31,10 @@ on public.trip_travel_safety_acknowledgments
 for update
 to authenticated
 using (
-  user_id = auth.uid()
+  private.trip_travel_safety_ack_user_id_matches_session(user_id)
 )
 with check (
-  user_id = auth.uid()
+  private.trip_travel_safety_ack_user_id_matches_session(user_id)
   and (
     private.current_profile_role() in ('admin', 'staff', 'leader')
     or private.user_is_assigned_or_rostered_for_trip(trip_id)

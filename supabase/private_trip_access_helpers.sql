@@ -56,3 +56,31 @@ $$;
 
 revoke all on function private.user_is_assigned_or_rostered_for_trip(uuid) from public;
 grant execute on function private.user_is_assigned_or_rostered_for_trip(uuid) to authenticated;
+
+-- True when p_user_id is the profiles.id row for the signed-in user (auth id or same email as JWT).
+-- Needed when claim_worker_account_by_email linked a pre-existing profile id ≠ auth.uid().
+create or replace function private.trip_travel_safety_ack_user_id_matches_session(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p_user_id is not null
+    and exists (
+      select 1
+      from public.profiles as p
+      where p.id = p_user_id
+        and (
+          p.id = auth.uid()
+          or (
+            nullif(trim(coalesce(auth.jwt()->>'email', '')), '') is not null
+            and nullif(trim(coalesce(p.email, '')), '') is not null
+            and lower(trim(p.email)) = lower(trim(coalesce(auth.jwt()->>'email', '')))
+          )
+        )
+    );
+$$;
+
+revoke all on function private.trip_travel_safety_ack_user_id_matches_session(uuid) from public;
+grant execute on function private.trip_travel_safety_ack_user_id_matches_session(uuid) to authenticated;

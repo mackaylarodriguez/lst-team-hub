@@ -1,4 +1,4 @@
--- Requires: private_trip_access_helpers.sql
+-- Requires: private_trip_access_helpers.sql (must include private.trip_travel_safety_ack_user_id_matches_session)
 
 alter table public.trip_travel_safety enable row level security;
 
@@ -51,7 +51,7 @@ for select
 to authenticated
 using (
   private.current_profile_role() in ('admin', 'staff')
-  or user_id = auth.uid()
+  or private.trip_travel_safety_ack_user_id_matches_session(user_id)
 );
 
 drop policy if exists "trip_travel_safety_ack_insert_access" on public.trip_travel_safety_acknowledgments;
@@ -60,7 +60,7 @@ on public.trip_travel_safety_acknowledgments
 for insert
 to authenticated
 with check (
-  user_id = auth.uid()
+  private.trip_travel_safety_ack_user_id_matches_session(user_id)
   and (
     private.current_profile_role() in ('admin', 'staff', 'leader')
     or private.user_is_assigned_or_rostered_for_trip(trip_id)
@@ -73,10 +73,10 @@ on public.trip_travel_safety_acknowledgments
 for update
 to authenticated
 using (
-  user_id = auth.uid()
+  private.trip_travel_safety_ack_user_id_matches_session(user_id)
 )
 with check (
-  user_id = auth.uid()
+  private.trip_travel_safety_ack_user_id_matches_session(user_id)
   and (
     private.current_profile_role() in ('admin', 'staff', 'leader')
     or private.user_is_assigned_or_rostered_for_trip(trip_id)

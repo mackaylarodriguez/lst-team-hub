@@ -1,4 +1,4 @@
--- Requires: private_trip_access_helpers.sql
+-- Requires: private_trip_access_helpers.sql (incl. private.trip_travel_safety_ack_user_id_matches_session)
 
 alter table public.travel_form_responses enable row level security;
 
@@ -15,7 +15,7 @@ using (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
@@ -56,7 +56,7 @@ with check (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
@@ -97,7 +97,7 @@ using (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
@@ -132,7 +132,7 @@ with check (
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
-    user_id = auth.uid()
+    private.trip_travel_safety_ack_user_id_matches_session(user_id)
     and private.user_is_assigned_or_rostered_for_trip(trip_id)
   )
   or (
