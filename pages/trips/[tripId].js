@@ -6554,6 +6554,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
   const materialsWorkersDisplayCount =
     materialsBudgetWorkerCount !== null ? materialsBudgetWorkerCount : materialsRosterHeadcount;
 
+  const materialsWorkerCountDelta =
+    materialsBudgetWorkerCount !== null ? materialsBudgetWorkerCount - materialsRosterHeadcount : null;
+
   const materialsGlanceRow = {
     display: "grid",
     gridTemplateColumns: "minmax(124px, 140px) 1fr",
@@ -6659,6 +6662,26 @@ normalizeEmail(participant.email) === activeParticipantEmail
     }
     return { kind: "raw", raw };
   }, [materialsDraft]);
+
+  const materialsWorkbookTargetCopies = staffSiteWorkbookPlan?.empty || staffSiteWorkbookPlan?.noLocation
+    ? 0
+    : staffSiteWorkbookPlan?.totalCopies || 0;
+
+  const materialsWorkbookSentCopies =
+    materialsTeamWorkbookGlance?.kind === "parsed" ? materialsTeamWorkbookGlance.totalCopies || 0 : null;
+
+  const materialsWorkbookRemainingCopies =
+    materialsWorkbookSentCopies !== null
+      ? Math.max(materialsWorkbookTargetCopies - materialsWorkbookSentCopies, 0)
+      : null;
+
+  const materialsShippingState = (() => {
+    const hasAddress = !!String(materialsDraft?.materialsShipAddress || "").trim();
+    const hasTracking = !!String(materialsDraft?.materialsTrackingNumber || "").trim();
+    if (hasTracking) return "Shipped";
+    if (hasAddress) return "Address ready";
+    return "Needs setup";
+  })();
 
   async function handleSaveMaterialsTab() {
     if (!trip?.id || !materialsDraft) return false;
@@ -9488,94 +9511,85 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   </div>
 
                   <div
-                    aria-hidden
-                    style={{
-                      height: 3,
-                      borderRadius: 999,
-                      margin: "0 2px 16px",
-                      background: "linear-gradient(90deg, #2563eb, #6366f1, #a855f7)",
-                      opacity: 0.92,
-                    }}
-                  />
-
-                  <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                       gap: 12,
-                      margin: "0 0 16px",
+                      margin: "0 0 18px",
                     }}
                   >
                     <div
                       style={{
                         ...materialsMetricCard,
                         background:
-                          "linear-gradient(180deg, rgba(219, 234, 254, 0.92), rgba(255, 255, 255, 0.86))",
+                          "linear-gradient(180deg, rgba(219, 234, 254, 0.9), rgba(255, 255, 255, 0.88))",
                       }}
                     >
-                      <div style={materialsMetricLabel}>Workers</div>
+                      <div style={materialsMetricLabel}>Team Plan</div>
                       <div style={materialsMetricValue}>{materialsWorkersDisplayCount}</div>
                       <div style={materialsGlanceMuted}>
                         {materialsBudgetWorkerCount !== null
-                          ? `Budget row saved · roster has ${materialsRosterHeadcount}`
-                          : `Pulled from roster · ${materialsRosterHeadcount} on file`}
+                          ? `Budget count saved · roster has ${materialsRosterHeadcount}`
+                          : `Using roster headcount · ${materialsRosterHeadcount} on file`}
+                      </div>
+                      <div className="small" style={{ color: "var(--muted)" }}>
+                        {materialsWorkerCountDelta === null
+                          ? "No manual worker count entered yet."
+                          : materialsWorkerCountDelta === 0
+                            ? "Budget and roster headcount match."
+                            : materialsWorkerCountDelta > 0
+                              ? `${materialsWorkerCountDelta} more on budget than roster.`
+                              : `${Math.abs(materialsWorkerCountDelta)} more on roster than budget.`}
                       </div>
                     </div>
                     <div
                       style={{
                         ...materialsMetricCard,
                         background:
-                          "linear-gradient(180deg, rgba(220, 252, 231, 0.92), rgba(255, 255, 255, 0.86))",
+                          "linear-gradient(180deg, rgba(220, 252, 231, 0.9), rgba(255, 255, 255, 0.88))",
                       }}
                     >
-                      <div style={materialsMetricLabel}>Site Workbook Plan</div>
+                      <div style={materialsMetricLabel}>Workbook Totals</div>
                       <div style={materialsMetricValue}>
-                        {staffSiteWorkbookPlan?.empty || staffSiteWorkbookPlan?.noLocation
-                          ? "0"
-                          : staffSiteWorkbookPlan?.totalCopies || 0}
+                        {materialsWorkbookSentCopies !== null
+                          ? `${materialsWorkbookSentCopies}/${materialsWorkbookTargetCopies}`
+                          : materialsWorkbookTargetCopies}
                       </div>
                       <div style={materialsGlanceMuted}>
                         {staffSiteWorkbookPlan?.noLocation
                           ? "Set a trip location to load site workbook guidance"
                           : staffSiteWorkbookPlan?.empty
                             ? "No workbook quantities found on the matched site"
-                            : `${staffSiteWorkbookPlan?.distinctTitles || 0} titles from Sites`}
+                            : `${staffSiteWorkbookPlan?.distinctTitles || 0} titles planned from Sites`}
+                      </div>
+                      <div className="small" style={{ color: "var(--muted)" }}>
+                        {materialsWorkbookSentCopies !== null
+                          ? `${materialsWorkbookRemainingCopies || 0} copies still unaccounted for.`
+                          : "Add workbook sending notes to compare planned vs sent."}
                       </div>
                     </div>
                     <div
                       style={{
                         ...materialsMetricCard,
                         background:
-                          "linear-gradient(180deg, rgba(254, 249, 195, 0.92), rgba(255, 255, 255, 0.86))",
+                          "linear-gradient(180deg, rgba(254, 249, 195, 0.9), rgba(255, 255, 255, 0.88))",
                       }}
                     >
-                      <div style={materialsMetricLabel}>T-Shirt Sizes</div>
-                      <div style={materialsMetricValue}>{materialsRosterTshirtLines.length}</div>
-                      <div style={materialsGlanceMuted}>
-                        {materialsRosterTshirtLines.length
-                          ? "Roster rows with saved size info"
-                          : "No roster members with saved sizes yet"}
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        ...materialsMetricCard,
-                        background:
-                          "linear-gradient(180deg, rgba(243, 232, 255, 0.92), rgba(255, 255, 255, 0.86))",
-                      }}
-                    >
-                      <div style={materialsMetricLabel}>Shipping Status</div>
+                      <div style={materialsMetricLabel}>Shipping</div>
                       <div style={{ ...materialsMetricValue, fontSize: 18, lineHeight: 1.15 }}>
-                        {String(materialsDraft.materialsTrackingNumber || "").trim()
-                          ? "Tracking added"
-                          : String(materialsDraft.materialsShipAddress || "").trim()
-                            ? "Address ready"
-                            : "Needs shipping info"}
+                        {materialsShippingState}
                       </div>
                       <div style={materialsGlanceMuted}>
                         {String(materialsDraft.materialsTrackingNumber || "").trim()
                           ? String(materialsDraft.materialsTrackingNumber || "").trim()
-                          : "Add ship-to address and tracking when books go out"}
+                          : String(materialsDraft.materialsShipAddress || "").trim()
+                            ? "Address saved and ready for shipment."
+                            : "Add ship-to address and tracking when books go out."}
+                      </div>
+                      <div className="small" style={{ color: "var(--muted)" }}>
+                        {materialsRosterTshirtLines.length
+                          ? `${materialsRosterTshirtLines.length} roster entries include shirt sizes.`
+                          : "No roster shirt sizes saved yet."}
                       </div>
                     </div>
                   </div>
@@ -9609,7 +9623,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           marginBottom: 2,
                         }}
                       >
-                        Team & site plan
+                        Team plan
                       </div>
 
                       <div style={materialsGlanceRow}>
@@ -9637,7 +9651,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       </div>
 
                       <div style={materialsGlanceRow}>
-                        <div style={materialsGlanceLabel}>Site plan (Sites)</div>
+                        <div style={materialsGlanceLabel}>Workbook target</div>
                         <div>
                           <div style={{ ...materialsGlanceMuted, marginBottom: 6 }}>
                             Site:{" "}
@@ -9703,7 +9717,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           marginBottom: 2,
                         }}
                       >
-                        Logistics & accounting
+                        Shipping & accounting
                       </div>
 
                       <div style={materialsGlanceRow}>
@@ -9820,21 +9834,43 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           </div>
                         )}
                       </div>
+
+                      <div style={materialsGlanceRow}>
+                        <div style={materialsGlanceLabel}>Shipping status</div>
+                        <div>
+                          <div style={materialsGlanceValue}>{materialsShippingState}</div>
+                          <div style={{ ...materialsGlanceMuted, marginTop: 4 }}>
+                            {String(materialsDraft.materialsTrackingNumber || "").trim()
+                              ? "Tracking is saved for this shipment."
+                              : String(materialsDraft.materialsShipAddress || "").trim()
+                                ? "Address is in place. Add tracking after shipment."
+                                : "Shipping details have not been set yet."}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   <div style={materialsGlanceRowSending}>
-                    <div style={materialsGlanceLabel}>Workbooks sending</div>
+                    <div style={materialsGlanceLabel}>Workbook sending</div>
                     <div>
                       <div style={{ ...materialsGlanceMuted, marginBottom: 8 }}>
                         Notes about what workbooks were sent for this team.
                       </div>
                       {materialsTeamWorkbookGlance?.kind === "parsed" &&
                       materialsTeamWorkbookGlance.positiveLines?.length > 0 ? (
-                        <div style={{ ...materialsGlanceMuted, marginBottom: 8 }}>
-                          From budget workbook list: {materialsTeamWorkbookGlance.distinctTitles} titles ·{" "}
-                          {materialsTeamWorkbookGlance.totalCopies} copies
-                        </div>
+                        <>
+                          <div style={{ ...materialsGlanceMuted, marginBottom: 6 }}>
+                            Sent list: {materialsTeamWorkbookGlance.distinctTitles} titles ·{" "}
+                            {materialsTeamWorkbookGlance.totalCopies} copies
+                          </div>
+                          {materialsWorkbookTargetCopies > 0 ? (
+                            <div style={{ ...materialsGlanceMuted, marginBottom: 8 }}>
+                              Planned from site: {materialsWorkbookTargetCopies} copies · Remaining:{" "}
+                              {materialsWorkbookRemainingCopies || 0}
+                            </div>
+                          ) : null}
+                        </>
                       ) : null}
                       {isEditingMaterialsGlance ? (
                         <textarea
