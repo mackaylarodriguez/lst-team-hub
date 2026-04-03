@@ -3642,11 +3642,37 @@ export default function TripPage() {
   }
 
   function getFundraisingProgressMeta(participant) {
-    if (participant?.fundraisingUrl) {
+    const hasUrl = !!participant?.fundraisingUrl;
+    const personalGoalRaw = participant?.fundraisingGoalAmount;
+    const personalGoal =
+      personalGoalRaw != null &&
+      personalGoalRaw !== "" &&
+      Number.isFinite(Number(personalGoalRaw)) &&
+      Number(personalGoalRaw) > 0
+        ? Number(personalGoalRaw)
+        : null;
+    const tripDefaultRaw = trip?.fundraisingGoalAmount;
+    const tripDefault =
+      tripDefaultRaw != null &&
+      tripDefaultRaw !== "" &&
+      Number.isFinite(Number(tripDefaultRaw)) &&
+      Number(tripDefaultRaw) > 0
+        ? Number(tripDefaultRaw)
+        : null;
+
+    const goalLine =
+      personalGoal != null
+        ? `Individual goal: ${formatMoney(personalGoal)}`
+        : tripDefault != null
+          ? `No per-person override — trip default ${formatMoney(tripDefault)}`
+          : "No individual or trip goal amount on file";
+
+    if (hasUrl) {
       return {
         label: "Worker Progress: Ready",
         badgeClass: "badgeSuccess",
         helperText: "Personal Neon fundraising page saved.",
+        goalLine,
       };
     }
 
@@ -3654,6 +3680,7 @@ export default function TripPage() {
       label: "Worker Progress: Missing",
       badgeClass: "badgeWarn",
       helperText: "No personal Neon link added yet.",
+      goalLine,
     };
   }
 
@@ -5573,6 +5600,26 @@ function parseDateSafe(dateStr) {
       const participantEmails = new Set(
         (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
       );
+      const rosterByEmail = new Map(
+        (trip.teamMembers || []).filter((m) => m?.email).map((m) => [normalizeEmail(m.email), m])
+      );
+      const mergedParticipants = (trip.participants || []).map((p) => {
+        const m = rosterByEmail.get(normalizeEmail(p.email));
+        const goalFromRoster =
+          m?.fundraisingGoalAmount != null && m.fundraisingGoalAmount !== ""
+            ? Number(m.fundraisingGoalAmount)
+            : undefined;
+        return {
+          ...p,
+          tripTeamMemberId: p.tripTeamMemberId || m?.id || "",
+          fundraisingGoalAmount:
+            p.fundraisingGoalAmount != null &&
+            p.fundraisingGoalAmount !== "" &&
+            Number.isFinite(Number(p.fundraisingGoalAmount))
+              ? Number(p.fundraisingGoalAmount)
+              : goalFromRoster,
+        };
+      });
       const rosterOnly = (trip.teamMembers || [])
         .filter((member) => {
           const email = normalizeEmail(member.email);
@@ -5588,7 +5635,7 @@ function parseDateSafe(dateStr) {
             member.fundraisingGoalAmount != null ? Number(member.fundraisingGoalAmount) : undefined,
           rosterOnly: true,
         }));
-      return [...(trip.participants || []), ...rosterOnly];
+      return [...mergedParticipants, ...rosterOnly];
     }
 
     if (!currentParticipant) {
@@ -8117,8 +8164,11 @@ function parseDateSafe(dateStr) {
                             {fundraisingProgressMeta.label}
                           </span>
                         </div>
-                        <div className="small" style={{ marginBottom: 12 }}>
+                        <div className="small" style={{ marginBottom: 8 }}>
                           {fundraisingProgressMeta.helperText}
+                        </div>
+                        <div className="small" style={{ marginBottom: 12, color: "var(--muted)" }}>
+                          {fundraisingProgressMeta.goalLine}
                         </div>
                       </div>
                       <div>
@@ -8142,9 +8192,20 @@ function parseDateSafe(dateStr) {
                                     ...current,
                                     [participant.id]: undefined,
                                   }));
+                                  setFundraisingDrafts((current) => ({
+                                    ...current,
+                                    [participant.id]: {
+                                      fundraisingUrl: participant.fundraisingUrl || "",
+                                      fundraisingGoalAmount:
+                                        participant.fundraisingGoalAmount != null &&
+                                        participant.fundraisingGoalAmount !== ""
+                                          ? String(participant.fundraisingGoalAmount)
+                                          : "",
+                                    },
+                                  }));
                                 }}
                               >
-                                {participant.fundraisingUrl ? "Edit Link" : "Add Link"}
+                                {participant.fundraisingUrl ? "Edit link & goal" : "Add link & goal"}
                               </button>
                               {fundraisingStatus[participant.id]?.message ? (
                                 <div
@@ -8174,6 +8235,42 @@ function parseDateSafe(dateStr) {
                                   placeholder="https://"
                                 />
                               </div>
+                              <div>
+                                <div className="small" style={{ marginBottom: 6 }}>
+                                  Individual goal (USD, optional)
+                                </div>
+                                <input
+                                  className="input"
+                                  type="text"
+                                  inputMode="decimal"
+                                  disabled={!participant.tripTeamMemberId}
+                                  title={
+                                    !participant.tripTeamMemberId
+                                      ? "Add this worker to the trip roster (Team tab) to store a per-person goal."
+                                      : undefined
+                                  }
+                                  value={fundraisingDrafts[participant.id]?.fundraisingGoalAmount || ""}
+                                  onChange={(event) =>
+                                    updateFundraisingDraft(
+                                      participant.id,
+                                      "fundraisingGoalAmount",
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder={
+                                    trip?.fundraisingGoalAmount != null &&
+                                    trip.fundraisingGoalAmount !== "" &&
+                                    Number(trip.fundraisingGoalAmount) > 0
+                                      ? `Trip default: ${trip.fundraisingGoalAmount}`
+                                      : "e.g. 2000"
+                                  }
+                                />
+                                {!participant.tripTeamMemberId ? (
+                                  <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
+                                    Per-person goals are saved on the roster. Add them on the Team tab first.
+                                  </div>
+                                ) : null}
+                              </div>
                               {fundraisingStatus[participant.id]?.message && (
                                 <div
                                   className="small"
@@ -8193,7 +8290,7 @@ function parseDateSafe(dateStr) {
                                   type="button"
                                   onClick={() => handleSaveFundraising(participant)}
                                 >
-                                  Save Neon Link
+                                  {participant.tripTeamMemberId ? "Save link & goal" : "Save Neon link"}
                                 </button>
                                 <button
                                   className="btn"
@@ -8208,6 +8305,11 @@ function parseDateSafe(dateStr) {
                                       ...current,
                                       [participant.id]: {
                                         fundraisingUrl: participant.fundraisingUrl || "",
+                                        fundraisingGoalAmount:
+                                          participant.fundraisingGoalAmount != null &&
+                                          participant.fundraisingGoalAmount !== ""
+                                            ? String(participant.fundraisingGoalAmount)
+                                            : "",
                                       },
                                     }));
                                   }}
