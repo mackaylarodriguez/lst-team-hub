@@ -1343,40 +1343,6 @@ export default function BudgetPage() {
             </button>
             </div>
           </div>
-          <div style={{ ...budgetSectionSummaryGridStyle, marginBottom: 16 }}>
-            <div style={budgetSectionSummaryCardStyle}>
-              <div style={budgetSectionSummaryLabelStyle}>Teams</div>
-              <div style={budgetSectionSummaryValueStyle}>{housingSummary.totalTeams}</div>
-              <div className="small" style={{ color: "var(--muted)" }}>
-                Trip rows currently represented in housing.
-              </div>
-            </div>
-            <div style={budgetSectionSummaryCardStyle}>
-              <div style={budgetSectionSummaryLabelStyle}>Docs Ready</div>
-              <div style={budgetSectionSummaryValueStyle}>{housingSummary.docsReadyCount}</div>
-              <div className="small" style={{ color: "var(--muted)" }}>
-                Teams with at least one housing link or PDF saved.
-              </div>
-            </div>
-            <div style={budgetSectionSummaryCardStyle}>
-              <div style={budgetSectionSummaryLabelStyle}>Housing Total</div>
-              <div style={budgetSectionSummaryValueStyle}>
-                {housingSummary.totalHousingAmount > 0
-                  ? formatUsdNumber(housingSummary.totalHousingAmount)
-                  : "—"}
-              </div>
-              <div className="small" style={{ color: "var(--muted)" }}>
-                Sum of the Housing amount column.
-              </div>
-            </div>
-            <div style={budgetSectionSummaryCardStyle}>
-              <div style={budgetSectionSummaryLabelStyle}>Extra Lines</div>
-              <div style={budgetSectionSummaryValueStyle}>{housingSummary.totalExtraLines}</div>
-              <div className="small" style={{ color: "var(--muted)" }}>
-                Additional housing slots beyond the main row.
-              </div>
-            </div>
-          </div>
           <div style={{ overflowX: "auto" }}>
             <table className="table dataTableStriped" style={{ minWidth: 1440, fontSize: 13 }}>
               <thead>
@@ -1954,40 +1920,6 @@ export default function BudgetPage() {
             >
               Export CSV
             </button>
-            </div>
-          </div>
-          <div style={{ ...budgetSectionSummaryGridStyle, marginBottom: 16 }}>
-            <div style={budgetSectionSummaryCardStyle}>
-              <div style={budgetSectionSummaryLabelStyle}>Ticket Rows</div>
-              <div style={budgetSectionSummaryValueStyle}>{ticketingSummary.totalRows}</div>
-              <div className="small" style={{ color: "var(--muted)" }}>
-                Saved ticket entries across all visible teams.
-              </div>
-            </div>
-            <div style={budgetSectionSummaryCardStyle}>
-              <div style={budgetSectionSummaryLabelStyle}>Teams</div>
-              <div style={budgetSectionSummaryValueStyle}>{ticketingSummary.teamCount}</div>
-              <div className="small" style={{ color: "var(--muted)" }}>
-                Trips currently represented in ticketing.
-              </div>
-            </div>
-            <div style={budgetSectionSummaryCardStyle}>
-              <div style={budgetSectionSummaryLabelStyle}>Average Ticket</div>
-              <div style={budgetSectionSummaryValueStyle}>
-                {ticketingSummary.avgTicketCost != null
-                  ? formatUsdNumber(ticketingSummary.avgTicketCost)
-                  : "—"}
-              </div>
-              <div className="small" style={{ color: "var(--muted)" }}>
-                Average of Total Ticket Cost in the current list.
-              </div>
-            </div>
-            <div style={budgetSectionSummaryCardStyle}>
-              <div style={budgetSectionSummaryLabelStyle}>Worker Paid</div>
-              <div style={budgetSectionSummaryValueStyle}>{ticketingSummary.workerPaidCount}</div>
-              <div className="small" style={{ color: "var(--muted)" }}>
-                Rows where a worker contribution has been entered.
-              </div>
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
