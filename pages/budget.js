@@ -1349,7 +1349,7 @@ export default function BudgetPage() {
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table dataTableStriped" style={{ minWidth: 1440, fontSize: 13 }}>
+            <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1440, fontSize: 13 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
@@ -1933,7 +1933,7 @@ export default function BudgetPage() {
             </div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <table className="table dataTableStriped" style={{ minWidth: 1580, fontSize: 12 }}>
+            <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1580, fontSize: 12 }}>
               <thead>
                 <tr>
                   <th>Team</th>

@@ -2725,7 +2725,6 @@ export default function RecruitingPage() {
             <AppIcon name="recruiting" className="pageEyebrowIcon" />
             <span>Recruiting</span>
           </h1>
-          <div className="appSectionBadge" style={{ marginBottom: 8 }}>Recruiting</div>
           <div className="small">Yearly recruiting cycles, import, queue management, and contact history.</div>
         </div>
         <div className="recruitingToolbar appPolishToolbar">
