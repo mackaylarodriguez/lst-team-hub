@@ -5567,10 +5567,8 @@ function parseDateSafe(dateStr) {
     !isPreviewingParticipant &&
     !isLeaderOnTripNotTraveling;
   const canEditTripReferenceEmails = staffViewAllParticipants;
-  /** Leaders (not staff / not leader-preview) do not see reference tracking; staff and preview-as-leader still do. */
   const canViewTripReferenceSection =
-    !isPreviewingParticipant &&
-    (staffViewAllParticipants || (effectiveIsLeader && isStaffPreviewingLeader));
+    !isPreviewingParticipant && (staffViewAllParticipants || effectiveIsLeader);
   const participantDocumentsByUserId = useMemo(() => {
     const grouped = new Map();
 
@@ -6044,16 +6042,18 @@ normalizeEmail(participant.email) === activeParticipantEmail
             member.fundraisingGoalAmount != null ? Number(member.fundraisingGoalAmount) : undefined,
           rosterOnly: true,
         }));
-      return [...mergedParticipants, ...rosterOnly];
+      const merged = [...mergedParticipants, ...rosterOnly];
+      /** No fundraising tile for roster rows marked Leader + not traveling with team. */
+      return merged.filter((p) => shouldIncludeInTripWorkerPipeline(trip, p.email));
     }
 
     if (!currentParticipant) {
       return [];
     }
 
-    return (trip.participants || []).filter(
-      (participant) => String(participant.id) === String(currentParticipant?.id || "")
-    );
+    return (trip.participants || [])
+      .filter((participant) => String(participant.id) === String(currentParticipant?.id || ""))
+      .filter((p) => shouldIncludeInTripWorkerPipeline(trip, p.email));
   }, [trip, canViewTeamDashboard, currentParticipant]);
 
   const workerDocumentParticipants = useMemo(() => {
@@ -6107,14 +6107,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
     const percent = total ? Math.round((completed / total) * 100) : 0;
 
     if (canViewTeamDashboard) {
-      const hideRefsForSessionLeader =
-        effectiveIsLeader && !isStaffPreviewingLeader && !staffViewAllParticipants;
       return {
         label: "References Received",
         percent,
         completed,
         total,
-        showOnOverview: !hideRefsForSessionLeader,
+        showOnOverview: true,
       };
     }
 
@@ -6135,16 +6133,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
       total: 1,
       showOnOverview: mineReceived,
     };
-  }, [
-    trip,
-    canViewTeamDashboard,
-    currentParticipant,
-    referenceEmails,
-    referenceTableRows,
-    effectiveIsLeader,
-    isStaffPreviewingLeader,
-    staffViewAllParticipants,
-  ]);
+  }, [trip, canViewTeamDashboard, currentParticipant, referenceEmails, referenceTableRows]);
 
   const overviewTaskLabel = canViewTeamDashboard ? "Worker Tasks" : "My Tasks";
   const overviewTaskPct = canViewTeamDashboard
@@ -8782,7 +8771,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 hidden. Use the shared link above.
               </div>
             ) : visibleFundraisingParticipants.length === 0 ? (
-              <div className="small">No fundraising record found for this login.</div>
+              <div className="small">
+                {canViewTeamDashboard
+                  ? "No per-person fundraising tiles to show yet. Leaders not traveling with the team are omitted."
+                  : "No fundraising record found for this login."}
+              </div>
             ) : (
               <div
                 style={{
