@@ -6713,8 +6713,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
     "Travel Form",
     "Staff Tasks",
   ];
-  const leaderExpandedTabs = useMemo(() => {
-    const base = [
+  const leaderExpandedTabs = useMemo(
+    () => [
       "Overview",
       "Team",
       tripTabTravelSafety,
@@ -6724,30 +6724,15 @@ normalizeEmail(participant.email) === activeParticipantEmail
       tripDocumentsTabLabel,
       participantDocumentsTabLabel,
       "Travel Form",
-    ];
-    if (isLeaderOnTripNotTraveling) {
-      return base.filter((t) => t !== "Fundraising" && t !== "Training");
-    }
-    return base;
-  }, [
-    isLeaderOnTripNotTraveling,
-    tripTabTravelSafety,
-    tripDocumentsTabLabel,
-    participantDocumentsTabLabel,
-  ]);
+    ],
+    [tripTabTravelSafety, tripDocumentsTabLabel, participantDocumentsTabLabel]
+  );
   const tabs = (() => {
     if (isPreviewingParticipant) return workerTabList;
     if (canManageTrips && !isStaffPreviewingLeader) return managerExpandedTabs;
     if (effectiveIsLeader) return leaderExpandedTabs;
     return workerTabList;
   })();
-
-  useEffect(() => {
-    if (!isLeaderOnTripNotTraveling) return;
-    if (tab === "Fundraising" || tab === "Training") {
-      setTab("Overview");
-    }
-  }, [isLeaderOnTripNotTraveling, tab]);
 
   /** Participants plus roster-only team members (same headcount as worker docs / fundraising list). */
   const materialsRosterHeadcount = workerDocumentParticipants.length;
