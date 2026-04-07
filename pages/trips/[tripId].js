@@ -1083,6 +1083,19 @@ export default function TripPage() {
   const [taskStatusMessage, setTaskStatusMessage] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [editingWorkerTaskDateId, setEditingWorkerTaskDateId] = useState("");
+
+  useEffect(() => {
+    if (!editingWorkerTaskDateId) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setEditingWorkerTaskDateId("");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editingWorkerTaskDateId]);
+
   const [overviewNotes, setOverviewNotes] = useState([]);
   const [editingOverviewNoteId, setEditingOverviewNoteId] = useState("");
   const [overviewNoteDraft, setOverviewNoteDraft] = useState("");
@@ -3991,6 +4004,18 @@ function parseDateSafe(dateStr) {
     }
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? null : d;
+  }
+
+  function toDateInputValue(dateStr) {
+    if (!dateStr) return "";
+    const s = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const date = parseDateSafe(s);
+    if (!date) return "";
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
   }
 
   function formatShortDate(dateStr) {
@@ -9668,11 +9693,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                           className="input"
                                           type="date"
                                           autoFocus
-                                          value={task.due || ""}
+                                          value={toDateInputValue(task.due)}
                                           onChange={(e) =>
                                             handleUpdateWorkerTaskDueDate(task.id, e.target.value)
                                           }
-                                          onBlur={() => setEditingWorkerTaskDateId("")}
                                           style={{ padding: "7px 10px", fontSize: 13, maxWidth: 170 }}
                                         />
                                       ) : (
