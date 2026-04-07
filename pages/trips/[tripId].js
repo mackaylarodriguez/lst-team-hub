@@ -585,6 +585,34 @@ function buildTrainingModuleRowDomId(moduleId) {
   return `training-module-row-${String(moduleId || "").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 }
 
+const TRAINING_MEETING_MODULE_TITLES = new Set(["Basic Training", "Gateway Training", "EndMeeting"]);
+
+/** Supplemental sessions the worker chose (Basic / Gateway / End meeting) → overview Meetings list. */
+function buildTrainingSessionMeetingsFromState(trainingState, allTrainingModules) {
+  if (!trainingState || !allTrainingModules?.length) return [];
+  const rows = [];
+  for (const module of allTrainingModules) {
+    if (!TRAINING_MEETING_MODULE_TITLES.has(module.title)) continue;
+    const raw = String(trainingState[`${module.id}Date`] || "").trim();
+    if (!raw) continue;
+    let scheduledAt = raw;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      scheduledAt = `${raw}T12:00:00`;
+    }
+    const t = new Date(scheduledAt).getTime();
+    if (Number.isNaN(t)) continue;
+    const displayTitle = module.title === "EndMeeting" ? "End meeting" : module.title;
+    rows.push({
+      id: `training-session:${module.id}`,
+      title: displayTitle,
+      scheduledAt,
+      notesAfter: "",
+      isTrainingSession: true,
+    });
+  }
+  return rows;
+}
+
 function getDocumentCategoryBadgeClass(category) {
   if (category === "Flights") return "badgeWarn";
   if (category === "Travel") return "badgeInfo";
@@ -6704,7 +6732,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
     const now = Date.now();
     const upcoming = [];
     const past = [];
-    for (const m of tripMeetings) {
+    const trainingMeetings = buildTrainingSessionMeetingsFromState(
+      currentTrainingProgress?.trainingState,
+      allTrainingModules
+    );
+    const combined = [...tripMeetings, ...trainingMeetings];
+    for (const m of combined) {
       const t = new Date(m.scheduledAt).getTime();
       if (Number.isNaN(t)) continue;
       if (t >= now) upcoming.push(m);
@@ -6713,7 +6746,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     upcoming.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
     past.sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
     return { upcomingMeetings: upcoming, pastMeetings: past };
-  }, [tripMeetings]);
+  }, [tripMeetings, currentTrainingProgress?.trainingState, allTrainingModules]);
 
   const participantDocumentsTabLabel = canViewTeamDashboard ? "Worker Docs" : "My Documents";
   const tripDocumentsTabLabel = "Trip Documents";
@@ -7534,7 +7567,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         <div className="small" style={{ fontSize: 13, lineHeight: 1.45 }}>
                           {formatMeetingDateTime(m.scheduledAt)}
                         </div>
-                        {canManageTripMeetings ? (
+                        {m.isTrainingSession ? (
+                          <div className="small" style={{ marginTop: 4, color: "var(--muted)", fontSize: 12, lineHeight: 1.45 }}>
+                            Training session (date is set on the Training tab).
+                          </div>
+                        ) : null}
+                        {canManageTripMeetings && !m.isTrainingSession ? (
                           <div className="row" style={{ gap: 8, marginTop: 4, flexWrap: "wrap" }}>
                             <button
                               type="button"
@@ -7609,7 +7647,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         <div className="small" style={{ fontSize: 13, lineHeight: 1.45 }}>
                           {formatMeetingDateTime(m.scheduledAt)}
                         </div>
-                        {canManageTripMeetings ? (
+                        {m.isTrainingSession ? (
+                          <div className="small" style={{ marginTop: 4, color: "var(--muted)", fontSize: 12, lineHeight: 1.45 }}>
+                            Training session (date is set on the Training tab).
+                          </div>
+                        ) : null}
+                        {canManageTripMeetings && !m.isTrainingSession ? (
                           m.notesAfter ? (
                             <div
                               className="small"
@@ -7626,7 +7669,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             </div>
                           )
                         ) : null}
-                        {canManageTripMeetings ? (
+                        {canManageTripMeetings && !m.isTrainingSession ? (
                           <div className="row" style={{ gap: 8, marginTop: 4, flexWrap: "wrap" }}>
                             <button
                               type="button"
