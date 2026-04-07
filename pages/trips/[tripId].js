@@ -1,18 +1,11 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
+import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
 import Spinner from "@/components/Spinner";
 import ConfirmModal from "@/components/ConfirmModal";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import {
-  Fragment,
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import {
   assignWorkerByEmailToTrip,
@@ -382,153 +375,6 @@ function toDatetimeLocalValue(iso) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-
-const DUE_DATE_YEAR_OPTIONS = (() => {
-  const end = new Date().getFullYear() + 6;
-  const out = [];
-  for (let y = end; y >= 2019; y--) out.push(String(y));
-  return out;
-})();
-
-const DUE_DATE_MONTH_OPTIONS = [
-  { value: "1", label: "Jan" },
-  { value: "2", label: "Feb" },
-  { value: "3", label: "Mar" },
-  { value: "4", label: "Apr" },
-  { value: "5", label: "May" },
-  { value: "6", label: "Jun" },
-  { value: "7", label: "Jul" },
-  { value: "8", label: "Aug" },
-  { value: "9", label: "Sep" },
-  { value: "10", label: "Oct" },
-  { value: "11", label: "Nov" },
-  { value: "12", label: "Dec" },
-];
-
-function parseYmdParts(ymd) {
-  const t = String(ymd || "").trim();
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
-  if (!m) return { year: "", month: "", day: "" };
-  return { year: m[1], month: String(Number(m[2])), day: String(Number(m[3])) };
-}
-
-function buildYmdFromParts(year, month, day) {
-  const y = String(year);
-  const mo = Number(month);
-  const dd = Number(day);
-  if (!y || !Number.isFinite(mo) || !Number.isFinite(dd)) return "";
-  const dim = new Date(Number(y), mo, 0).getDate();
-  const dClamped = Math.min(Math.max(1, dd), dim);
-  return `${y}-${String(mo).padStart(2, "0")}-${String(dClamped).padStart(2, "0")}`;
-}
-
-function dayOptionsForYmd(year, month) {
-  if (!year || !month) return [];
-  const dim = new Date(Number(year), Number(month), 0).getDate();
-  return Array.from({ length: dim }, (_, i) => String(i + 1));
-}
-
-/** No native calendar popup — avoids month arrows closing staff/worker task editors. */
-const AppDueDateTripleSelect = forwardRef(function AppDueDateTripleSelect(
-  { value, onChange, compact = false },
-  ref
-) {
-  const [parts, setParts] = useState(() => parseYmdParts(value));
-  const partsRef = useRef(parts);
-  partsRef.current = parts;
-
-  useEffect(() => {
-    setParts(parseYmdParts(value));
-  }, [value]);
-
-  useImperativeHandle(ref, () => ({
-    /** `YYYY-MM-DD` when complete, `""` when all cleared, `null` when partially selected. */
-    getDueYmd() {
-      const p = partsRef.current;
-      if (!p.year && !p.month && !p.day) return "";
-      if (p.year && p.month && p.day) return buildYmdFromParts(p.year, p.month, p.day);
-      return null;
-    },
-  }));
-
-  const emit = (next) => {
-    partsRef.current = next;
-    setParts(next);
-    if (next.year && next.month && next.day) {
-      onChange(buildYmdFromParts(next.year, next.month, next.day));
-    } else if (!next.year && !next.month && !next.day) {
-      onChange("");
-    }
-  };
-
-  const { year, month, day } = parts;
-  const days = dayOptionsForYmd(year, month);
-  const inputStyle = compact
-    ? { padding: "6px 8px", fontSize: 12, minWidth: 0 }
-    : { padding: "7px 10px", fontSize: 13, minWidth: 0 };
-
-  return (
-    <div className="row" style={{ flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-      <select
-        className="input"
-        aria-label="Due year"
-        style={{ ...inputStyle, width: compact ? 76 : 90 }}
-        value={year}
-        onChange={(e) => {
-          const y = e.target.value;
-          if (!y) emit({ year: "", month: "", day: "" });
-          else emit({ year: y, month: "", day: "" });
-        }}
-      >
-        <option value="">Year</option>
-        {DUE_DATE_YEAR_OPTIONS.map((y) => (
-          <option key={y} value={y}>
-            {y}
-          </option>
-        ))}
-      </select>
-      <select
-        className="input"
-        aria-label="Due month"
-        disabled={!year}
-        style={{ ...inputStyle, width: compact ? 72 : 80 }}
-        value={month}
-        onChange={(e) => {
-          const mo = e.target.value;
-          if (!mo) emit({ year, month: "", day: "" });
-          else emit({ year, month: mo, day: "" });
-        }}
-      >
-        <option value="">Month</option>
-        {DUE_DATE_MONTH_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <select
-        className="input"
-        aria-label="Due day"
-        disabled={!year || !month}
-        style={{ ...inputStyle, width: compact ? 54 : 62 }}
-        value={day}
-        onChange={(e) => {
-          const d = e.target.value;
-          if (!d) emit({ year, month, day: "" });
-          else if (year && month) emit({ year, month, day: d });
-        }}
-      >
-        <option value="">Day</option>
-        {days.map((d) => (
-          <option key={d} value={d}>
-            {d}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-});
-AppDueDateTripleSelect.displayName = "AppDueDateTripleSelect";
 
 const STAFF_TASK_AREA_LABELS = {
   "Team/Project Formation": "Project Formation",
@@ -4129,7 +3975,7 @@ export default function TripPage() {
     setEditingStaffTaskId(task.id);
     setStaffTaskTitleDraft(task.taskName || task.title || "");
     setStaffTaskDueDateDraft(
-      task.dueDate || computeStaffTaskDueDate(task, trip) || ""
+      toDateInputValue(task.dueDate || computeStaffTaskDueDate(task, trip) || "")
     );
   }
 
@@ -5336,22 +5182,18 @@ function parseDateSafe(dateStr) {
                     />
                   ) : null}
                 </div>
-                <div>
+                <div style={{ gridColumn: "1 / -1" }}>
                   <div className="small" style={{ marginBottom: 6 }}>Project Leave Date</div>
-                  <input
-                    className="input"
-                    type="date"
+                  <AppDueDateTripleSelect
                     value={tripSetupDraft.startDate}
-                    onChange={(event) => updateTripSetupDraft("startDate", event.target.value)}
+                    onChange={(ymd) => updateTripSetupDraft("startDate", ymd)}
                   />
                 </div>
-                <div>
+                <div style={{ gridColumn: "1 / -1" }}>
                   <div className="small" style={{ marginBottom: 6 }}>Project Return Date</div>
-                  <input
-                    className="input"
-                    type="date"
+                  <AppDueDateTripleSelect
                     value={tripSetupDraft.endDate}
-                    onChange={(event) => updateTripSetupDraft("endDate", event.target.value)}
+                    onChange={(ymd) => updateTripSetupDraft("endDate", ymd)}
                   />
                 </div>
                 <div>
@@ -8426,18 +8268,22 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         updateRosterDraftMember(index, "tshirtSize", event.target.value)
                       }
                     />
-                    <input
-                      className="input"
-                      type="date"
-                      value={member.startDate || ""}
-                      onChange={(event) => updateRosterDraftMember(index, "startDate", event.target.value)}
-                    />
-                    <input
-                      className="input"
-                      type="date"
-                      value={member.endDate || ""}
-                      onChange={(event) => updateRosterDraftMember(index, "endDate", event.target.value)}
-                    />
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <div className="small" style={{ marginBottom: 6 }}>Project leave date</div>
+                      <AppDueDateTripleSelect
+                        compact
+                        value={member.startDate || ""}
+                        onChange={(ymd) => updateRosterDraftMember(index, "startDate", ymd)}
+                      />
+                    </div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <div className="small" style={{ marginBottom: 6 }}>Project return date</div>
+                      <AppDueDateTripleSelect
+                        compact
+                        value={member.endDate || ""}
+                        onChange={(ymd) => updateRosterDraftMember(index, "endDate", ymd)}
+                      />
+                    </div>
                     <button className="btn" type="button" onClick={() => handleRemoveRosterMember(index)}>
                       Remove
                     </button>
@@ -8701,13 +8547,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         </td>
                         <td>
                           {canEditTripReferenceEmails ? (
-                            <input
-                              className="input"
-                              type="date"
-                              value={referenceStatus.sentDate || ""}
-                              onChange={(e) =>
-                                updateReferenceSentDate(refRow.refKey, e.target.value)
-                              }
+                            <AppDueDateTripleSelect
+                              compact
+                              value={toDateInputValue(referenceStatus.sentDate || "")}
+                              onChange={(ymd) => updateReferenceSentDate(refRow.refKey, ymd)}
                             />
                           ) : (
                             <span className="small">{referenceStatus.sentDate?.trim() || "—"}</span>
@@ -9719,20 +9562,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                   ) : null}
                                 </>
                               ) : (
-                                <input
-                                  className="input"
-                                  type="date"
-                                  value={trainingState[dateKey] || ""}
-                                  onChange={(e) =>
-                                    updateTrainingDate(modKey, e.target.value, participant.email)
+                                <AppDueDateTripleSelect
+                                  compact
+                                  value={toDateInputValue(trainingState[dateKey] || "")}
+                                  onChange={(ymd) =>
+                                    updateTrainingDate(modKey, ymd, participant.email)
                                   }
-                                  style={{
-                                    padding: "8px 10px",
-                                    fontSize: 13,
-                                    width: "100%",
-                                    maxWidth: "100%",
-                                    boxSizing: "border-box",
-                                  }}
                                 />
                               )}
                               <div className="row" style={{ justifyContent: "flex-end" }}>
@@ -12575,9 +12410,27 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 <div><div className="small" style={{ marginBottom: 4 }}>Site of LST Project (city AND country)</div><input className="input" value={travelFormDraft.siteProject} onChange={(e) => setTravelFormDraft((d) => ({ ...d, siteProject: e.target.value }))} /></div>
                 <div><div className="small" style={{ marginBottom: 4 }}>Gateway City (departure point)</div><input className="input" value={travelFormDraft.gatewayCity} onChange={(e) => setTravelFormDraft((d) => ({ ...d, gatewayCity: e.target.value }))} /></div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10 }}>
-                <div><div className="small" style={{ marginBottom: 4 }}>Official Departure Date</div><input className="input" type="date" value={travelFormDraft.departureDate} onChange={(e) => setTravelFormDraft((d) => ({ ...d, departureDate: e.target.value }))} /></div>
-                <div><div className="small" style={{ marginBottom: 4 }}>Official Return Date</div><input className="input" type="date" value={travelFormDraft.returnDate} onChange={(e) => setTravelFormDraft((d) => ({ ...d, returnDate: e.target.value }))} /></div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                <div>
+                  <div className="small" style={{ marginBottom: 4 }}>Official Departure Date</div>
+                  <AppDueDateTripleSelect
+                    compact
+                    value={travelFormDraft.departureDate}
+                    onChange={(ymd) =>
+                      setTravelFormDraft((d) => ({ ...d, departureDate: ymd }))
+                    }
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 4 }}>Official Return Date</div>
+                  <AppDueDateTripleSelect
+                    compact
+                    value={travelFormDraft.returnDate}
+                    onChange={(ymd) =>
+                      setTravelFormDraft((d) => ({ ...d, returnDate: ymd }))
+                    }
+                  />
+                </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
                 <div><div className="small" style={{ marginBottom: 4 }}>Minor (under 18)</div><select className="input" value={travelFormDraft.isMinor} onChange={(e) => setTravelFormDraft((d) => ({ ...d, isMinor: e.target.value }))}>{YES_NO_OPTIONS.map((o) => <option key={o || "__blank__"} value={o}>{o || "—"}</option>)}</select></div>

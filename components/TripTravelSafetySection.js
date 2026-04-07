@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import CollapsibleSection from "@/components/CollapsibleSection";
+import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
 import {
   acknowledgeTripTravelSafety,
   getTripTravelSafety,
@@ -31,6 +32,16 @@ function formatSubsectionDate(isoDate) {
   const d = new Date(`${s}T12:00:00`);
   if (Number.isNaN(d.getTime())) return String(isoDate);
   return d.toLocaleDateString(undefined, { dateStyle: "medium" });
+}
+
+function toYmdForTripleSelect(raw) {
+  const s = String(raw || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function ReviewBadge() {
@@ -215,12 +226,10 @@ export default function TripTravelSafetySection({
           {canEdit ? (
             <>
               <strong>Last updated:</strong>
-              <input
-                className="input"
-                type="date"
-                value={lastVerified}
-                onChange={(e) => setDraft((d) => ({ ...d, [lastVerifiedKey]: e.target.value }))}
-                style={{ maxWidth: 160 }}
+              <AppDueDateTripleSelect
+                compact
+                value={toYmdForTripleSelect(lastVerified)}
+                onChange={(ymd) => setDraft((d) => ({ ...d, [lastVerifiedKey]: ymd }))}
               />
             </>
           ) : (
