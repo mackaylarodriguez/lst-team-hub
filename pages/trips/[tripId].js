@@ -33,6 +33,7 @@ import {
 } from "@/lib/training";
 import {
   getTrainingSessionOptionsForModuleTitle,
+  hydrateTrainingSessionDateFromDb,
   resolveTrainingSessionSelectValue,
 } from "@/lib/trainingSessionOptions";
 import { saveFundraisingProfile } from "@/lib/fundraising";
@@ -1832,8 +1833,13 @@ export default function TripPage() {
       setTrip((current) => (current ? { ...current, participants, teamMembers, tasks } : current));
       setTrainingModules(modules);
 
-      const participantsById = new Map(
-        participants.map((participant) => [participant.id, participant])
+      const participantsById = new Map();
+      participants.forEach((participant) => {
+        if (participant?.id == null || participant.id === "") return;
+        participantsById.set(String(participant.id), participant);
+      });
+      const moduleTitleById = new Map(
+        modules.map((m) => [String(m.id), String(m.title || "").trim()])
       );
       const nextTrainingStates = {};
       const nextTaskStates = {};
@@ -1842,15 +1848,17 @@ export default function TripPage() {
         ...new Set(
           [...progress, ...taskProgress]
             .map((row) => row.userId)
-            .filter((id) => id && !participantsById.has(id))
+            .filter((id) => id != null && id !== "" && !participantsById.has(String(id)))
         ),
       ];
       const profileEmailByUserId = await loadProfileEmailsByUserIds(orphanProgressUserIds);
 
       function resolveEmailForProgressUserId(userId) {
-        const participant = participantsById.get(userId);
+        if (userId == null || userId === "") return "";
+        const key = String(userId);
+        const participant = participantsById.get(key);
         if (participant?.email) return participant.email;
-        return profileEmailByUserId.get(String(userId)) || "";
+        return profileEmailByUserId.get(key) || "";
       }
 
       progress.forEach((row) => {
@@ -1863,13 +1871,14 @@ export default function TripPage() {
           nextTrainingStates[trainingEmailKey] = {};
         }
 
-        nextTrainingStates[trainingEmailKey][row.moduleId] = !!row.completed;
+        const modId = String(row.moduleId);
+        nextTrainingStates[trainingEmailKey][modId] = !!row.completed;
         if (row.completedAt) {
-          const raw = String(row.completedAt);
-          const ymd = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-          nextTrainingStates[trainingEmailKey][`${row.moduleId}Date`] = ymd
-            ? ymd[1]
-            : raw.slice(0, 10);
+          const title = moduleTitleById.get(modId) || "";
+          nextTrainingStates[trainingEmailKey][`${modId}Date`] = hydrateTrainingSessionDateFromDb(
+            row.completedAt,
+            title
+          );
         }
       });
 
@@ -3497,15 +3506,30 @@ export default function TripPage() {
       const participant = participantDisplayForTrainingEmail(ownerEmail);
 
       try {
-        await saveTrainingProgress({
+        const saved = await saveTrainingProgress({
           tripId: trip.id,
           userId,
           moduleId: id,
           completed: !!next[id],
           completedAt: value || null,
         });
+        const moduleMeta = allTrainingModules.find((item) => item.id === id);
+        let dateForUi = "";
+        if (saved.completedAt) {
+          dateForUi = moduleMeta
+            ? hydrateTrainingSessionDateFromDb(saved.completedAt, moduleMeta.title)
+            : String(saved.completedAt);
+        }
+        setParticipantTrainingStates((prev) => ({
+          ...prev,
+          [emailKey]: {
+            ...(prev[emailKey] || {}),
+            [`${id}Date`]: dateForUi,
+            [id]: !!saved.completed,
+          },
+        }));
         if (!value || currentState[id]) return;
-        const module = allTrainingModules.find((item) => item.id === id);
+        const module = moduleMeta;
         const activityEntry = await logTripActivity({
           tripId: trip.id,
           actorUserId: userId,
@@ -9354,19 +9378,20 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       }}
                     >
                       {supplementalTrainingModules.map((module) => {
+                        const modKey = String(module.id);
                         const sessionOptions = getTrainingSessionOptionsForModuleTitle(module.title);
-                        const dateKey = `${module.id}Date`;
+                        const dateKey = `${modKey}Date`;
                         const rawStored = trainingState[dateKey] || "";
                         const selectValue = sessionOptions
                           ? resolveTrainingSessionSelectValue(rawStored, sessionOptions)
                           : rawStored;
                         return (
                         <div
-                          key={`${participant.email}-${module.id}`}
+                          key={`${participant.email}-${modKey}`}
                           id={
                             !canViewTeamDashboard &&
                             String(participant.id || "") === String(currentParticipant?.id || "")
-                              ? buildTrainingModuleRowDomId(module.id)
+                              ? buildTrainingModuleRowDomId(modKey)
                               : undefined
                           }
                           style={{
@@ -9380,8 +9405,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         >
                           <input
                             type="checkbox"
-                            checked={!!trainingState[module.id]}
-                            onChange={() => toggleTraining(module.id, participant.email)}
+                            checked={!!trainingState[modKey]}
+                            onChange={() => toggleTraining(modKey, participant.email)}
                             style={{ marginTop: 2 }}
                           />
                           <div>
@@ -9413,7 +9438,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                   className="input"
                                   value={selectValue}
                                   onChange={(e) =>
-                                    updateTrainingDate(module.id, e.target.value, participant.email)
+                                    updateTrainingDate(modKey, e.target.value, participant.email)
                                   }
                                   style={{ padding: "8px 10px", fontSize: 13 }}
                                 >
@@ -9430,7 +9455,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                   type="date"
                                   value={trainingState[dateKey] || ""}
                                   onChange={(e) =>
-                                    updateTrainingDate(module.id, e.target.value, participant.email)
+                                    updateTrainingDate(modKey, e.target.value, participant.email)
                                   }
                                   style={{ padding: "8px 10px", fontSize: 13 }}
                                 />
@@ -9438,10 +9463,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                               <span
                                 className={
                                   "badge " +
-                                  (!!trainingState[module.id] ? "badgeSuccess" : "badgeDanger")
+                                  (!!trainingState[modKey] ? "badgeSuccess" : "badgeDanger")
                                 }
                               >
-                                {!!trainingState[module.id] ? "Completed" : "Not started"}
+                                {!!trainingState[modKey] ? "Completed" : "Not started"}
                               </span>
                             </div>
                           </div>
