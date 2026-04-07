@@ -9485,7 +9485,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
             style={{
               display: "grid",
               gridTemplateColumns: canViewTeamDashboard
-                ? "repeat(auto-fit, minmax(260px, 1fr))"
+                ? "repeat(auto-fit, minmax(min(100%, 340px), 1fr))"
                 : "1fr",
               gap: 16,
             }}
@@ -9599,6 +9599,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         const selectValue = sessionOptions
                           ? resolveTrainingSessionSelectValue(rawStored, sessionOptions)
                           : rawStored;
+                        const selectedSessionLabel =
+                          sessionOptions && selectValue
+                            ? sessionOptions.find((o) => o.value === selectValue)?.label || ""
+                            : "";
                         return (
                         <div
                           key={`${participant.email}-${modKey}`}
@@ -9641,28 +9645,59 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             ) : null}
                             <div
                               style={{
-                                display: "grid",
-                                gridTemplateColumns: "minmax(0, 1fr) auto",
+                                display: "flex",
+                                flexDirection: "column",
                                 gap: 8,
-                                alignItems: "center",
+                                alignItems: "stretch",
+                                width: "100%",
+                                minWidth: 0,
                               }}
                             >
                               {sessionOptions ? (
-                                <select
-                                  className="input"
-                                  value={selectValue}
-                                  onChange={(e) =>
-                                    updateTrainingDate(modKey, e.target.value, participant.email)
-                                  }
-                                  style={{ padding: "8px 10px", fontSize: 13 }}
-                                >
-                                  <option value="">Select session…</option>
-                                  {sessionOptions.map((opt) => (
-                                    <option key={opt.value} value={opt.value}>
-                                      {opt.label}
-                                    </option>
-                                  ))}
-                                </select>
+                                <>
+                                  <select
+                                    className="input"
+                                    value={selectValue}
+                                    title={
+                                      selectedSessionLabel || "Choose a scheduled session date and time"
+                                    }
+                                    onChange={(e) =>
+                                      updateTrainingDate(modKey, e.target.value, participant.email)
+                                    }
+                                    style={{
+                                      padding: "8px 10px",
+                                      fontSize: 13,
+                                      width: "100%",
+                                      maxWidth: "100%",
+                                      boxSizing: "border-box",
+                                    }}
+                                  >
+                                    <option value="">Select session…</option>
+                                    {sessionOptions.map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {selectedSessionLabel ? (
+                                    <div
+                                      className="small"
+                                      style={{
+                                        lineHeight: 1.45,
+                                        wordBreak: "break-word",
+                                        padding: "6px 10px",
+                                        borderRadius: 10,
+                                        border: "1px solid rgba(15, 23, 42, 0.08)",
+                                        background: "rgba(248, 250, 252, 0.9)",
+                                      }}
+                                    >
+                                      <span style={{ fontWeight: 700, color: "var(--muted)" }}>
+                                        Session:
+                                      </span>{" "}
+                                      {selectedSessionLabel}
+                                    </div>
+                                  ) : null}
+                                </>
                               ) : (
                                 <input
                                   className="input"
@@ -9671,17 +9706,25 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                   onChange={(e) =>
                                     updateTrainingDate(modKey, e.target.value, participant.email)
                                   }
-                                  style={{ padding: "8px 10px", fontSize: 13 }}
+                                  style={{
+                                    padding: "8px 10px",
+                                    fontSize: 13,
+                                    width: "100%",
+                                    maxWidth: "100%",
+                                    boxSizing: "border-box",
+                                  }}
                                 />
                               )}
-                              <span
-                                className={
-                                  "badge " +
-                                  (!!trainingState[modKey] ? "badgeSuccess" : "badgeDanger")
-                                }
-                              >
-                                {!!trainingState[modKey] ? "Completed" : "Not started"}
-                              </span>
+                              <div className="row" style={{ justifyContent: "flex-end" }}>
+                                <span
+                                  className={
+                                    "badge " +
+                                    (!!trainingState[modKey] ? "badgeSuccess" : "badgeDanger")
+                                  }
+                                >
+                                  {!!trainingState[modKey] ? "Completed" : "Not started"}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
