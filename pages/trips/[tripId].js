@@ -5564,9 +5564,10 @@ function parseDateSafe(dateStr) {
     !isPreviewingParticipant &&
     !isLeaderOnTripNotTraveling;
   const canEditTripReferenceEmails = staffViewAllParticipants;
+  /** Leaders (not staff / not leader-preview) do not see reference tracking; staff and preview-as-leader still do. */
   const canViewTripReferenceSection =
     !isPreviewingParticipant &&
-    (staffViewAllParticipants || effectiveIsLeader);
+    (staffViewAllParticipants || (effectiveIsLeader && isStaffPreviewingLeader));
   const participantDocumentsByUserId = useMemo(() => {
     const grouped = new Map();
 
@@ -6103,12 +6104,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
     const percent = total ? Math.round((completed / total) * 100) : 0;
 
     if (canViewTeamDashboard) {
+      const hideRefsForSessionLeader =
+        effectiveIsLeader && !isStaffPreviewingLeader && !staffViewAllParticipants;
       return {
         label: "References Received",
         percent,
         completed,
         total,
-        showOnOverview: true,
+        showOnOverview: !hideRefsForSessionLeader,
       };
     }
 
@@ -6129,7 +6132,16 @@ normalizeEmail(participant.email) === activeParticipantEmail
       total: 1,
       showOnOverview: mineReceived,
     };
-  }, [trip, canViewTeamDashboard, currentParticipant, referenceEmails, referenceTableRows]);
+  }, [
+    trip,
+    canViewTeamDashboard,
+    currentParticipant,
+    referenceEmails,
+    referenceTableRows,
+    effectiveIsLeader,
+    isStaffPreviewingLeader,
+    staffViewAllParticipants,
+  ]);
 
   const overviewTaskLabel = canViewTeamDashboard ? "Worker Tasks" : "My Tasks";
   const overviewTaskPct = canViewTeamDashboard
