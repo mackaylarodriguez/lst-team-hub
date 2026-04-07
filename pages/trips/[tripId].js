@@ -1163,6 +1163,8 @@ export default function TripPage() {
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
   const [editableStaffTasks, setEditableStaffTasks] = useState([]);
   const [editingStaffTaskId, setEditingStaffTaskId] = useState(null);
+  /** Keeps staff-task list refetch from stealing focus from the date picker while a row is open for edit. */
+  const editingStaffTaskIdRef = useRef(null);
   const [staffTaskDueDateDraft, setStaffTaskDueDateDraft] = useState("");
   const [staffTaskTitleDraft, setStaffTaskTitleDraft] = useState("");
   const [isAddingStaffTask, setIsAddingStaffTask] = useState(false);
@@ -1541,7 +1543,6 @@ export default function TripPage() {
     setRosterDraft(trip.teamMembers || []);
     setIsEditingRoster(false);
     setRosterStatus("");
-    setEditingWorkerTaskDateId("");
     setIsAddingStaffTask(false);
     setNewStaffTaskDraft({
       workArea: "Project Formation",
@@ -1551,6 +1552,15 @@ export default function TripPage() {
       notes: "",
     });
   }, [trip]);
+
+  useEffect(() => {
+    if (!trip?.id) return;
+    setEditingWorkerTaskDateId("");
+    editingStaffTaskIdRef.current = null;
+    setEditingStaffTaskId(null);
+    setStaffTaskTitleDraft("");
+    setStaffTaskDueDateDraft("");
+  }, [trip?.id]);
 
   useEffect(() => {
     if (!trip?.id) return;
@@ -2126,6 +2136,7 @@ export default function TripPage() {
 
     function handleTaskUpdate(event) {
       if (!event.detail?.tripId || event.detail.tripId === trip.id) {
+        if (editingStaffTaskIdRef.current) return;
         void syncStaffTasks();
       }
     }
@@ -3873,6 +3884,7 @@ export default function TripPage() {
   }
 
   function handleEditStaffTask(task) {
+    editingStaffTaskIdRef.current = task.id;
     setEditingStaffTaskId(task.id);
     setStaffTaskTitleDraft(task.taskName || task.title || "");
     setStaffTaskDueDateDraft(
@@ -3881,6 +3893,7 @@ export default function TripPage() {
   }
 
   function handleCancelStaffTaskEdit() {
+    editingStaffTaskIdRef.current = null;
     setEditingStaffTaskId(null);
     setStaffTaskTitleDraft("");
     setStaffTaskDueDateDraft("");
