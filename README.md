@@ -1,78 +1,58 @@
-# LST Team Hub (Next.js sample)
+# 🌍 LST Team Hub
 
-## Local Development
+LST Team Hub is a centralized web application designed to support team coordination, communication, and resource sharing for mission teams. The platform helps streamline organization, improve accessibility of information, and enhance collaboration across team members.
 
-- Install deps: `npm install`
-- Start app: `npm run dev`
-- Build check: `npm run build`
-- E2E smoke: `npm run test:e2e`
+---
 
-## Supabase Migration Checklist
+## 🚀 Features
 
-Run SQL files in **Supabase SQL Editor** in this order.
+- 📋 Centralized team information and resources  
+- 🗂️ Organized access to important documents and links  
+- 📅 Event and schedule coordination  
+- 👥 Team communication support  
+- 🔐 Structured and user-friendly interface  
 
-### Fresh environment (new project)
+---
 
-1. Core profiles and base access
-   - `supabase/profiles_rls.sql`
-   - `supabase/trips_rls.sql`
-2. Core trip tables and RLS
-   - `supabase/trip_assignments_rls.sql`
-   - `supabase/trip_team_members.sql`
-   - `supabase/trip_team_members_rls.sql`
-3. References
-   - `supabase/trip_reference_emails.sql`
-   - `supabase/trip_reference_emails_rls.sql`
-   - `supabase/trip_reference_emails_roster_support.sql`
-4. Travel and safety
-   - `supabase/trip_travel_safety.sql`
-   - `supabase/trip_travel_safety_acknowledgments.sql`
-   - `supabase/trip_travel_safety_rls.sql`
-5. Travel form, tickets, and meetings
-   - `supabase/travel_form_responses.sql`
-   - `supabase/travel_form_responses_roster_support.sql`
-   - `supabase/travel_form_responses_rls.sql`
-   - `supabase/trip_tickets.sql`
-   - `supabase/trip_tickets_roster_autocreate.sql`
-   - `supabase/trip_tickets_rls.sql`
-   - `supabase/trip_meetings.sql`
-   - `supabase/trip_meetings_rls.sql`
-6. Documents and training/task progress
-   - `supabase/user_documents.sql`
-   - `supabase/user_documents_rls.sql`
-   - `supabase/user_training_progress.sql`
-   - `supabase/training_rls.sql`
-   - `supabase/trip_tasks_rls.sql`
-7. Leader access extensions
-   - `supabase/leader_role_rls_updates.sql`
-8. Delete policy hardening
-   - `supabase/trips_delete_rls.sql`
+## 🛠️ Tech Stack
 
-### Existing environment (already running)
+- Frontend: HTML, CSS, JavaScript  
+- Backend: (add if you used one, e.g. Node.js / Firebase / etc.)  
+- Database: (if applicable)  
+- Tools: Git, GitHub  
 
-Run only what is missing, in this order:
+---
 
-1. `supabase/trips_rls.sql` (ensures `private.current_profile_role()` exists)
-2. `supabase/leader_role_rls_updates.sql` (leader + UID-based access updates)
-3. `supabase/trip_reference_emails_roster_support.sql` (roster-only reference rows)
-4. `supabase/trip_travel_safety.sql`
-5. `supabase/trip_travel_safety_acknowledgments.sql`
-6. `supabase/trip_travel_safety_rls.sql`
-7. `supabase/travel_form_responses_roster_support.sql`
-8. `supabase/travel_form_responses_rls.sql`
-9. `supabase/trip_meetings.sql`
-10. `supabase/trip_meetings_rls.sql`
-11. `supabase/trip_tickets_roster_autocreate.sql`
-12. `supabase/trips_delete_rls.sql`
+## 🎯 Purpose
 
-## E2E Smoke Test Environment Variables
+The goal of LST Team Hub is to create an efficient and user-friendly system that allows teams to easily access important information, stay organized, and collaborate effectively. This project focuses on improving workflow and reducing miscommunication within team environments.
 
-Set these before running Playwright smoke tests:
+---
 
-- `E2E_EMAIL`
-- `E2E_PASSWORD`
-- `E2E_TRIP_ID`
+## 💡 Key Learnings
 
-Optional:
+- Improved front-end development skills  
+- Strengthened problem-solving and debugging abilities  
+- Gained experience designing user-focused interfaces  
+- Learned how to structure and organize a full application  
 
-- `PLAYWRIGHT_BASE_URL` (defaults to `http://127.0.0.1:3000`)
+---
+
+## 📌 Future Improvements
+
+- Add user authentication and login system  
+- Improve UI/UX design  
+- Integrate real-time communication features  
+- Expand mobile responsiveness  
+
+---
+
+## 📷 Screenshots
+
+*(Add screenshots of your app here if you have them — this makes it look 10x better)*
+
+---
+
+## 👩🏽‍💻 Author
+
+**Mackayla Rodriguez**  
