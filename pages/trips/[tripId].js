@@ -1168,6 +1168,9 @@ export default function TripPage() {
   const effectiveIsLeader = isLeader || isStaffPreviewingLeader;
   const canViewTeamDashboard =
     staffViewAllParticipants || (effectiveIsLeader && !isPreviewingParticipant);
+  /** Edit team fundraising setup and per-person links: staff only (trip leaders see read-only). */
+  const canManageTripFundraising =
+    staffViewAllParticipants || (canManageTrips && isStaffPreviewingLeader);
 
   const sessionTripRosterRow = useMemo(() => {
     if (!trip?.teamMembers?.length || !session?.email) return null;
@@ -8565,7 +8568,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
             </div>
             <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
               {canViewTeamDashboard
-                ? "Choose individual Neon pages or one team/family campaign, then manage links."
+                ? canManageTripFundraising
+                  ? "Choose individual Neon pages or one team/family campaign, then manage links."
+                  : "View everyone's Neon pages and progress. Staff configure trip fundraising setup and edit links."
                 : isTeamFundraisingMode
                   ? "Shared fundraising for your family or team."
                   : "Your Neon fundraising page and team updates."}
@@ -8611,7 +8616,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
               </div>
             ) : null}
 
-            {canViewTeamDashboard && (
+            {canManageTripFundraising && (
               <div
                 className="card pad"
                 style={{
@@ -8808,6 +8813,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     editingParticipantFundraisingId === participant.id;
                   const fundraisingProgressMeta = getFundraisingProgressMeta(participant);
                   const canEditParticipantFundraising =
+                    canManageTripFundraising &&
                     canViewTeamDashboard &&
                     (!participant.rosterOnly || !!participant.tripTeamMemberId);
                   return (
