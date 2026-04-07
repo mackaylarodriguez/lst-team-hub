@@ -452,6 +452,7 @@ const AppDueDateTripleSelect = forwardRef(function AppDueDateTripleSelect(
   }));
 
   const emit = (next) => {
+    partsRef.current = next;
     setParts(next);
     if (next.year && next.month && next.day) {
       onChange(buildYmdFromParts(next.year, next.month, next.day));
@@ -1267,9 +1268,11 @@ export default function TripPage() {
   const [taskStatusMessage, setTaskStatusMessage] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [editingWorkerTaskDateId, setEditingWorkerTaskDateId] = useState("");
+  /** Which participant column opened the due-date editor (team dashboard has one grid cell per person). */
+  const [editingWorkerDueParticipantKey, setEditingWorkerDueParticipantKey] = useState("");
   /** Local value while editing worker task due date (commit on Save, not on every calendar change). */
   const [workerTaskDueDateDraft, setWorkerTaskDueDateDraft] = useState("");
-  const workerDueTripleRef = useRef(null);
+  const workerDueTripleHandlesRef = useRef(new Map());
 
   useEffect(() => {
     if (!editingWorkerTaskDateId) return undefined;
@@ -1277,6 +1280,7 @@ export default function TripPage() {
       if (e.key === "Escape") {
         e.preventDefault();
         setEditingWorkerTaskDateId("");
+        setEditingWorkerDueParticipantKey("");
         setWorkerTaskDueDateDraft("");
       }
     };
@@ -1718,7 +1722,9 @@ export default function TripPage() {
   useEffect(() => {
     if (!trip?.id) return;
     setEditingWorkerTaskDateId("");
+    setEditingWorkerDueParticipantKey("");
     setWorkerTaskDueDateDraft("");
+    workerDueTripleHandlesRef.current.clear();
     editingStaffTaskIdRef.current = null;
     setEditingStaffTaskId(null);
     setStaffTaskTitleDraft("");
@@ -3804,7 +3810,16 @@ export default function TripPage() {
   async function handleApplyWorkerTaskDueDate() {
     const taskId = editingWorkerTaskDateId;
     if (!trip || !taskId) return;
-    const snap = workerDueTripleRef.current?.getDueYmd?.();
+    const handleKey = `${taskId}::${editingWorkerDueParticipantKey}`;
+    const handle = workerDueTripleHandlesRef.current.get(handleKey);
+    const fromRef = typeof handle?.getDueYmd === "function" ? handle.getDueYmd() : undefined;
+    if (fromRef === null) {
+      showToast("Choose year, month, and day for the due date, or use Clear due.", "error");
+      return;
+    }
+    const draft = String(workerTaskDueDateDraft || "").trim();
+    const draftYmd = /^\d{4}-\d{2}-\d{2}$/.test(draft);
+    const snap = draftYmd ? draft : fromRef !== undefined ? fromRef : null;
     if (snap === null) {
       showToast("Choose year, month, and day for the due date, or use Clear due.", "error");
       return;
@@ -3812,7 +3827,9 @@ export default function TripPage() {
     try {
       await persistWorkerTaskDueDate(taskId, snap);
       setEditingWorkerTaskDateId("");
+      setEditingWorkerDueParticipantKey("");
       setWorkerTaskDueDateDraft("");
+      workerDueTripleHandlesRef.current.delete(handleKey);
       setTaskStatusMessage("");
     } catch (error) {
       console.error("Unable to update worker task due date", error);
@@ -3823,10 +3840,13 @@ export default function TripPage() {
   async function handleClearWorkerTaskDueDate() {
     const taskId = editingWorkerTaskDateId;
     if (!trip || !taskId) return;
+    const handleKey = `${taskId}::${editingWorkerDueParticipantKey}`;
     try {
       await persistWorkerTaskDueDate(taskId, "");
       setEditingWorkerTaskDateId("");
+      setEditingWorkerDueParticipantKey("");
       setWorkerTaskDueDateDraft("");
+      workerDueTripleHandlesRef.current.delete(handleKey);
       setTaskStatusMessage("");
     } catch (error) {
       console.error("Unable to clear worker task due date", error);
@@ -9914,6 +9934,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
           >
             {visibleTaskParticipants.map((participant) => {
               const taskState = participantTaskStates[normalizeEmail(participant.email)] || {};
+              const workerDueParticipantKey =
+                normalizeEmail(participant.email || "") || String(participant.id || "");
 
               return (
                 <div key={participant.email} className="card pad">
@@ -10030,7 +10052,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                       ) : null}
                                     </div>
                                     {canViewTeamDashboard ? (
-                                      editingWorkerTaskDateId === task.id ? (
+                                      editingWorkerTaskDateId === task.id &&
+                                      workerDueParticipantKey === editingWorkerDueParticipantKey ? (
                                         <div
                                           style={{
                                             display: "flex",
@@ -10040,7 +10063,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                           }}
                                         >
                                           <AppDueDateTripleSelect
-                                            ref={workerDueTripleRef}
+                                            ref={(imp) => {
+                                              const key = `${task.id}::${workerDueParticipantKey}`;
+                                              if (imp == null) {
+                                                workerDueTripleHandlesRef.current.delete(key);
+                                              } else {
+                                                workerDueTripleHandlesRef.current.set(key, imp);
+                                              }
+                                            }}
                                             value={workerTaskDueDateDraft}
                                             onChange={setWorkerTaskDueDateDraft}
                                           />
@@ -10058,7 +10088,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                               className="btn"
                                               style={{ padding: "4px 10px", fontSize: 12 }}
                                               onClick={() => {
+                                                workerDueTripleHandlesRef.current.delete(
+                                                  `${task.id}::${workerDueParticipantKey}`
+                                                );
                                                 setEditingWorkerTaskDateId("");
+                                                setEditingWorkerDueParticipantKey("");
                                                 setWorkerTaskDueDateDraft("");
                                               }}
                                             >
@@ -10074,12 +10108,28 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                             </button>
                                           </div>
                                         </div>
+                                      ) : editingWorkerTaskDateId === task.id ? (
+                                        <div className="small" style={{ color: "var(--muted)", lineHeight: 1.4 }}>
+                                          {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
+                                          <div style={{ marginTop: 4 }}>
+                                            Editing due date in{" "}
+                                            <strong>
+                                              {visibleTaskParticipants.find(
+                                                (p) =>
+                                                  (normalizeEmail(p.email || "") ||
+                                                    String(p.id || "")) === editingWorkerDueParticipantKey
+                                              )?.name || "another participant"}
+                                            </strong>
+                                            &rsquo;s column.
+                                          </div>
+                                        </div>
                                       ) : (
                                         <button
                                           type="button"
                                           className="staffTaskDateButton"
                                           onClick={() => {
                                             setEditingWorkerTaskDateId(task.id);
+                                            setEditingWorkerDueParticipantKey(workerDueParticipantKey);
                                             setWorkerTaskDueDateDraft(toDateInputValue(task.due));
                                           }}
                                         >
