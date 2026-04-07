@@ -7538,13 +7538,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   <AppEmptyState
                     title="No upcoming meetings"
                     description="Add the next team meeting so workers can see when the team meets next."
-                    actionLabel={canManageTripMeetings ? "Add meeting" : undefined}
-                    onAction={canManageTripMeetings ? () => {
-                      setMeetingAddFormOpen(true);
-                      setEditingMeetingId("");
-                      setMeetingDraft({ title: "", scheduledAt: "", notesAfter: "" });
-                      setMeetingStatus("");
-                    } : undefined}
                   />
                 )}
               </div>
