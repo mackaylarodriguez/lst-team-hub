@@ -7,7 +7,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import EmptyState from "@/components/EmptyState";
 import { showToast } from "@/components/Toast";
 import { useRouter } from "next/router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
@@ -282,6 +282,8 @@ function mergeHousingWithTrips(trips, budgets) {
 
 export default function BudgetPage() {
   const router = useRouter();
+  const housingToolbarRef = useRef(null);
+  const ticketingToolbarRef = useRef(null);
   const [session, setSession] = useState(null);
   const [averages, setAverages] = useState(null);
   const [trips, setTrips] = useState([]);
@@ -308,6 +310,8 @@ export default function BudgetPage() {
   const [newSiteHousingSelect, setNewSiteHousingSelect] = useState("");
   const [newSiteHousingActiveLabel, setNewSiteHousingActiveLabel] = useState(null);
   const [newSiteHousingDraft, setNewSiteHousingDraft] = useState("");
+  const [housingToolbarHeight, setHousingToolbarHeight] = useState(96);
+  const [ticketingToolbarHeight, setTicketingToolbarHeight] = useState(96);
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
 
@@ -320,6 +324,27 @@ export default function BudgetPage() {
     () => [...(trips || [])].sort(compareTripsForBudgetSort),
     [trips]
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof ResizeObserver === "undefined") return undefined;
+
+    const observed = [
+      [housingToolbarRef.current, setHousingToolbarHeight],
+      [ticketingToolbarRef.current, setTicketingToolbarHeight],
+    ].filter(([node]) => node);
+
+    const observers = observed.map(([node, setHeight]) => {
+      const syncHeight = () => setHeight(Math.ceil(node.getBoundingClientRect().height || 96));
+      syncHeight();
+      const observer = new ResizeObserver(syncHeight);
+      observer.observe(node);
+      return observer;
+    });
+
+    return () => {
+      observers.forEach((observer) => observer.disconnect());
+    };
+  }, [tab, isEditingHousing, isEditingTickets, tripsSortedForBudget.length]);
 
   const sortedAccountantNamesForTrip = useCallback(
     (tripId) => {
@@ -1208,6 +1233,7 @@ export default function BudgetPage() {
 
         <div className="card pad" style={budgetSectionCardStyle}>
           <div
+            ref={housingToolbarRef}
             className="row appPolishToolbar mobileSectionHeader"
             style={{ ...budgetSectionHeaderStyle, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
@@ -1348,7 +1374,10 @@ export default function BudgetPage() {
               ) : null}
             </div>
           </div>
-          <div style={{ overflowX: "auto" }}>
+          <div
+            className="budgetTableScroller"
+            style={{ "--budget-toolbar-height": `${housingToolbarHeight}px` }}
+          >
             <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1440, fontSize: 13 }}>
               <thead>
                 <tr>
@@ -1808,6 +1837,7 @@ export default function BudgetPage() {
         {tab === "Ticketing" && (
         <div className="card pad" style={budgetSectionCardStyle}>
           <div
+            ref={ticketingToolbarRef}
             className="row appPolishToolbar mobileSectionHeader"
             style={{ ...budgetSectionHeaderStyle, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
           >
@@ -1932,7 +1962,10 @@ export default function BudgetPage() {
               ) : null}
             </div>
           </div>
-          <div style={{ overflowX: "auto" }}>
+          <div
+            className="budgetTableScroller"
+            style={{ "--budget-toolbar-height": `${ticketingToolbarHeight}px` }}
+          >
             <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1580, fontSize: 12 }}>
               <thead>
                 <tr>
