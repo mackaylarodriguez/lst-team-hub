@@ -378,7 +378,7 @@ const TEAM_STATUS_OPTIONS = [
   "On Hold",
 ];
 
-const TEAM_MEMBER_ROLE_OPTIONS = ["Worker", "Trainer", "Leader"];
+const TEAM_MEMBER_ROLE_OPTIONS = ["Worker", "Staff", "Leader"];
 
 /** Section values for custom worker trip tasks (matches checklist grouping). */
 const WORKER_TRIP_TASK_SECTION_OPTIONS = [
@@ -401,6 +401,24 @@ const YES_NO_OPTIONS = ["", "Yes", "No"];
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function normalizeLegacyTeamRole(role) {
+  const r = String(role || "").trim();
+  if (!r) return "Worker";
+  if (r.toLowerCase() === "trainer") return "Worker";
+  return r;
+}
+
+/** Workers, staff, and leaders who travel; remote (non-traveling) leaders are excluded from worker counts and personal pipeline. */
+function shouldIncludeInTripWorkerPipeline(trip, email) {
+  const e = normalizeEmail(email);
+  if (!e) return true;
+  const tm = (trip?.teamMembers || []).find((m) => normalizeEmail(m.email) === e);
+  if (!tm) return true;
+  const role = String(tm.teamRole || "").trim().toLowerCase();
+  if (role === "leader" && tm.travelsWithTeam === false) return false;
+  return true;
 }
 
 /** Budget `num_workers` → controlled input value (number or empty). */
@@ -538,6 +556,7 @@ function createEmptyWorkerDraft() {
     lastName: "",
     email: "",
     teamRole: "Worker",
+    travelsWithTeam: true,
     assignmentMode: "unassigned",
   };
 }
@@ -1150,17 +1169,22 @@ export default function TripPage() {
   const canViewTeamDashboard =
     staffViewAllParticipants || (effectiveIsLeader && !isPreviewingParticipant);
 
-  const isTrainerOnTripForSession = useMemo(() => {
-    if (!trip?.teamMembers?.length || !session?.email) return false;
+  const sessionTripRosterRow = useMemo(() => {
+    if (!trip?.teamMembers?.length || !session?.email) return null;
     const e = normalizeEmail(session.email);
-    const row = (trip.teamMembers || []).find((m) => normalizeEmail(m.email) === e);
-    return String(row?.teamRole || "").trim().toLowerCase() === "trainer";
+    return (trip.teamMembers || []).find((m) => normalizeEmail(m.email) === e) || null;
   }, [trip?.teamMembers, session?.email]);
 
-  /** Trip Documents: staff and non-trainer leaders edit; trainers use the same view as workers. */
+  /** Profile is leader and roster marks them as not traveling — team management only (no personal worker pipeline). */
+  const isLeaderOnTripNotTraveling = useMemo(() => {
+    if (!isLeader || isStaffPreviewingLeader || !sessionTripRosterRow) return false;
+    const role = String(sessionTripRosterRow.teamRole || "").trim().toLowerCase();
+    if (role !== "leader") return false;
+    return sessionTripRosterRow.travelsWithTeam === false;
+  }, [isLeader, isStaffPreviewingLeader, sessionTripRosterRow]);
+
   const canManageTripDocuments =
-    staffViewAllParticipants ||
-    (effectiveIsLeader && !isPreviewingParticipant && !isTrainerOnTripForSession);
+    staffViewAllParticipants || (effectiveIsLeader && !isPreviewingParticipant);
 
   const canManageTripMeetings =
     staffViewAllParticipants || (effectiveIsLeader && !isPreviewingParticipant);
@@ -4558,7 +4582,7 @@ function parseDateSafe(dateStr) {
             firstName: member.firstName || "",
             lastName: member.lastName || "",
             email: member.email || "",
-            teamRole: member.teamRole || member.role || "Worker",
+            teamRole: normalizeLegacyTeamRole(member.teamRole || member.role || "Worker"),
             travelsWithTeam: member.travelsWithTeam !== false,
             tshirtSize: member.tshirtSize || "",
             startDate: member.startDate || "",
@@ -4735,7 +4759,11 @@ function parseDateSafe(dateStr) {
             )
         )
         .map((member) => member.assignmentId);
-      const savedMembers = await saveTripTeamMembers(trip.id, rosterDraft);
+      const normalizedDraft = rosterDraft.map((m) => ({
+        ...m,
+        teamRole: normalizeLegacyTeamRole(m.teamRole),
+      }));
+      const savedMembers = await saveTripTeamMembers(trip.id, normalizedDraft);
 
       try {
         await pruneTripTicketsForNonTravelingLeaders();
@@ -4793,13 +4821,19 @@ function parseDateSafe(dateStr) {
 
     try {
       setWorkerAddStatus("Adding...");
+      const role = normalizeLegacyTeamRole(newWorkerDraft.teamRole || "Worker");
+      const travelsWithTeam =
+        String(role).trim().toLowerCase() === "leader"
+          ? newWorkerDraft.travelsWithTeam !== false
+          : true;
       const nextRosterMembers = await saveTripTeamMembers(trip.id, [
         ...(trip.teamMembers || []),
         {
           firstName,
           lastName,
           email,
-          teamRole: newWorkerDraft.teamRole || "Worker",
+          teamRole: role,
+          travelsWithTeam,
           tshirtSize: "",
           startDate: "",
           endDate: "",
@@ -5525,7 +5559,10 @@ function parseDateSafe(dateStr) {
   const activeParticipantEmail =
     normalizeEmail(currentParticipant?.email) || normalizeEmail(session?.email) || "";
   const canUploadOwnParticipantDocuments =
-    !staffViewAllParticipants && !!currentParticipant && !isPreviewingParticipant;
+    !staffViewAllParticipants &&
+    !!currentParticipant &&
+    !isPreviewingParticipant &&
+    !isLeaderOnTripNotTraveling;
   const canEditTripReferenceEmails = staffViewAllParticipants;
   const canViewTripReferenceSection =
     !isPreviewingParticipant &&
@@ -5599,7 +5636,8 @@ function parseDateSafe(dateStr) {
         };
       });
 
-    return [...base, ...extras];
+    const merged = [...base, ...extras];
+    return merged.filter((p) => shouldIncludeInTripWorkerPipeline(trip, p.email));
   }, [trip, tripTasks, participantTaskStates, canViewTeamDashboard]);
 
   const currentParticipantProgress = useMemo(() => {
@@ -5682,7 +5720,9 @@ function parseDateSafe(dateStr) {
 
   /** Materials tab: one line per roster row — first name and saved T-shirt size. */
   const materialsRosterTshirtLines = useMemo(() => {
-    return teamTabMembers.map((m) => {
+    return teamTabMembers
+      .filter((m) => shouldIncludeInTripWorkerPipeline(trip, m.email))
+      .map((m) => {
       const firstRaw = String(m.firstName || "").trim();
       const first =
         firstRaw ||
@@ -5694,7 +5734,7 @@ function parseDateSafe(dateStr) {
       const sz = String(m.tshirtSize || "").trim();
       return `${first} - ${sz || "—"}`;
     });
-  }, [teamTabMembers]);
+  }, [teamTabMembers, trip]);
 
   const referenceTableRows = useMemo(() => {
     if (!trip) return [];
@@ -5744,7 +5784,9 @@ function parseDateSafe(dateStr) {
       });
     }
 
-    return rows.sort((a, b) => a.name.localeCompare(b.name));
+    return rows
+      .filter((row) => shouldIncludeInTripWorkerPipeline(trip, row.email))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [trip]);
 
   const participantDocumentsSummary = useMemo(() => {
@@ -5773,8 +5815,10 @@ function parseDateSafe(dateStr) {
             })
             .map((member) => ({
               id: member.id ? `roster-member-${member.id}` : `roster-${normalizeEmail(member.email)}`,
+              email: member.email || "",
             }));
-          return [...(trip.participants || []), ...rosterOnly];
+          const merged = [...(trip.participants || []), ...rosterOnly];
+          return merged.filter((p) => shouldIncludeInTripWorkerPipeline(trip, p.email));
         })();
     const totalParticipants = summaryParticipants.length;
     const totalDocTypes = tripUserDocumentTypes.length;
@@ -5926,7 +5970,8 @@ function parseDateSafe(dateStr) {
         };
       });
 
-    return [...base, ...extras];
+    const merged = [...base, ...extras];
+    return merged.filter((p) => shouldIncludeInTripWorkerPipeline(trip, p.email));
   }, [trip, participantTrainingStates, allTrainingModules, canViewTeamDashboard]);
 
   const currentTrainingProgress = useMemo(() => {
@@ -6027,7 +6072,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
         email: member.email || "",
         rosterOnly: true,
       }));
-    return [...(trip.participants || []), ...rosterOnly];
+    const merged = [...(trip.participants || []), ...rosterOnly];
+    return merged.filter((p) => shouldIncludeInTripWorkerPipeline(trip, p.email));
   }, [trip, canViewTeamDashboard, currentParticipant]);
 
   const tripDocumentWorkerOptions = useMemo(
@@ -6107,12 +6153,40 @@ normalizeEmail(participant.email) === activeParticipantEmail
         currentParticipantFundraisingGoalAmount > 0
         ? currentParticipantFundraisingGoalAmount
         : tripFundraisingGoal;
-  const fundraisingWorkerCount = Math.max(
-    (trip?.participants || []).filter((participant) =>
-      String(participant?.role || "").toLowerCase() === "worker"
-    ).length || (trip?.participants || []).length,
-    1
-  );
+  const fundraisingWorkerCount = useMemo(() => {
+    if (!trip) return 1;
+    const roster = trip.teamMembers || [];
+    const byEmail = new Map(roster.map((m) => [normalizeEmail(m.email), m]));
+    const seen = new Set();
+    let count = 0;
+    for (const p of trip.participants || []) {
+      const e = normalizeEmail(p.email);
+      if (!e || seen.has(e)) continue;
+      seen.add(e);
+      const tm = byEmail.get(e);
+      if (
+        tm &&
+        String(tm.teamRole || "").trim().toLowerCase() === "leader" &&
+        tm.travelsWithTeam === false
+      ) {
+        continue;
+      }
+      count += 1;
+    }
+    for (const m of roster) {
+      const e = normalizeEmail(m.email);
+      if (!e || seen.has(e)) continue;
+      seen.add(e);
+      if (
+        String(m.teamRole || "").trim().toLowerCase() === "leader" &&
+        m.travelsWithTeam === false
+      ) {
+        continue;
+      }
+      count += 1;
+    }
+    return Math.max(count, 1);
+  }, [trip]);
   const useIndividualGoal =
     !canViewTeamDashboard &&
     !isTeamFundraisingMode &&
@@ -6624,23 +6698,41 @@ normalizeEmail(participant.email) === activeParticipantEmail
     "Travel Form",
     "Staff Tasks",
   ];
-  const leaderExpandedTabs = [
-    "Overview",
-    "Team",
+  const leaderExpandedTabs = useMemo(() => {
+    const base = [
+      "Overview",
+      "Team",
+      tripTabTravelSafety,
+      "Fundraising",
+      "Training",
+      "Tasks",
+      tripDocumentsTabLabel,
+      participantDocumentsTabLabel,
+      "Travel Form",
+    ];
+    if (isLeaderOnTripNotTraveling) {
+      return base.filter((t) => t !== "Fundraising" && t !== "Training");
+    }
+    return base;
+  }, [
+    isLeaderOnTripNotTraveling,
     tripTabTravelSafety,
-    "Fundraising",
-    "Training",
-    "Tasks",
     tripDocumentsTabLabel,
     participantDocumentsTabLabel,
-    "Travel Form",
-  ];
+  ]);
   const tabs = (() => {
     if (isPreviewingParticipant) return workerTabList;
     if (canManageTrips && !isStaffPreviewingLeader) return managerExpandedTabs;
     if (effectiveIsLeader) return leaderExpandedTabs;
     return workerTabList;
   })();
+
+  useEffect(() => {
+    if (!isLeaderOnTripNotTraveling) return;
+    if (tab === "Fundraising" || tab === "Training") {
+      setTab("Overview");
+    }
+  }, [isLeaderOnTripNotTraveling, tab]);
 
   /** Participants plus roster-only team members (same headcount as worker docs / fundraising list). */
   const materialsRosterHeadcount = workerDocumentParticipants.length;
@@ -7868,7 +7960,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   <select
                     className="input"
                     value={newWorkerDraft.teamRole}
-                    onChange={(event) => updateNewWorkerDraft("teamRole", event.target.value)}
+                    onChange={(event) => {
+                      const v = event.target.value;
+                      setNewWorkerDraft((current) => ({
+                        ...current,
+                        teamRole: v,
+                        travelsWithTeam:
+                          String(v).trim().toLowerCase() === "leader"
+                            ? current.travelsWithTeam !== false
+                            : true,
+                      }));
+                    }}
                   >
                     {TEAM_MEMBER_ROLE_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>
@@ -7876,6 +7978,16 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       </option>
                     ))}
                   </select>
+                  {String(newWorkerDraft.teamRole || "").trim().toLowerCase() === "leader" ? (
+                    <label className="row" style={{ gap: 8, alignItems: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={newWorkerDraft.travelsWithTeam !== false}
+                        onChange={(event) => updateNewWorkerDraft("travelsWithTeam", event.target.checked)}
+                      />
+                      <span className="small">Traveling with team</span>
+                    </label>
+                  ) : null}
                   <select
                     className="input"
                     value={newWorkerDraft.assignmentMode}
@@ -7933,8 +8045,24 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     />
                     <select
                       className="input"
-                      value={member.teamRole || "Worker"}
-                      onChange={(event) => updateRosterDraftMember(index, "teamRole", event.target.value)}
+                      value={normalizeLegacyTeamRole(member.teamRole || "Worker")}
+                      onChange={(event) => {
+                        const v = event.target.value;
+                        setRosterDraft((current) =>
+                          current.map((row, memberIndex) =>
+                            memberIndex === index
+                              ? {
+                                  ...row,
+                                  teamRole: v,
+                                  travelsWithTeam:
+                                    String(v).trim().toLowerCase() === "leader"
+                                      ? row.travelsWithTeam !== false
+                                      : true,
+                                }
+                              : row
+                          )
+                        );
+                      }}
                     >
                       {TEAM_MEMBER_ROLE_OPTIONS.map((opt) => (
                         <option key={opt} value={opt}>
@@ -7942,6 +8070,19 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         </option>
                       ))}
                     </select>
+                    {String(normalizeLegacyTeamRole(member.teamRole || "")).trim().toLowerCase() ===
+                    "leader" ? (
+                      <label className="row" style={{ gap: 8, alignItems: "center", gridColumn: "1 / -1" }}>
+                        <input
+                          type="checkbox"
+                          checked={member.travelsWithTeam !== false}
+                          onChange={(event) =>
+                            updateRosterDraftMember(index, "travelsWithTeam", event.target.checked)
+                          }
+                        />
+                        <span className="small">Traveling with team</span>
+                      </label>
+                    ) : null}
                     <RosterTshirtSizeSelect
                       value={member.tshirtSize || ""}
                       onChange={(event) =>
@@ -7984,6 +8125,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   <tr>
                     <th>Name</th>
                     <th>Role</th>
+                    <th>Traveling</th>
                     <th>T-shirt</th>
                     <th>Account</th>
                     <th>Email</th>
@@ -8007,7 +8149,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             member.name
                           )}
                         </td>
-                        <td>{member.teamRole || member.role || "Worker"}</td>
+                        <td>{normalizeLegacyTeamRole(member.teamRole || member.role || "Worker")}</td>
+                        <td className="small">
+                          {String(member.teamRole || member.role || "").trim().toLowerCase() === "leader"
+                            ? member.travelsWithTeam === false
+                              ? "No"
+                              : "Yes"
+                            : "—"}
+                        </td>
                         <td style={{ minWidth: 108, maxWidth: 140, verticalAlign: "middle" }}>
                           {canEditRosterTshirtInline(member) ? (
                             <RosterTshirtSizeSelect
@@ -8062,7 +8211,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     )})
                   ) : (
                     <tr>
-                      <td colSpan={staffViewAllParticipants ? 7 : 6} className="small">
+                      <td colSpan={staffViewAllParticipants ? 8 : 7} className="small">
                         No workers added yet.
                       </td>
                     </tr>
