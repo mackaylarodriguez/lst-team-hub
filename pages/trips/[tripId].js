@@ -1112,6 +1112,8 @@ export default function TripPage() {
   const [taskStatusMessage, setTaskStatusMessage] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [editingWorkerTaskDateId, setEditingWorkerTaskDateId] = useState("");
+  /** Local value while editing worker task due date (commit on Save, not on every calendar change). */
+  const [workerTaskDueDateDraft, setWorkerTaskDueDateDraft] = useState("");
 
   useEffect(() => {
     if (!editingWorkerTaskDateId) return undefined;
@@ -1119,6 +1121,7 @@ export default function TripPage() {
       if (e.key === "Escape") {
         e.preventDefault();
         setEditingWorkerTaskDateId("");
+        setWorkerTaskDueDateDraft("");
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -1557,6 +1560,7 @@ export default function TripPage() {
   useEffect(() => {
     if (!trip?.id) return;
     setEditingWorkerTaskDateId("");
+    setWorkerTaskDueDateDraft("");
     editingStaffTaskIdRef.current = null;
     setEditingStaffTaskId(null);
     setStaffTaskTitleDraft("");
@@ -3587,53 +3591,60 @@ export default function TripPage() {
     }
   }
 
-  async function handleUpdateWorkerTaskDueDate(taskId, value) {
+  async function persistWorkerTaskDueDate(taskId, value) {
     if (!trip || !taskId) return;
 
     const existingTask = (trip.tasks || []).find((item) => item.id === taskId);
     if (!existingTask) return;
 
+    const savedTask = await updateTripTask({
+      id: taskId,
+      title: existingTask.title,
+      description: existingTask.description,
+      category: existingTask.category,
+      status: existingTask.status,
+      assignedToUserId: existingTask.assignedToUserId,
+      dueDate: value || null,
+    });
+
+    setTrip((current) =>
+      current
+        ? {
+            ...current,
+            tasks: (current.tasks || [])
+              .map((task) => (task.id === taskId ? savedTask : task))
+              .sort((left, right) => {
+                const leftDue = String(left?.due || "").trim();
+                const rightDue = String(right?.due || "").trim();
+
+                if (!leftDue && !rightDue) {
+                  return String(left?.title || "").localeCompare(String(right?.title || ""));
+                }
+
+                if (!leftDue) return 1;
+                if (!rightDue) return -1;
+
+                return (
+                  leftDue.localeCompare(rightDue) ||
+                  String(left?.title || "").localeCompare(String(right?.title || ""))
+                );
+              }),
+          }
+        : current
+    );
+  }
+
+  async function handleApplyWorkerTaskDueDate() {
+    const taskId = editingWorkerTaskDateId;
+    if (!trip || !taskId) return;
     try {
-      const savedTask = await updateTripTask({
-        id: taskId,
-        title: existingTask.title,
-        description: existingTask.description,
-        category: existingTask.category,
-        status: existingTask.status,
-        assignedToUserId: existingTask.assignedToUserId,
-        dueDate: value || null,
-      });
-
-      setTrip((current) =>
-        current
-          ? {
-              ...current,
-              tasks: (current.tasks || [])
-                .map((task) => (task.id === taskId ? savedTask : task))
-                .sort((left, right) => {
-                  const leftDue = String(left?.due || "").trim();
-                  const rightDue = String(right?.due || "").trim();
-
-                  if (!leftDue && !rightDue) {
-                    return String(left?.title || "").localeCompare(String(right?.title || ""));
-                  }
-
-                  if (!leftDue) return 1;
-                  if (!rightDue) return -1;
-
-                  return (
-                    leftDue.localeCompare(rightDue) ||
-                    String(left?.title || "").localeCompare(String(right?.title || ""))
-                  );
-                }),
-            }
-          : current
-      );
+      await persistWorkerTaskDueDate(taskId, workerTaskDueDateDraft || "");
       setEditingWorkerTaskDateId("");
+      setWorkerTaskDueDateDraft("");
+      setTaskStatusMessage("");
     } catch (error) {
       console.error("Unable to update worker task due date", error);
       setTaskStatusMessage(error.message || "Unable to update worker task due date.");
-      setEditingWorkerTaskDateId("");
     }
   }
 
@@ -9770,21 +9781,46 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                     </div>
                                     {canViewTeamDashboard ? (
                                       editingWorkerTaskDateId === task.id ? (
-                                        <input
-                                          className="input"
-                                          type="date"
-                                          autoFocus
-                                          value={toDateInputValue(task.due)}
-                                          onChange={(e) =>
-                                            handleUpdateWorkerTaskDueDate(task.id, e.target.value)
-                                          }
-                                          style={{ padding: "7px 10px", fontSize: 13, maxWidth: 170 }}
-                                        />
+                                        <div
+                                          className="row"
+                                          style={{ flexWrap: "wrap", gap: 6, alignItems: "center" }}
+                                        >
+                                          <input
+                                            className="input"
+                                            type="date"
+                                            autoFocus
+                                            value={workerTaskDueDateDraft}
+                                            onChange={(e) => setWorkerTaskDueDateDraft(e.target.value)}
+                                            style={{ padding: "7px 10px", fontSize: 13, maxWidth: 170 }}
+                                          />
+                                          <button
+                                            type="button"
+                                            className="btn btnPrimary"
+                                            style={{ padding: "4px 10px", fontSize: 12 }}
+                                            onClick={() => void handleApplyWorkerTaskDueDate()}
+                                          >
+                                            Save
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="btn"
+                                            style={{ padding: "4px 10px", fontSize: 12 }}
+                                            onClick={() => {
+                                              setEditingWorkerTaskDateId("");
+                                              setWorkerTaskDueDateDraft("");
+                                            }}
+                                          >
+                                            Cancel
+                                          </button>
+                                        </div>
                                       ) : (
                                         <button
                                           type="button"
                                           className="staffTaskDateButton"
-                                          onClick={() => setEditingWorkerTaskDateId(task.id)}
+                                          onClick={() => {
+                                            setEditingWorkerTaskDateId(task.id);
+                                            setWorkerTaskDueDateDraft(toDateInputValue(task.due));
+                                          }}
                                         >
                                           {task.due ? `Due: ${formatShortDate(task.due)}` : "Add due date"}
                                         </button>
