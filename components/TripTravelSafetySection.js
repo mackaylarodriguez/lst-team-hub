@@ -332,8 +332,7 @@ export default function TripTravelSafetySection({
                   }}
                 >
                   <div className="small" style={{ marginBottom: 8 }}>
-                    Read all sections above, then confirm you understand the current travel and safety information
-                    (version {contentVersion}).
+                    Read all sections above, then confirm you understand the current travel and safety information.
                   </div>
                   <button className="btn btnPrimary" type="button" onClick={() => void handleAcknowledge()}>
                     I have read and understand this
