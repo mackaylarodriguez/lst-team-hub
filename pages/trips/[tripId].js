@@ -3513,13 +3513,13 @@ export default function TripPage() {
           completed: !!next[id],
           completedAt: value || null,
         });
-        const moduleMeta = allTrainingModules.find((item) => item.id === id);
-        let dateForUi = "";
-        if (saved.completedAt) {
-          dateForUi = moduleMeta
-            ? hydrateTrainingSessionDateFromDb(saved.completedAt, moduleMeta.title)
-            : String(saved.completedAt);
-        }
+        const moduleMeta = allTrainingModules.find((item) => String(item.id) === String(id));
+        const rawFromServer = String(saved.completedAt || "").trim() || String(value || "").trim();
+        const dateForUi = rawFromServer
+          ? moduleMeta
+            ? hydrateTrainingSessionDateFromDb(rawFromServer, moduleMeta.title)
+            : rawFromServer
+          : "";
         setParticipantTrainingStates((prev) => ({
           ...prev,
           [emailKey]: {
