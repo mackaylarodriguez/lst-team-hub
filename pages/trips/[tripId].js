@@ -335,7 +335,15 @@ function AppDetailAction({
   compact = false,
 }) {
   const commonStyle = compact
-    ? { display: "inline-block", marginTop: 4, padding: "4px 10px", fontSize: 12 }
+    ? {
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        marginTop: 4,
+        padding: "4px 10px",
+        fontSize: 12,
+      }
     : undefined;
   if (onClick) {
     return (
