@@ -31,6 +31,10 @@ import {
   resolveProfileIdByEmailForTraining,
   saveTrainingProgress,
 } from "@/lib/training";
+import {
+  getTrainingSessionOptionsForModuleTitle,
+  resolveTrainingSessionSelectValue,
+} from "@/lib/trainingSessionOptions";
 import { saveFundraisingProfile } from "@/lib/fundraising";
 import {
   addLinkResource,
@@ -9260,7 +9264,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         background: "rgba(255,255,255,.78)",
                       }}
                     >
-                      {supplementalTrainingModules.map((module) => (
+                      {supplementalTrainingModules.map((module) => {
+                        const sessionOptions = getTrainingSessionOptionsForModuleTitle(module.title);
+                        const dateKey = `${module.id}Date`;
+                        const rawStored = trainingState[dateKey] || "";
+                        const selectValue = sessionOptions
+                          ? resolveTrainingSessionSelectValue(rawStored, sessionOptions)
+                          : rawStored;
+                        return (
                         <div
                           key={`${participant.email}-${module.id}`}
                           id={
@@ -9308,15 +9319,33 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                 alignItems: "center",
                               }}
                             >
-                              <input
-                                className="input"
-                                type="date"
-                                value={trainingState[`${module.id}Date`] || ""}
-                                onChange={(e) =>
-                                  updateTrainingDate(module.id, e.target.value, participant.email)
-                                }
-                                style={{ padding: "8px 10px", fontSize: 13 }}
-                              />
+                              {sessionOptions ? (
+                                <select
+                                  className="input"
+                                  value={selectValue}
+                                  onChange={(e) =>
+                                    updateTrainingDate(module.id, e.target.value, participant.email)
+                                  }
+                                  style={{ padding: "8px 10px", fontSize: 13 }}
+                                >
+                                  <option value="">Select session…</option>
+                                  {sessionOptions.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                      {opt.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  className="input"
+                                  type="date"
+                                  value={trainingState[dateKey] || ""}
+                                  onChange={(e) =>
+                                    updateTrainingDate(module.id, e.target.value, participant.email)
+                                  }
+                                  style={{ padding: "8px 10px", fontSize: 13 }}
+                                />
+                              )}
                               <span
                                 className={
                                   "badge " +
@@ -9328,7 +9357,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
