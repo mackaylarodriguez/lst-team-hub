@@ -5746,6 +5746,7 @@ function parseDateSafe(dateStr) {
     const rows = (trip.participants || []).map((p) => ({
       refKey: `user:${p.id}`,
       displayName: p.name || p.email || "Member",
+      email: p.email || "",
     }));
     for (const m of trip.teamMembers || []) {
       const e = normalizeEmail(m.email);
@@ -5754,9 +5755,12 @@ function parseDateSafe(dateStr) {
       rows.push({
         refKey: `roster:${m.id}`,
         displayName: m.name || e || "Roster member",
+        email: m.email || "",
       });
     }
-    return rows.sort((a, b) => a.displayName.localeCompare(b.displayName));
+    return rows
+      .filter((row) => shouldIncludeInTripWorkerPipeline(trip, row.email))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [trip]);
 
   const travelFormTableRows = useMemo(() => {
