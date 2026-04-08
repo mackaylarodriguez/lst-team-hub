@@ -10165,53 +10165,121 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 const matTeamDraft = staffViewAllParticipants ? materialsDraft : teamLogisticsDraft;
                 const setMatTeamDraft = staffViewAllParticipants ? setMaterialsDraft : setTeamLogisticsDraft;
                 const teamMemberOnly = !staffViewAllParticipants;
-                const logisticsDatalistId = `materials-logistics-names-${trip?.id || "trip"}`;
+                const logisticsNameOpts = workerDocumentParticipants
+                  .map((p) => String(p?.name || p?.email || "").trim())
+                  .filter(Boolean);
+                const acctVal = String(matTeamDraft.teamAccountant || "").trim();
+                const recVal = String(matTeamDraft.teamRecorder || "").trim();
+                const acctInList = !acctVal || logisticsNameOpts.includes(acctVal);
+                const recInList = !recVal || logisticsNameOpts.includes(recVal);
                 return (
-                  <>
-                    <div className="card pad">
-                      <div className="cardSectionPill" style={{ marginBottom: 10 }}>
-                        Team logistics
-                      </div>
-                      <p className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
-                        Assign the team accountant and recorder, and confirm where materials should ship. Workers
-                        and leaders can update this section; staff see additional tools below.
-                      </p>
-                      <div style={{ display: "grid", gap: 14, maxWidth: 560 }}>
+                  <div
+                    className="card pad"
+                    style={{
+                      display: "grid",
+                      gap: 16,
+                      borderRadius: 14,
+                      border: "1px solid rgba(15, 23, 42, 0.1)",
+                      background:
+                        "linear-gradient(155deg, rgba(241, 245, 249, 0.92) 0%, rgba(255, 255, 255, 0.97) 42%, rgba(224, 231, 255, 0.2) 100%)",
+                      boxShadow: "0 10px 36px rgba(15, 23, 42, 0.07), 0 1px 0 rgba(255, 255, 255, 0.8) inset",
+                    }}
+                  >
+                    <div className="cardSectionPill" style={{ marginBottom: 2 }}>
+                      Team logistics
+                    </div>
+                    <p className="small" style={{ margin: 0, opacity: 0.88, lineHeight: 1.45 }}>
+                      Assign roles from workers on this trip, confirm the ship-to address, then review shipping
+                      and coordinator notes. Workers and leaders edit the left block; staff can edit everything.
+                    </p>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+                        gap: 16,
+                        alignItems: "start",
+                      }}
+                      className="materialsLogisticsTopGrid"
+                    >
+                      <div
+                        style={{
+                          display: "grid",
+                          gap: 12,
+                          padding: 14,
+                          borderRadius: 12,
+                          border: "1px solid rgba(15, 23, 42, 0.08)",
+                          background:
+                            "linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(248, 250, 252, 0.55))",
+                        }}
+                      >
                         <div>
-                          <div className="small" style={{ marginBottom: 6 }}>
+                          <div className="small" style={{ marginBottom: 6, fontWeight: 600 }}>
                             Team accountant
                           </div>
-                          <input
+                          <select
                             className="input"
-                            list={logisticsDatalistId}
-                            value={matTeamDraft.teamAccountant || ""}
-                            onChange={(e) =>
-                              setMatTeamDraft((prev) => ({ ...prev, teamAccountant: e.target.value }))
-                            }
-                            placeholder="Choose from list or type a name"
-                          />
+                            value={acctInList ? acctVal : "__other__"}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setMatTeamDraft((prev) => ({
+                                ...prev,
+                                teamAccountant: v === "__other__" ? acctVal : v,
+                              }));
+                            }}
+                          >
+                            <option value="">— Select a worker —</option>
+                            {!acctInList && acctVal ? (
+                              <option value="__other__">{`${acctVal} (not on roster)`}</option>
+                            ) : null}
+                            {logisticsNameOpts.map((name) => (
+                              <option key={`acct-${name}`} value={name}>
+                                {name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                         <div>
-                          <div className="small" style={{ marginBottom: 6 }}>
+                          <div className="small" style={{ marginBottom: 6, fontWeight: 600 }}>
                             Team recorder
                           </div>
-                          <input
+                          <select
                             className="input"
-                            list={logisticsDatalistId}
-                            value={matTeamDraft.teamRecorder || ""}
-                            onChange={(e) =>
-                              setMatTeamDraft((prev) => ({ ...prev, teamRecorder: e.target.value }))
-                            }
-                            placeholder="Choose from list or type a name"
-                          />
+                            value={recInList ? recVal : "__other_rec__"}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setMatTeamDraft((prev) => ({
+                                ...prev,
+                                teamRecorder:
+                                  v === "__other_rec__" ? recVal : v,
+                              }));
+                            }}
+                          >
+                            <option value="">— Select a worker —</option>
+                            {!recInList && recVal ? (
+                              <option value="__other_rec__">{`${recVal} (not on roster)`}</option>
+                            ) : null}
+                            {logisticsNameOpts.map((name) => (
+                              <option key={`rec-${name}`} value={name}>
+                                {name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                        <datalist id={logisticsDatalistId}>
-                          {tripDocumentWorkerOptions.map((name) => (
-                            <option key={name} value={name} />
-                          ))}
-                        </datalist>
+                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gap: 12,
+                          padding: 14,
+                          borderRadius: 12,
+                          border: "1px solid rgba(22, 163, 74, 0.14)",
+                          background:
+                            "linear-gradient(180deg, rgba(220, 252, 231, 0.35), rgba(255, 255, 255, 0.65))",
+                        }}
+                      >
                         <div>
-                          <div className="small" style={{ marginBottom: 6 }}>
+                          <div className="small" style={{ marginBottom: 6, fontWeight: 600 }}>
                             Shipping address
                           </div>
                           <textarea
@@ -10225,10 +10293,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           />
                         </div>
                         <div>
-                          <div className="small" style={{ marginBottom: 6 }}>
+                          <div className="small" style={{ marginBottom: 6, fontWeight: 600 }}>
                             Note (if different from application)
                           </div>
-                          <p className="small" style={{ marginBottom: 6, color: "var(--muted)" }}>
+                          <p className="small" style={{ margin: "0 0 8px", color: "var(--muted)", lineHeight: 1.4 }}>
                             Use this if the ship-to address or other details differ from what is on your LST
                             application.
                           </p>
@@ -10245,43 +10313,45 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             placeholder="e.g. Ship to parents’ home; application lists school address."
                           />
                         </div>
-                        {teamMemberOnly ? (
-                          <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                            <button
-                              type="button"
-                              className="btn btnPrimary"
-                              onClick={() => void handleSaveTeamLogisticsForTeamMember()}
-                            >
-                              Save team logistics
-                            </button>
-                            <AppStatusMessage
-                              message={teamLogisticsSaveStatus}
-                              tone={
-                                teamLogisticsSaveStatus === "Saved."
-                                  ? "success"
-                                  : teamLogisticsSaveStatus === "Saving..."
-                                    ? "info"
-                                    : teamLogisticsSaveStatus
-                                      ? "danger"
-                                      : "neutral"
-                              }
-                              compact
-                            />
-                          </div>
-                        ) : null}
                       </div>
                     </div>
 
-                    <div className="card pad">
-                      <div className="cardSectionPill" style={{ marginBottom: 10 }}>
-                        Shipping
-                      </div>
-                      <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+                        gap: 14,
+                        alignItems: "stretch",
+                      }}
+                      className="materialsLogisticsBottomGrid"
+                    >
+                      <div
+                        style={{
+                          display: "grid",
+                          gap: 10,
+                          padding: 14,
+                          borderRadius: 12,
+                          border: "1px solid rgba(37, 99, 235, 0.18)",
+                          background:
+                            "linear-gradient(165deg, rgba(219, 234, 254, 0.45), rgba(255, 255, 255, 0.7))",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            color: "rgba(30, 64, 175, 0.85)",
+                          }}
+                        >
+                          Shipping
+                        </div>
                         <div className="small" style={{ color: "var(--muted)" }}>
-                          Status: <strong>{materialsShippingState}</strong>
+                          Status: <strong style={{ color: "var(--text)" }}>{materialsShippingState}</strong>
                         </div>
                         <div>
-                          <div className="small" style={{ marginBottom: 6 }}>
+                          <div className="small" style={{ marginBottom: 6, fontWeight: 600 }}>
                             Shipping / tracking #
                           </div>
                           {teamMemberOnly ? (
@@ -10290,13 +10360,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                 fontFamily: "ui-monospace, monospace",
                                 wordBreak: "break-all",
                                 padding: "10px 12px",
-                                borderRadius: 12,
-                                border: "1px solid var(--border)",
-                                background: "rgba(248, 250, 252, 0.9)",
+                                borderRadius: 10,
+                                border: "1px solid rgba(37, 99, 235, 0.2)",
+                                background: "rgba(255, 255, 255, 0.75)",
+                                minHeight: 44,
                               }}
                             >
                               {String(matTeamDraft.materialsTrackingNumber || "").trim() || (
-                                <span style={{ color: "var(--muted)" }}>
+                                <span style={{ color: "var(--muted)", fontFamily: "inherit" }}>
                                   Staff will add tracking when the package ships.
                                 </span>
                               )}
@@ -10316,40 +10387,92 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           )}
                         </div>
                       </div>
-                    </div>
-
-                    <div className="card pad">
-                      <div className="cardSectionPill" style={{ marginBottom: 10 }}>
-                        Notes from staff
-                      </div>
-                      <p className="small" style={{ marginBottom: 10, color: "var(--muted)" }}>
-                        Coordinators can post updates here for the team. Everyone on this tab can read them.
-                      </p>
-                      {teamMemberOnly ? (
-                        <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                          {String(matTeamDraft.materialsNotesForTeam || "").trim() || (
-                            <span className="small" style={{ color: "var(--muted)" }}>
-                              No notes yet.
-                            </span>
-                          )}
+                      <div
+                        style={{
+                          display: "grid",
+                          gap: 10,
+                          padding: 14,
+                          borderRadius: 12,
+                          border: "1px solid rgba(124, 58, 237, 0.2)",
+                          background:
+                            "linear-gradient(165deg, rgba(237, 233, 254, 0.55), rgba(255, 255, 255, 0.72))",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            color: "rgba(91, 33, 182, 0.88)",
+                          }}
+                        >
+                          Notes from staff
                         </div>
-                      ) : (
-                        <textarea
-                          className="input"
-                          rows={5}
-                          value={matTeamDraft.materialsNotesForTeam || ""}
-                          onChange={(e) =>
-                            setMatTeamDraft((prev) => ({
-                              ...prev,
-                              materialsNotesForTeam: e.target.value,
-                            }))
-                          }
-                          placeholder="Visible to workers and leaders on this tab…"
-                        />
-                      )}
+                        <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.4 }}>
+                          Coordinators post updates here; everyone on this tab can read them.
+                        </p>
+                        {teamMemberOnly ? (
+                          <div
+                            style={{
+                              whiteSpace: "pre-wrap",
+                              lineHeight: 1.5,
+                              padding: "10px 12px",
+                              borderRadius: 10,
+                              border: "1px solid rgba(124, 58, 237, 0.15)",
+                              background: "rgba(255, 255, 255, 0.75)",
+                              flex: 1,
+                              minHeight: 80,
+                            }}
+                          >
+                            {String(matTeamDraft.materialsNotesForTeam || "").trim() || (
+                              <span className="small" style={{ color: "var(--muted)" }}>
+                                No notes yet.
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <textarea
+                            className="input"
+                            rows={5}
+                            value={matTeamDraft.materialsNotesForTeam || ""}
+                            onChange={(e) =>
+                              setMatTeamDraft((prev) => ({
+                                ...prev,
+                                materialsNotesForTeam: e.target.value,
+                              }))
+                            }
+                            placeholder="Visible to workers and leaders on this tab…"
+                            style={{ minHeight: 100 }}
+                          />
+                        )}
+                      </div>
                     </div>
 
-                    {!teamMemberOnly ? (
+                    {teamMemberOnly ? (
+                      <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <button
+                          type="button"
+                          className="btn btnPrimary"
+                          onClick={() => void handleSaveTeamLogisticsForTeamMember()}
+                        >
+                          Save team logistics
+                        </button>
+                        <AppStatusMessage
+                          message={teamLogisticsSaveStatus}
+                          tone={
+                            teamLogisticsSaveStatus === "Saved."
+                              ? "success"
+                              : teamLogisticsSaveStatus === "Saving..."
+                                ? "info"
+                                : teamLogisticsSaveStatus
+                                  ? "danger"
+                                  : "neutral"
+                          }
+                          compact
+                        />
+                      </div>
+                    ) : (
                       <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                         <button
                           type="button"
@@ -10372,8 +10495,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           compact
                         />
                       </div>
-                    ) : null}
-                  </>
+                    )}
+                  </div>
                 );
               })()
             : null}
@@ -10399,7 +10522,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   </div>
                   <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
                     Team name and site workbook plan are read-only. Team logistics, shipping, and staff notes for
-                    the team are in the cards above. Edit T-shirt sizing and workbook sending notes here.
+                    the team are in the card above. Edit T-shirt sizing and workbook sending notes here.
                   </div>
                   <div
                     className="row"
