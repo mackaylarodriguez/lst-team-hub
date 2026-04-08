@@ -1059,6 +1059,11 @@ const MATERIALS_PACKING_CHECKLIST_ITEMS = [
   { key: "dailyPlanners", label: "Daily Planners" },
   { key: "workbooks", label: "Workbooks" },
   { key: "tShirts", label: "T-shirts" },
+  {
+    key: "donnaCheck",
+    label: "Check",
+    title: "Budget check from Donna — mail out with the shipping box",
+  },
 ];
 
 function defaultMaterialsPackingChecklist() {
@@ -10967,7 +10972,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           background: "rgba(248, 250, 252, 0.75)",
                         }}
                       >
-                        {MATERIALS_PACKING_CHECKLIST_ITEMS.map(({ key, label }) => {
+                        {MATERIALS_PACKING_CHECKLIST_ITEMS.map(({ key, label, title }) => {
                           const checklist = parseMaterialsPackingChecklist(
                             materialsDraft?.materialsPackingChecklist
                           );
@@ -10975,6 +10980,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             <label
                               key={key}
                               className="row"
+                              title={title || undefined}
                               style={{
                                 gap: 10,
                                 alignItems: "center",
