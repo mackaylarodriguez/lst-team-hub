@@ -803,14 +803,22 @@ function TaskSection({
         <div className="small">No tasks in this section.</div>
       ) : (
         <table className="table adminTasksTable">
+          <colgroup>
+            <col className="adminTaskColProject" />
+            <col className="adminTaskColTask" />
+            <col className="adminTaskColDue" />
+            <col className="adminTaskColProgress" />
+            <col className="adminTaskColNotes" />
+            <col className="adminTaskColActions" />
+          </colgroup>
           <thead>
             <tr>
-              <th style={{ width: "20%" }}>Project</th>
-              <th style={{ width: "24%" }}>Task</th>
-              <th style={{ width: "22%" }}>Due Date</th>
-              <th style={{ width: "14%" }}>Progress</th>
-              <th style={{ width: "18%" }}>Notes</th>
-              <th style={{ width: "2%" }} />
+              <th>Project</th>
+              <th>Task</th>
+              <th>Due Date</th>
+              <th>Progress</th>
+              <th>Notes</th>
+              <th className="adminTaskActionsTh" aria-label="Actions" />
             </tr>
           </thead>
           <tbody>
@@ -821,7 +829,7 @@ function TaskSection({
 
               return (
                 <tr key={taskKey} className="staffTaskRow">
-                  <td style={{ fontWeight: 700 }}>
+                  <td className="adminTaskProjectCell" style={{ fontWeight: 700 }}>
                   {task.isMiscTask ? (
                       isEditingTitle ? (
                         <select
@@ -844,7 +852,7 @@ function TaskSection({
                       <div>{task.tripName}</div>
                     )}
                   </td>
-                  <td>
+                  <td className="adminTaskTaskCell">
                     {isEditingTitle ? (
                       <input
                         className="input"
@@ -893,15 +901,15 @@ function TaskSection({
                       ))}
                     </select>
                   </td>
-                  <td>
+                  <td className="adminTaskNotesCell">
                     <input
-                      className="input"
+                      className="input adminTaskNotesInput"
                       value={task.notes || ""}
                       onChange={(e) => onTaskNotesChange(task.tripId, task.id, e.target.value)}
                       onBlur={(e) => onTaskNotesBlur(task.tripId, task.id, e.target.value)}
                     />
                   </td>
-                  <td>
+                  <td className="adminTaskActionsCell">
                     <div
                       className="staffTaskRowActions"
                       style={rowStatus ? { opacity: 1, pointerEvents: "auto" } : undefined}

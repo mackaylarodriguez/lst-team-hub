@@ -1985,9 +1985,69 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .adminTasksTable{
   table-layout:fixed;
+  width:100%;
+}
+.adminTasksTable col.adminTaskColProject{ width:11%; }
+.adminTasksTable col.adminTaskColTask{ width:24%; }
+.adminTasksTable col.adminTaskColDue{ width:19%; }
+.adminTasksTable col.adminTaskColProgress{ width:12%; }
+.adminTasksTable col.adminTaskColNotes{ width:22%; }
+.adminTasksTable col.adminTaskColActions{ width:12%; }
+.adminTasksTable th.adminTaskActionsTh{
+  width:12%;
+  min-width:132px;
 }
 .adminTasksTable td.adminTaskDueCell{
   white-space:normal;
+}
+.adminTasksTable td.adminTaskProjectCell{
+  overflow:hidden;
+  max-width:0;
+}
+.adminTasksTable td.adminTaskProjectCell > div{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.adminTasksTable td.adminTaskProjectCell > select.input{
+  width:100%;
+  min-width:0;
+  max-width:100%;
+}
+.adminTasksTable td.adminTaskTaskCell{
+  min-width:0;
+  overflow:hidden;
+  vertical-align:top;
+}
+.adminTasksTable td.adminTaskTaskCell .adminTaskJumpButton{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  max-width:100%;
+}
+.adminTasksTable td.adminTaskTaskCell .input{
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+}
+.adminTasksTable td.adminTaskNotesCell{
+  min-width:0;
+  overflow:hidden;
+}
+.adminTasksTable .adminTaskNotesInput{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+.adminTasksTable td.adminTaskActionsCell{
+  min-width:132px;
+  vertical-align:top;
+}
+.adminTasksTable td.adminTaskActionsCell .staffTaskRowActions{
+  justify-content:flex-end;
+  max-width:100%;
 }
 .adminTasksTable .input,
 .adminTasksTable .statusSelect{
