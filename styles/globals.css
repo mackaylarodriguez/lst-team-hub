@@ -908,18 +908,22 @@ a.btn{
 .table th,.table td{padding:10px; border-bottom:1px solid var(--border); text-align:left}
 .table th{font-size:12px; color:var(--muted)}
 .table thead th{position:sticky; top:0; background:var(--card); z-index:1; box-shadow:0 1px 0 var(--border)}
+/* Sticky thead must use top:0 inside this scrollport. Do not offset by toolbar height here —
+   the Housing/Ticketing toolbars are siblings above the scroller; offsetting thead `top` caused
+   duplicate/mid-table header paint in WebKit with tall rows. */
 .budgetStickyTable{
-  border-collapse:separate;
-  border-spacing:0;
+  border-collapse:collapse;
 }
 .budgetStickyTable thead th{
-  top:calc(var(--app-shell-sticky-offset) + var(--budget-toolbar-height, 96px) + 10px);
+  top:0;
   z-index:4;
   background:rgba(255,255,255,.98);
+  box-shadow:0 1px 0 var(--border);
 }
 .budgetTableScroller{
   width:100%;
   max-width:100%;
+  max-height:min(75vh, 900px);
   overflow:auto;
   -webkit-overflow-scrolling:touch;
 }
