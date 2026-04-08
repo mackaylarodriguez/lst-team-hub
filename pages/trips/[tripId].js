@@ -10172,6 +10172,32 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 const recVal = String(matTeamDraft.teamRecorder || "").trim();
                 const acctInList = !acctVal || logisticsNameOpts.includes(acctVal);
                 const recInList = !recVal || logisticsNameOpts.includes(recVal);
+                const logisticsSubheader = {
+                  fontSize: 12,
+                  fontWeight: 600,
+                  letterSpacing: "0.02em",
+                  color: "var(--text)",
+                  marginBottom: 6,
+                  lineHeight: 1.35,
+                };
+                const logisticsBody = {
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                  color: "var(--text)",
+                };
+                const logisticsMuted = {
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                  color: "var(--muted)",
+                };
+                const logisticsReadoutBox = {
+                  ...logisticsBody,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "rgba(255, 255, 255, 0.75)",
+                  minHeight: 44,
+                };
+                const logisticsControl = { fontSize: 12, lineHeight: 1.45 };
                 return (
                   <div
                     className="card pad"
@@ -10188,7 +10214,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     <div className="cardSectionPill" style={{ marginBottom: 2 }}>
                       Team logistics
                     </div>
-                    <p className="small" style={{ margin: 0, opacity: 0.88, lineHeight: 1.45 }}>
+                    <p style={{ ...logisticsBody, margin: 0, opacity: 0.9 }}>
                       Assign roles from workers on this trip, confirm the ship-to address, then review shipping
                       and coordinator notes. Workers and leaders edit the left block; staff can edit everything.
                     </p>
@@ -10214,11 +10240,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         }}
                       >
                         <div>
-                          <div className="small" style={{ marginBottom: 6, fontWeight: 600 }}>
-                            Team accountant
-                          </div>
+                          <div style={logisticsSubheader}>Team accountant</div>
                           <select
                             className="input"
+                            style={logisticsControl}
                             value={acctInList ? acctVal : "__other__"}
                             onChange={(e) => {
                               const v = e.target.value;
@@ -10240,11 +10265,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           </select>
                         </div>
                         <div>
-                          <div className="small" style={{ marginBottom: 6, fontWeight: 600 }}>
-                            Team recorder
-                          </div>
+                          <div style={logisticsSubheader}>Team recorder</div>
                           <select
                             className="input"
+                            style={logisticsControl}
                             value={recInList ? recVal : "__other_rec__"}
                             onChange={(e) => {
                               const v = e.target.value;
@@ -10279,11 +10303,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         }}
                       >
                         <div>
-                          <div className="small" style={{ marginBottom: 6, fontWeight: 600 }}>
-                            Shipping address
-                          </div>
+                          <div style={logisticsSubheader}>Shipping address</div>
                           <textarea
                             className="input"
+                            style={logisticsControl}
                             rows={3}
                             value={matTeamDraft.materialsShipAddress || ""}
                             onChange={(e) =>
@@ -10293,15 +10316,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           />
                         </div>
                         <div>
-                          <div className="small" style={{ marginBottom: 6, fontWeight: 600 }}>
-                            Note (if different from application)
-                          </div>
-                          <p className="small" style={{ margin: "0 0 8px", color: "var(--muted)", lineHeight: 1.4 }}>
+                          <div style={logisticsSubheader}>Note (if different from application)</div>
+                          <p style={{ ...logisticsMuted, margin: "0 0 8px" }}>
                             Use this if the ship-to address or other details differ from what is on your LST
                             application.
                           </p>
                           <textarea
                             className="input"
+                            style={logisticsControl}
                             rows={2}
                             value={matTeamDraft.materialsShipAddressNote || ""}
                             onChange={(e) =>
@@ -10328,7 +10350,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       <div
                         style={{
                           display: "grid",
-                          gap: 10,
+                          gap: 12,
                           padding: 14,
                           borderRadius: 12,
                           border: "1px solid rgba(37, 99, 235, 0.18)",
@@ -10336,38 +10358,24 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             "linear-gradient(165deg, rgba(219, 234, 254, 0.45), rgba(255, 255, 255, 0.7))",
                         }}
                       >
-                        <div
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 800,
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            color: "rgba(30, 64, 175, 0.85)",
-                          }}
-                        >
-                          Shipping
-                        </div>
-                        <div className="small" style={{ color: "var(--muted)" }}>
-                          Status: <strong style={{ color: "var(--text)" }}>{materialsShippingState}</strong>
+                        <div style={logisticsSubheader}>Shipping</div>
+                        <div style={{ ...logisticsMuted, marginBottom: 0 }}>
+                          Status:{" "}
+                          <strong style={{ ...logisticsBody, fontWeight: 600 }}>{materialsShippingState}</strong>
                         </div>
                         <div>
-                          <div className="small" style={{ marginBottom: 6, fontWeight: 600 }}>
-                            Shipping / tracking #
-                          </div>
+                          <div style={logisticsSubheader}>Shipping / tracking #</div>
                           {teamMemberOnly ? (
                             <div
                               style={{
+                                ...logisticsReadoutBox,
                                 fontFamily: "ui-monospace, monospace",
                                 wordBreak: "break-all",
-                                padding: "10px 12px",
-                                borderRadius: 10,
                                 border: "1px solid rgba(37, 99, 235, 0.2)",
-                                background: "rgba(255, 255, 255, 0.75)",
-                                minHeight: 44,
                               }}
                             >
                               {String(matTeamDraft.materialsTrackingNumber || "").trim() || (
-                                <span style={{ color: "var(--muted)", fontFamily: "inherit" }}>
+                                <span style={{ ...logisticsMuted, fontFamily: "inherit" }}>
                                   Staff will add tracking when the package ships.
                                 </span>
                               )}
@@ -10375,6 +10383,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           ) : (
                             <input
                               className="input"
+                              style={{ ...logisticsControl, fontFamily: "ui-monospace, monospace" }}
                               value={matTeamDraft.materialsTrackingNumber || ""}
                               onChange={(e) =>
                                 setMatTeamDraft((prev) => ({
@@ -10390,7 +10399,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       <div
                         style={{
                           display: "grid",
-                          gap: 10,
+                          gap: 12,
                           padding: 14,
                           borderRadius: 12,
                           border: "1px solid rgba(124, 58, 237, 0.2)",
@@ -10398,43 +10407,29 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             "linear-gradient(165deg, rgba(237, 233, 254, 0.55), rgba(255, 255, 255, 0.72))",
                         }}
                       >
-                        <div
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 800,
-                            letterSpacing: "0.1em",
-                            textTransform: "uppercase",
-                            color: "rgba(91, 33, 182, 0.88)",
-                          }}
-                        >
-                          Notes from staff
-                        </div>
-                        <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.4 }}>
+                        <div style={logisticsSubheader}>Notes from staff</div>
+                        <p style={{ ...logisticsMuted, margin: 0 }}>
                           Coordinators post updates here; everyone on this tab can read them.
                         </p>
                         {teamMemberOnly ? (
                           <div
                             style={{
+                              ...logisticsReadoutBox,
                               whiteSpace: "pre-wrap",
-                              lineHeight: 1.5,
-                              padding: "10px 12px",
-                              borderRadius: 10,
                               border: "1px solid rgba(124, 58, 237, 0.15)",
-                              background: "rgba(255, 255, 255, 0.75)",
-                              flex: 1,
                               minHeight: 80,
+                              flex: 1,
                             }}
                           >
                             {String(matTeamDraft.materialsNotesForTeam || "").trim() || (
-                              <span className="small" style={{ color: "var(--muted)" }}>
-                                No notes yet.
-                              </span>
+                              <span style={logisticsMuted}>No notes yet.</span>
                             )}
                           </div>
                         ) : (
                           <textarea
                             className="input"
                             rows={5}
+                            style={{ ...logisticsControl, minHeight: 100 }}
                             value={matTeamDraft.materialsNotesForTeam || ""}
                             onChange={(e) =>
                               setMatTeamDraft((prev) => ({
@@ -10443,7 +10438,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
                               }))
                             }
                             placeholder="Visible to workers and leaders on this tab…"
-                            style={{ minHeight: 100 }}
                           />
                         )}
                       </div>
