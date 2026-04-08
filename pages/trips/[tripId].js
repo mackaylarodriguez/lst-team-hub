@@ -1258,6 +1258,58 @@ export default function TripPage() {
     return sessionTripRosterRow.travelsWithTeam === false;
   }, [isLeader, isStaffPreviewingLeader, sessionTripRosterRow]);
 
+  const currentParticipant = useMemo(() => {
+    if (!trip) return null;
+
+    if (isPreviewingParticipant) {
+      if (String(previewParticipantId).startsWith(ROSTER_PREVIEW_PREFIX)) {
+        const rosterId = String(previewParticipantId).slice(ROSTER_PREVIEW_PREFIX.length);
+        const rosterMember = (trip.teamMembers || []).find((m) => String(m.id) === String(rosterId));
+        if (rosterMember) {
+          return {
+            id: `${ROSTER_PREVIEW_PREFIX}${rosterMember.id}`,
+            tripTeamMemberId: rosterMember.id,
+            name: rosterMember.name || rosterMember.email || "Roster member",
+            email: rosterMember.email || "",
+            firstName: rosterMember.firstName || "",
+            lastName: rosterMember.lastName || "",
+            rosterOnly: true,
+            assignmentId: "",
+          };
+        }
+      }
+      if (String(previewParticipantId) === WORKER_PREVIEW_PARTICIPANT_ID) {
+        return {
+          id: WORKER_PREVIEW_PARTICIPANT_ID,
+          name: "Worker preview",
+          email: "",
+          firstName: "",
+          rosterOnly: false,
+          assignmentId: "",
+        };
+      }
+      return (
+        trip.participants.find(
+          (participant) => String(participant.id) === String(previewParticipantId)
+        ) || null
+      );
+    }
+
+    if (!session) return null;
+    if (staffViewAllParticipants) return null;
+
+    const sessionUserId = String(session.profileId || session.id || session.authUserId || "").trim();
+    const sessionEmail = normalizeEmail(session.email);
+
+    return (
+      trip.participants.find((participant) => {
+        if (sessionUserId && String(participant.id) === sessionUserId) return true;
+        const pe = normalizeEmail(participant.email);
+        return Boolean(pe && sessionEmail && pe === sessionEmail);
+      }) || null
+    );
+  }, [trip, session, staffViewAllParticipants, isPreviewingParticipant, previewParticipantId]);
+
   const canManageTripDocuments =
     staffViewAllParticipants || (effectiveIsLeader && !isPreviewingParticipant);
 
@@ -5729,58 +5781,6 @@ function parseDateSafe(dateStr) {
     }
     return options.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
   }, [trip]);
-
-  const currentParticipant = useMemo(() => {
-    if (!trip) return null;
-
-    if (isPreviewingParticipant) {
-      if (String(previewParticipantId).startsWith(ROSTER_PREVIEW_PREFIX)) {
-        const rosterId = String(previewParticipantId).slice(ROSTER_PREVIEW_PREFIX.length);
-        const rosterMember = (trip.teamMembers || []).find((m) => String(m.id) === String(rosterId));
-        if (rosterMember) {
-          return {
-            id: `${ROSTER_PREVIEW_PREFIX}${rosterMember.id}`,
-            tripTeamMemberId: rosterMember.id,
-            name: rosterMember.name || rosterMember.email || "Roster member",
-            email: rosterMember.email || "",
-            firstName: rosterMember.firstName || "",
-            lastName: rosterMember.lastName || "",
-            rosterOnly: true,
-            assignmentId: "",
-          };
-        }
-      }
-      if (String(previewParticipantId) === WORKER_PREVIEW_PARTICIPANT_ID) {
-        return {
-          id: WORKER_PREVIEW_PARTICIPANT_ID,
-          name: "Worker preview",
-          email: "",
-          firstName: "",
-          rosterOnly: false,
-          assignmentId: "",
-        };
-      }
-      return (
-        trip.participants.find(
-          (participant) => String(participant.id) === String(previewParticipantId)
-        ) || null
-      );
-    }
-
-    if (!session) return null;
-    if (staffViewAllParticipants) return null;
-
-    const sessionUserId = String(session.profileId || session.id || session.authUserId || "").trim();
-    const sessionEmail = normalizeEmail(session.email);
-
-    return (
-      trip.participants.find((participant) => {
-        if (sessionUserId && String(participant.id) === sessionUserId) return true;
-        const pe = normalizeEmail(participant.email);
-        return Boolean(pe && sessionEmail && pe === sessionEmail);
-      }) || null
-    );
-  }, [trip, session, staffViewAllParticipants, isPreviewingParticipant, previewParticipantId]);
 
   const activeParticipantEmail =
     normalizeEmail(currentParticipant?.email) || normalizeEmail(session?.email) || "";
