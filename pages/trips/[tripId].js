@@ -1071,6 +1071,38 @@ const WORKER_PREVIEW_PARTICIPANT_ID = "__lst_worker_preview__";
 const LEADER_PREVIEW_PARTICIPANT_ID = "__lst_leader_preview__";
 const ROSTER_PREVIEW_PREFIX = "__lst_roster_preview__:";
 
+/** Standard items staff checks while packing the team materials box (Materials tab, staff only). */
+const MATERIALS_PACKING_CHECKLIST_ITEMS = [
+  { key: "readerInfoSheets", label: "Reader info sheets" },
+  { key: "lstPens", label: "LST pens" },
+  { key: "seedThoughts", label: "Seed Thoughts" },
+  { key: "dailyPlanners", label: "Daily Planners" },
+  { key: "workbooks", label: "Workbooks" },
+  { key: "tShirts", label: "T-shirts" },
+];
+
+function defaultMaterialsPackingChecklist() {
+  return Object.fromEntries(MATERIALS_PACKING_CHECKLIST_ITEMS.map(({ key }) => [key, false]));
+}
+
+function parseMaterialsPackingChecklist(raw) {
+  const base = defaultMaterialsPackingChecklist();
+  if (raw == null) return base;
+  let obj = raw;
+  if (typeof raw === "string") {
+    try {
+      obj = JSON.parse(raw);
+    } catch {
+      return base;
+    }
+  }
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return base;
+  for (const { key } of MATERIALS_PACKING_CHECKLIST_ITEMS) {
+    if (typeof obj[key] === "boolean") base[key] = obj[key];
+  }
+  return base;
+}
+
 export default function TripPage() {
   const router = useRouter();
   const { tripId } = router.query;
@@ -1778,6 +1810,7 @@ export default function TripPage() {
                 materialsTrackingNumber: row.materialsTrackingNumber ?? "",
                 materialsNotes: row.materialsNotes ?? "",
                 materialsNotesForTeam: row.materialsNotesForTeam ?? "",
+                materialsPackingChecklist: parseMaterialsPackingChecklist(row.materialsPackingChecklist),
               }
             : {
                 numWorkers: "",
@@ -1790,6 +1823,7 @@ export default function TripPage() {
                 materialsTrackingNumber: "",
                 materialsNotes: "",
                 materialsNotesForTeam: "",
+                materialsPackingChecklist: defaultMaterialsPackingChecklist(),
               }
         );
       } catch (e) {
@@ -7134,6 +7168,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 materialsShipAddressNote: next.materialsShipAddressNote ?? "",
                 materialsTrackingNumber: next.materialsTrackingNumber ?? "",
                 materialsNotesForTeam: next.materialsNotesForTeam ?? "",
+                materialsPackingChecklist: parseMaterialsPackingChecklist(next.materialsPackingChecklist),
               }
             : d
         );
@@ -7185,6 +7220,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
         materialsTrackingNumber: materialsDraft.materialsTrackingNumber ?? "",
         materialsNotes: materialsDraft.materialsNotes ?? "",
         materialsNotesForTeam: materialsDraft.materialsNotesForTeam ?? "",
+        materialsPackingChecklist:
+          materialsDraft.materialsPackingChecklist || defaultMaterialsPackingChecklist(),
       });
       materialsBudgetLoadGenRef.current += 1;
       const next = await getTripBudget(trip.id);
@@ -7201,6 +7238,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
           materialsTrackingNumber: next.materialsTrackingNumber ?? "",
           materialsNotes: next.materialsNotes ?? "",
           materialsNotesForTeam: next.materialsNotesForTeam ?? "",
+          materialsPackingChecklist: parseMaterialsPackingChecklist(next.materialsPackingChecklist),
         });
       }
       setMaterialsSaveStatus("Saved.");
@@ -7211,6 +7249,32 @@ normalizeEmail(participant.email) === activeParticipantEmail
       setMaterialsSaveStatus(msg);
       showToast(msg, "error");
       return false;
+    }
+  }
+
+  async function handleToggleMaterialsPackingItem(key) {
+    if (!trip?.id || !materialsDraft || !staffViewAllParticipants) return;
+    const prev = parseMaterialsPackingChecklist(materialsDraft.materialsPackingChecklist);
+    const nextChecklist = { ...prev, [key]: !prev[key] };
+    setMaterialsDraft((d) => (d ? { ...d, materialsPackingChecklist: nextChecklist } : d));
+    try {
+      materialsBudgetLoadGenRef.current += 1;
+      await saveTripBudget(trip.id, { materialsPackingChecklist: nextChecklist });
+      const next = await getTripBudget(trip.id);
+      setTripBudgetRow(next);
+      if (next) {
+        setMaterialsDraft((d) =>
+          d
+            ? {
+                ...d,
+                materialsPackingChecklist: parseMaterialsPackingChecklist(next.materialsPackingChecklist),
+              }
+            : d
+        );
+      }
+    } catch (e) {
+      setMaterialsDraft((d) => (d ? { ...d, materialsPackingChecklist: prev } : d));
+      showToast(e.message || "Could not save packing checklist.", "error");
     }
   }
 
@@ -7229,6 +7293,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
             materialsTrackingNumber: row.materialsTrackingNumber ?? "",
             materialsNotes: row.materialsNotes ?? "",
             materialsNotesForTeam: row.materialsNotesForTeam ?? "",
+            materialsPackingChecklist: parseMaterialsPackingChecklist(row.materialsPackingChecklist),
           }
         : {
             numWorkers: "",
@@ -7241,6 +7306,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
             materialsTrackingNumber: "",
             materialsNotes: "",
             materialsNotesForTeam: "",
+            materialsPackingChecklist: defaultMaterialsPackingChecklist(),
           }
     );
     setIsEditingMaterialsGlance(false);
@@ -10863,6 +10929,59 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           )}
                         </div>
                       )}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      ...materialsGlanceRowSending,
+                      marginTop: 14,
+                      borderTop: "1px solid rgba(15, 23, 42, 0.08)",
+                      paddingTop: 16,
+                    }}
+                  >
+                    <div style={materialsGlanceLabel}>Shipping box checklist</div>
+                    <div>
+                      <div style={{ ...materialsGlanceMuted, marginBottom: 10, lineHeight: 1.45 }}>
+                        Staff only — standard items for every team box. Check them off as you pack (saved
+                        automatically).
+                      </div>
+                      <div
+                        style={{
+                          display: "grid",
+                          gap: 8,
+                          padding: "12px 14px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(15, 23, 42, 0.08)",
+                          background: "rgba(248, 250, 252, 0.75)",
+                        }}
+                      >
+                        {MATERIALS_PACKING_CHECKLIST_ITEMS.map(({ key, label }) => {
+                          const checklist = parseMaterialsPackingChecklist(
+                            materialsDraft?.materialsPackingChecklist
+                          );
+                          return (
+                            <label
+                              key={key}
+                              className="row"
+                              style={{
+                                gap: 10,
+                                alignItems: "center",
+                                cursor: "pointer",
+                                fontSize: 13,
+                                fontWeight: 500,
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={!!checklist[key]}
+                                onChange={() => void handleToggleMaterialsPackingItem(key)}
+                              />
+                              <span>{label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
