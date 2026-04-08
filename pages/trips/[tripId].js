@@ -479,29 +479,6 @@ function getWorkerConnectionStatus(member) {
   };
 }
 
-function buildWorkerInvitePayload(email, trip) {
-  const loginUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/login?next=${encodeURIComponent(`/trips/${trip?.id || ""}`)}`
-    : "/login";
-  const tripName = trip?.name || "your LST team";
-  const site = trip?.location ? ` for ${trip.location}` : "";
-  const subject = `Join ${tripName} on the LST app`;
-  const body = [
-    "Hi,",
-    "",
-    `You have been added to ${tripName}${site} in the LST app.`,
-    "",
-    "Create your account here:",
-    loginUrl,
-    "",
-    "Use this same email address so your account links to the team automatically.",
-    "",
-    "Thanks!",
-  ].join("\n");
-
-  return { loginUrl, subject, body };
-}
-
 /** Prefer an explicit https link (e.g. SharePoint) over pdf when both exist. */
 function preferredTripResourceOpenUrl(doc) {
   if (!doc) return "";
@@ -557,6 +534,7 @@ function createEmptyRosterMember() {
     firstName: "",
     lastName: "",
     email: "",
+    cellPhone: "",
     teamRole: "Worker",
     travelsWithTeam: true,
     tshirtSize: "",
@@ -570,6 +548,7 @@ function createEmptyWorkerDraft() {
     firstName: "",
     lastName: "",
     email: "",
+    cellPhone: "",
     teamRole: "Worker",
     travelsWithTeam: true,
     assignmentMode: "unassigned",
@@ -1200,7 +1179,6 @@ export default function TripPage() {
   const [isAddingWorker, setIsAddingWorker] = useState(false);
   const [newWorkerDraft, setNewWorkerDraft] = useState(() => createEmptyWorkerDraft());
   const [workerAddStatus, setWorkerAddStatus] = useState("");
-  const [invitingWorkerEmail, setInvitingWorkerEmail] = useState("");
 
   const [trip, setTrip] = useState(null);
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
@@ -4898,6 +4876,7 @@ function parseDateSafe(dateStr) {
             firstName: member.firstName || "",
             lastName: member.lastName || "",
             email: member.email || "",
+            cellPhone: member.cellPhone || "",
             teamRole: normalizeLegacyTeamRole(member.teamRole || member.role || "Worker"),
             travelsWithTeam: member.travelsWithTeam !== false,
             tshirtSize: member.tshirtSize || "",
@@ -4934,65 +4913,6 @@ function parseDateSafe(dateStr) {
 
   function updateNewWorkerDraft(field, value) {
     setNewWorkerDraft((current) => ({ ...current, [field]: value }));
-  }
-
-  async function sendWorkerInvite(email) {
-    const normalizedWorkerEmail = normalizeEmail(email);
-    if (!normalizedWorkerEmail) {
-      setWorkerAddStatus("Add an email before sending an invite.");
-      return false;
-    }
-
-    try {
-      setInvitingWorkerEmail(normalizedWorkerEmail);
-      const response = await fetch("/api/trip-invite", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          recipientEmail: normalizedWorkerEmail,
-          recipientName: trip?.teamMembers?.find(
-            (member) => normalizeEmail(member.email) === normalizedWorkerEmail
-          )?.name || "",
-          senderEmail: session?.email || "",
-          senderName: session?.name || session?.email || "LST staff",
-          tripId: trip?.id || "",
-          tripName: trip?.name || "",
-          tripLocation: trip?.location || "",
-          tripDates: trip?.dates || "",
-        }),
-      });
-
-      const result = await response.json().catch(() => null);
-      if (!response.ok) {
-        const { subject, body } = buildWorkerInvitePayload(normalizedWorkerEmail, trip);
-
-        if (typeof window !== "undefined") {
-          const mailtoUrl = `mailto:${encodeURIComponent(normalizedWorkerEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-          window.location.href = mailtoUrl;
-        }
-
-        if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(`${subject}\n\n${body}`);
-        }
-
-        setWorkerAddStatus(
-          result?.error
-            ? `${result.error} Opened a draft invite instead.`
-            : "Trip invite email is not configured yet. Opened a draft invite instead."
-        );
-        return true;
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Unable to prepare worker invite", error);
-      setWorkerAddStatus("Invite could not be sent.");
-      return false;
-    } finally {
-      setInvitingWorkerEmail("");
-    }
   }
 
   function resolveRosterMemberIdForTshirt(member) {
@@ -5148,6 +5068,7 @@ function parseDateSafe(dateStr) {
           firstName,
           lastName,
           email,
+          cellPhone: String(newWorkerDraft.cellPhone || "").trim(),
           teamRole: role,
           travelsWithTeam,
           tshirtSize: "",
@@ -5186,14 +5107,6 @@ function parseDateSafe(dateStr) {
     } catch (error) {
       console.error("Unable to add worker to trip", error);
       setWorkerAddStatus(error.message || "Unable to add worker.");
-    }
-  }
-
-  async function handleInviteWorker(member) {
-    const email = normalizeEmail(member?.email);
-    const inviteWasSent = await sendWorkerInvite(email);
-    if (inviteWasSent) {
-      setWorkerAddStatus(`Invite sent for ${email}.`);
     }
   }
 
@@ -5929,6 +5842,7 @@ function parseDateSafe(dateStr) {
         travelsWithTeam: member.travelsWithTeam !== false,
         tshirtSize: String(member.tshirtSize || "").trim(),
         email,
+        cellPhone: String(member.cellPhone || "").trim(),
         fundraisingUrl: "",
         startDate: member.startDate || trip.startDate || "",
         endDate: member.endDate || trip.endDate || "",
@@ -5959,6 +5873,7 @@ function parseDateSafe(dateStr) {
             : true,
         tshirtSize: String(rosterMatch?.tshirtSize || existing?.tshirtSize || "").trim(),
         email: participant.email || existing?.email || "",
+        cellPhone: String(rosterMatch?.cellPhone || existing?.cellPhone || "").trim(),
         fundraisingUrl: participant.fundraisingUrl || existing?.fundraisingUrl || "",
         startDate: existing?.startDate || trip.startDate || "",
         endDate: existing?.endDate || trip.endDate || "",
@@ -8288,8 +8203,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
             </div>
             <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
               {staffViewAllParticipants
-                ? "Members, account status, invites, and T-shirt sizes (per person on the roster)."
-                : "Everyone on the team can see this roster, including names and emails. Use the T-shirt column to set your own size. Contact your leader or staff for other roster changes."}
+                ? "Members, account status, and T-shirt sizes (per person on the roster)."
+                : "Everyone on the team can see this roster, including names, emails, and cell numbers when saved. Use the T-shirt column to set your own size. Contact your leader or staff for other roster changes."}
             </div>
 
             {staffViewAllParticipants && isAddingWorker ? (
@@ -8329,6 +8244,13 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     value={newWorkerDraft.email}
                     onChange={(event) => updateNewWorkerDraft("email", event.target.value)}
                     placeholder="worker@email.com"
+                  />
+                  <input
+                    className="input"
+                    type="tel"
+                    value={newWorkerDraft.cellPhone}
+                    onChange={(event) => updateNewWorkerDraft("cellPhone", event.target.value)}
+                    placeholder="Cell phone (optional)"
                   />
                   <select
                     className="input"
@@ -8415,6 +8337,13 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       value={member.email || ""}
                       placeholder="Email"
                       onChange={(event) => updateRosterDraftMember(index, "email", event.target.value)}
+                    />
+                    <input
+                      className="input"
+                      type="tel"
+                      value={member.cellPhone || ""}
+                      placeholder="Cell phone"
+                      onChange={(event) => updateRosterDraftMember(index, "cellPhone", event.target.value)}
                     />
                     <select
                       className="input"
@@ -8506,8 +8435,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     <th>T-shirt</th>
                     <th>Account</th>
                     <th>Email</th>
+                    <th>Cell phone</th>
                     <th>Project Dates</th>
-                    {staffViewAllParticipants ? <th>Actions</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -8567,28 +8496,21 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             "Not set"
                           )}
                         </td>
+                        <td className="small">
+                          {String(member.cellPhone || "").trim() ? (
+                            <a href={`tel:${String(member.cellPhone).trim().replace(/\s+/g, "")}`}>
+                              {member.cellPhone}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                         <td>{formatTripDateRange(member.startDate, member.endDate)}</td>
-                        {staffViewAllParticipants ? (
-                          <td>
-                            <button
-                              className="btn"
-                              type="button"
-                              onClick={() => void handleInviteWorker(member)}
-                              disabled={!connectionStatus.canInvite || invitingWorkerEmail === normalizeEmail(member.email)}
-                              title={connectionStatus.inviteTitle}
-                              style={!connectionStatus.canInvite ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
-                            >
-                              {invitingWorkerEmail === normalizeEmail(member.email)
-                                ? "Sending..."
-                                : connectionStatus.inviteLabel}
-                            </button>
-                          </td>
-                        ) : null}
                       </tr>
                     )})
                   ) : (
                     <tr>
-                      <td colSpan={staffViewAllParticipants ? 8 : 7} className="small">
+                      <td colSpan={8} className="small">
                         No workers added yet.
                       </td>
                     </tr>
