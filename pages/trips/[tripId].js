@@ -13,6 +13,7 @@ import {
   getTripForCurrentUser,
   listTripParticipants,
   removeTripAssignment,
+  saveTripGroupLeaderTravelContact,
   saveTripParticipantDocumentTypes,
   updateTripForCurrentUser,
 } from "@/lib/trips";
@@ -1204,6 +1205,11 @@ export default function TripPage() {
   const [travelFormModalOpen, setTravelFormModalOpen] = useState(false);
   const [travelFormTargetRefKey, setTravelFormTargetRefKey] = useState("");
   const [travelFormDraft, setTravelFormDraft] = useState(() => ({ ...TRAVEL_FORM_EMPTY }));
+  const [groupLeaderTravelDraft, setGroupLeaderTravelDraft] = useState({
+    name: "",
+    cellPhone: "",
+    email: "",
+  });
   const [travelFormStatus, setTravelFormStatus] = useState("");
   const [travelFormResponses, setTravelFormResponses] = useState([]);
   const [tripMeetings, setTripMeetings] = useState([]);
@@ -3391,6 +3397,11 @@ export default function TripPage() {
     setTravelFormTargetRefKey(refKey);
     setTravelFormStatus("");
     setTravelFormModalOpen(true);
+    setGroupLeaderTravelDraft({
+      name: trip?.groupLeaderName || "",
+      cellPhone: trip?.groupLeaderCellPhone || "",
+      email: trip?.groupLeaderEmail || "",
+    });
     getTravelFormForRef(trip.id, {
       userId: userId || undefined,
       tripTeamMemberId: tripTeamMemberId || undefined,
@@ -3457,8 +3468,29 @@ export default function TripPage() {
         ...travelFormDraft,
         teamName: travelFormDraft.teamName || trip.name,
       });
+      let leaderPatch = null;
+      if (canManageTrips) {
+        leaderPatch = await saveTripGroupLeaderTravelContact({
+          tripId: trip.id,
+          groupLeaderName: groupLeaderTravelDraft.name,
+          groupLeaderCellPhone: groupLeaderTravelDraft.cellPhone,
+          groupLeaderEmail: groupLeaderTravelDraft.email,
+        });
+      }
       const updated = await listTravelFormResponsesForTrip(trip.id);
       setTravelFormResponses(updated);
+      if (leaderPatch) {
+        setTrip((current) =>
+          current
+            ? {
+                ...current,
+                groupLeaderName: leaderPatch.groupLeaderName,
+                groupLeaderCellPhone: leaderPatch.groupLeaderCellPhone,
+                groupLeaderEmail: leaderPatch.groupLeaderEmail,
+              }
+            : current
+        );
+      }
       setTravelFormStatus("Saved.");
       showToast("Travel form saved.");
       const travelFormTask = (trip.tasks || []).find((t) => t.title === "Fill out Travel Form");
@@ -4280,6 +4312,19 @@ function parseDateSafe(dateStr) {
       month: "short",
       day: "numeric",
     }).format(date);
+  }
+
+  /** Incomplete worker task with a due date before today (local calendar). */
+  function isWorkerTripTaskPastDue(dueStr, isComplete) {
+    if (isComplete) return false;
+    const ymd = toDateInputValue(dueStr);
+    if (!ymd) return false;
+    const due = parseDateSafe(ymd);
+    if (!due) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    return due.getTime() < today.getTime();
   }
 
   function groupTasksByWorkArea(tasks) {
@@ -8050,12 +8095,27 @@ normalizeEmail(participant.email) === activeParticipantEmail
               </div>
               {overviewUpcomingTasks.length > 0 ? (
                 <div style={{ display: "grid", gap: 10 }}>
-                  {overviewUpcomingTasks.map((task) => (
+                  {overviewUpcomingTasks.map((task) => {
+                    const workerOverviewItem =
+                      task.destinationTab === "Tasks" || task.destinationTab === "Trip Documents";
+                    const workerOverviewPastDue =
+                      !canViewTeamDashboard &&
+                      workerOverviewItem &&
+                      isWorkerTripTaskPastDue(task.dueDate, false);
+                    return (
                     <div
                       key={task.id}
                       style={{
                         paddingBottom: 10,
                         borderBottom: "1px solid var(--border)",
+                        ...(workerOverviewPastDue
+                          ? {
+                              color: "var(--danger)",
+                              borderLeft: "3px solid var(--danger)",
+                              paddingLeft: 10,
+                              marginLeft: -4,
+                            }
+                          : {}),
                       }}
                     >
                       {canViewTeamDashboard ? (
@@ -8099,7 +8159,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>{task.details}</div>
                       ) : null}
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               ) : (
                 <AppEmptyState
@@ -9910,6 +9971,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           <div style={{ display: "grid", gap: 0 }}>
                             {sectionTasks.map((task) => {
                               const done = !!taskState[task.id];
+                              const workerTaskPastDue = isWorkerTripTaskPastDue(task.due, done);
                               const isTravelFormTask = task.title === "Fill out Travel Form";
                               const canFillTravelForm = isTravelFormTask && String(participant.id) === String(currentParticipant?.id);
                               const workerTaskTemplate = findWorkerTaskTemplate(task);
@@ -9947,6 +10009,15 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                     padding: "8px 0",
                                     borderBottom: "1px solid var(--border)",
                                     alignItems: "flex-start",
+                                    ...(workerTaskPastDue
+                                      ? {
+                                          background: "rgba(239, 68, 68, 0.07)",
+                                          borderLeft: "3px solid var(--danger)",
+                                          paddingLeft: 10,
+                                          marginLeft: -4,
+                                          borderRadius: 6,
+                                        }
+                                      : {}),
                                   }}
                                 >
                                   <input
@@ -9959,9 +10030,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                   <div
                                       style={{
                                         fontSize: 13,
-                                        fontWeight: 400,
+                                        fontWeight: workerTaskPastDue ? 600 : 400,
                                         lineHeight: 1.35,
                                         marginBottom: 4,
+                                        color: workerTaskPastDue ? "var(--danger)" : undefined,
                                       }}
                                     >
                                       {task.title}
@@ -10060,7 +10132,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                           </div>
                                         </div>
                                       ) : editingWorkerTaskDateId === task.id ? (
-                                        <div className="small" style={{ color: "var(--muted)", lineHeight: 1.4 }}>
+                                        <div
+                                          className="small"
+                                          style={{
+                                            color: workerTaskPastDue ? "var(--danger)" : "var(--muted)",
+                                            fontWeight: workerTaskPastDue ? 600 : undefined,
+                                            lineHeight: 1.4,
+                                          }}
+                                        >
                                           {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
                                           <div style={{ marginTop: 4 }}>
                                             Editing due date in{" "}
@@ -10078,6 +10157,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                         <button
                                           type="button"
                                           className="staffTaskDateButton"
+                                          style={
+                                            workerTaskPastDue
+                                              ? { color: "var(--danger)", fontWeight: 700 }
+                                              : undefined
+                                          }
                                           onClick={() => {
                                             setEditingWorkerTaskDateId(task.id);
                                             setEditingWorkerDueParticipantKey(workerDueParticipantKey);
@@ -10087,8 +10171,13 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                           {task.due ? `Due: ${formatShortDate(task.due)}` : "Add due date"}
                                         </button>
                                       )
-                                    ) : (
-                                      <div className="small">
+                                      ) : (
+                                        <div
+                                          className="small"
+                                          style={
+                                            workerTaskPastDue ? { color: "var(--danger)", fontWeight: 600 } : undefined
+                                          }
+                                        >
                                         {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
                                       </div>
                                     )}
@@ -12807,6 +12896,75 @@ normalizeEmail(participant.email) === activeParticipantEmail
               </div>
             ) : null}
             <div style={{ display: "grid", gap: 12 }}>
+              {canManageTrips ? (
+                <div
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "var(--surfaceMuted, rgba(15, 23, 42, 0.04))",
+                  }}
+                >
+                  <div className="small" style={{ fontWeight: 700, marginBottom: 8 }}>
+                    Staff only — group leader contact
+                  </div>
+                  <div className="small" style={{ marginBottom: 10, opacity: 0.88, lineHeight: 1.4 }}>
+                    Trip-wide leader for travel coordination. Saved with this form; workers do not see this block.
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                      gap: 10,
+                    }}
+                  >
+                    <div>
+                      <div className="small" style={{ marginBottom: 4 }}>
+                        Group leader name
+                      </div>
+                      <input
+                        className="input"
+                        value={groupLeaderTravelDraft.name}
+                        onChange={(e) =>
+                          setGroupLeaderTravelDraft((d) => ({ ...d, name: e.target.value }))
+                        }
+                        placeholder="Leader full name"
+                        autoComplete="name"
+                      />
+                    </div>
+                    <div>
+                      <div className="small" style={{ marginBottom: 4 }}>
+                        Group leader cell phone
+                      </div>
+                      <input
+                        className="input"
+                        type="tel"
+                        value={groupLeaderTravelDraft.cellPhone}
+                        onChange={(e) =>
+                          setGroupLeaderTravelDraft((d) => ({ ...d, cellPhone: e.target.value }))
+                        }
+                        placeholder="Cell phone"
+                        autoComplete="tel"
+                      />
+                    </div>
+                    <div>
+                      <div className="small" style={{ marginBottom: 4 }}>
+                        Group leader email
+                      </div>
+                      <input
+                        className="input"
+                        type="email"
+                        value={groupLeaderTravelDraft.email}
+                        onChange={(e) =>
+                          setGroupLeaderTravelDraft((d) => ({ ...d, email: e.target.value }))
+                        }
+                        placeholder="leader@email.com"
+                        autoComplete="email"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
                 <div><div className="small" style={{ marginBottom: 4 }}>Team Name</div>{canViewTeamDashboard ? <input className="input" value={travelFormDraft.teamName} onChange={(e) => setTravelFormDraft((d) => ({ ...d, teamName: e.target.value }))} placeholder="2026 Brazil Team" /> : <input className="input" readOnly disabled value={travelFormDraft.teamName} style={{ opacity: 0.9, cursor: "not-allowed" }} />}</div>
                 <div><div className="small" style={{ marginBottom: 4 }}>First Name (passport)</div><input className="input" value={travelFormDraft.firstNamePassport} onChange={(e) => setTravelFormDraft((d) => ({ ...d, firstNamePassport: e.target.value }))} /></div>
