@@ -28,6 +28,9 @@ const DUE_DATE_MONTH_OPTIONS = [
   { value: "12", label: "Dec" },
 ];
 
+/** Use a leap year when year is not chosen yet so February allows 29 while picking month/day first. */
+const PLACEHOLDER_LEAP_YEAR = 2024;
+
 function parseYmdParts(ymd) {
   const t = String(ymd || "").trim();
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
@@ -45,10 +48,24 @@ function buildYmdFromParts(year, month, day) {
   return `${y}-${String(mo).padStart(2, "0")}-${String(dClamped).padStart(2, "0")}`;
 }
 
-function dayOptionsForYmd(year, month) {
-  if (!year || !month) return [];
-  const dim = new Date(Number(year), Number(month), 0).getDate();
+function daysInMonth(year, month) {
+  if (!month) return 0;
+  const y = year ? Number(year) : PLACEHOLDER_LEAP_YEAR;
+  return new Date(y, Number(month), 0).getDate();
+}
+
+function dayOptionsForParts(year, month) {
+  const dim = daysInMonth(year, month);
+  if (!dim) return [];
   return Array.from({ length: dim }, (_, i) => String(i + 1));
+}
+
+function clampDayForMonthYear(year, month, day) {
+  if (!month || !day) return day;
+  const dim = daysInMonth(year, month);
+  const d = Number(day);
+  if (!Number.isFinite(d)) return "";
+  return String(Math.min(Math.max(1, d), dim));
 }
 
 /** No native calendar popup — avoids month arrows closing editors mid-selection. */
@@ -75,17 +92,23 @@ const AppDueDateTripleSelect = forwardRef(function AppDueDateTripleSelect(
   }));
 
   const emit = (next) => {
+    const wasComplete =
+      partsRef.current.year && partsRef.current.month && partsRef.current.day;
     partsRef.current = next;
     setParts(next);
-    if (next.year && next.month && next.day) {
+    const isComplete = next.year && next.month && next.day;
+    const isAllEmpty = !next.year && !next.month && !next.day;
+    if (isComplete) {
       onChange(buildYmdFromParts(next.year, next.month, next.day));
-    } else if (!next.year && !next.month && !next.day) {
+    } else if (isAllEmpty) {
+      onChange("");
+    } else if (wasComplete) {
       onChange("");
     }
   };
 
   const { year, month, day } = parts;
-  const days = dayOptionsForYmd(year, month);
+  const days = dayOptionsForParts(year, month);
   const inputStyle = compact
     ? { padding: "6px 8px", fontSize: 12, minWidth: 0 }
     : { padding: "7px 10px", fontSize: 13, minWidth: 0 };
@@ -94,32 +117,17 @@ const AppDueDateTripleSelect = forwardRef(function AppDueDateTripleSelect(
     <div className="row" style={{ flexWrap: "wrap", gap: 6, alignItems: "center" }}>
       <select
         className="input"
-        aria-label="Date year"
-        style={{ ...inputStyle, width: compact ? 76 : 90 }}
-        value={year}
-        onChange={(e) => {
-          const y = e.target.value;
-          if (!y) emit({ year: "", month: "", day: "" });
-          else emit({ year: y, month: "", day: "" });
-        }}
-      >
-        <option value="">Year</option>
-        {DUE_DATE_YEAR_OPTIONS.map((y) => (
-          <option key={y} value={y}>
-            {y}
-          </option>
-        ))}
-      </select>
-      <select
-        className="input"
         aria-label="Date month"
-        disabled={!year}
         style={{ ...inputStyle, width: compact ? 72 : 80 }}
         value={month}
         onChange={(e) => {
           const mo = e.target.value;
-          if (!mo) emit({ year, month: "", day: "" });
-          else emit({ year, month: mo, day: "" });
+          if (!mo) {
+            emit({ year, month: "", day: "" });
+            return;
+          }
+          const nextDay = day ? clampDayForMonthYear(year, mo, day) : "";
+          emit({ year, month: mo, day: nextDay });
         }}
       >
         <option value="">Month</option>
@@ -132,19 +140,45 @@ const AppDueDateTripleSelect = forwardRef(function AppDueDateTripleSelect(
       <select
         className="input"
         aria-label="Date day"
-        disabled={!year || !month}
+        disabled={!month}
         style={{ ...inputStyle, width: compact ? 54 : 62 }}
         value={day}
         onChange={(e) => {
           const d = e.target.value;
-          if (!d) emit({ year, month, day: "" });
-          else if (year && month) emit({ year, month, day: d });
+          if (!d) {
+            emit({ year, month, day: "" });
+            return;
+          }
+          emit({ year, month, day: d });
         }}
       >
         <option value="">Day</option>
         {days.map((d) => (
           <option key={d} value={d}>
             {d}
+          </option>
+        ))}
+      </select>
+      <select
+        className="input"
+        aria-label="Date year"
+        disabled={!month || !day}
+        style={{ ...inputStyle, width: compact ? 76 : 90 }}
+        value={year}
+        onChange={(e) => {
+          const y = e.target.value;
+          if (!y) {
+            emit({ year: "", month, day });
+            return;
+          }
+          const nextDay = day ? clampDayForMonthYear(y, month, day) : day;
+          emit({ year: y, month, day: nextDay });
+        }}
+      >
+        <option value="">Year</option>
+        {DUE_DATE_YEAR_OPTIONS.map((y) => (
+          <option key={y} value={y}>
+            {y}
           </option>
         ))}
       </select>

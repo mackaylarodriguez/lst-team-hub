@@ -5,7 +5,8 @@ import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { isManagerRole } from "@/lib/roles";
+import { isManagerRole, ROLE_WORKER } from "@/lib/roles";
+import { updateWorkerProfileEmail } from "@/lib/trips";
 import { getUserDocumentTypeLabel } from "@/lib/userDocumentTypes";
 import { deleteUserDocument, listProfileDocuments } from "@/lib/userDocuments";
 import {
@@ -67,6 +68,10 @@ function hasRecruitingNotes(record) {
   );
 }
 
+function normalizeProfileRole(role) {
+  return role ? String(role).trim().toLowerCase() : "";
+}
+
 export default function Profile() {
   const router = useRouter();
   const { participantId } = router.query;
@@ -83,6 +88,8 @@ export default function Profile() {
   const [confirmingDeleteNote, setConfirmingDeleteNote] = useState(false);
   const [confirmingDeleteDocumentId, setConfirmingDeleteDocumentId] = useState("");
   const [documentDeleteStatus, setDocumentDeleteStatus] = useState("");
+  const [workerEmailDraft, setWorkerEmailDraft] = useState("");
+  const [workerEmailSaveStatus, setWorkerEmailSaveStatus] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -208,6 +215,8 @@ export default function Profile() {
         setDocuments(nextDocuments);
         setNotes(nextNotes);
         setRecruitingRecords((nextRecruitingRecords || []).filter(hasRecruitingNotes));
+        setWorkerEmailDraft(displayProfile.email || "");
+        setWorkerEmailSaveStatus("");
       } catch (error) {
         console.error("Unable to load profile page", error);
         if (!cancelled) {
@@ -226,6 +235,11 @@ export default function Profile() {
 
   const canManageProfiles = isManagerRole(session?.permissionRole || session?.role);
   const canViewPrivateStaffSections = canManageProfiles && !session?.isImpersonating;
+  const canEditWorkerProfileEmail =
+    canManageProfiles &&
+    !!participantId &&
+    !!profile &&
+    (normalizeProfileRole(profile.role) === ROLE_WORKER || !String(profile.role || "").trim());
   const canDeleteDocuments =
     !!profile && (canManageProfiles || String(profile.id) === String(session?.profileId || session?.id));
 
@@ -314,6 +328,36 @@ export default function Profile() {
     }
   }
 
+  async function handleSaveWorkerEmail() {
+    if (!profile || !canEditWorkerProfileEmail) return;
+    const trimmed = String(workerEmailDraft || "").trim();
+    if (!trimmed) {
+      setWorkerEmailSaveStatus("Email cannot be empty.");
+      return;
+    }
+    try {
+      setWorkerEmailSaveStatus("Saving...");
+      const { email: savedEmail } = await updateWorkerProfileEmail({
+        profileId: profile.id,
+        email: trimmed,
+      });
+      setProfile((current) => (current ? { ...current, email: savedEmail } : current));
+      setWorkerEmailDraft(savedEmail);
+      setWorkerEmailSaveStatus("Saved.");
+      if (canViewPrivateStaffSections && savedEmail) {
+        try {
+          const nextRecruiting = await listRecruitingCycleContactsByEmail(savedEmail);
+          setRecruitingRecords((nextRecruiting || []).filter(hasRecruitingNotes));
+        } catch (recErr) {
+          console.warn("Unable to refresh recruiting records after email change", recErr);
+        }
+      }
+    } catch (error) {
+      console.error("Unable to save worker email", error);
+      setWorkerEmailSaveStatus(error.message || "Unable to save email.");
+    }
+  }
+
   async function handleDeleteNote() {
     if (!editingNoteId) return;
 
@@ -364,7 +408,50 @@ export default function Profile() {
             <div style={{ fontWeight: 900, fontSize: 18 }}>{profile?.name || "-"}</div>
             <div style={{ height: 10 }} />
             <div className="small">Email</div>
-            <div style={{ fontWeight: 800 }}>{profile?.email || "-"}</div>
+            {canEditWorkerProfileEmail ? (
+              <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
+                <input
+                  className="input"
+                  type="email"
+                  value={workerEmailDraft}
+                  onChange={(e) => {
+                    setWorkerEmailDraft(e.target.value);
+                    if (workerEmailSaveStatus && workerEmailSaveStatus !== "Saving...") {
+                      setWorkerEmailSaveStatus("");
+                    }
+                  }}
+                  placeholder="worker@email.com"
+                  autoComplete="email"
+                />
+                <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  <button type="button" className="btn btnPrimary" onClick={() => void handleSaveWorkerEmail()}>
+                    Save email
+                  </button>
+                  {workerEmailSaveStatus ? (
+                    <span
+                      className="small"
+                      style={{
+                        color:
+                          workerEmailSaveStatus === "Saved."
+                            ? "var(--muted)"
+                            : workerEmailSaveStatus === "Saving..."
+                              ? "var(--muted)"
+                              : "var(--danger)",
+                      }}
+                    >
+                      {workerEmailSaveStatus}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="small" style={{ opacity: 0.85, lineHeight: 1.45 }}>
+                  Updates this profile and roster rows that used the previous address. Supabase Auth login
+                  email is separate—change it in the Auth dashboard if the worker should sign in with this
+                  address.
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontWeight: 800 }}>{profile?.email || "-"}</div>
+            )}
             <div style={{ height: 10 }} />
             <div className="small">Role</div>
             <span className="badge">{formatProfileRole(profile?.role)}</span>

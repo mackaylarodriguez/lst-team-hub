@@ -7,6 +7,7 @@ import {
   updatePassword,
 } from "@/lib/auth";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { TSHIRT_SIZE_OPTIONS } from "@/lib/tshirtSizes";
 
 export default function Login() {
   const router = useRouter();
@@ -19,6 +20,9 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [tshirtSize, setTshirtSize] = useState("");
   const [confirmResetPassword, setConfirmResetPassword] = useState("");
   const [err, setErr] = useState("");
   const [message, setMessage] = useState("");
@@ -112,6 +116,16 @@ export default function Login() {
       }
 
       if (mode === "signup") {
+        if (!String(firstName || "").trim() || !String(lastName || "").trim()) {
+          setErr("Enter your first and last name.");
+          return;
+        }
+
+        if (!String(tshirtSize || "").trim()) {
+          setErr("Select a T-shirt size.");
+          return;
+        }
+
         if (!password) {
           setErr("Create a password to continue.");
           return;
@@ -122,7 +136,13 @@ export default function Login() {
           return;
         }
 
-        const session = await signUpWithPassword({ email, password });
+        const session = await signUpWithPassword({
+          email,
+          password,
+          firstName,
+          lastName,
+          tshirtSize,
+        });
         if (session) {
           router.push(nextPath);
           return;
@@ -197,6 +217,45 @@ export default function Login() {
                 placeholder={mode === "signup" ? "Create a password" : "••••••••"}
               />
             </div>
+          ) : null}
+          {mode === "signup" ? (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>First Name</div>
+                  <input
+                    className="input"
+                    value={firstName}
+                    onChange={(e)=>setFirstName(e.target.value)}
+                    placeholder="First name"
+                    autoComplete="given-name"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Last Name</div>
+                  <input
+                    className="input"
+                    value={lastName}
+                    onChange={(e)=>setLastName(e.target.value)}
+                    placeholder="Last name"
+                    autoComplete="family-name"
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>T-shirt Size</div>
+                <select
+                  className="input"
+                  value={tshirtSize}
+                  onChange={(e)=>setTshirtSize(e.target.value)}
+                >
+                  <option value="">Select size</option>
+                  {TSHIRT_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </div>
+            </>
           ) : null}
           {mode === "signup" ? (
             <div>
