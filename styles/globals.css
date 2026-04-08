@@ -1986,6 +1986,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .adminTasksTable{
   table-layout:fixed;
 }
+.adminTasksTable td.adminTaskDueCell{
+  white-space:normal;
+}
 .adminTasksTable .input,
 .adminTasksTable .statusSelect{
   min-height:30px;

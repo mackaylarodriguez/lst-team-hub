@@ -1,5 +1,6 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
+import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
@@ -647,14 +648,13 @@ export default function Admin() {
                   ))}
                 </select>
               </div>
-              <div>
+              <div style={{ gridColumn: "1 / -1" }}>
                 <div className="small" style={{ marginBottom: 6 }}>Due Date</div>
-                <input
-                  className="input"
-                  type="date"
+                <AppDueDateTripleSelect
+                  compact
                   value={newMiscTaskDraft.dueDate}
-                  onChange={(e) =>
-                    setNewMiscTaskDraft((current) => ({ ...current, dueDate: e.target.value }))
+                  onChange={(ymd) =>
+                    setNewMiscTaskDraft((current) => ({ ...current, dueDate: ymd }))
                   }
                 />
               </div>
@@ -805,12 +805,12 @@ function TaskSection({
         <table className="table adminTasksTable">
           <thead>
             <tr>
-              <th style={{ width: "22%" }}>Project</th>
-              <th style={{ width: "26%" }}>Task</th>
-              <th style={{ width: "14%" }}>Due Date</th>
+              <th style={{ width: "20%" }}>Project</th>
+              <th style={{ width: "24%" }}>Task</th>
+              <th style={{ width: "22%" }}>Due Date</th>
               <th style={{ width: "14%" }}>Progress</th>
               <th style={{ width: "18%" }}>Notes</th>
-              <th style={{ width: "6%" }} />
+              <th style={{ width: "2%" }} />
             </tr>
           </thead>
           <tbody>
@@ -867,13 +867,12 @@ function TaskSection({
                       )
                     )}
                   </td>
-                  <td>
-                    <input
-                      className="input"
-                      type="date"
+                  <td className="adminTaskDueCell">
+                    <AppDueDateTripleSelect
+                      compact
                       value={task.dueDate || ""}
-                      onChange={(e) =>
-                        onUpdateTask(task.tripId, task.id, "dueDate", e.target.value)
+                      onChange={(ymd) =>
+                        void onUpdateTask(task.tripId, task.id, "dueDate", ymd)
                       }
                     />
                   </td>
