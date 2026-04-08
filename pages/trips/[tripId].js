@@ -130,6 +130,7 @@ import {
   saveTripBudget,
   uploadTripHousingPdf,
 } from "@/lib/tripBudget";
+import { getTripTeamLogisticsForViewer, saveTripTeamLogisticsByTeam } from "@/lib/tripTeamLogistics";
 import {
   findSiteBudgetNoteForOption,
   resolveCanonicalSiteLabelForTrip,
@@ -1211,6 +1212,10 @@ export default function TripPage() {
   const [tripSiteLogisticsRpcUrl, setTripSiteLogisticsRpcUrl] = useState("");
   const [tripBudgetLoadError, setTripBudgetLoadError] = useState("");
   const [materialsDraft, setMaterialsDraft] = useState(null);
+  const [teamLogisticsDraft, setTeamLogisticsDraft] = useState(null);
+  const [teamLogisticsLoadError, setTeamLogisticsLoadError] = useState("");
+  const [teamLogisticsSaveStatus, setTeamLogisticsSaveStatus] = useState("");
+  const [teamLogisticsLoading, setTeamLogisticsLoading] = useState(false);
   const [materialsSaveStatus, setMaterialsSaveStatus] = useState("");
   const [isEditingMaterialsGlance, setIsEditingMaterialsGlance] = useState(false);
   /** Bumps when materials save completes so stale in-flight getTripBudget loads cannot overwrite the draft. */
@@ -1713,20 +1718,26 @@ export default function TripPage() {
             ? {
                 numWorkers: numWorkersDraftFromBudgetValue(row.numWorkers),
                 teamAccountant: row.teamAccountant || "",
+                teamRecorder: row.teamRecorder || "",
                 tshirts: row.tshirts ?? "",
                 workbooks: row.workbooks ?? "",
                 materialsShipAddress: row.materialsShipAddress ?? "",
+                materialsShipAddressNote: row.materialsShipAddressNote ?? "",
                 materialsTrackingNumber: row.materialsTrackingNumber ?? "",
                 materialsNotes: row.materialsNotes ?? "",
+                materialsNotesForTeam: row.materialsNotesForTeam ?? "",
               }
             : {
                 numWorkers: "",
                 teamAccountant: "",
+                teamRecorder: "",
                 tshirts: "",
                 workbooks: "",
                 materialsShipAddress: "",
+                materialsShipAddressNote: "",
                 materialsTrackingNumber: "",
                 materialsNotes: "",
+                materialsNotesForTeam: "",
               }
         );
       } catch (e) {
@@ -1740,6 +1751,40 @@ export default function TripPage() {
       cancelled = true;
     };
   }, [trip?.id, staffViewAllParticipants]);
+
+  useEffect(() => {
+    if (!trip?.id || tab !== "Materials") return;
+    if (staffViewAllParticipants) return;
+    if (isPreviewingParticipant) return;
+    if (!effectiveIsLeader && !currentParticipant) return;
+    let cancelled = false;
+    (async () => {
+      setTeamLogisticsLoading(true);
+      setTeamLogisticsLoadError("");
+      try {
+        const row = await getTripTeamLogisticsForViewer(trip.id);
+        if (cancelled) return;
+        setTeamLogisticsDraft(row);
+      } catch (e) {
+        if (!cancelled) {
+          setTeamLogisticsLoadError(e.message || "Unable to load team logistics.");
+          setTeamLogisticsDraft(null);
+        }
+      } finally {
+        if (!cancelled) setTeamLogisticsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    trip?.id,
+    tab,
+    staffViewAllParticipants,
+    isPreviewingParticipant,
+    effectiveIsLeader,
+    currentParticipant?.id,
+  ]);
 
   useEffect(() => {
     if (!canManageTrips || !staffViewAllParticipants) return;
@@ -6271,6 +6316,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
     [workerDocumentParticipants]
   );
 
+  const canViewMaterialsTab =
+    !isPreviewingParticipant &&
+    (staffViewAllParticipants || effectiveIsLeader || !!currentParticipant);
+
   const referenceReceivedProgress = useMemo(() => {
     if (!trip) {
       return {
@@ -6872,6 +6921,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     "Fundraising",
     "Training",
     "Tasks",
+    "Materials",
     "Travel Form",
     tripDocumentsTabLabel,
     participantDocumentsTabLabel,
@@ -6897,6 +6947,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
       "Fundraising",
       "Training",
       "Tasks",
+      "Materials",
       tripDocumentsTabLabel,
       participantDocumentsTabLabel,
       "Travel Form",
@@ -7047,13 +7098,72 @@ normalizeEmail(participant.email) === activeParticipantEmail
       ? Math.max(materialsWorkbookTargetCopies - materialsWorkbookSentCopies, 0)
       : null;
 
+  const materialsTeamVisibleSource = staffViewAllParticipants ? materialsDraft : teamLogisticsDraft;
   const materialsShippingState = (() => {
-    const hasAddress = !!String(materialsDraft?.materialsShipAddress || "").trim();
-    const hasTracking = !!String(materialsDraft?.materialsTrackingNumber || "").trim();
+    const src = materialsTeamVisibleSource;
+    const hasAddress = !!String(src?.materialsShipAddress || "").trim();
+    const hasTracking = !!String(src?.materialsTrackingNumber || "").trim();
     if (hasTracking) return "Shipped";
     if (hasAddress) return "Address ready";
     return "Needs setup";
   })();
+
+  async function handleSaveStaffTeamVisibleMaterials() {
+    if (!trip?.id || !materialsDraft) return false;
+    try {
+      setTeamLogisticsSaveStatus("Saving...");
+      await saveTripBudget(trip.id, {
+        teamAccountant: materialsDraft.teamAccountant ?? "",
+        teamRecorder: materialsDraft.teamRecorder ?? "",
+        materialsShipAddress: materialsDraft.materialsShipAddress ?? "",
+        materialsShipAddressNote: materialsDraft.materialsShipAddressNote ?? "",
+        materialsTrackingNumber: materialsDraft.materialsTrackingNumber ?? "",
+        materialsNotesForTeam: materialsDraft.materialsNotesForTeam ?? "",
+      });
+      materialsBudgetLoadGenRef.current += 1;
+      const next = await getTripBudget(trip.id);
+      setTripBudgetRow(next);
+      if (next) {
+        setMaterialsDraft((d) =>
+          d
+            ? {
+                ...d,
+                teamAccountant: next.teamAccountant || "",
+                teamRecorder: next.teamRecorder || "",
+                materialsShipAddress: next.materialsShipAddress ?? "",
+                materialsShipAddressNote: next.materialsShipAddressNote ?? "",
+                materialsTrackingNumber: next.materialsTrackingNumber ?? "",
+                materialsNotesForTeam: next.materialsNotesForTeam ?? "",
+              }
+            : d
+        );
+      }
+      setTeamLogisticsSaveStatus("Saved.");
+      showToast("Team logistics saved.", "success");
+      return true;
+    } catch (e) {
+      const msg = e.message || "Error saving.";
+      setTeamLogisticsSaveStatus(msg);
+      showToast(msg, "error");
+      return false;
+    }
+  }
+
+  async function handleSaveTeamLogisticsForTeamMember() {
+    if (!trip?.id || !teamLogisticsDraft) return;
+    try {
+      setTeamLogisticsSaveStatus("Saving...");
+      await saveTripTeamLogisticsByTeam(trip.id, teamLogisticsDraft);
+      const row = await getTripTeamLogisticsForViewer(trip.id);
+      setTeamLogisticsDraft(row);
+      setTeamLogisticsSaveStatus("Saved.");
+      showToast("Team logistics saved.", "success");
+    } catch (e) {
+      const msg = e.message || "Save failed.";
+      setTeamLogisticsSaveStatus(msg);
+      showToast(msg, "error");
+    }
+  }
 
   async function handleSaveMaterialsTab() {
     if (!trip?.id || !materialsDraft) return false;
@@ -7067,11 +7177,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
       await saveTripBudget(trip.id, {
         numWorkers: Number.isFinite(numWorkersParsed) ? numWorkersParsed : null,
         teamAccountant: materialsDraft.teamAccountant ?? "",
+        teamRecorder: materialsDraft.teamRecorder ?? "",
         tshirts: materialsDraft.tshirts ?? "",
         workbooks: materialsDraft.workbooks ?? "",
         materialsShipAddress: materialsDraft.materialsShipAddress ?? "",
+        materialsShipAddressNote: materialsDraft.materialsShipAddressNote ?? "",
         materialsTrackingNumber: materialsDraft.materialsTrackingNumber ?? "",
         materialsNotes: materialsDraft.materialsNotes ?? "",
+        materialsNotesForTeam: materialsDraft.materialsNotesForTeam ?? "",
       });
       materialsBudgetLoadGenRef.current += 1;
       const next = await getTripBudget(trip.id);
@@ -7080,11 +7193,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
         setMaterialsDraft({
           numWorkers: numWorkersDraftFromBudgetValue(next.numWorkers),
           teamAccountant: next.teamAccountant || "",
+          teamRecorder: next.teamRecorder || "",
           tshirts: next.tshirts ?? "",
           workbooks: next.workbooks ?? "",
           materialsShipAddress: next.materialsShipAddress ?? "",
+          materialsShipAddressNote: next.materialsShipAddressNote ?? "",
           materialsTrackingNumber: next.materialsTrackingNumber ?? "",
           materialsNotes: next.materialsNotes ?? "",
+          materialsNotesForTeam: next.materialsNotesForTeam ?? "",
         });
       }
       setMaterialsSaveStatus("Saved.");
@@ -7105,20 +7221,26 @@ normalizeEmail(participant.email) === activeParticipantEmail
         ? {
             numWorkers: numWorkersDraftFromBudgetValue(row.numWorkers),
             teamAccountant: row.teamAccountant || "",
+            teamRecorder: row.teamRecorder || "",
             tshirts: row.tshirts ?? "",
             workbooks: row.workbooks ?? "",
             materialsShipAddress: row.materialsShipAddress ?? "",
+            materialsShipAddressNote: row.materialsShipAddressNote ?? "",
             materialsTrackingNumber: row.materialsTrackingNumber ?? "",
             materialsNotes: row.materialsNotes ?? "",
+            materialsNotesForTeam: row.materialsNotesForTeam ?? "",
           }
         : {
             numWorkers: "",
             teamAccountant: "",
+            teamRecorder: "",
             tshirts: "",
             workbooks: "",
             materialsShipAddress: "",
+            materialsShipAddressNote: "",
             materialsTrackingNumber: "",
             materialsNotes: "",
+            materialsNotesForTeam: "",
           }
     );
     setIsEditingMaterialsGlance(false);
@@ -7138,9 +7260,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
         "# of workers",
         "Current roster count",
         "Team accountant",
+        "Team recorder",
         "T-shirt sizes (housing budget)",
         "Ship-to address",
+        "Ship-to note (vs application)",
         "Tracking number",
+        "Notes for team (visible)",
         "Workbooks sending notes",
       ];
       const row = [
@@ -7148,9 +7273,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
         materialsWorkersDisplayCount,
         materialsRosterHeadcount,
         materialsDraft.teamAccountant || "",
+        materialsDraft.teamRecorder || "",
         materialsDraft.tshirts || "",
         materialsDraft.materialsShipAddress || "",
+        materialsDraft.materialsShipAddressNote || "",
         materialsDraft.materialsTrackingNumber || "",
+        materialsDraft.materialsNotesForTeam || "",
         materialsDraft.materialsNotes || "",
       ];
       const ws = XLSX.utils.aoa_to_sheet([headers, row]);
@@ -10007,19 +10135,250 @@ normalizeEmail(participant.email) === activeParticipantEmail
         </div>
       )}
 
-      {tab === "Materials" && staffViewAllParticipants && (
+      {tab === "Materials" && canViewMaterialsTab && (
         <div style={{ display: "grid", gap: 16 }}>
-          {tripBudgetLoadError ? (
+          {!staffViewAllParticipants && teamLogisticsLoadError ? (
+            <div className="card pad small" style={{ color: "var(--danger)" }}>
+              {teamLogisticsLoadError}
+            </div>
+          ) : null}
+          {staffViewAllParticipants && tripBudgetLoadError ? (
             <div className="card pad small" style={{ color: "var(--danger)" }}>
               {tripBudgetLoadError}
             </div>
           ) : null}
-          {!materialsDraft ? (
+          {!staffViewAllParticipants && teamLogisticsLoading ? (
+            <div className="card pad" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <Spinner size={32} />
+              <span className="small">Loading team logistics…</span>
+            </div>
+          ) : null}
+          {staffViewAllParticipants && !materialsDraft ? (
             <div className="card pad" style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <Spinner size={32} />
               <span className="small">Loading housing budget…</span>
             </div>
-          ) : (
+          ) : null}
+
+          {((staffViewAllParticipants && materialsDraft) || (!staffViewAllParticipants && teamLogisticsDraft))
+            ? (() => {
+                const matTeamDraft = staffViewAllParticipants ? materialsDraft : teamLogisticsDraft;
+                const setMatTeamDraft = staffViewAllParticipants ? setMaterialsDraft : setTeamLogisticsDraft;
+                const teamMemberOnly = !staffViewAllParticipants;
+                const logisticsDatalistId = `materials-logistics-names-${trip?.id || "trip"}`;
+                return (
+                  <>
+                    <div className="card pad">
+                      <div className="cardSectionPill" style={{ marginBottom: 10 }}>
+                        Team logistics
+                      </div>
+                      <p className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
+                        Assign the team accountant and recorder, and confirm where materials should ship. Workers
+                        and leaders can update this section; staff see additional tools below.
+                      </p>
+                      <div style={{ display: "grid", gap: 14, maxWidth: 560 }}>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>
+                            Team accountant
+                          </div>
+                          <input
+                            className="input"
+                            list={logisticsDatalistId}
+                            value={matTeamDraft.teamAccountant || ""}
+                            onChange={(e) =>
+                              setMatTeamDraft((prev) => ({ ...prev, teamAccountant: e.target.value }))
+                            }
+                            placeholder="Choose from list or type a name"
+                          />
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>
+                            Team recorder
+                          </div>
+                          <input
+                            className="input"
+                            list={logisticsDatalistId}
+                            value={matTeamDraft.teamRecorder || ""}
+                            onChange={(e) =>
+                              setMatTeamDraft((prev) => ({ ...prev, teamRecorder: e.target.value }))
+                            }
+                            placeholder="Choose from list or type a name"
+                          />
+                        </div>
+                        <datalist id={logisticsDatalistId}>
+                          {tripDocumentWorkerOptions.map((name) => (
+                            <option key={name} value={name} />
+                          ))}
+                        </datalist>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>
+                            Shipping address
+                          </div>
+                          <textarea
+                            className="input"
+                            rows={3}
+                            value={matTeamDraft.materialsShipAddress || ""}
+                            onChange={(e) =>
+                              setMatTeamDraft((prev) => ({ ...prev, materialsShipAddress: e.target.value }))
+                            }
+                            placeholder="Street, city, state, ZIP"
+                          />
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>
+                            Note (if different from application)
+                          </div>
+                          <p className="small" style={{ marginBottom: 6, color: "var(--muted)" }}>
+                            Use this if the ship-to address or other details differ from what is on your LST
+                            application.
+                          </p>
+                          <textarea
+                            className="input"
+                            rows={2}
+                            value={matTeamDraft.materialsShipAddressNote || ""}
+                            onChange={(e) =>
+                              setMatTeamDraft((prev) => ({
+                                ...prev,
+                                materialsShipAddressNote: e.target.value,
+                              }))
+                            }
+                            placeholder="e.g. Ship to parents’ home; application lists school address."
+                          />
+                        </div>
+                        {teamMemberOnly ? (
+                          <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            <button
+                              type="button"
+                              className="btn btnPrimary"
+                              onClick={() => void handleSaveTeamLogisticsForTeamMember()}
+                            >
+                              Save team logistics
+                            </button>
+                            <AppStatusMessage
+                              message={teamLogisticsSaveStatus}
+                              tone={
+                                teamLogisticsSaveStatus === "Saved."
+                                  ? "success"
+                                  : teamLogisticsSaveStatus === "Saving..."
+                                    ? "info"
+                                    : teamLogisticsSaveStatus
+                                      ? "danger"
+                                      : "neutral"
+                              }
+                              compact
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="card pad">
+                      <div className="cardSectionPill" style={{ marginBottom: 10 }}>
+                        Shipping
+                      </div>
+                      <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
+                        <div className="small" style={{ color: "var(--muted)" }}>
+                          Status: <strong>{materialsShippingState}</strong>
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>
+                            Shipping / tracking #
+                          </div>
+                          {teamMemberOnly ? (
+                            <div
+                              style={{
+                                fontFamily: "ui-monospace, monospace",
+                                wordBreak: "break-all",
+                                padding: "10px 12px",
+                                borderRadius: 12,
+                                border: "1px solid var(--border)",
+                                background: "rgba(248, 250, 252, 0.9)",
+                              }}
+                            >
+                              {String(matTeamDraft.materialsTrackingNumber || "").trim() || (
+                                <span style={{ color: "var(--muted)" }}>
+                                  Staff will add tracking when the package ships.
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <input
+                              className="input"
+                              value={matTeamDraft.materialsTrackingNumber || ""}
+                              onChange={(e) =>
+                                setMatTeamDraft((prev) => ({
+                                  ...prev,
+                                  materialsTrackingNumber: e.target.value,
+                                }))
+                              }
+                              placeholder="Carrier tracking #"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="card pad">
+                      <div className="cardSectionPill" style={{ marginBottom: 10 }}>
+                        Notes from staff
+                      </div>
+                      <p className="small" style={{ marginBottom: 10, color: "var(--muted)" }}>
+                        Coordinators can post updates here for the team. Everyone on this tab can read them.
+                      </p>
+                      {teamMemberOnly ? (
+                        <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                          {String(matTeamDraft.materialsNotesForTeam || "").trim() || (
+                            <span className="small" style={{ color: "var(--muted)" }}>
+                              No notes yet.
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <textarea
+                          className="input"
+                          rows={5}
+                          value={matTeamDraft.materialsNotesForTeam || ""}
+                          onChange={(e) =>
+                            setMatTeamDraft((prev) => ({
+                              ...prev,
+                              materialsNotesForTeam: e.target.value,
+                            }))
+                          }
+                          placeholder="Visible to workers and leaders on this tab…"
+                        />
+                      )}
+                    </div>
+
+                    {!teamMemberOnly ? (
+                      <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <button
+                          type="button"
+                          className="btn btnPrimary"
+                          onClick={() => void handleSaveStaffTeamVisibleMaterials()}
+                        >
+                          Save team logistics & shipping
+                        </button>
+                        <AppStatusMessage
+                          message={teamLogisticsSaveStatus}
+                          tone={
+                            teamLogisticsSaveStatus === "Saved."
+                              ? "success"
+                              : teamLogisticsSaveStatus === "Saving..."
+                                ? "info"
+                                : teamLogisticsSaveStatus
+                                  ? "danger"
+                                  : "neutral"
+                          }
+                          compact
+                        />
+                      </div>
+                    ) : null}
+                  </>
+                );
+              })()
+            : null}
+
+          {staffViewAllParticipants && materialsDraft ? (
             <>
               <CollapsibleSection defaultOpen>
                 <div
@@ -10039,7 +10398,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     Materials at a glance
                   </div>
                   <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
-                    Team name and site workbook plan are read-only. Edit shipping, sizes, and sending notes.
+                    Team name and site workbook plan are read-only. Team logistics, shipping, and staff notes for
+                    the team are in the cards above. Edit T-shirt sizing and workbook sending notes here.
                   </div>
                   <div
                     className="row"
@@ -10167,21 +10527,15 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           "linear-gradient(180deg, rgba(254, 249, 195, 0.9), rgba(255, 255, 255, 0.88))",
                       }}
                     >
-                      <div style={materialsMetricLabel}>Shipping</div>
+                      <div style={materialsMetricLabel}>T-shirt roster</div>
                       <div style={{ ...materialsMetricValue, fontSize: 18, lineHeight: 1.15 }}>
-                        {materialsShippingState}
+                        {materialsRosterTshirtLines.length}
                       </div>
                       <div style={materialsGlanceMuted}>
-                        {String(materialsDraft.materialsTrackingNumber || "").trim()
-                          ? String(materialsDraft.materialsTrackingNumber || "").trim()
-                          : String(materialsDraft.materialsShipAddress || "").trim()
-                            ? "Address saved and ready for shipment."
-                            : "Add ship-to address and tracking when books go out."}
+                        Roster lines with a saved shirt size (see T-shirts & sizing panel).
                       </div>
                       <div className="small" style={{ color: "var(--muted)" }}>
-                        {materialsRosterTshirtLines.length
-                          ? `${materialsRosterTshirtLines.length} roster entries include shirt sizes.`
-                          : "No roster shirt sizes saved yet."}
+                        Shipping status and tracking are on the cards above.
                       </div>
                     </div>
                   </div>
@@ -10309,28 +10663,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           marginBottom: 2,
                         }}
                       >
-                        Shipping & accounting
-                      </div>
-
-                      <div style={materialsGlanceRow}>
-                        <div style={materialsGlanceLabel}>Team accountant</div>
-                        {isEditingMaterialsGlance ? (
-                          <input
-                            className="input"
-                            value={materialsDraft.teamAccountant}
-                            onChange={(e) =>
-                              setMaterialsDraft((d) => ({ ...d, teamAccountant: e.target.value }))
-                            }
-                            placeholder="Name"
-                            style={{ maxWidth: 400 }}
-                          />
-                        ) : (
-                          <div style={materialsGlanceValue}>
-                            {String(materialsDraft.teamAccountant || "").trim() || (
-                              <span style={materialsGlanceMuted}>—</span>
-                            )}
-                          </div>
-                        )}
+                        T-shirts & sizing
                       </div>
 
                       <div style={materialsGlanceRow}>
@@ -10372,74 +10705,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           ) : null}
                         </div>
                       </div>
-
-                      <div style={materialsGlanceRow}>
-                        <div style={materialsGlanceLabel}>Ship-to address</div>
-                        {isEditingMaterialsGlance ? (
-                          <textarea
-                            className="input"
-                            rows={3}
-                            value={materialsDraft.materialsShipAddress}
-                            onChange={(e) =>
-                              setMaterialsDraft((d) => ({
-                                ...d,
-                                materialsShipAddress: e.target.value,
-                              }))
-                            }
-                            placeholder="If different from workers’ home addresses"
-                          />
-                        ) : (
-                          <div style={{ ...materialsGlanceValue, whiteSpace: "pre-wrap" }}>
-                            {String(materialsDraft.materialsShipAddress || "").trim() || (
-                              <span style={materialsGlanceMuted}>—</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={materialsGlanceRow}>
-                        <div style={materialsGlanceLabel}>Tracking #</div>
-                        {isEditingMaterialsGlance ? (
-                          <input
-                            className="input"
-                            value={materialsDraft.materialsTrackingNumber}
-                            onChange={(e) =>
-                              setMaterialsDraft((d) => ({
-                                ...d,
-                                materialsTrackingNumber: e.target.value,
-                              }))
-                            }
-                            placeholder="Carrier tracking #"
-                            style={{ maxWidth: 420 }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              ...materialsGlanceValue,
-                              fontFamily: "ui-monospace, monospace",
-                              wordBreak: "break-all",
-                            }}
-                          >
-                            {String(materialsDraft.materialsTrackingNumber || "").trim() || (
-                              <span style={{ ...materialsGlanceMuted, fontFamily: "inherit" }}>—</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={materialsGlanceRow}>
-                        <div style={materialsGlanceLabel}>Shipping status</div>
-                        <div>
-                          <div style={materialsGlanceValue}>{materialsShippingState}</div>
-                          <div style={{ ...materialsGlanceMuted, marginTop: 4 }}>
-                            {String(materialsDraft.materialsTrackingNumber || "").trim()
-                              ? "Tracking is saved for this shipment."
-                              : String(materialsDraft.materialsShipAddress || "").trim()
-                                ? "Address is in place. Add tracking after shipment."
-                                : "Shipping details have not been set yet."}
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </div>
 
@@ -10472,7 +10737,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           onChange={(e) =>
                             setMaterialsDraft((d) => ({ ...d, materialsNotes: e.target.value }))
                           }
-                          placeholder="e.g. Shipped LUKE 1 & ACTS 1 on 3/15; tracking in row above."
+                          placeholder="e.g. Shipped LUKE 1 & ACTS 1 on 3/15; tracking on the Shipping card above."
                         />
                       ) : (
                         <div style={{ ...materialsGlanceValue, whiteSpace: "pre-wrap" }}>
@@ -10499,7 +10764,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 </div>
               )}
             </>
-          )}
+          ) : null}
         </div>
       )}
 
