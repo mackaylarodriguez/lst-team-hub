@@ -42,6 +42,43 @@ function isStaffOrAdminRole(role) {
   return r === "admin" || r === "staff";
 }
 
+function normalizeRole(role) {
+  return role ? String(role).trim().toLowerCase() : "";
+}
+
+/**
+ * Same resolution order as {@link lib/auth.js} getProfileForUser: some databases have a
+ * profiles row keyed by email that does not share id with auth.users.id, so id-only lookup fails.
+ */
+function pickProfileRowForAuthUser(rows, authUserId) {
+  const list = rows || [];
+  if (list.length === 0) return null;
+
+  const normalized = list.map((row) => ({
+    ...row,
+    email: normalizeEmail(row.email),
+    role: normalizeRole(row.role),
+  }));
+
+  return (
+    normalized.find((p) => p.id === authUserId) ||
+    normalized.find((p) => p.role === "admin") ||
+    normalized.find((p) => p.role === "staff") ||
+    normalized[0]
+  );
+}
+
+function getProfileDisplayName(profile) {
+  if (!profile) return "";
+  const fromParts = [profile.first_name, profile.last_name]
+    .map((x) => normalizeText(x))
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  if (fromParts) return fromParts;
+  return normalizeEmail(profile.email);
+}
+
 async function authenticateStaffOrAdmin(req) {
   const jwt = getBearerToken(req);
   if (!jwt) {
@@ -50,26 +87,58 @@ async function authenticateStaffOrAdmin(req) {
 
   const supabaseAuth = getPublicSupabaseForAuth();
   const { data: userData, error: userErr } = await supabaseAuth.auth.getUser(jwt);
-  if (userErr || !userData?.user?.id) {
+  const user = userData?.user;
+  if (userErr || !user?.id) {
     return { error: { status: 401, message: "Invalid or expired session." } };
   }
 
   const admin = getSupabaseAdminClient();
-  const { data: profile, error: profileErr } = await admin
-    .from("profiles")
-    .select("id, email, full_name, role")
-    .eq("id", userData.user.id)
-    .maybeSingle();
+  const email = normalizeEmail(user.email);
+  if (!email) {
+    return { error: { status: 403, message: "Signed-in user has no email; cannot load profile." } };
+  }
 
-  if (profileErr || !profile?.id) {
-    return { error: { status: 403, message: "Profile not found." } };
+  const { data: byEmailRows, error: byEmailErr } = await admin
+    .from("profiles")
+    .select("id, email, role, first_name, last_name")
+    .ilike("email", email);
+
+  if (byEmailErr) {
+    console.error("[budget-check-request] profiles by email", byEmailErr);
+    return { error: { status: 500, message: "Could not load profile." } };
+  }
+
+  let profile = pickProfileRowForAuthUser(byEmailRows, user.id);
+
+  if (!profile) {
+    const { data: byId, error: byIdErr } = await admin
+      .from("profiles")
+      .select("id, email, role, first_name, last_name")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (byIdErr) {
+      console.error("[budget-check-request] profiles by id", byIdErr);
+      return { error: { status: 500, message: "Could not load profile." } };
+    }
+    profile = byId || null;
+  }
+
+  if (!profile?.id) {
+    return {
+      error: {
+        status: 403,
+        message:
+          "No profile row for this login. In Supabase, ensure public.profiles has a row whose email matches your auth email (or id matches your user id).",
+      },
+    };
   }
 
   if (!isStaffOrAdminRole(profile.role)) {
     return { error: { status: 403, message: "Only staff or admin can use this." } };
   }
 
-  return { admin, profile, user: userData.user };
+  return { admin, profile, user };
 }
 
 function addDaysIsoDate(days) {
@@ -167,7 +236,7 @@ export default async function handler(req, res) {
       budgetAmtSnap ? `Budget amount on file: ${budgetAmtSnap}` : null,
       `Check amount requested: ${amountRequested}`,
       note ? `Note from staff: ${note}` : null,
-      `Requested by: ${normalizeText(profile.full_name) || profile.email || profile.id}`,
+      `Requested by: ${getProfileDisplayName(profile) || profile.email || profile.id}`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -210,7 +279,7 @@ export default async function handler(req, res) {
       status: "pending",
       requested_by_user_id: profile.id,
       requested_by_email: profile.email || null,
-      requested_by_name: normalizeText(profile.full_name) || null,
+      requested_by_name: getProfileDisplayName(profile) || null,
       staff_misc_task_id: staffMiscTaskId,
     };
 
@@ -232,7 +301,7 @@ export default async function handler(req, res) {
       normalizeEmail(process.env.BUDGET_CHECK_NOTIFY_EMAIL) ||
       assigneeEmail ||
       normalizeEmail(profile.email);
-    const requesterLabel = normalizeText(profile.full_name) || profile.email || "Staff";
+    const requesterLabel = getProfileDisplayName(profile) || profile.email || "Staff";
     const subject = `Budget check request — ${tripName || "Trip"} — ${amountRequested}`;
     const html = `
       <p><strong>${escapeHtml(requesterLabel)}</strong> requested a printed check.</p>
@@ -294,7 +363,7 @@ export default async function handler(req, res) {
         processed_at: nowIso,
         processed_by_user_id: profile.id,
         processed_by_email: profile.email || null,
-        processed_by_name: normalizeText(profile.full_name) || null,
+        processed_by_name: getProfileDisplayName(profile) || null,
       })
       .eq("id", id)
       .select("*")
