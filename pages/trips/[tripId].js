@@ -8094,10 +8094,20 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           {task.title}
                         </button>
                       )}
-                      <div className="small">
-                        {task.dueDate
-                          ? `Due ${formatSingleDate(task.dueDate)}`
-                          : "Due when ready"}
+                      <div
+                        style={{
+                          fontSize: 12,
+                          lineHeight: 1.45,
+                          color: "var(--muted)",
+                          marginTop: 4,
+                        }}
+                      >
+                        {task.dueDate && String(task.dueDate).trim()
+                          ? (() => {
+                              const short = formatShortDate(task.dueDate);
+                              return short !== "-" ? `Due: ${short}` : "Due: Not set";
+                            })()
+                          : "Due: Not set"}
                       </div>
                       {task.link || task.openTripDocumentsTab ? (
                         <AppDetailAction
