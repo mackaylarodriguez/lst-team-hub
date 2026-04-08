@@ -131,7 +131,10 @@ import {
   saveTripBudget,
   uploadTripHousingPdf,
 } from "@/lib/tripBudget";
-import { submitBudgetCheckRequest } from "@/lib/budgetCheckRequests";
+import {
+  listBudgetCheckRequestsForTrip,
+  submitBudgetCheckRequest,
+} from "@/lib/budgetCheckRequests";
 import { getTripTeamLogisticsForViewer, saveTripTeamLogisticsByTeam } from "@/lib/tripTeamLogistics";
 import {
   findSiteBudgetNoteForOption,
@@ -1243,6 +1246,7 @@ export default function TripPage() {
   const [budgetCheckAmount, setBudgetCheckAmount] = useState("");
   const [budgetCheckNote, setBudgetCheckNote] = useState("");
   const [budgetCheckSubmitting, setBudgetCheckSubmitting] = useState(false);
+  const [tripBudgetCheckRequests, setTripBudgetCheckRequests] = useState([]);
   const [isEditingMaterialsGlance, setIsEditingMaterialsGlance] = useState(false);
   /** Bumps when materials save completes so stale in-flight getTripBudget loads cannot overwrite the draft. */
   const materialsBudgetLoadGenRef = useRef(0);
@@ -2294,6 +2298,26 @@ export default function TripPage() {
     return () => {
       cancelled = true;
       window.removeEventListener(STAFF_TASKS_UPDATED_EVENT, handleTaskUpdate);
+    };
+  }, [trip?.id, staffViewAllParticipants]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!trip?.id || !staffViewAllParticipants) {
+      setTripBudgetCheckRequests([]);
+      return undefined;
+    }
+    void (async () => {
+      try {
+        const rows = await listBudgetCheckRequestsForTrip(trip.id);
+        if (!cancelled) setTripBudgetCheckRequests(rows);
+      } catch (e) {
+        console.warn("[trip] budget check requests", e);
+        if (!cancelled) setTripBudgetCheckRequests([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
   }, [trip?.id, staffViewAllParticipants]);
 
@@ -7262,6 +7286,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
         amount: amt,
         note: budgetCheckNote,
       });
+      try {
+        setTripBudgetCheckRequests(await listBudgetCheckRequestsForTrip(trip.id));
+      } catch {
+        /* list refresh is best-effort */
+      }
       showToast("Budget check requested. Track it on Budget → Checks.", "success");
       setBudgetCheckModalOpen(false);
       setBudgetCheckAmount("");
@@ -10990,9 +11019,95 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     <div>
                       <div style={{ ...materialsGlanceMuted, marginBottom: 10, lineHeight: 1.45 }}>
                         Request a printed check for this team. Accounting gets a task and an optional email.
-                        Status lives on{" "}
+                        Full list and <strong>Mark processed</strong> live on{" "}
                         <Link href="/budget?tab=checks">Budget → Checks</Link>.
                       </div>
+                      {tripBudgetCheckRequests.length === 0 ? (
+                        <div
+                          className="small"
+                          style={{ marginBottom: 12, color: "var(--muted)", fontStyle: "italic" }}
+                        >
+                          No check requests for this trip yet.
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 8,
+                            marginBottom: 12,
+                            padding: "10px 12px",
+                            borderRadius: 10,
+                            border: "1px solid rgba(15, 23, 42, 0.08)",
+                            background: "rgba(248, 250, 252, 0.9)",
+                          }}
+                        >
+                          <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
+                            This trip
+                          </div>
+                          {tripBudgetCheckRequests.map((req) => {
+                            const isDone = req.status === "processed";
+                            const dateLabel = (() => {
+                              try {
+                                const d = new Date(req.createdAt);
+                                return Number.isFinite(d.getTime())
+                                  ? d.toLocaleDateString(undefined, {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    })
+                                  : "";
+                              } catch {
+                                return "";
+                              }
+                            })();
+                            return (
+                              <div
+                                key={req.id}
+                                className="row"
+                                style={{
+                                  flexWrap: "wrap",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  justifyContent: "space-between",
+                                }}
+                              >
+                                <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                                  {String(req.amountRequested || "").trim() || "—"}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    letterSpacing: "0.06em",
+                                    textTransform: "uppercase",
+                                    padding: "3px 8px",
+                                    borderRadius: 999,
+                                    border: "1px solid",
+                                    ...(isDone
+                                      ? {
+                                          color: "#15803d",
+                                          background: "rgba(220, 252, 231, 0.85)",
+                                          borderColor: "rgba(22, 163, 74, 0.35)",
+                                        }
+                                      : {
+                                          color: "#b45309",
+                                          background: "rgba(254, 243, 199, 0.9)",
+                                          borderColor: "rgba(217, 119, 6, 0.35)",
+                                        }),
+                                  }}
+                                >
+                                  {isDone ? "Processed" : "Pending"}
+                                </span>
+                                {dateLabel ? (
+                                  <span className="small" style={{ color: "var(--muted)", marginLeft: "auto" }}>
+                                    Requested {dateLabel}
+                                  </span>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                       <button
                         type="button"
                         className="btn btnPrimary"
