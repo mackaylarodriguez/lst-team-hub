@@ -36,6 +36,11 @@ import {
 } from "@/lib/tripHousingEntries";
 import { listAllTripTeamMembers } from "@/lib/tripTeamMembers";
 import { listTripsForCurrentUser } from "@/lib/trips";
+import {
+  listBudgetCheckRequests,
+  markBudgetCheckRequestProcessed,
+  submitBudgetCheckRequest,
+} from "@/lib/budgetCheckRequests";
 import { resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 
@@ -94,6 +99,15 @@ function normalizeMoneyInputToUsd(raw) {
   const n = parseCurrencyLike(trimmed);
   if (n === null) return trimmed;
   return formatUsdNumber(n);
+}
+
+function formatBudgetCheckTimestamp(iso) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return String(iso);
+  }
 }
 
 function computeTotalLstCost(totalTicketCost, amountWorkerPaid) {
@@ -312,6 +326,12 @@ export default function BudgetPage() {
   const [newSiteHousingDraft, setNewSiteHousingDraft] = useState("");
   const [housingToolbarHeight, setHousingToolbarHeight] = useState(96);
   const [ticketingToolbarHeight, setTicketingToolbarHeight] = useState(96);
+  const [budgetCheckRows, setBudgetCheckRows] = useState([]);
+  const [newBudgetCheckTripId, setNewBudgetCheckTripId] = useState("");
+  const [newBudgetCheckAmount, setNewBudgetCheckAmount] = useState("");
+  const [newBudgetCheckNote, setNewBudgetCheckNote] = useState("");
+  const [budgetCheckSubmitting, setBudgetCheckSubmitting] = useState(false);
+  const [budgetCheckProcessingId, setBudgetCheckProcessingId] = useState("");
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
 
@@ -479,6 +499,20 @@ export default function BudgetPage() {
   }, [siteHousingNotes, trips, housingRows]);
 
   useEffect(() => {
+    const t = String(router.query.tab || "").toLowerCase();
+    if (t === "checks") setTab("Checks");
+  }, [router.query.tab]);
+
+  const budgetCheckPendingRows = useMemo(
+    () => (budgetCheckRows || []).filter((r) => r.status === "pending"),
+    [budgetCheckRows]
+  );
+  const budgetCheckProcessedRows = useMemo(
+    () => (budgetCheckRows || []).filter((r) => r.status === "processed"),
+    [budgetCheckRows]
+  );
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadSession() {
@@ -492,16 +526,21 @@ export default function BudgetPage() {
 
       try {
         setLoading(true);
-        const [avgRes, tripsRes, housingRes, ticketsRes, rosterMembers] = await Promise.all([
-          getBudgetAverages(),
-          listTripsForCurrentUser(),
-          listAllTripBudgets(),
-          listAllTripTickets(),
-          listAllTripTeamMembers().catch((err) => {
-            console.warn("Could not load roster for accountant dropdown", err);
-            return [];
-          }),
-        ]);
+        const [avgRes, tripsRes, housingRes, ticketsRes, rosterMembers, checkRequests] =
+          await Promise.all([
+            getBudgetAverages(),
+            listTripsForCurrentUser(),
+            listAllTripBudgets(),
+            listAllTripTickets(),
+            listAllTripTeamMembers().catch((err) => {
+              console.warn("Could not load roster for accountant dropdown", err);
+              return [];
+            }),
+            listBudgetCheckRequests().catch((err) => {
+              console.warn("Budget check requests not loaded", err);
+              return [];
+            }),
+          ]);
         if (cancelled) return;
         const rosterByTrip = {};
         for (const mem of rosterMembers || []) {
@@ -511,6 +550,7 @@ export default function BudgetPage() {
           rosterByTrip[tid].push(mem);
         }
         if (!cancelled) setTeamMembersByTripId(rosterByTrip);
+        if (!cancelled) setBudgetCheckRows(checkRequests || []);
         await syncTripTicketsFromTeamMembers(tripsRes || []);
         const refreshedTickets = await listAllTripTickets();
         if (cancelled) return;
@@ -549,6 +589,10 @@ export default function BudgetPage() {
         if (tripsRes?.length > 0 && !newHousingSlotTripId) {
           const sorted = [...tripsRes].sort(compareTripsForBudgetSort);
           setNewHousingSlotTripId(sorted[0].id);
+        }
+        if (tripsRes?.length > 0 && !newBudgetCheckTripId) {
+          const sorted = [...tripsRes].sort(compareTripsForBudgetSort);
+          setNewBudgetCheckTripId(sorted[0].id);
         }
       } catch (e) {
         if (!cancelled) {
@@ -858,6 +902,49 @@ export default function BudgetPage() {
     }
   }
 
+  async function handleSubmitBudgetCheckFromBudgetPage() {
+    const tripId = newBudgetCheckTripId || trips[0]?.id;
+    if (!tripId) {
+      showToast("Choose a trip first.", "error");
+      return;
+    }
+    if (!String(newBudgetCheckAmount || "").trim()) {
+      showToast("Enter the check amount.", "error");
+      return;
+    }
+    try {
+      setBudgetCheckSubmitting(true);
+      await submitBudgetCheckRequest({
+        tripId,
+        amount: newBudgetCheckAmount,
+        note: newBudgetCheckNote,
+      });
+      const next = await listBudgetCheckRequests();
+      setBudgetCheckRows(next);
+      setNewBudgetCheckAmount("");
+      setNewBudgetCheckNote("");
+      showToast("Budget check requested.", "success");
+    } catch (e) {
+      showToast(e.message || "Request failed.", "error");
+    } finally {
+      setBudgetCheckSubmitting(false);
+    }
+  }
+
+  async function handleMarkBudgetCheckProcessed(id) {
+    try {
+      setBudgetCheckProcessingId(id);
+      await markBudgetCheckRequestProcessed(id);
+      const next = await listBudgetCheckRequests();
+      setBudgetCheckRows(next);
+      showToast("Marked processed.", "success");
+    } catch (e) {
+      showToast(e.message || "Could not update.", "error");
+    } finally {
+      setBudgetCheckProcessingId("");
+    }
+  }
+
   async function handleAddTicket() {
     const tripId = newTicketTripId || trips[0]?.id;
     if (!tripId) {
@@ -957,6 +1044,13 @@ export default function BudgetPage() {
             onClick={() => setTab("Ticketing")}
           >
             Ticketing
+          </button>
+          <button
+            type="button"
+            className={"tab " + (tab === "Checks" ? "tabActive" : "")}
+            onClick={() => setTab("Checks")}
+          >
+            Checks
           </button>
         </div>
 
@@ -2190,6 +2284,187 @@ export default function BudgetPage() {
             />
           )}
         </div>
+        )}
+
+        {tab === "Checks" && (
+          <div className="card pad" style={budgetSectionCardStyle}>
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>Printed checks (Donna / accounting)</div>
+            <p className="small" style={{ margin: "0 0 16px", color: "var(--muted)", lineHeight: 1.5 }}>
+              Staff and admin can request a printed check for a trip. The assignee gets a personal Finance task
+              (due in about 14 days by default) and an optional email when{" "}
+              <code style={{ fontSize: "0.92em" }}>RESEND_API_KEY</code> and{" "}
+              <code style={{ fontSize: "0.92em" }}>BUDGET_CHECK_FROM_EMAIL</code> are set. During testing, set{" "}
+              <code style={{ fontSize: "0.92em" }}>BUDGET_CHECK_NOTIFY_EMAIL</code> to your address so notifications
+              do not go to finance until you are ready. Assignee email:{" "}
+              <code style={{ fontSize: "0.92em" }}>BUDGET_CHECK_ASSIGNEE_EMAIL</code> or{" "}
+              <code style={{ fontSize: "0.92em" }}>DONNA_STAFF_EMAIL</code>.
+            </p>
+
+            <div
+              style={{
+                ...budgetSectionSummaryGridStyle,
+                marginBottom: 20,
+                padding: "14px 16px",
+                borderRadius: 14,
+                border: "1px solid rgba(15, 23, 42, 0.08)",
+                background: "rgba(248, 250, 252, 0.88)",
+              }}
+            >
+              <div style={{ gridColumn: "1 / -1", fontWeight: 800, marginBottom: 4 }}>New request</div>
+              <div style={{ minWidth: 0 }}>
+                <label className="small" htmlFor="budget-check-trip" style={{ display: "block", marginBottom: 4 }}>
+                  Trip
+                </label>
+                <select
+                  id="budget-check-trip"
+                  className="input"
+                  value={newBudgetCheckTripId}
+                  onChange={(e) => setNewBudgetCheckTripId(e.target.value)}
+                  disabled={!tripsSortedForBudget.length}
+                >
+                  {tripsSortedForBudget.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name || t.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <label className="small" htmlFor="budget-check-amount" style={{ display: "block", marginBottom: 4 }}>
+                  Check amount
+                </label>
+                <input
+                  id="budget-check-amount"
+                  className="input"
+                  inputMode="decimal"
+                  placeholder="$0.00"
+                  value={newBudgetCheckAmount}
+                  onChange={(e) => setNewBudgetCheckAmount(e.target.value)}
+                  onBlur={() => setNewBudgetCheckAmount((v) => normalizeMoneyInputToUsd(v))}
+                />
+              </div>
+              <div style={{ gridColumn: "1 / -1", minWidth: 0 }}>
+                <label className="small" htmlFor="budget-check-note" style={{ display: "block", marginBottom: 4 }}>
+                  Note (optional)
+                </label>
+                <textarea
+                  id="budget-check-note"
+                  className="input"
+                  rows={2}
+                  value={newBudgetCheckNote}
+                  onChange={(e) => setNewBudgetCheckNote(e.target.value)}
+                  placeholder="Payee, memo line, or other context for accounting."
+                />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <button
+                  type="button"
+                  className="btn btnPrimary"
+                  disabled={budgetCheckSubmitting || !tripsSortedForBudget.length}
+                  onClick={() => void handleSubmitBudgetCheckFromBudgetPage()}
+                >
+                  {budgetCheckSubmitting ? "Submitting…" : "Submit request"}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ fontWeight: 800, marginBottom: 10 }}>Pending</div>
+            {budgetCheckPendingRows.length === 0 ? (
+              <p className="small" style={{ color: "var(--muted)", marginBottom: 24 }}>
+                No open requests.
+              </p>
+            ) : (
+              <div className="budgetTableScroller" style={{ marginBottom: 28 }}>
+                <table className="table dataTableStriped" style={{ minWidth: 920, fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th>Requested</th>
+                      <th>Trip</th>
+                      <th>Team</th>
+                      <th>Accountant</th>
+                      <th>Budget on file</th>
+                      <th>Check amount</th>
+                      <th>Requested by</th>
+                      <th>Note</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {budgetCheckPendingRows.map((r) => (
+                      <tr key={r.id}>
+                        <td>{formatBudgetCheckTimestamp(r.createdAt)}</td>
+                        <td>
+                          <Link href={`/trips/${r.tripId}`}>{r.tripNameSnapshot || r.tripId}</Link>
+                        </td>
+                        <td>{r.teamNameSnapshot || "—"}</td>
+                        <td>{r.teamAccountantSnapshot || "—"}</td>
+                        <td style={{ fontVariantNumeric: "tabular-nums" }}>
+                          {formatUsdDisplay(r.budgetAmountSnapshot)}
+                        </td>
+                        <td style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                          {formatUsdDisplay(r.amountRequested)}
+                        </td>
+                        <td className="small">
+                          {r.requestedByName || r.requestedByEmail || "—"}
+                        </td>
+                        <td className="small" style={{ maxWidth: 220, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                          {r.note || "—"}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn btnPrimary"
+                            disabled={budgetCheckProcessingId === r.id}
+                            onClick={() => void handleMarkBudgetCheckProcessed(r.id)}
+                          >
+                            {budgetCheckProcessingId === r.id ? "…" : "Mark processed"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div style={{ fontWeight: 800, marginBottom: 10 }}>Processed</div>
+            {budgetCheckProcessedRows.length === 0 ? (
+              <p className="small" style={{ color: "var(--muted)" }}>
+                No completed requests yet.
+              </p>
+            ) : (
+              <div className="budgetTableScroller">
+                <table className="table dataTableStriped" style={{ minWidth: 880, fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th>Requested</th>
+                      <th>Processed</th>
+                      <th>Trip</th>
+                      <th>Check amount</th>
+                      <th>Requested by</th>
+                      <th>Processed by</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {budgetCheckProcessedRows.map((r) => (
+                      <tr key={r.id}>
+                        <td>{formatBudgetCheckTimestamp(r.createdAt)}</td>
+                        <td>{formatBudgetCheckTimestamp(r.processedAt)}</td>
+                        <td>
+                          <Link href={`/trips/${r.tripId}`}>{r.tripNameSnapshot || r.tripId}</Link>
+                        </td>
+                        <td style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                          {formatUsdDisplay(r.amountRequested)}
+                        </td>
+                        <td className="small">{r.requestedByName || r.requestedByEmail || "—"}</td>
+                        <td className="small">{r.processedByName || r.processedByEmail || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </Shell>

@@ -131,6 +131,7 @@ import {
   saveTripBudget,
   uploadTripHousingPdf,
 } from "@/lib/tripBudget";
+import { submitBudgetCheckRequest } from "@/lib/budgetCheckRequests";
 import { getTripTeamLogisticsForViewer, saveTripTeamLogisticsByTeam } from "@/lib/tripTeamLogistics";
 import {
   findSiteBudgetNoteForOption,
@@ -1238,6 +1239,10 @@ export default function TripPage() {
   const [teamLogisticsSaveStatus, setTeamLogisticsSaveStatus] = useState("");
   const [teamLogisticsLoading, setTeamLogisticsLoading] = useState(false);
   const [materialsSaveStatus, setMaterialsSaveStatus] = useState("");
+  const [budgetCheckModalOpen, setBudgetCheckModalOpen] = useState(false);
+  const [budgetCheckAmount, setBudgetCheckAmount] = useState("");
+  const [budgetCheckNote, setBudgetCheckNote] = useState("");
+  const [budgetCheckSubmitting, setBudgetCheckSubmitting] = useState(false);
   const [isEditingMaterialsGlance, setIsEditingMaterialsGlance] = useState(false);
   /** Bumps when materials save completes so stale in-flight getTripBudget loads cannot overwrite the draft. */
   const materialsBudgetLoadGenRef = useRef(0);
@@ -7243,6 +7248,31 @@ normalizeEmail(participant.email) === activeParticipantEmail
     }
   }
 
+  async function handleSubmitBudgetCheckFromTripMaterials() {
+    if (!trip?.id) return;
+    const amt = String(budgetCheckAmount || "").trim();
+    if (!amt) {
+      showToast("Enter the check amount.", "error");
+      return;
+    }
+    try {
+      setBudgetCheckSubmitting(true);
+      await submitBudgetCheckRequest({
+        tripId: trip.id,
+        amount: amt,
+        note: budgetCheckNote,
+      });
+      showToast("Budget check requested. Track it on Budget → Checks.", "success");
+      setBudgetCheckModalOpen(false);
+      setBudgetCheckAmount("");
+      setBudgetCheckNote("");
+    } catch (e) {
+      showToast(e.message || "Request failed.", "error");
+    } finally {
+      setBudgetCheckSubmitting(false);
+    }
+  }
+
   function revertMaterialsDraftFromBudgetRow() {
     const row = tripBudgetRow;
     setMaterialsDraft(
@@ -10956,6 +10986,31 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       paddingTop: 16,
                     }}
                   >
+                    <div style={materialsGlanceLabel}>Printed check (accounting)</div>
+                    <div>
+                      <div style={{ ...materialsGlanceMuted, marginBottom: 10, lineHeight: 1.45 }}>
+                        Request a printed check for this team. Accounting gets a task and an optional email.
+                        Status lives on{" "}
+                        <Link href="/budget?tab=checks">Budget → Checks</Link>.
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btnPrimary"
+                        onClick={() => setBudgetCheckModalOpen(true)}
+                      >
+                        Request budget check
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      ...materialsGlanceRowSending,
+                      marginTop: 14,
+                      borderTop: "1px solid rgba(15, 23, 42, 0.08)",
+                      paddingTop: 16,
+                    }}
+                  >
                     <div style={materialsGlanceLabel}>Shipping box checklist</div>
                     <div>
                       <div style={{ ...materialsGlanceMuted, marginBottom: 10, lineHeight: 1.45 }}>
@@ -13032,6 +13087,84 @@ normalizeEmail(participant.email) === activeParticipantEmail
             </div>
             <div className="row" style={{ marginTop: 12 }}>
               <button className="btn btnPrimary" type="button" onClick={() => void handleSaveTravelForm()}>Save Travel Form</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {budgetCheckModalOpen && (
+        <div
+          className="appModalOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Request budget check"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 50,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !budgetCheckSubmitting) setBudgetCheckModalOpen(false);
+          }}
+        >
+          <div className="card pad appModalCard" style={{ width: "min(480px, 100%)", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 900 }}>Request budget check</div>
+              <div className="spacer" />
+              <button
+                className="btn"
+                type="button"
+                disabled={budgetCheckSubmitting}
+                onClick={() => setBudgetCheckModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <p className="small" style={{ marginBottom: 14, lineHeight: 1.45, color: "var(--muted)" }}>
+              This is not the same as the team&apos;s saved budget total — enter the amount for the check you
+              need printed. Any staff or admin can mark the request processed later on{" "}
+              <Link href="/budget?tab=checks">Budget → Checks</Link>.
+            </p>
+            <div style={{ display: "grid", gap: 12 }}>
+              <div>
+                <div className="small" style={{ marginBottom: 4 }}>
+                  Check amount
+                </div>
+                <input
+                  className="input"
+                  inputMode="decimal"
+                  placeholder="$0.00"
+                  value={budgetCheckAmount}
+                  onChange={(e) => setBudgetCheckAmount(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 4 }}>
+                  Note (optional)
+                </div>
+                <textarea
+                  className="input"
+                  rows={3}
+                  value={budgetCheckNote}
+                  onChange={(e) => setBudgetCheckNote(e.target.value)}
+                  placeholder="Payee, memo, or other context for accounting."
+                />
+              </div>
+            </div>
+            <div className="row" style={{ marginTop: 14, gap: 8, flexWrap: "wrap" }}>
+              <button
+                className="btn btnPrimary"
+                type="button"
+                disabled={budgetCheckSubmitting}
+                onClick={() => void handleSubmitBudgetCheckFromTripMaterials()}
+              >
+                {budgetCheckSubmitting ? "Submitting…" : "Submit request"}
+              </button>
             </div>
           </div>
         </div>

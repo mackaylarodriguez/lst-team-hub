@@ -1,0 +1,328 @@
+/**
+ * Budget check (printed check) workflow for staff/admin.
+ *
+ * Env (optional):
+ * - BUDGET_CHECK_NOTIFY_EMAIL — notification recipient (use during testing so finance isn’t flooded).
+ * - BUDGET_CHECK_ASSIGNEE_EMAIL or DONNA_STAFF_EMAIL — personal task assignee (Donna’s staff email).
+ * - BUDGET_CHECK_ASSIGNEE_NAME — optional display name on the misc task.
+ * - BUDGET_CHECK_DUE_DAYS — days until misc-task due date (default 14).
+ * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL — send notification email via Resend.
+ */
+
+import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function normalizeEmail(value) {
+  return normalizeText(value).toLowerCase();
+}
+
+function getBearerToken(req) {
+  const raw = normalizeText(req.headers.authorization);
+  const m = /^Bearer\s+(.+)$/i.exec(raw);
+  return m ? m[1].trim() : "";
+}
+
+function getPublicSupabaseForAuth() {
+  const supabaseUrl = normalizeText(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const supabaseAnonKey = normalizeText(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+  }
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+function isStaffOrAdminRole(role) {
+  const r = normalizeText(role).toLowerCase();
+  return r === "admin" || r === "staff";
+}
+
+async function authenticateStaffOrAdmin(req) {
+  const jwt = getBearerToken(req);
+  if (!jwt) {
+    return { error: { status: 401, message: "Missing Authorization bearer token." } };
+  }
+
+  const supabaseAuth = getPublicSupabaseForAuth();
+  const { data: userData, error: userErr } = await supabaseAuth.auth.getUser(jwt);
+  if (userErr || !userData?.user?.id) {
+    return { error: { status: 401, message: "Invalid or expired session." } };
+  }
+
+  const admin = getSupabaseAdminClient();
+  const { data: profile, error: profileErr } = await admin
+    .from("profiles")
+    .select("id, email, full_name, role")
+    .eq("id", userData.user.id)
+    .maybeSingle();
+
+  if (profileErr || !profile?.id) {
+    return { error: { status: 403, message: "Profile not found." } };
+  }
+
+  if (!isStaffOrAdminRole(profile.role)) {
+    return { error: { status: 403, message: "Only staff or admin can use this." } };
+  }
+
+  return { admin, profile, user: userData.user };
+}
+
+function addDaysIsoDate(days) {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+async function sendNotifyEmail({ to, subject, html }) {
+  const key = normalizeText(process.env.RESEND_API_KEY);
+  const from = normalizeText(process.env.BUDGET_CHECK_FROM_EMAIL);
+  if (!key || !from || !normalizeEmail(to)) {
+    return { sent: false, reason: "missing_resend_or_from_or_to" };
+  }
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [normalizeEmail(to)],
+      subject,
+      html,
+    }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.error("[budget-check-request] Resend error", res.status, json);
+    return { sent: false, reason: "resend_http_error", detail: json };
+  }
+  return { sent: true, id: json?.id };
+}
+
+export default async function handler(req, res) {
+  if (req.method === "POST") {
+    const auth = await authenticateStaffOrAdmin(req);
+    if (auth.error) {
+      return res.status(auth.error.status).json({ error: auth.error.message });
+    }
+
+    const { admin, profile } = auth;
+    const tripId = normalizeText(req.body?.tripId);
+    const amountRequested = normalizeText(req.body?.amount);
+    const note = normalizeText(req.body?.note);
+
+    if (!tripId) {
+      return res.status(400).json({ error: "tripId is required." });
+    }
+    if (!amountRequested) {
+      return res.status(400).json({ error: "Amount is required." });
+    }
+
+    const { data: trip, error: tripErr } = await admin
+      .from("trips")
+      .select("id, trip_name")
+      .eq("id", tripId)
+      .maybeSingle();
+
+    if (tripErr || !trip?.id) {
+      return res.status(404).json({ error: "Trip not found." });
+    }
+
+    const { data: budget } = await admin
+      .from("trip_budgets")
+      .select("team_name, team_accountant, budget_amount")
+      .eq("trip_id", tripId)
+      .maybeSingle();
+
+    const tripName = normalizeText(trip.trip_name);
+    const teamNameSnap = normalizeText(budget?.team_name);
+    const accountantSnap = normalizeText(budget?.team_accountant);
+    const budgetAmtSnap =
+      budget?.budget_amount === null || budget?.budget_amount === undefined
+        ? ""
+        : String(budget.budget_amount);
+
+    const dueDays = Number(process.env.BUDGET_CHECK_DUE_DAYS || 14);
+    const safeDueDays = Number.isFinite(dueDays) && dueDays > 0 ? dueDays : 14;
+    const dueDate = addDaysIsoDate(safeDueDays);
+
+    const assigneeEmail =
+      normalizeEmail(process.env.BUDGET_CHECK_ASSIGNEE_EMAIL) ||
+      normalizeEmail(process.env.DONNA_STAFF_EMAIL);
+    const assigneeName = normalizeText(process.env.BUDGET_CHECK_ASSIGNEE_NAME) || null;
+
+    const taskTitle = `Print check — ${tripName || "Trip"} (${amountRequested})`;
+    const taskNotes = [
+      `Trip: ${tripName || tripId}`,
+      teamNameSnap ? `Team name: ${teamNameSnap}` : null,
+      accountantSnap ? `Team accountant: ${accountantSnap}` : null,
+      budgetAmtSnap ? `Budget amount on file: ${budgetAmtSnap}` : null,
+      `Check amount requested: ${amountRequested}`,
+      note ? `Note from staff: ${note}` : null,
+      `Requested by: ${normalizeText(profile.full_name) || profile.email || profile.id}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    let staffMiscTaskId = null;
+    if (assigneeEmail) {
+      const { data: taskRow, error: taskErr } = await admin
+        .from("staff_misc_tasks")
+        .insert({
+          staff_email: assigneeEmail,
+          staff_name: assigneeName,
+          work_area: "Finance",
+          task_name: taskTitle,
+          progress: "Not started",
+          due_date: dueDate,
+          notes: taskNotes,
+        })
+        .select("id")
+        .single();
+
+      if (taskErr) {
+        console.error("[budget-check-request] staff_misc_tasks insert", taskErr);
+        return res.status(500).json({ error: taskErr.message || "Could not create assignee task." });
+      }
+      staffMiscTaskId = taskRow?.id || null;
+    } else {
+      console.warn(
+        "[budget-check-request] No BUDGET_CHECK_ASSIGNEE_EMAIL or DONNA_STAFF_EMAIL; skipping misc task."
+      );
+    }
+
+    const insertPayload = {
+      trip_id: tripId,
+      trip_name_snapshot: tripName || null,
+      team_name_snapshot: teamNameSnap || null,
+      team_accountant_snapshot: accountantSnap || null,
+      budget_amount_snapshot: budgetAmtSnap || null,
+      amount_requested: amountRequested,
+      note: note || null,
+      status: "pending",
+      requested_by_user_id: profile.id,
+      requested_by_email: profile.email || null,
+      requested_by_name: normalizeText(profile.full_name) || null,
+      staff_misc_task_id: staffMiscTaskId,
+    };
+
+    const { data: row, error: insertErr } = await admin
+      .from("budget_check_requests")
+      .insert(insertPayload)
+      .select("*")
+      .single();
+
+    if (insertErr) {
+      if (staffMiscTaskId) {
+        await admin.from("staff_misc_tasks").delete().eq("id", staffMiscTaskId);
+      }
+      console.error("[budget-check-requests] insert", insertErr);
+      return res.status(500).json({ error: insertErr.message || "Could not save request." });
+    }
+
+    const notifyTo =
+      normalizeEmail(process.env.BUDGET_CHECK_NOTIFY_EMAIL) ||
+      assigneeEmail ||
+      normalizeEmail(profile.email);
+    const requesterLabel = normalizeText(profile.full_name) || profile.email || "Staff";
+    const subject = `Budget check request — ${tripName || "Trip"} — ${amountRequested}`;
+    const html = `
+      <p><strong>${escapeHtml(requesterLabel)}</strong> requested a printed check.</p>
+      <ul>
+        <li><strong>Trip:</strong> ${escapeHtml(tripName || tripId)}</li>
+        ${teamNameSnap ? `<li><strong>Team:</strong> ${escapeHtml(teamNameSnap)}</li>` : ""}
+        ${accountantSnap ? `<li><strong>Accountant:</strong> ${escapeHtml(accountantSnap)}</li>` : ""}
+        ${budgetAmtSnap ? `<li><strong>Budget on file:</strong> ${escapeHtml(budgetAmtSnap)}</li>` : ""}
+        <li><strong>Check amount:</strong> ${escapeHtml(amountRequested)}</li>
+        ${note ? `<li><strong>Note:</strong> ${escapeHtml(note)}</li>` : ""}
+      </ul>
+      <p>Request id: <code>${escapeHtml(row.id)}</code></p>
+    `.trim();
+
+    const emailResult = await sendNotifyEmail({ to: notifyTo, subject, html });
+
+    return res.status(200).json({
+      ok: true,
+      request: row,
+      email: emailResult,
+    });
+  }
+
+  if (req.method === "PATCH") {
+    const auth = await authenticateStaffOrAdmin(req);
+    if (auth.error) {
+      return res.status(auth.error.status).json({ error: auth.error.message });
+    }
+
+    const { admin, profile } = auth;
+    const id = normalizeText(req.body?.id);
+    const action = normalizeText(req.body?.action).toLowerCase();
+
+    if (!id) {
+      return res.status(400).json({ error: "id is required." });
+    }
+    if (action !== "mark_processed") {
+      return res.status(400).json({ error: "Unsupported action." });
+    }
+
+    const { data: existing, error: loadErr } = await admin
+      .from("budget_check_requests")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (loadErr || !existing) {
+      return res.status(404).json({ error: "Request not found." });
+    }
+    if (existing.status === "processed") {
+      return res.status(200).json({ ok: true, request: existing, alreadyProcessed: true });
+    }
+
+    const nowIso = new Date().toISOString();
+    const { data: updated, error: updErr } = await admin
+      .from("budget_check_requests")
+      .update({
+        status: "processed",
+        processed_at: nowIso,
+        processed_by_user_id: profile.id,
+        processed_by_email: profile.email || null,
+        processed_by_name: normalizeText(profile.full_name) || null,
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (updErr) {
+      console.error("[budget-check-request] patch", updErr);
+      return res.status(500).json({ error: updErr.message || "Could not update request." });
+    }
+
+    if (existing.staff_misc_task_id) {
+      await admin
+        .from("staff_misc_tasks")
+        .update({ progress: "Complete", updated_at: nowIso })
+        .eq("id", existing.staff_misc_task_id);
+    }
+
+    return res.status(200).json({ ok: true, request: updated });
+  }
+
+  res.setHeader("Allow", "POST, PATCH");
+  return res.status(405).json({ error: "Method not allowed." });
+}
+
+function escapeHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
