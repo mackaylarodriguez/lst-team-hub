@@ -25,7 +25,6 @@ import {
   updateTripTeamMemberTshirtSize,
 } from "@/lib/tripTeamMembers";
 import { pruneTripTicketsForNonTravelingLeaders } from "@/lib/tripTickets";
-import { SITE_OPTIONS } from "@/lib/siteOptions";
 import {
   getTrainingModuleDeadline,
   listTrainingModules,
@@ -139,6 +138,7 @@ import {
 } from "@/lib/budgetCheckRequests";
 import { getTripTeamLogisticsForViewer, saveTripTeamLogisticsByTeam } from "@/lib/tripTeamLogistics";
 import {
+  buildSiteLabelsOrdered,
   findSiteBudgetNoteForOption,
   resolveCanonicalSiteLabelForTrip,
   resolveSiteBudgetNoteForTripLocation,
@@ -4853,8 +4853,12 @@ function parseDateSafe(dateStr) {
     const loc = String(draft.location || "").trim();
     if (loc) {
       const canon = resolveCanonicalSiteLabelForTrip(loc, siteBudgetNotesList);
-      if (canon && SITE_OPTIONS.includes(canon) && canon !== loc) {
-        draft = { ...draft, location: canon };
+      const ordered = buildSiteLabelsOrdered(siteBudgetNotesList);
+      const exact = ordered.find(
+        (o) => o.toLowerCase() === String(canon || "").trim().toLowerCase()
+      );
+      if (exact && exact !== loc) {
+        draft = { ...draft, location: exact };
       }
     }
     setTripSetupDraft(draft);
@@ -5705,23 +5709,19 @@ function parseDateSafe(dateStr) {
   const siteOptions = useMemo(() => {
     const seen = new Set();
     const out = [];
-    for (const o of SITE_OPTIONS || []) {
-      const s = String(o || "").trim();
-      if (!s) continue;
+    const push = (label) => {
+      const s = String(label || "").trim();
+      if (!s) return;
       const k = s.toLowerCase();
-      if (seen.has(k)) continue;
+      if (seen.has(k)) return;
       seen.add(k);
       out.push(s);
-    }
+    };
+    for (const o of buildSiteLabelsOrdered(siteBudgetNotesList)) push(o);
     const loc = String(trip?.location || "").trim();
     if (loc) {
       const canon = resolveCanonicalSiteLabelForTrip(loc, siteBudgetNotesList);
-      const add = canon || loc;
-      const k = add.toLowerCase();
-      if (!seen.has(k)) {
-        seen.add(k);
-        out.push(add);
-      }
+      push(canon || loc);
     }
     return out;
   }, [trip?.location, siteBudgetNotesList]);

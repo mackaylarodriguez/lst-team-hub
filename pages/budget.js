@@ -43,8 +43,7 @@ import {
   submitBudgetCheckRequest,
   updateBudgetCheckRequest,
 } from "@/lib/budgetCheckRequests";
-import { resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
-import { SITE_OPTIONS } from "@/lib/siteOptions";
+import { buildSiteLabelsOrdered, resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
 
 function n(val) {
   return val === null || val === undefined ? "" : String(val).trim();
@@ -467,7 +466,7 @@ export default function BudgetPage() {
       seenCanon.add(canon);
       out.push(raw);
     };
-    for (const o of SITE_OPTIONS) pushLabel(o);
+    for (const o of buildSiteLabelsOrdered(notes)) pushLabel(o);
     for (const t of fromTrips) pushLabel(t);
     out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
     return out.filter((lbl) => {

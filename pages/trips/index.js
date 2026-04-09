@@ -19,8 +19,8 @@ import {
 } from "@/lib/trips";
 import { listTripTeamMembers, saveTripTeamMembers } from "@/lib/tripTeamMembers";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
-import { SITE_OPTIONS } from "@/lib/siteOptions";
-import { resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
+import { buildSiteLabelsOrdered, resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
+import { listSiteBudgetNotes } from "@/lib/tripBudget";
 import { listStaffTripMetrics } from "@/lib/staffOverview";
 import {
   DEFAULT_TRAINING_TIMELINE_TYPE,
@@ -197,6 +197,7 @@ function renderTripCard({
   updateLocalTripStatus,
   setSubmitError,
   handleStartEditTrip,
+  siteBudgetNotes,
 }) {
   const tone = getTripCardTone(section);
   const tripMetrics = tripMetricsById[trip.id] || {};
@@ -235,7 +236,7 @@ function renderTripCard({
         <div className="tripCardMetaLine">
           <span className="tripCardMetaLabel">Site</span>
           <span>
-            {resolveCanonicalSiteLabelForTrip(trip.location, []) ||
+            {resolveCanonicalSiteLabelForTrip(trip.location, siteBudgetNotes || []) ||
               trip.location ||
               "Site coming soon"}
           </span>
@@ -332,6 +333,7 @@ export default function Trips() {
   const [editingTripId, setEditingTripId] = useState("");
   const [isLoadingTripForm, setIsLoadingTripForm] = useState(false);
   const [useIndividualFundraisingAmounts, setUseIndividualFundraisingAmounts] = useState(false);
+  const [siteBudgetNotes, setSiteBudgetNotes] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -344,8 +346,15 @@ export default function Trips() {
       setSession(session);
       try {
         const assignedTrips = await listTripsForCurrentUser();
+        let notes = [];
+        try {
+          notes = await listSiteBudgetNotes();
+        } catch (notesErr) {
+          console.warn("Unable to load site list for trips", notesErr);
+        }
         if (!cancelled) {
           setTrips(assignedTrips);
+          setSiteBudgetNotes(notes || []);
           if (isManagerRole(session.permissionRole || session.role)) {
             setTripMetricsById(await listStaffTripMetrics());
           } else {
@@ -362,8 +371,15 @@ export default function Trips() {
     async function syncTrips() {
       try {
         const assignedTrips = await listTripsForCurrentUser();
+        let notes = [];
+        try {
+          notes = await listSiteBudgetNotes();
+        } catch (notesErr) {
+          console.warn("Unable to load site list for trips", notesErr);
+        }
         if (!cancelled) {
           setTrips(assignedTrips);
+          setSiteBudgetNotes(notes || []);
           if (isManagerRole(activeSession?.permissionRole || activeSession?.role)) {
             setTripMetricsById(await listStaffTripMetrics());
           } else {
@@ -417,22 +433,20 @@ export default function Trips() {
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
   const siteOptions = useMemo(() => {
     const seen = new Set();
-    const configured = (SITE_OPTIONS || [])
-      .map((site) => String(site || "").trim())
-      .filter(Boolean);
-    const fromTrips = (trips || [])
-      .map((trip) => String(trip.location || "").trim())
-      .filter(Boolean);
-
-    return [...configured, ...fromTrips]
-      .filter((site) => {
-        const key = site.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .sort((left, right) => left.localeCompare(right));
-  }, [trips]);
+    const out = [];
+    const push = (label) => {
+      const s = String(label || "").trim();
+      if (!s) return;
+      const k = s.toLowerCase();
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push(s);
+    };
+    for (const o of buildSiteLabelsOrdered(siteBudgetNotes)) push(o);
+    for (const trip of trips || []) push(trip.location);
+    out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    return out;
+  }, [trips, siteBudgetNotes]);
   const selectedSiteValue = isCustomSiteInput ? CUSTOM_SITE_OPTION : tripDraft.location || "";
 
   function updateTripDraft(field, value) {
@@ -1113,6 +1127,7 @@ export default function Trips() {
                 updateLocalTripStatus,
                 setSubmitError,
                 handleStartEditTrip,
+                siteBudgetNotes,
               })
             )}
             {activeTrips.length === 0 && (
@@ -1149,6 +1164,7 @@ export default function Trips() {
                 updateLocalTripStatus,
                 setSubmitError,
                 handleStartEditTrip,
+                siteBudgetNotes,
               })
             ) : (
               <EmptyState
@@ -1185,6 +1201,7 @@ export default function Trips() {
                   updateLocalTripStatus,
                   setSubmitError,
                   handleStartEditTrip,
+                  siteBudgetNotes,
                 })
               ) : (
                 <EmptyState
