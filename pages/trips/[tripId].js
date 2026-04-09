@@ -5723,6 +5723,7 @@ function parseDateSafe(dateStr) {
       const canon = resolveCanonicalSiteLabelForTrip(loc, siteBudgetNotesList);
       push(canon || loc);
     }
+    out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
     return out;
   }, [trip?.location, siteBudgetNotesList]);
 

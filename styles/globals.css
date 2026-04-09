@@ -1410,22 +1410,6 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-size:10px;
   white-space:nowrap;
 }
-.recruitingDuplicateRow{
-  align-items:flex-start;
-}
-.recruitingDuplicateReviewCard{
-  border-color:rgba(239,68,68,.16);
-  background:linear-gradient(180deg, rgba(255,248,248,.96), rgba(255,255,255,.98));
-}
-.recruitingDuplicateSummary{
-  min-width:0;
-}
-.recruitingDuplicateActions{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  justify-content:flex-end;
-}
 .recruitingMobileCards{
   display:grid;
   gap:12px;
@@ -1739,9 +1723,6 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   .recruitingTemplateButton{
     width:100%;
   }
-  .recruitingDuplicateActions{
-    justify-content:flex-start;
-  }
   .fundraisingOverviewGrid{
     grid-template-columns:1fr;
   }
@@ -1845,21 +1826,6 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
     padding:10px;
   }
   .recruitingActionCard .btn{
-    width:100%;
-  }
-  .recruitingDuplicateCard{
-    padding:12px;
-  }
-  .recruitingDuplicateRow{
-    display:grid;
-    gap:10px;
-  }
-  .recruitingDuplicateActions{
-    display:grid;
-    grid-template-columns:1fr;
-    width:100%;
-  }
-  .recruitingDuplicateActions .btn{
     width:100%;
   }
   .recruitingExpandedGrid{
