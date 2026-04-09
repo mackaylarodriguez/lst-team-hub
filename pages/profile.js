@@ -631,6 +631,95 @@ export default function Profile() {
             <div style={{ fontWeight: 800 }}>{profile?.gender || "-"}</div>
           </div>
 
+          {contactFieldsAvailable ? (
+            <div className="card pad">
+              <div className="appSectionBadge" style={{ marginBottom: 8 }}>
+                Phone & T-shirt
+              </div>
+              <p className="small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
+                Used for trip logistics and roster. Saving updates this profile and trip roster rows that
+                match this email.
+              </p>
+              {canEditContactDetails ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  <div>
+                    <label className="small" htmlFor="profile-phone" style={{ display: "block", marginBottom: 4 }}>
+                      Phone number
+                    </label>
+                    <input
+                      id="profile-phone"
+                      className="input"
+                      type="tel"
+                      value={phoneDraft}
+                      onChange={(e) => {
+                        setPhoneDraft(e.target.value);
+                        if (contactSaveStatus && contactSaveStatus !== "Saving...") {
+                          setContactSaveStatus("");
+                        }
+                      }}
+                      placeholder="Cell or best number"
+                      autoComplete="tel"
+                    />
+                  </div>
+                  <div>
+                    <label className="small" htmlFor="profile-tshirt" style={{ display: "block", marginBottom: 4 }}>
+                      T-shirt size
+                    </label>
+                    <select
+                      id="profile-tshirt"
+                      className="input"
+                      value={tshirtDraft}
+                      onChange={(e) => {
+                        setTshirtDraft(e.target.value);
+                        if (contactSaveStatus && contactSaveStatus !== "Saving...") {
+                          setContactSaveStatus("");
+                        }
+                      }}
+                    >
+                      <option value="">Select size</option>
+                      {TSHIRT_SIZE_OPTIONS.map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                    <button type="button" className="btn btnPrimary" onClick={() => void handleSaveContactDetails()}>
+                      Save
+                    </button>
+                    {contactSaveStatus ? (
+                      <span
+                        className="small"
+                        style={{
+                          color:
+                            contactSaveStatus === "Saved."
+                              ? "var(--muted)"
+                              : contactSaveStatus === "Saving..."
+                                ? "var(--muted)"
+                                : "var(--danger)",
+                        }}
+                      >
+                        {contactSaveStatus}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div>
+                    <div className="small">Phone number</div>
+                    <div style={{ fontWeight: 800 }}>{profile?.phone?.trim() || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="small">T-shirt size</div>
+                    <div style={{ fontWeight: 800 }}>{profile?.tshirtSize?.trim() || "—"}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
           <div className="card pad">
             <div className="small">Trips</div>
             <div style={{ fontWeight: 900, fontSize: 18 }}>{assignments.length}</div>
