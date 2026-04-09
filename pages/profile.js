@@ -6,7 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { isManagerRole, ROLE_WORKER } from "@/lib/roles";
-import { updateWorkerProfileEmail, updateWorkerProfileNames } from "@/lib/trips";
+import {
+  updateProfilePhoneAndTshirtSize,
+  updateWorkerProfileEmail,
+  updateWorkerProfileNames,
+} from "@/lib/trips";
+import { TSHIRT_SIZE_OPTIONS } from "@/lib/tshirtSizes";
 import { getUserDocumentTypeLabel } from "@/lib/userDocumentTypes";
 import { deleteUserDocument, listProfileDocuments } from "@/lib/userDocuments";
 import {
@@ -45,6 +50,16 @@ function formatGender(value) {
 function isMissingGenderColumnError(error) {
   const message = String(error?.message || error?.details || "").toLowerCase();
   return message.includes("profiles.gender") || message.includes("column gender does not exist");
+}
+
+function isMissingProfileContactColumnError(error) {
+  const message = String(error?.message || error?.details || "").toLowerCase();
+  return (
+    message.includes("profiles.phone") ||
+    message.includes("profiles.tshirt_size") ||
+    message.includes("column phone does not exist") ||
+    message.includes("column tshirt_size does not exist")
+  );
 }
 
 function extractHandoffSummary(notes) {
@@ -93,6 +108,10 @@ export default function Profile() {
   const [workerFirstNameDraft, setWorkerFirstNameDraft] = useState("");
   const [workerLastNameDraft, setWorkerLastNameDraft] = useState("");
   const [workerNameSaveStatus, setWorkerNameSaveStatus] = useState("");
+  const [contactFieldsAvailable, setContactFieldsAvailable] = useState(true);
+  const [phoneDraft, setPhoneDraft] = useState("");
+  const [tshirtDraft, setTshirtDraft] = useState("");
+  const [contactSaveStatus, setContactSaveStatus] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -125,18 +144,36 @@ export default function Profile() {
       try {
         setLoadError("");
 
+        let contactOk = true;
         let { data: profileRow, error: profileError } = await supabase
           .from("profiles")
-          .select("id, email, role, first_name, last_name, gender")
+          .select("id, email, role, first_name, last_name, gender, phone, tshirt_size")
           .eq("id", targetProfileId)
           .maybeSingle();
 
         if (profileError && isMissingGenderColumnError(profileError)) {
           ({ data: profileRow, error: profileError } = await supabase
             .from("profiles")
-            .select("id, email, role, first_name, last_name")
+            .select("id, email, role, first_name, last_name, phone, tshirt_size")
             .eq("id", targetProfileId)
             .maybeSingle());
+        }
+
+        if (profileError && isMissingProfileContactColumnError(profileError)) {
+          contactOk = false;
+          ({ data: profileRow, error: profileError } = await supabase
+            .from("profiles")
+            .select("id, email, role, first_name, last_name, gender")
+            .eq("id", targetProfileId)
+            .maybeSingle());
+
+          if (profileError && isMissingGenderColumnError(profileError)) {
+            ({ data: profileRow, error: profileError } = await supabase
+              .from("profiles")
+              .select("id, email, role, first_name, last_name")
+              .eq("id", targetProfileId)
+              .maybeSingle());
+          }
         }
 
         if (profileError) {
@@ -152,6 +189,8 @@ export default function Profile() {
           email: profileRow.email || "",
           role: profileRow.role || "",
           gender: formatGender(profileRow.gender),
+          phone: contactOk ? String(profileRow.phone || "").trim() : "",
+          tshirtSize: contactOk ? String(profileRow.tshirt_size || "").trim() : "",
           name:
             [profileRow.first_name, profileRow.last_name].filter(Boolean).join(" ").trim() ||
             profileRow.email ||
@@ -223,6 +262,10 @@ export default function Profile() {
         setWorkerFirstNameDraft(profileRow.first_name || "");
         setWorkerLastNameDraft(profileRow.last_name || "");
         setWorkerNameSaveStatus("");
+        setContactFieldsAvailable(contactOk);
+        setPhoneDraft(displayProfile.phone || "");
+        setTshirtDraft(displayProfile.tshirtSize || "");
+        setContactSaveStatus("");
       } catch (error) {
         console.error("Unable to load profile page", error);
         if (!cancelled) {
@@ -246,6 +289,12 @@ export default function Profile() {
     !!participantId &&
     !!profile &&
     (normalizeProfileRole(profile.role) === ROLE_WORKER || !String(profile.role || "").trim());
+  const isOwnProfile =
+    !!profile &&
+    !!session &&
+    String(profile.id) === String(session.profileId || session.id);
+  const canEditContactDetails =
+    !!profile && contactFieldsAvailable && (isOwnProfile || canEditWorkerProfileEmail);
   const canDeleteDocuments =
     !!profile && (canManageProfiles || String(profile.id) === String(session?.profileId || session?.id));
 
@@ -354,6 +403,27 @@ export default function Profile() {
     } catch (error) {
       console.error("Unable to save worker name", error);
       setWorkerNameSaveStatus(error.message || "Unable to save name.");
+    }
+  }
+
+  async function handleSaveContactDetails() {
+    if (!profile || !canEditContactDetails) return;
+    try {
+      setContactSaveStatus("Saving...");
+      const { phone: savedPhone, tshirtSize: savedTshirt } = await updateProfilePhoneAndTshirtSize({
+        profileId: profile.id,
+        phone: phoneDraft,
+        tshirtSize: tshirtDraft,
+      });
+      setProfile((current) =>
+        current ? { ...current, phone: savedPhone, tshirtSize: savedTshirt } : current
+      );
+      setPhoneDraft(savedPhone);
+      setTshirtDraft(savedTshirt);
+      setContactSaveStatus("Saved.");
+    } catch (error) {
+      console.error("Unable to save phone / T-shirt size", error);
+      setContactSaveStatus(error.message || "Unable to save.");
     }
   }
 
