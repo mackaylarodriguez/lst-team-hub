@@ -989,7 +989,8 @@ export default function RecruitingPage() {
     setContactActivityByRecordId({});
   }, [selectedYear]);
 
-  const filteredRecords = useMemo(() => {
+  /** Filters (search, stage, saved filters, etc.) but not the active tab column — so tab badges stay accurate. */
+  const baseFilteredRecords = useMemo(() => {
     return records.filter((record) => {
       if (activeFilterId === "needs_attention" && !recordNeedsAttention(record)) {
         return false;
@@ -1017,18 +1018,6 @@ export default function RecruitingPage() {
         }
       }
 
-      if (filterConfig.activeView === "outreach" && (record.isConvertedToTeam || record.isPotentialTeam || record.stage > 1)) {
-        return false;
-      }
-
-      if (filterConfig.activeView === "potential" && (record.isConvertedToTeam || (!record.isPotentialTeam && record.stage < 2))) {
-        return false;
-      }
-
-      if (filterConfig.activeView === "converted" && !record.isConvertedToTeam) {
-        return false;
-      }
-
       if (filterConfig.workflowStatus === "ready_for_boss" && !isReadyForBoss(record)) {
         return false;
       }
@@ -1049,7 +1038,7 @@ export default function RecruitingPage() {
         filterConfig.assignedTo &&
         !String(record.assignedTo || "").toLowerCase().includes(filterConfig.assignedTo.toLowerCase())
       ) {
-          return false;
+        return false;
       }
 
       if (filterConfig.searchQuery) {
@@ -1073,19 +1062,25 @@ export default function RecruitingPage() {
 
       return true;
     });
-  }, [activeFilterId, filterConfig, records]);
+  }, [activeFilterId, filterConfig, records, tripTeamMembers]);
 
   const outreachQueue = useMemo(
-    () => filteredRecords.filter((record) => !record.isConvertedToTeam && !record.isPotentialTeam && record.stage <= 1),
-    [filteredRecords]
+    () =>
+      baseFilteredRecords.filter(
+        (record) => !record.isConvertedToTeam && !record.isPotentialTeam && record.stage <= 1
+      ),
+    [baseFilteredRecords]
   );
   const pipelineRecords = useMemo(
-    () => filteredRecords.filter((record) => !record.isConvertedToTeam && (record.isPotentialTeam || record.stage >= 2)),
-    [filteredRecords]
+    () =>
+      baseFilteredRecords.filter(
+        (record) => !record.isConvertedToTeam && (record.isPotentialTeam || record.stage >= 2)
+      ),
+    [baseFilteredRecords]
   );
   const convertedTeams = useMemo(
-    () => filteredRecords.filter((record) => record.isConvertedToTeam),
-    [filteredRecords]
+    () => baseFilteredRecords.filter((record) => record.isConvertedToTeam),
+    [baseFilteredRecords]
   );
   const recordsForActiveTab = useMemo(() => {
     if (activeTab === "potential") return pipelineRecords;
@@ -1108,7 +1103,7 @@ export default function RecruitingPage() {
       potential: pipelineRecords.length,
       converted: convertedTeams.length,
     }),
-    [convertedTeams.length, outreachQueue.length, pipelineRecords.length]
+    [convertedTeams, outreachQueue, pipelineRecords]
   );
   const bulkActionDescription = getBulkActionDescription(bulkAction);
   const showBulkDateField = bulkAction === "bulk email" || bulkAction === "bulk text";
@@ -1486,11 +1481,6 @@ export default function RecruitingPage() {
     const record = records.find((item) => item.id === selectedRecordId);
     if (!record) return;
 
-    if (!String(promoteDraft.handoffSummary || "").trim()) {
-      setError("A handoff summary is required before moving a contact to Potential Teams.");
-      return;
-    }
-
     await saveRecruitingCycleContact(
       buildRecruitingRecordPayload(record, {
         firstName: promoteDraft.firstName,
@@ -1519,7 +1509,9 @@ export default function RecruitingPage() {
       actionType: "handoff",
       actionDate: new Date().toISOString(),
       staffMember: session?.name || session?.email || "Staff",
-      summary: `Ready for boss handoff: ${String(promoteDraft.handoffSummary).trim()}`,
+      summary: String(promoteDraft.handoffSummary || "").trim()
+        ? `Ready for boss handoff: ${String(promoteDraft.handoffSummary).trim()}`
+        : "Moved to Potential Teams.",
       stage: Math.max(Number(promoteDraft.stage || 0), 2),
     });
 
