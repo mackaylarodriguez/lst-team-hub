@@ -48,6 +48,19 @@ function normalizeStatusValue(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+/** Roster on the trip this row was converted to is expected, not a cross-board duplicate. */
+function isTripTeamMemberOnOwnConvertedTrip(member, recruitingRecord) {
+  if (!recruitingRecord?.isConvertedToTeam || !recruitingRecord?.convertedTeamId || !member?.tripId) {
+    return false;
+  }
+  return String(member.tripId) === String(recruitingRecord.convertedTeamId);
+}
+
+function ignoreTripIdsForConvertedRecruitingRecord(record) {
+  if (!record?.isConvertedToTeam || !record?.convertedTeamId) return [];
+  return [record.convertedTeamId];
+}
+
 function getWorkflowBoardLabel(record) {
   if (record?.isConvertedToTeam) return "Lock Teams";
   if (record?.isPotentialTeam) return "Potential Teams";
@@ -1015,7 +1028,8 @@ export default function RecruitingPage() {
         const activeTeamMatches = tripTeamMembers.filter(
           (member) =>
             normalizeEmailValue(member.email) === normalizedEmail &&
-            normalizeStatusValue(member.tripStatus) === "active"
+            normalizeStatusValue(member.tripStatus) === "active" &&
+            !isTripTeamMemberOnOwnConvertedTrip(member, record)
         );
 
         if (!sameBoardMatches.length && !activeTeamMatches.length) {
@@ -1205,9 +1219,11 @@ export default function RecruitingPage() {
     const sameBoardMatches = (duplicateSourceLookup.recordEmails.get(normalizedEmail) || []).filter(
       (record) => record.id !== options.excludeRecordId
     );
-    const activeTeamMatches = options.includeActiveTeam === false
-      ? []
-      : duplicateSourceLookup.activeTeamEmails.get(normalizedEmail) || [];
+    const ignoreTripIdSet = new Set(
+      (options.ignoreTripIds || []).map((id) => String(id)).filter(Boolean)
+    );
+    const rawActive = duplicateSourceLookup.activeTeamEmails.get(normalizedEmail) || [];
+    const activeTeamMatches = rawActive.filter((m) => !ignoreTripIdSet.has(String(m.tripId)));
 
     if (!sameBoardMatches.length && !activeTeamMatches.length) {
       return null;
@@ -1240,7 +1256,7 @@ export default function RecruitingPage() {
         .map((record) => {
           const duplicateInfo = getDuplicateInfoForEmail(record.contact?.email, {
             excludeRecordId: record.id,
-            includeActiveTeam: !record.isConvertedToTeam,
+            ignoreTripIds: ignoreTripIdsForConvertedRecruitingRecord(record),
           });
           return duplicateInfo ? [record.id, duplicateInfo] : null;
         })
@@ -1252,7 +1268,14 @@ export default function RecruitingPage() {
     const groups = [];
 
     duplicateSourceLookup.recordEmails.forEach((matchingRecords, email) => {
-      const activeTeamMatches = duplicateSourceLookup.activeTeamEmails.get(email) || [];
+      const allActive = duplicateSourceLookup.activeTeamEmails.get(email) || [];
+      const convertedTripIds = new Set(
+        matchingRecords
+          .filter((r) => r.isConvertedToTeam && r.convertedTeamId)
+          .map((r) => String(r.convertedTeamId))
+      );
+      const activeTeamMatches = allActive.filter((m) => !convertedTripIds.has(String(m.tripId)));
+
       if (matchingRecords.length <= 1 && activeTeamMatches.length === 0) {
         return;
       }
@@ -1287,8 +1310,9 @@ export default function RecruitingPage() {
     () =>
       getDuplicateInfoForEmail(recordPersonDraft.email, {
         excludeRecordId: selectedRecord?.id,
+        ignoreTripIds: ignoreTripIdsForConvertedRecruitingRecord(selectedRecord),
       }),
-    [recordPersonDraft.email, selectedRecord?.id, duplicateSourceLookup]
+    [recordPersonDraft.email, selectedRecord?.id, selectedRecord?.isConvertedToTeam, selectedRecord?.convertedTeamId, duplicateSourceLookup]
   );
   const promotePeople = useMemo(
     () => parseTeamMemberEntries(promoteDraft.teamMembers),
@@ -3142,7 +3166,7 @@ export default function RecruitingPage() {
                   {renderDuplicateNotice(
                     getDuplicateInfoForEmail(selectedRecord.contact?.email, {
                       excludeRecordId: selectedRecord.id,
-                      includeActiveTeam: !selectedRecord.isConvertedToTeam,
+                      ignoreTripIds: ignoreTripIdsForConvertedRecruitingRecord(selectedRecord),
                     })
                   )}
                 </div>
