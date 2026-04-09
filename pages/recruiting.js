@@ -64,7 +64,7 @@ function renderDuplicateNotice(duplicateInfo, options = {}) {
 
   return (
     <div className="recruitingDuplicateNotice">
-      <span className="badge badgeDanger">Duplicate</span>
+      <span className="badge">Same email elsewhere</span>
       {!options.compact ? (
         <div className="small recruitingDuplicateText">{duplicateInfo.summary}</div>
       ) : null}
@@ -1415,11 +1415,6 @@ export default function RecruitingPage() {
       setError("First and last name are required.");
       return;
     }
-    if (newContactDuplicateInfo) {
-      setError(newContactDuplicateInfo.blockingMessage);
-      return;
-    }
-
     try {
       await saveRecruitingCycleContact({
         recruitingYear: selectedYear,
@@ -2825,7 +2820,7 @@ export default function RecruitingPage() {
               >
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                   <div style={{ fontWeight: 900 }}>{group.email}</div>
-                  <span className="badge badgeDanger">Duplicate</span>
+                  <span className="badge">Same email</span>
                   <span className="badge">{group.records.length} recruiting row{group.records.length === 1 ? "" : "s"}</span>
                   {group.activeTeams.length > 0 ? (
                     <span className="badge badgeWarn">
