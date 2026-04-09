@@ -194,30 +194,6 @@ export default function Login() {
         </div>
 
         <form onSubmit={onSubmit} style={{ display:"grid", gap: 12 }}>
-          <div>
-            <div className="small" style={{ marginBottom: 6 }}>Email</div>
-            <input
-              className="input"
-              value={email}
-              onChange={(e)=>setEmail(e.target.value)}
-              placeholder="you@org.org"
-              disabled={mode === "reset"}
-            />
-          </div>
-          {mode === "signin" || mode === "signup" ? (
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>
-                {mode === "signup" ? "Create Password" : "Password"}
-              </div>
-              <input
-                className="input"
-                type="password"
-                value={password}
-                onChange={(e)=>setPassword(e.target.value)}
-                placeholder={mode === "signup" ? "Create a password" : "••••••••"}
-              />
-            </div>
-          ) : null}
           {mode === "signup" ? (
             <>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -255,20 +231,66 @@ export default function Login() {
                   ))}
                 </select>
               </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Email</div>
+                <input
+                  className="input"
+                  type="email"
+                  value={email}
+                  onChange={(e)=>setEmail(e.target.value)}
+                  placeholder="you@org.org"
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Create Password</div>
+                <input
+                  className="input"
+                  type="password"
+                  value={password}
+                  onChange={(e)=>setPassword(e.target.value)}
+                  placeholder="Create a password"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Confirm Password</div>
+                <input
+                  className="input"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e)=>setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter your password"
+                  autoComplete="new-password"
+                />
+              </div>
             </>
-          ) : null}
-          {mode === "signup" ? (
-            <div>
-              <div className="small" style={{ marginBottom: 6 }}>Confirm Password</div>
-              <input
-                className="input"
-                type="password"
-                value={confirmPassword}
-                onChange={(e)=>setConfirmPassword(e.target.value)}
-                placeholder="Re-enter your password"
-              />
-            </div>
-          ) : null}
+          ) : (
+            <>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Email</div>
+                <input
+                  className="input"
+                  value={email}
+                  onChange={(e)=>setEmail(e.target.value)}
+                  placeholder="you@org.org"
+                  disabled={mode === "reset"}
+                />
+              </div>
+              {mode === "signin" ? (
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Password</div>
+                  <input
+                    className="input"
+                    type="password"
+                    value={password}
+                    onChange={(e)=>setPassword(e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
+              ) : null}
+            </>
+          )}
           {mode === "reset" ? (
             <>
               <div>
