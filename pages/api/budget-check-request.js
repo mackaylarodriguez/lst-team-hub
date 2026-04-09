@@ -7,6 +7,8 @@
  * - BUDGET_CHECK_ASSIGNEE_NAME — optional display name on the misc task.
  * - BUDGET_CHECK_DUE_DAYS — days until misc-task due date (default 14).
  * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL — send notification email via Resend.
+ *
+ * PATCH body: { id, action } — actions: mark_processed | update (amount, note; pending only) | delete.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -176,6 +178,35 @@ async function sendNotifyEmail({ to, subject, html }) {
   return { sent: true, id: json?.id };
 }
 
+function buildBudgetCheckMiscTaskTitle(tripName, tripIdFallback, amountRequested) {
+  const t = normalizeText(tripName) || "Trip";
+  return `Print check — ${t} (${amountRequested})`;
+}
+
+function buildBudgetCheckMiscTaskNotes({
+  tripId,
+  tripName,
+  teamNameSnap,
+  accountantSnap,
+  budgetAmtSnap,
+  amountRequested,
+  note,
+  requesterLine,
+}) {
+  const tn = normalizeText(tripName);
+  return [
+    `Trip: ${tn || tripId}`,
+    teamNameSnap ? `Team name: ${teamNameSnap}` : null,
+    accountantSnap ? `Team accountant: ${accountantSnap}` : null,
+    budgetAmtSnap ? `Budget amount on file: ${budgetAmtSnap}` : null,
+    `Check amount requested: ${amountRequested}`,
+    note ? `Note from staff: ${note}` : null,
+    requesterLine ? `Requested by: ${requesterLine}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export default async function handler(req, res) {
   if (req.method === "POST") {
     const auth = await authenticateStaffOrAdmin(req);
@@ -228,18 +259,18 @@ export default async function handler(req, res) {
       normalizeEmail(process.env.DONNA_STAFF_EMAIL);
     const assigneeName = normalizeText(process.env.BUDGET_CHECK_ASSIGNEE_NAME) || null;
 
-    const taskTitle = `Print check — ${tripName || "Trip"} (${amountRequested})`;
-    const taskNotes = [
-      `Trip: ${tripName || tripId}`,
-      teamNameSnap ? `Team name: ${teamNameSnap}` : null,
-      accountantSnap ? `Team accountant: ${accountantSnap}` : null,
-      budgetAmtSnap ? `Budget amount on file: ${budgetAmtSnap}` : null,
-      `Check amount requested: ${amountRequested}`,
-      note ? `Note from staff: ${note}` : null,
-      `Requested by: ${getProfileDisplayName(profile) || profile.email || profile.id}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const requesterLine = getProfileDisplayName(profile) || profile.email || profile.id;
+    const taskTitle = buildBudgetCheckMiscTaskTitle(tripName, tripId, amountRequested);
+    const taskNotes = buildBudgetCheckMiscTaskNotes({
+      tripId,
+      tripName,
+      teamNameSnap,
+      accountantSnap,
+      budgetAmtSnap,
+      amountRequested,
+      note,
+      requesterLine,
+    });
 
     let staffMiscTaskId = null;
     if (assigneeEmail) {
@@ -338,6 +369,114 @@ export default async function handler(req, res) {
     if (!id) {
       return res.status(400).json({ error: "id is required." });
     }
+    if (action === "update") {
+      const amountRequested = normalizeText(req.body?.amount);
+      const note = normalizeText(req.body?.note);
+
+      if (!amountRequested) {
+        return res.status(400).json({ error: "Amount is required." });
+      }
+
+      const { data: existing, error: loadErr } = await admin
+        .from("budget_check_requests")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (loadErr || !existing) {
+        return res.status(404).json({ error: "Request not found." });
+      }
+      if (existing.status !== "pending") {
+        return res.status(400).json({ error: "Only pending requests can be edited." });
+      }
+
+      const requesterLine =
+        normalizeText(existing.requested_by_name) ||
+        normalizeEmail(existing.requested_by_email) ||
+        "—";
+
+      const { data: updated, error: updErr } = await admin
+        .from("budget_check_requests")
+        .update({
+          amount_requested: amountRequested,
+          note: note || null,
+        })
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (updErr) {
+        console.error("[budget-check-request] patch update", updErr);
+        return res.status(500).json({ error: updErr.message || "Could not update request." });
+      }
+
+      if (existing.staff_misc_task_id) {
+        const nowIso = new Date().toISOString();
+        const tripNameSnap = normalizeText(existing.trip_name_snapshot);
+        const taskTitle = buildBudgetCheckMiscTaskTitle(
+          tripNameSnap,
+          existing.trip_id,
+          amountRequested
+        );
+        const taskNotes = buildBudgetCheckMiscTaskNotes({
+          tripId: existing.trip_id,
+          tripName: tripNameSnap,
+          teamNameSnap: normalizeText(existing.team_name_snapshot),
+          accountantSnap: normalizeText(existing.team_accountant_snapshot),
+          budgetAmtSnap: normalizeText(existing.budget_amount_snapshot),
+          amountRequested,
+          note,
+          requesterLine,
+        });
+        const { error: taskUpdErr } = await admin
+          .from("staff_misc_tasks")
+          .update({
+            task_name: taskTitle,
+            notes: taskNotes,
+            updated_at: nowIso,
+          })
+          .eq("id", existing.staff_misc_task_id);
+
+        if (taskUpdErr) {
+          console.error("[budget-check-request] misc task sync on update", taskUpdErr);
+        }
+      }
+
+      return res.status(200).json({ ok: true, request: updated });
+    }
+
+    if (action === "delete") {
+      const { data: existing, error: loadErr } = await admin
+        .from("budget_check_requests")
+        .select("id, staff_misc_task_id")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (loadErr || !existing) {
+        return res.status(404).json({ error: "Request not found." });
+      }
+
+      if (existing.staff_misc_task_id) {
+        const { error: delTaskErr } = await admin
+          .from("staff_misc_tasks")
+          .delete()
+          .eq("id", existing.staff_misc_task_id);
+        if (delTaskErr) {
+          console.error("[budget-check-request] delete misc task", delTaskErr);
+          return res.status(500).json({ error: delTaskErr.message || "Could not remove linked task." });
+        }
+      }
+
+      const { error: delErr } = await admin.from("budget_check_requests").delete().eq("id", id);
+
+      if (delErr) {
+        console.error("[budget-check-request] delete request", delErr);
+        return res.status(500).json({ error: delErr.message || "Could not delete request." });
+      }
+
+      return res.status(200).json({ ok: true, deletedId: id });
+    }
+
     if (action !== "mark_processed") {
       return res.status(400).json({ error: "Unsupported action." });
     }

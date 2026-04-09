@@ -56,3 +56,10 @@ for update
 to authenticated
 using (private.current_profile_role() in ('admin', 'staff'))
 with check (private.current_profile_role() in ('admin', 'staff'));
+
+drop policy if exists "budget_check_requests_delete_staff" on public.budget_check_requests;
+create policy "budget_check_requests_delete_staff"
+on public.budget_check_requests
+for delete
+to authenticated
+using (private.current_profile_role() in ('admin', 'staff'));

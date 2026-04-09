@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { isManagerRole, ROLE_WORKER } from "@/lib/roles";
-import { updateWorkerProfileEmail } from "@/lib/trips";
+import { updateWorkerProfileEmail, updateWorkerProfileNames } from "@/lib/trips";
 import { getUserDocumentTypeLabel } from "@/lib/userDocumentTypes";
 import { deleteUserDocument, listProfileDocuments } from "@/lib/userDocuments";
 import {
@@ -90,6 +90,9 @@ export default function Profile() {
   const [documentDeleteStatus, setDocumentDeleteStatus] = useState("");
   const [workerEmailDraft, setWorkerEmailDraft] = useState("");
   const [workerEmailSaveStatus, setWorkerEmailSaveStatus] = useState("");
+  const [workerFirstNameDraft, setWorkerFirstNameDraft] = useState("");
+  const [workerLastNameDraft, setWorkerLastNameDraft] = useState("");
+  const [workerNameSaveStatus, setWorkerNameSaveStatus] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -217,6 +220,9 @@ export default function Profile() {
         setRecruitingRecords((nextRecruitingRecords || []).filter(hasRecruitingNotes));
         setWorkerEmailDraft(displayProfile.email || "");
         setWorkerEmailSaveStatus("");
+        setWorkerFirstNameDraft(profileRow.first_name || "");
+        setWorkerLastNameDraft(profileRow.last_name || "");
+        setWorkerNameSaveStatus("");
       } catch (error) {
         console.error("Unable to load profile page", error);
         if (!cancelled) {
@@ -328,6 +334,29 @@ export default function Profile() {
     }
   }
 
+  async function handleSaveWorkerNames() {
+    if (!profile || !canEditWorkerProfileEmail) return;
+    try {
+      setWorkerNameSaveStatus("Saving...");
+      const { firstName: savedFirst, lastName: savedLast } = await updateWorkerProfileNames({
+        profileId: profile.id,
+        firstName: workerFirstNameDraft,
+        lastName: workerLastNameDraft,
+      });
+      const combined =
+        [savedFirst, savedLast].filter(Boolean).join(" ").trim() || profile.email || "Unknown user";
+      setProfile((current) =>
+        current ? { ...current, name: combined } : current
+      );
+      setWorkerFirstNameDraft(savedFirst);
+      setWorkerLastNameDraft(savedLast);
+      setWorkerNameSaveStatus("Saved.");
+    } catch (error) {
+      console.error("Unable to save worker name", error);
+      setWorkerNameSaveStatus(error.message || "Unable to save name.");
+    }
+  }
+
   async function handleSaveWorkerEmail() {
     if (!profile || !canEditWorkerProfileEmail) return;
     const trimmed = String(workerEmailDraft || "").trim();
@@ -405,7 +434,79 @@ export default function Profile() {
         >
           <div className="card pad">
             <div className="small">Name</div>
-            <div style={{ fontWeight: 900, fontSize: 18 }}>{profile?.name || "-"}</div>
+            {canEditWorkerProfileEmail ? (
+              <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                    gap: 10,
+                  }}
+                >
+                  <div>
+                    <label className="small" htmlFor="profile-worker-first" style={{ display: "block", marginBottom: 4 }}>
+                      First name
+                    </label>
+                    <input
+                      id="profile-worker-first"
+                      className="input"
+                      value={workerFirstNameDraft}
+                      onChange={(e) => {
+                        setWorkerFirstNameDraft(e.target.value);
+                        if (workerNameSaveStatus && workerNameSaveStatus !== "Saving...") {
+                          setWorkerNameSaveStatus("");
+                        }
+                      }}
+                      placeholder="First"
+                      autoComplete="given-name"
+                    />
+                  </div>
+                  <div>
+                    <label className="small" htmlFor="profile-worker-last" style={{ display: "block", marginBottom: 4 }}>
+                      Last name
+                    </label>
+                    <input
+                      id="profile-worker-last"
+                      className="input"
+                      value={workerLastNameDraft}
+                      onChange={(e) => {
+                        setWorkerLastNameDraft(e.target.value);
+                        if (workerNameSaveStatus && workerNameSaveStatus !== "Saving...") {
+                          setWorkerNameSaveStatus("");
+                        }
+                      }}
+                      placeholder="Last"
+                      autoComplete="family-name"
+                    />
+                  </div>
+                </div>
+                <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  <button type="button" className="btn btnPrimary" onClick={() => void handleSaveWorkerNames()}>
+                    Save name
+                  </button>
+                  {workerNameSaveStatus ? (
+                    <span
+                      className="small"
+                      style={{
+                        color:
+                          workerNameSaveStatus === "Saved."
+                            ? "var(--muted)"
+                            : workerNameSaveStatus === "Saving..."
+                              ? "var(--muted)"
+                              : "var(--danger)",
+                      }}
+                    >
+                      {workerNameSaveStatus}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="small" style={{ opacity: 0.85, lineHeight: 1.45 }}>
+                  Updates this profile and trip roster rows that match this worker&apos;s email.
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontWeight: 900, fontSize: 18 }}>{profile?.name || "-"}</div>
+            )}
             <div style={{ height: 10 }} />
             <div className="small">Email</div>
             {canEditWorkerProfileEmail ? (

@@ -132,8 +132,10 @@ import {
   uploadTripHousingPdf,
 } from "@/lib/tripBudget";
 import {
+  deleteBudgetCheckRequest,
   listBudgetCheckRequestsForTrip,
   submitBudgetCheckRequest,
+  updateBudgetCheckRequest,
 } from "@/lib/budgetCheckRequests";
 import { getTripTeamLogisticsForViewer, saveTripTeamLogisticsByTeam } from "@/lib/tripTeamLogistics";
 import {
@@ -1243,10 +1245,12 @@ export default function TripPage() {
   const [teamLogisticsLoading, setTeamLogisticsLoading] = useState(false);
   const [materialsSaveStatus, setMaterialsSaveStatus] = useState("");
   const [budgetCheckModalOpen, setBudgetCheckModalOpen] = useState(false);
+  const [budgetCheckEditingId, setBudgetCheckEditingId] = useState("");
   const [budgetCheckAmount, setBudgetCheckAmount] = useState("");
   const [budgetCheckNote, setBudgetCheckNote] = useState("");
   const [budgetCheckSubmitting, setBudgetCheckSubmitting] = useState(false);
   const [tripBudgetCheckRequests, setTripBudgetCheckRequests] = useState([]);
+  const [tripBudgetCheckDeleteId, setTripBudgetCheckDeleteId] = useState("");
   const [isEditingMaterialsGlance, setIsEditingMaterialsGlance] = useState(false);
   /** Bumps when materials save completes so stale in-flight getTripBudget loads cannot overwrite the draft. */
   const materialsBudgetLoadGenRef = useRef(0);
@@ -7281,24 +7285,50 @@ normalizeEmail(participant.email) === activeParticipantEmail
     }
     try {
       setBudgetCheckSubmitting(true);
-      await submitBudgetCheckRequest({
-        tripId: trip.id,
-        amount: amt,
-        note: budgetCheckNote,
-      });
+      if (budgetCheckEditingId) {
+        await updateBudgetCheckRequest({
+          id: budgetCheckEditingId,
+          amount: amt,
+          note: budgetCheckNote,
+        });
+        showToast("Check request updated.", "success");
+      } else {
+        await submitBudgetCheckRequest({
+          tripId: trip.id,
+          amount: amt,
+          note: budgetCheckNote,
+        });
+        showToast("Budget check requested. Track it on Budget → Checks.", "success");
+      }
       try {
         setTripBudgetCheckRequests(await listBudgetCheckRequestsForTrip(trip.id));
       } catch {
         /* list refresh is best-effort */
       }
-      showToast("Budget check requested. Track it on Budget → Checks.", "success");
       setBudgetCheckModalOpen(false);
+      setBudgetCheckEditingId("");
       setBudgetCheckAmount("");
       setBudgetCheckNote("");
     } catch (e) {
       showToast(e.message || "Request failed.", "error");
     } finally {
       setBudgetCheckSubmitting(false);
+    }
+  }
+
+  async function handleConfirmTripBudgetCheckDelete() {
+    if (!tripBudgetCheckDeleteId || !trip?.id) return;
+    try {
+      await deleteBudgetCheckRequest(tripBudgetCheckDeleteId);
+      setTripBudgetCheckDeleteId("");
+      try {
+        setTripBudgetCheckRequests(await listBudgetCheckRequestsForTrip(trip.id));
+      } catch {
+        /* ignore */
+      }
+      showToast("Request deleted.", "success");
+    } catch (e) {
+      showToast(e.message || "Could not delete.", "error");
     }
   }
 
@@ -7455,6 +7485,16 @@ normalizeEmail(participant.email) === activeParticipantEmail
           setIsConfirmingTripDelete(false);
           setTripSetupStatus("");
         }}
+      />
+      <ConfirmModal
+        open={!!tripBudgetCheckDeleteId}
+        title="Delete check request?"
+        message="This removes the request and deletes the linked personal accounting task if one exists. This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => void handleConfirmTripBudgetCheckDelete()}
+        onCancel={() => setTripBudgetCheckDeleteId("")}
       />
       <div className="tripDetailPage">
         <nav className="breadcrumb" aria-label="Breadcrumb" style={{ marginBottom: 12 }}>
@@ -11063,46 +11103,80 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             return (
                               <div
                                 key={req.id}
-                                className="row"
                                 style={{
-                                  flexWrap: "wrap",
-                                  alignItems: "center",
+                                  display: "grid",
                                   gap: 8,
-                                  justifyContent: "space-between",
+                                  paddingBottom: 8,
+                                  borderBottom: "1px solid rgba(15, 23, 42, 0.06)",
                                 }}
                               >
-                                <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                                  {String(req.amountRequested || "").trim() || "—"}
-                                </span>
-                                <span
+                                <div
+                                  className="row"
                                   style={{
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    letterSpacing: "0.06em",
-                                    textTransform: "uppercase",
-                                    padding: "3px 8px",
-                                    borderRadius: 999,
-                                    border: "1px solid",
-                                    ...(isDone
-                                      ? {
-                                          color: "#15803d",
-                                          background: "rgba(220, 252, 231, 0.85)",
-                                          borderColor: "rgba(22, 163, 74, 0.35)",
-                                        }
-                                      : {
-                                          color: "#b45309",
-                                          background: "rgba(254, 243, 199, 0.9)",
-                                          borderColor: "rgba(217, 119, 6, 0.35)",
-                                        }),
+                                    flexWrap: "wrap",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    justifyContent: "space-between",
                                   }}
                                 >
-                                  {isDone ? "Processed" : "Pending"}
-                                </span>
-                                {dateLabel ? (
-                                  <span className="small" style={{ color: "var(--muted)", marginLeft: "auto" }}>
-                                    Requested {dateLabel}
+                                  <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                                    {String(req.amountRequested || "").trim() || "—"}
                                   </span>
-                                ) : null}
+                                  <span
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 800,
+                                      letterSpacing: "0.06em",
+                                      textTransform: "uppercase",
+                                      padding: "3px 8px",
+                                      borderRadius: 999,
+                                      border: "1px solid",
+                                      ...(isDone
+                                        ? {
+                                            color: "#15803d",
+                                            background: "rgba(220, 252, 231, 0.85)",
+                                            borderColor: "rgba(22, 163, 74, 0.35)",
+                                          }
+                                        : {
+                                            color: "#b45309",
+                                            background: "rgba(254, 243, 199, 0.9)",
+                                            borderColor: "rgba(217, 119, 6, 0.35)",
+                                          }),
+                                    }}
+                                  >
+                                    {isDone ? "Processed" : "Pending"}
+                                  </span>
+                                  {dateLabel ? (
+                                    <span className="small" style={{ color: "var(--muted)", marginLeft: "auto" }}>
+                                      Requested {dateLabel}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                                  {!isDone ? (
+                                    <button
+                                      type="button"
+                                      className="btn"
+                                      style={{ padding: "4px 10px", fontSize: 12 }}
+                                      onClick={() => {
+                                        setBudgetCheckEditingId(req.id);
+                                        setBudgetCheckAmount(String(req.amountRequested || "").trim());
+                                        setBudgetCheckNote(String(req.note || "").trim());
+                                        setBudgetCheckModalOpen(true);
+                                      }}
+                                    >
+                                      Edit
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    className="btn"
+                                    style={{ padding: "4px 10px", fontSize: 12, color: "var(--danger)" }}
+                                    onClick={() => setTripBudgetCheckDeleteId(req.id)}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}
@@ -11111,7 +11185,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       <button
                         type="button"
                         className="btn btnPrimary"
-                        onClick={() => setBudgetCheckModalOpen(true)}
+                        onClick={() => {
+                          setBudgetCheckEditingId("");
+                          setBudgetCheckAmount("");
+                          setBudgetCheckNote("");
+                          setBudgetCheckModalOpen(true);
+                        }}
                       >
                         Request budget check
                       </button>
@@ -13212,7 +13291,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
           className="appModalOverlay"
           role="dialog"
           aria-modal="true"
-          aria-label="Request budget check"
+          aria-label={budgetCheckEditingId ? "Edit budget check request" : "Request budget check"}
           style={{
             position: "fixed",
             inset: 0,
@@ -13223,26 +13302,44 @@ normalizeEmail(participant.email) === activeParticipantEmail
             zIndex: 50,
           }}
           onClick={(e) => {
-            if (e.target === e.currentTarget && !budgetCheckSubmitting) setBudgetCheckModalOpen(false);
+            if (e.target === e.currentTarget && !budgetCheckSubmitting) {
+              setBudgetCheckModalOpen(false);
+              setBudgetCheckEditingId("");
+            }
           }}
         >
           <div className="card pad appModalCard" style={{ width: "min(480px, 100%)", maxHeight: "90vh", overflow: "auto" }}>
             <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>Request budget check</div>
+              <div style={{ fontWeight: 900 }}>
+                {budgetCheckEditingId ? "Edit check request" : "Request budget check"}
+              </div>
               <div className="spacer" />
               <button
                 className="btn"
                 type="button"
                 disabled={budgetCheckSubmitting}
-                onClick={() => setBudgetCheckModalOpen(false)}
+                onClick={() => {
+                  setBudgetCheckModalOpen(false);
+                  setBudgetCheckEditingId("");
+                }}
               >
                 Close
               </button>
             </div>
             <p className="small" style={{ marginBottom: 14, lineHeight: 1.45, color: "var(--muted)" }}>
-              This is not the same as the team&apos;s saved budget total — enter the amount for the check you
-              need printed. Any staff or admin can mark the request processed later on{" "}
-              <Link href="/budget?tab=checks">Budget → Checks</Link>.
+              {budgetCheckEditingId ? (
+                <>
+                  Only <strong>pending</strong> requests can be edited. The assignee&apos;s task stays in sync.
+                  Mark processed on{" "}
+                  <Link href="/budget?tab=checks">Budget → Checks</Link>.
+                </>
+              ) : (
+                <>
+                  This is not the same as the team&apos;s saved budget total — enter the amount for the check you
+                  need printed. Any staff or admin can mark the request processed later on{" "}
+                  <Link href="/budget?tab=checks">Budget → Checks</Link>.
+                </>
+              )}
             </p>
             <div style={{ display: "grid", gap: 12 }}>
               <div>
@@ -13278,7 +13375,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 disabled={budgetCheckSubmitting}
                 onClick={() => void handleSubmitBudgetCheckFromTripMaterials()}
               >
-                {budgetCheckSubmitting ? "Submitting…" : "Submit request"}
+                {budgetCheckSubmitting
+                  ? "Saving…"
+                  : budgetCheckEditingId
+                    ? "Save changes"
+                    : "Submit request"}
               </button>
             </div>
           </div>

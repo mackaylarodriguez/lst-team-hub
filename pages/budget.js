@@ -37,9 +37,11 @@ import {
 import { listAllTripTeamMembers } from "@/lib/tripTeamMembers";
 import { listTripsForCurrentUser } from "@/lib/trips";
 import {
+  deleteBudgetCheckRequest,
   listBudgetCheckRequests,
   markBudgetCheckRequestProcessed,
   submitBudgetCheckRequest,
+  updateBudgetCheckRequest,
 } from "@/lib/budgetCheckRequests";
 import { resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
@@ -328,6 +330,11 @@ export default function BudgetPage() {
   const [newBudgetCheckNote, setNewBudgetCheckNote] = useState("");
   const [budgetCheckSubmitting, setBudgetCheckSubmitting] = useState(false);
   const [budgetCheckProcessingId, setBudgetCheckProcessingId] = useState("");
+  const [budgetCheckEditId, setBudgetCheckEditId] = useState("");
+  const [budgetCheckEditAmount, setBudgetCheckEditAmount] = useState("");
+  const [budgetCheckEditNote, setBudgetCheckEditNote] = useState("");
+  const [budgetCheckEditSaving, setBudgetCheckEditSaving] = useState(false);
+  const [budgetCheckDeleteId, setBudgetCheckDeleteId] = useState("");
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
 
@@ -920,6 +927,56 @@ export default function BudgetPage() {
     }
   }
 
+  function openBudgetCheckEdit(row) {
+    setBudgetCheckEditId(row.id);
+    setBudgetCheckEditAmount(String(row.amountRequested || "").trim());
+    setBudgetCheckEditNote(String(row.note || "").trim());
+  }
+
+  function closeBudgetCheckEdit() {
+    setBudgetCheckEditId("");
+    setBudgetCheckEditAmount("");
+    setBudgetCheckEditNote("");
+    setBudgetCheckEditSaving(false);
+  }
+
+  async function handleSaveBudgetCheckEdit() {
+    if (!budgetCheckEditId) return;
+    if (!String(budgetCheckEditAmount || "").trim()) {
+      showToast("Enter the check amount.", "error");
+      return;
+    }
+    try {
+      setBudgetCheckEditSaving(true);
+      await updateBudgetCheckRequest({
+        id: budgetCheckEditId,
+        amount: budgetCheckEditAmount,
+        note: budgetCheckEditNote,
+      });
+      const next = await listBudgetCheckRequests();
+      setBudgetCheckRows(next);
+      closeBudgetCheckEdit();
+      showToast("Request updated.", "success");
+    } catch (e) {
+      showToast(e.message || "Could not save.", "error");
+    } finally {
+      setBudgetCheckEditSaving(false);
+    }
+  }
+
+  async function handleConfirmDeleteBudgetCheck() {
+    if (!budgetCheckDeleteId) return;
+    try {
+      await deleteBudgetCheckRequest(budgetCheckDeleteId);
+      const next = await listBudgetCheckRequests();
+      setBudgetCheckRows(next);
+      setBudgetCheckDeleteId("");
+      showToast("Request deleted.", "success");
+    } catch (e) {
+      showToast(e.message || "Could not delete.", "error");
+    }
+  }
+
   async function handleAddTicket() {
     const tripId = newTicketTripId || trips[0]?.id;
     if (!tripId) {
@@ -992,6 +1049,84 @@ export default function BudgetPage() {
         }}
         onCancel={() => setBudgetRowDeleteTripId(null)}
       />
+      <ConfirmModal
+        open={!!budgetCheckDeleteId}
+        title="Delete check request?"
+        message="This removes the request and deletes the linked personal accounting task if one exists. This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => void handleConfirmDeleteBudgetCheck()}
+        onCancel={() => setBudgetCheckDeleteId("")}
+      />
+      {budgetCheckEditId ? (
+        <div
+          className="appModalOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit budget check request"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 100,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !budgetCheckEditSaving) closeBudgetCheckEdit();
+          }}
+        >
+          <div className="card pad" style={{ width: "min(440px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>Edit check request</div>
+            <p className="small" style={{ margin: "0 0 14px", color: "var(--muted)", lineHeight: 1.45 }}>
+              Only <strong>pending</strong> requests can be edited. The assignee&apos;s task title and notes stay in
+              sync.
+            </p>
+            <div style={{ display: "grid", gap: 12 }}>
+              <div>
+                <label className="small" htmlFor="budget-check-edit-amount" style={{ display: "block", marginBottom: 4 }}>
+                  Check amount
+                </label>
+                <input
+                  id="budget-check-edit-amount"
+                  className="input"
+                  inputMode="decimal"
+                  value={budgetCheckEditAmount}
+                  onChange={(e) => setBudgetCheckEditAmount(e.target.value)}
+                  onBlur={() => setBudgetCheckEditAmount((v) => normalizeMoneyInputToUsd(v))}
+                />
+              </div>
+              <div>
+                <label className="small" htmlFor="budget-check-edit-note" style={{ display: "block", marginBottom: 4 }}>
+                  Note (optional)
+                </label>
+                <textarea
+                  id="budget-check-edit-note"
+                  className="input"
+                  rows={3}
+                  value={budgetCheckEditNote}
+                  onChange={(e) => setBudgetCheckEditNote(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="row" style={{ marginTop: 14, justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" className="btn" disabled={budgetCheckEditSaving} onClick={closeBudgetCheckEdit}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btnPrimary"
+                disabled={budgetCheckEditSaving}
+                onClick={() => void handleSaveBudgetCheckEdit()}
+              >
+                {budgetCheckEditSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="budgetPage">
         <h1 className="h1" style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
           <AppIcon name="active" className="pageEyebrowIcon" />
@@ -2353,7 +2488,7 @@ export default function BudgetPage() {
                       <th>Check amount</th>
                       <th>Requested by</th>
                       <th>Note</th>
-                      <th></th>
+                      <th style={{ minWidth: 140 }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2377,15 +2512,36 @@ export default function BudgetPage() {
                         <td className="small" style={{ maxWidth: 220, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                           {r.note || "—"}
                         </td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn btnPrimary"
-                            disabled={budgetCheckProcessingId === r.id}
-                            onClick={() => void handleMarkBudgetCheckProcessed(r.id)}
+                        <td style={{ verticalAlign: "top" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 6,
+                              alignItems: "stretch",
+                              maxWidth: 132,
+                            }}
                           >
-                            {budgetCheckProcessingId === r.id ? "…" : "Mark processed"}
-                          </button>
+                            <button
+                              type="button"
+                              className="btn btnPrimary"
+                              disabled={budgetCheckProcessingId === r.id}
+                              onClick={() => void handleMarkBudgetCheckProcessed(r.id)}
+                            >
+                              {budgetCheckProcessingId === r.id ? "…" : "Mark processed"}
+                            </button>
+                            <button type="button" className="btn" onClick={() => openBudgetCheckEdit(r)}>
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="btn"
+                              style={{ color: "var(--danger)" }}
+                              onClick={() => setBudgetCheckDeleteId(r.id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -2410,6 +2566,7 @@ export default function BudgetPage() {
                       <th>Check amount</th>
                       <th>Requested by</th>
                       <th>Processed by</th>
+                      <th style={{ minWidth: 88 }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2425,6 +2582,16 @@ export default function BudgetPage() {
                         </td>
                         <td className="small">{r.requestedByName || r.requestedByEmail || "—"}</td>
                         <td className="small">{r.processedByName || r.processedByEmail || "—"}</td>
+                        <td style={{ verticalAlign: "top" }}>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ color: "var(--danger)" }}
+                            onClick={() => setBudgetCheckDeleteId(r.id)}
+                          >
+                            Delete
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
