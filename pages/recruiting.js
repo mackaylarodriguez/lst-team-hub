@@ -21,7 +21,6 @@ import {
   listRecruitingYears,
   logRecruitingActivity,
   logRecruitingCycleContactAction,
-  mergeRecruitingCycleContacts,
   saveRecruitingCycleContact,
 } from "@/lib/recruitingCycles";
 import { buildSiteLabelsOrdered } from "@/lib/siteMaterials";
@@ -73,6 +72,14 @@ function joinLabels(labels) {
   return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
 }
 
+const RECRUITING_BOARD_SORT = ["Recruiting", "Potential Teams", "Lock Teams"];
+
+function sortRecruitingBoardLabels(labels) {
+  return [...labels].sort(
+    (a, b) => RECRUITING_BOARD_SORT.indexOf(a) - RECRUITING_BOARD_SORT.indexOf(b)
+  );
+}
+
 function renderDuplicateNotice(duplicateInfo, options = {}) {
   if (!duplicateInfo) return null;
 
@@ -83,6 +90,33 @@ function renderDuplicateNotice(duplicateInfo, options = {}) {
         <div className="small recruitingDuplicateText">{duplicateInfo.summary}</div>
       ) : null}
     </div>
+  );
+}
+
+function RecruitingFormCard({ title, subtitle, children }) {
+  return (
+    <section
+      className="recruitingFormCard"
+      style={{
+        border: "1px solid rgba(15, 23, 42, 0.1)",
+        borderRadius: 14,
+        padding: "16px 18px",
+        background: "rgba(255, 255, 255, 0.96)",
+        boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)",
+        display: "grid",
+        gap: 14,
+      }}
+    >
+      <header>
+        <div style={{ fontWeight: 800, fontSize: "1.05rem", letterSpacing: "-0.02em" }}>{title}</div>
+        {subtitle ? (
+          <div className="small" style={{ marginTop: 4, color: "var(--muted)", lineHeight: 1.45 }}>
+            {subtitle}
+          </div>
+        ) : null}
+      </header>
+      <div style={{ display: "grid", gap: 12 }}>{children}</div>
+    </section>
   );
 }
 
@@ -890,11 +924,8 @@ export default function RecruitingPage() {
   const [bulkNextFollowUp, setBulkNextFollowUp] = useState("");
   const [bulkAssignedTo, setBulkAssignedTo] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
-  const [deletingDuplicateRecordId, setDeletingDuplicateRecordId] = useState("");
-  const [confirmingDeleteDuplicateRecordId, setConfirmingDeleteDuplicateRecordId] = useState("");
   const [confirmingDeleteRecordId, setConfirmingDeleteRecordId] = useState("");
   const [deletingRecordId, setDeletingRecordId] = useState("");
-  const [mergingDuplicateRecordId, setMergingDuplicateRecordId] = useState("");
   const [contactActionModalOpen, setContactActionModalOpen] = useState(false);
   const [isSavingContactAction, setIsSavingContactAction] = useState(false);
   const [promoteModalOpen, setPromoteModalOpen] = useState(false);
@@ -1232,21 +1263,23 @@ export default function RecruitingPage() {
     const messages = [];
 
     if (sameBoardMatches.length > 0) {
-      const boardLabels = [...new Set(sameBoardMatches.map((record) => getWorkflowBoardLabel(record)))];
-      messages.push(`Already in ${joinLabels(boardLabels)}`);
+      const boardLabels = sortRecruitingBoardLabels([
+        ...new Set(sameBoardMatches.map((record) => getWorkflowBoardLabel(record))),
+      ]);
+      messages.push(`Already on recruiting chart: ${joinLabels(boardLabels)}`);
     }
 
     if (activeTeamMatches.length > 0) {
       const tripNames = [...new Set(activeTeamMatches.map((member) => member.tripName).filter(Boolean))];
-      const teamLabel = tripNames.length > 0
-        ? `Already on active team${tripNames.length === 1 ? "" : "s"}: ${tripNames.slice(0, 2).join(", ")}${tripNames.length > 2 ? ` +${tripNames.length - 2} more` : ""}`
-        : "Already on an active team";
-      messages.push(teamLabel);
+      messages.push(
+        tripNames.length > 0
+          ? `Already on active teams: ${tripNames.join(", ")}`
+          : "Already on active teams"
+      );
     }
 
     return {
-      summary: messages.join(" | "),
-      blockingMessage: `Duplicate email. ${messages.join(". ")}.`,
+      summary: messages.join(" "),
     };
   }
 
@@ -1263,32 +1296,6 @@ export default function RecruitingPage() {
         .filter(Boolean)
     );
   }, [records, duplicateSourceLookup]);
-
-  const duplicateReviewGroups = useMemo(() => {
-    const groups = [];
-
-    duplicateSourceLookup.recordEmails.forEach((matchingRecords, email) => {
-      const allActive = duplicateSourceLookup.activeTeamEmails.get(email) || [];
-      const convertedTripIds = new Set(
-        matchingRecords
-          .filter((r) => r.isConvertedToTeam && r.convertedTeamId)
-          .map((r) => String(r.convertedTeamId))
-      );
-      const activeTeamMatches = allActive.filter((m) => !convertedTripIds.has(String(m.tripId)));
-
-      if (matchingRecords.length <= 1 && activeTeamMatches.length === 0) {
-        return;
-      }
-
-      groups.push({
-        email,
-        records: matchingRecords,
-        activeTeams: activeTeamMatches,
-      });
-    });
-
-    return groups.sort((left, right) => left.email.localeCompare(right.email));
-  }, [duplicateSourceLookup]);
 
   const newContactDuplicateInfo = useMemo(
     () => getDuplicateInfoForEmail(newContactDraft.email),
@@ -1577,43 +1584,6 @@ export default function RecruitingPage() {
     await ensureRecordHistoryLoaded(recordId);
   }
 
-  async function openRecordFromDuplicateReview(record) {
-    if (!record?.id) return;
-
-    if (record.isPotentialTeam) {
-      handleChangeTab("potential");
-      await openRecordDetails(record.id, "details");
-      return;
-    }
-
-    if (record.isConvertedToTeam) {
-      handleChangeTab("converted");
-    } else {
-      handleChangeTab("outreach");
-    }
-    await openRecordDetails(record.id, "details");
-  }
-
-  async function handleDeleteDuplicateRecord(record) {
-    if (!record?.id) return;
-
-    try {
-      setDeletingDuplicateRecordId(record.id);
-      await deleteRecruitingCycleContact(record.id);
-      if (selectedRecordId === record.id) {
-        setSelectedRecordId("");
-      }
-      setError("");
-      setConfirmingDeleteDuplicateRecordId("");
-      await refreshCurrentYear();
-    } catch (deleteError) {
-      console.error("Unable to delete duplicate recruiting row", deleteError);
-      setError(deleteError.message || "Unable to delete duplicate recruiting row.");
-    } finally {
-      setDeletingDuplicateRecordId("");
-    }
-  }
-
   async function handleDeleteRecord(recordId = selectedRecordId) {
     const record = records.find((item) => item.id === recordId);
     if (!record) return;
@@ -1634,44 +1604,6 @@ export default function RecruitingPage() {
       setError(deleteError.message || "Unable to delete recruiting row.");
     } finally {
       setDeletingRecordId("");
-    }
-  }
-
-  async function handleMergeDuplicateGroup(group, keepRecord) {
-    if (!group?.records?.length || !keepRecord?.id) return;
-
-    const otherRecords = group.records.filter((record) => record.id !== keepRecord.id);
-    if (otherRecords.length === 0) {
-      setPageStatus("Nothing to merge for that email.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Keep ${keepRecord.teamName || formatContactName(keepRecord)} and merge ${otherRecords.length} duplicate row${otherRecords.length === 1 ? "" : "s"} into it?`
-    );
-    if (!confirmed) return;
-
-    try {
-      setMergingDuplicateRecordId(keepRecord.id);
-      for (const duplicateRecord of otherRecords) {
-        await mergeRecruitingCycleContacts({
-          keepRecordId: keepRecord.id,
-          removeRecordId: duplicateRecord.id,
-          staffMember: session?.name || session?.email || "Staff",
-        });
-      }
-      setSelectedRecordId(keepRecord.id);
-      setError("");
-      setPageStatus(
-        `Merged ${otherRecords.length} duplicate row${otherRecords.length === 1 ? "" : "s"} into ${keepRecord.teamName || formatContactName(keepRecord)}.`
-      );
-      await refreshCurrentYear();
-      await ensureRecordHistoryLoaded(keepRecord.id, { force: true });
-    } catch (mergeError) {
-      console.error("Unable to merge duplicate recruiting rows", mergeError);
-      setError(mergeError.message || "Unable to merge duplicate rows.");
-    } finally {
-      setMergingDuplicateRecordId("");
     }
   }
 
@@ -2817,129 +2749,6 @@ export default function RecruitingPage() {
         </div>
       ) : null}
 
-      {duplicateReviewGroups.length > 0 ? (
-        <div className="card pad recruitingDuplicateReviewCard" style={{ marginBottom: 14 }}>
-          <div className="row" style={{ marginBottom: 10 }}>
-            <div>
-              <div style={{ fontWeight: 900 }}>Duplicate Review</div>
-              <div className="small">
-                Review matching emails here, keep the best row, and clear the extras.
-              </div>
-            </div>
-            <div className="spacer" />
-            <span className="badge">{duplicateReviewGroups.length}</span>
-          </div>
-          <div className="recruitingDuplicateGroups" style={{ display: "grid", gap: 12 }}>
-            {duplicateReviewGroups.map((group) => (
-              <div
-                key={group.email}
-                className="recruitingDuplicateCard"
-                style={{
-                  padding: "12px 14px",
-                  borderRadius: 14,
-                  border: "1px solid rgba(239,68,68,.18)",
-                  background: "rgba(255,245,245,.9)",
-                  display: "grid",
-                  gap: 10,
-                }}
-              >
-                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <div style={{ fontWeight: 900 }}>{group.email}</div>
-                  <span className="badge">Same email</span>
-                  <span className="badge">{group.records.length} recruiting row{group.records.length === 1 ? "" : "s"}</span>
-                  {group.activeTeams.length > 0 ? (
-                    <span className="badge badgeWarn">
-                      {group.activeTeams.length} active team match{group.activeTeams.length === 1 ? "" : "es"}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="recruitingDuplicateRows" style={{ display: "grid", gap: 8 }}>
-                  {group.records.map((record) => (
-                    <div
-                      key={record.id}
-                      className="row recruitingDuplicateRow"
-                      style={{
-                        gap: 10,
-                        alignItems: "flex-start",
-                        paddingBottom: 8,
-                        borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
-                      }}
-                      >
-                      <div className="recruitingDuplicateSummary" style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 800 }}>{record.teamName || formatContactName(record)}</div>
-                        <div className="small">
-                          {getWorkflowBoardLabel(record)} | {record.assignedTo || "Unassigned"} | {record.stageLabel}
-                        </div>
-                        {(record.site || record.projectDates || record.teamMembers) ? (
-                          <div className="small" style={{ marginTop: 4 }}>
-                            {[
-                              record.site ? `Site: ${record.site}` : "",
-                              record.projectDates ? `Dates: ${record.projectDates}` : "",
-                              record.teamMembers ? `People: ${getRecordPeopleSummary(record, 3)}` : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" | ")}
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="recruitingDuplicateActions">
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => void openRecordFromDuplicateReview(record)}
-                        >
-                          Open Row
-                        </button>
-                        {group.records.length > 1 ? (
-                          <button
-                          className="btn btnPrimary"
-                          type="button"
-                          onClick={() => void handleMergeDuplicateGroup(group, record)}
-                          disabled={mergingDuplicateRecordId === record.id}
-                        >
-                          {mergingDuplicateRecordId === record.id ? "Merging..." : "Keep This Row"}
-                        </button>
-                        ) : null}
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => {
-                            if (confirmingDeleteDuplicateRecordId === record.id) {
-                              void handleDeleteDuplicateRecord(record);
-                              return;
-                            }
-                            setConfirmingDeleteDuplicateRecordId(record.id);
-                          }}
-                          disabled={deletingDuplicateRecordId === record.id}
-                        >
-                          {deletingDuplicateRecordId === record.id
-                            ? "Removing..."
-                            : confirmingDeleteDuplicateRecordId === record.id
-                            ? "Confirm Delete"
-                            : "Remove Extra Row"}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {group.activeTeams.length > 0 ? (
-                    <div style={{ display: "grid", gap: 6 }}>
-                      <div className="small" style={{ fontWeight: 900 }}>Already on Active Teams</div>
-                      {group.activeTeams.map((member, index) => (
-                        <div key={`${group.email}-${member.tripId || member.tripName || index}`} className="small">
-                          {[member.name || member.email, member.tripName, member.tripStatus]
-                            .filter(Boolean)
-                            .join(" | ")}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       {filterPanelOpen ? (
         <div className="card pad" style={{ marginBottom: 14 }}>
           <div className="row" style={{ marginBottom: 10 }}>
@@ -3104,9 +2913,7 @@ export default function RecruitingPage() {
                     : activeTab === "potential"
                     ? "Potential Team History"
                     : "Lock Team History"
-                  : activeTab === "potential"
-                  ? "Potential Team Details"
-                  : "Edit Details"}
+                  : "Edit team & recruiting"}
               </div>
               <div className="spacer" />
               {selectedRecord && recordDetailsMode !== "history" && !selectedRecord.isConvertedToTeam ? (
