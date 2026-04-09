@@ -7,11 +7,14 @@ import { requireSession } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { isManagerRole, ROLE_WORKER } from "@/lib/roles";
 import {
+  updateOwnProfileNamesEmail,
   updateProfilePhoneAndTshirtSize,
   updateWorkerProfileEmail,
   updateWorkerProfileNames,
 } from "@/lib/trips";
 import { TSHIRT_SIZE_OPTIONS } from "@/lib/tshirtSizes";
+
+const PROFILE_GENDER_OPTIONS = ["", "Male", "Female"];
 import { getUserDocumentTypeLabel } from "@/lib/userDocumentTypes";
 import { deleteUserDocument, listProfileDocuments } from "@/lib/userDocuments";
 import {
@@ -87,6 +90,14 @@ function normalizeProfileRole(role) {
   return role ? String(role).trim().toLowerCase() : "";
 }
 
+/** Map DB / legacy values to travel-form style select: "", "Male", "Female". */
+function genderRawToSelectValue(raw) {
+  const compact = String(raw || "").trim().toLowerCase();
+  if (compact === "f" || compact === "female") return "Female";
+  if (compact === "m" || compact === "male") return "Male";
+  return "";
+}
+
 export default function Profile() {
   const router = useRouter();
   const { participantId } = router.query;
@@ -104,14 +115,15 @@ export default function Profile() {
   const [confirmingDeleteDocumentId, setConfirmingDeleteDocumentId] = useState("");
   const [documentDeleteStatus, setDocumentDeleteStatus] = useState("");
   const [workerEmailDraft, setWorkerEmailDraft] = useState("");
-  const [workerEmailSaveStatus, setWorkerEmailSaveStatus] = useState("");
   const [workerFirstNameDraft, setWorkerFirstNameDraft] = useState("");
   const [workerLastNameDraft, setWorkerLastNameDraft] = useState("");
-  const [workerNameSaveStatus, setWorkerNameSaveStatus] = useState("");
   const [contactFieldsAvailable, setContactFieldsAvailable] = useState(true);
+  const [genderFieldsAvailable, setGenderFieldsAvailable] = useState(true);
   const [phoneDraft, setPhoneDraft] = useState("");
   const [tshirtDraft, setTshirtDraft] = useState("");
-  const [contactSaveStatus, setContactSaveStatus] = useState("");
+  const [genderDraft, setGenderDraft] = useState("");
+  const [editingProfileFields, setEditingProfileFields] = useState(false);
+  const [profileFieldsSaveStatus, setProfileFieldsSaveStatus] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -184,11 +196,16 @@ export default function Profile() {
           throw new Error("Profile not found.");
         }
 
+        const genderOk = Object.prototype.hasOwnProperty.call(profileRow, "gender");
+
         const displayProfile = {
           id: profileRow.id,
           email: profileRow.email || "",
           role: profileRow.role || "",
           gender: formatGender(profileRow.gender),
+          genderRaw: genderOk ? profileRow.gender : null,
+          firstName: profileRow.first_name || "",
+          lastName: profileRow.last_name || "",
           phone: contactOk ? String(profileRow.phone || "").trim() : "",
           tshirtSize: contactOk ? String(profileRow.tshirt_size || "").trim() : "",
           name:
@@ -258,14 +275,15 @@ export default function Profile() {
         setNotes(nextNotes);
         setRecruitingRecords((nextRecruitingRecords || []).filter(hasRecruitingNotes));
         setWorkerEmailDraft(displayProfile.email || "");
-        setWorkerEmailSaveStatus("");
         setWorkerFirstNameDraft(profileRow.first_name || "");
         setWorkerLastNameDraft(profileRow.last_name || "");
-        setWorkerNameSaveStatus("");
         setContactFieldsAvailable(contactOk);
+        setGenderFieldsAvailable(genderOk);
         setPhoneDraft(displayProfile.phone || "");
         setTshirtDraft(displayProfile.tshirtSize || "");
-        setContactSaveStatus("");
+        setGenderDraft(genderRawToSelectValue(profileRow.gender));
+        setEditingProfileFields(false);
+        setProfileFieldsSaveStatus("");
       } catch (error) {
         console.error("Unable to load profile page", error);
         if (!cancelled) {
@@ -293,8 +311,8 @@ export default function Profile() {
     !!profile &&
     !!session &&
     String(profile.id) === String(session.profileId || session.id);
-  const canEditContactDetails =
-    !!profile && contactFieldsAvailable && (isOwnProfile || canEditWorkerProfileEmail);
+  const canEditProfileDetails =
+    !!profile && (isOwnProfile || canEditWorkerProfileEmail);
   const canDeleteDocuments =
     !!profile && (canManageProfiles || String(profile.id) === String(session?.profileId || session?.id));
 
@@ -383,77 +401,118 @@ export default function Profile() {
     }
   }
 
-  async function handleSaveWorkerNames() {
-    if (!profile || !canEditWorkerProfileEmail) return;
-    try {
-      setWorkerNameSaveStatus("Saving...");
-      const { firstName: savedFirst, lastName: savedLast } = await updateWorkerProfileNames({
-        profileId: profile.id,
-        firstName: workerFirstNameDraft,
-        lastName: workerLastNameDraft,
-      });
-      const combined =
-        [savedFirst, savedLast].filter(Boolean).join(" ").trim() || profile.email || "Unknown user";
-      setProfile((current) =>
-        current ? { ...current, name: combined } : current
-      );
-      setWorkerFirstNameDraft(savedFirst);
-      setWorkerLastNameDraft(savedLast);
-      setWorkerNameSaveStatus("Saved.");
-    } catch (error) {
-      console.error("Unable to save worker name", error);
-      setWorkerNameSaveStatus(error.message || "Unable to save name.");
-    }
+  function resetProfileFieldDrafts() {
+    if (!profile) return;
+    setWorkerFirstNameDraft(profile.firstName || "");
+    setWorkerLastNameDraft(profile.lastName || "");
+    setWorkerEmailDraft(profile.email || "");
+    setPhoneDraft(profile.phone || "");
+    setTshirtDraft(profile.tshirtSize || "");
+    setGenderDraft(genderRawToSelectValue(profile.genderRaw));
   }
 
-  async function handleSaveContactDetails() {
-    if (!profile || !canEditContactDetails) return;
+  function beginEditProfileFields() {
+    if (!profile || !canEditProfileDetails) return;
+    resetProfileFieldDrafts();
+    setProfileFieldsSaveStatus("");
+    setEditingProfileFields(true);
+  }
+
+  function cancelEditProfileFields() {
+    resetProfileFieldDrafts();
+    setProfileFieldsSaveStatus("");
+    setEditingProfileFields(false);
+  }
+
+  async function handleSaveProfileFields() {
+    if (!profile || !canEditProfileDetails) return;
+    const trimmedEmail = String(workerEmailDraft || "").trim();
+    if (!trimmedEmail) {
+      setProfileFieldsSaveStatus("Email cannot be empty.");
+      return;
+    }
+
     try {
-      setContactSaveStatus("Saving...");
-      const { phone: savedPhone, tshirtSize: savedTshirt } = await updateProfilePhoneAndTshirtSize({
+      setProfileFieldsSaveStatus("Saving...");
+
+      let nextFirst = profile.firstName || "";
+      let nextLast = profile.lastName || "";
+      let nextEmail = trimmedEmail;
+
+      if (canEditWorkerProfileEmail) {
+        const names = await updateWorkerProfileNames({
+          profileId: profile.id,
+          firstName: workerFirstNameDraft,
+          lastName: workerLastNameDraft,
+        });
+        nextFirst = names.firstName;
+        nextLast = names.lastName;
+        const em = await updateWorkerProfileEmail({
+          profileId: profile.id,
+          email: trimmedEmail,
+        });
+        nextEmail = em.email;
+      } else if (isOwnProfile) {
+        const idRes = await updateOwnProfileNamesEmail({
+          profileId: profile.id,
+          firstName: workerFirstNameDraft,
+          lastName: workerLastNameDraft,
+          email: trimmedEmail,
+        });
+        nextFirst = idRes.firstName;
+        nextLast = idRes.lastName;
+        nextEmail = idRes.email;
+      }
+
+      const personal = await updateProfilePhoneAndTshirtSize({
         profileId: profile.id,
         phone: phoneDraft,
         tshirtSize: tshirtDraft,
+        gender: genderDraft,
+        includePhoneAndTshirt: contactFieldsAvailable,
+        includeGender: genderFieldsAvailable,
       });
-      setProfile((current) =>
-        current ? { ...current, phone: savedPhone, tshirtSize: savedTshirt } : current
-      );
-      setPhoneDraft(savedPhone);
-      setTshirtDraft(savedTshirt);
-      setContactSaveStatus("Saved.");
-    } catch (error) {
-      console.error("Unable to save phone / T-shirt size", error);
-      setContactSaveStatus(error.message || "Unable to save.");
-    }
-  }
 
-  async function handleSaveWorkerEmail() {
-    if (!profile || !canEditWorkerProfileEmail) return;
-    const trimmed = String(workerEmailDraft || "").trim();
-    if (!trimmed) {
-      setWorkerEmailSaveStatus("Email cannot be empty.");
-      return;
-    }
-    try {
-      setWorkerEmailSaveStatus("Saving...");
-      const { email: savedEmail } = await updateWorkerProfileEmail({
-        profileId: profile.id,
-        email: trimmed,
-      });
-      setProfile((current) => (current ? { ...current, email: savedEmail } : current));
-      setWorkerEmailDraft(savedEmail);
-      setWorkerEmailSaveStatus("Saved.");
-      if (canViewPrivateStaffSections && savedEmail) {
+      const combinedName =
+        [nextFirst, nextLast].filter(Boolean).join(" ").trim() || nextEmail || "Unknown user";
+
+      setProfile((current) =>
+        current
+          ? {
+              ...current,
+              name: combinedName,
+              firstName: nextFirst,
+              lastName: nextLast,
+              email: nextEmail,
+              phone: personal.phone || "",
+              tshirtSize: personal.tshirtSize || "",
+              gender: formatGender(personal.gender),
+              genderRaw: genderFieldsAvailable ? personal.gender : current.genderRaw,
+            }
+          : current
+      );
+
+      setWorkerFirstNameDraft(nextFirst);
+      setWorkerLastNameDraft(nextLast);
+      setWorkerEmailDraft(nextEmail);
+      setPhoneDraft(personal.phone || "");
+      setTshirtDraft(personal.tshirtSize || "");
+      setGenderDraft(genderRawToSelectValue(personal.gender));
+
+      if (canViewPrivateStaffSections && nextEmail) {
         try {
-          const nextRecruiting = await listRecruitingCycleContactsByEmail(savedEmail);
+          const nextRecruiting = await listRecruitingCycleContactsByEmail(nextEmail);
           setRecruitingRecords((nextRecruiting || []).filter(hasRecruitingNotes));
         } catch (recErr) {
-          console.warn("Unable to refresh recruiting records after email change", recErr);
+          console.warn("Unable to refresh recruiting records after profile save", recErr);
         }
       }
+
+      setEditingProfileFields(false);
+      setProfileFieldsSaveStatus("Saved.");
     } catch (error) {
-      console.error("Unable to save worker email", error);
-      setWorkerEmailSaveStatus(error.message || "Unable to save email.");
+      console.error("Unable to save profile fields", error);
+      setProfileFieldsSaveStatus(error.message || "Unable to save.");
     }
   }
 
@@ -497,151 +556,123 @@ export default function Profile() {
       <div style={{ display: "grid", gap: 16 }}>
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            display: "flex",
+            flexWrap: "wrap",
             gap: 16,
+            alignItems: "flex-start",
           }}
         >
-          <div className="card pad">
-            <div className="small">Name</div>
-            {canEditWorkerProfileEmail ? (
-              <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
+          <div
+            className="card pad"
+            style={{
+              flex: "2 1 320px",
+              width: "100%",
+              maxWidth: "min(920px, 66.67vw)",
+            }}
+          >
+            <div className="row" style={{ alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              <div className="appSectionBadge" style={{ marginBottom: 0 }}>
+                Your details
+              </div>
+              <div className="spacer" style={{ flex: 1, minWidth: 8 }} />
+              {canEditProfileDetails && !editingProfileFields ? (
+                <button
+                  type="button"
+                  className="btn"
+                  aria-label="Edit profile details"
+                  onClick={beginEditProfileFields}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                >
+                  <span style={{ display: "inline-flex", width: 18, height: 18 }}>
+                    <AppIcon name="pencil" />
+                  </span>
+                  Edit
+                </button>
+              ) : null}
+            </div>
+
+            <div className="small" style={{ marginBottom: 12, lineHeight: 1.45, opacity: 0.9 }}>
+              Name, email, phone, and T-shirt update this profile and matching trip roster rows. Supabase Auth
+              login email is separate from this address.
+            </div>
+
+            {!editingProfileFields &&
+            profileFieldsSaveStatus &&
+            profileFieldsSaveStatus !== "Saving..." ? (
+              <div
+                className="small"
+                style={{
+                  marginBottom: 10,
+                  color: profileFieldsSaveStatus === "Saved." ? "var(--muted)" : "var(--danger)",
+                }}
+              >
+                {profileFieldsSaveStatus}
+              </div>
+            ) : null}
+
+            {editingProfileFields && canEditProfileDetails ? (
+              <div style={{ display: "grid", gap: 14 }}>
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                    gap: 10,
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                    gap: 12,
                   }}
                 >
                   <div>
-                    <label className="small" htmlFor="profile-worker-first" style={{ display: "block", marginBottom: 4 }}>
+                    <label className="small" htmlFor="profile-first" style={{ display: "block", marginBottom: 4 }}>
                       First name
                     </label>
                     <input
-                      id="profile-worker-first"
+                      id="profile-first"
                       className="input"
                       value={workerFirstNameDraft}
                       onChange={(e) => {
                         setWorkerFirstNameDraft(e.target.value);
-                        if (workerNameSaveStatus && workerNameSaveStatus !== "Saving...") {
-                          setWorkerNameSaveStatus("");
+                        if (profileFieldsSaveStatus && profileFieldsSaveStatus !== "Saving...") {
+                          setProfileFieldsSaveStatus("");
                         }
                       }}
-                      placeholder="First"
                       autoComplete="given-name"
                     />
                   </div>
                   <div>
-                    <label className="small" htmlFor="profile-worker-last" style={{ display: "block", marginBottom: 4 }}>
+                    <label className="small" htmlFor="profile-last" style={{ display: "block", marginBottom: 4 }}>
                       Last name
                     </label>
                     <input
-                      id="profile-worker-last"
+                      id="profile-last"
                       className="input"
                       value={workerLastNameDraft}
                       onChange={(e) => {
                         setWorkerLastNameDraft(e.target.value);
-                        if (workerNameSaveStatus && workerNameSaveStatus !== "Saving...") {
-                          setWorkerNameSaveStatus("");
+                        if (profileFieldsSaveStatus && profileFieldsSaveStatus !== "Saving...") {
+                          setProfileFieldsSaveStatus("");
                         }
                       }}
-                      placeholder="Last"
                       autoComplete="family-name"
                     />
                   </div>
                 </div>
-                <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                  <button type="button" className="btn btnPrimary" onClick={() => void handleSaveWorkerNames()}>
-                    Save name
-                  </button>
-                  {workerNameSaveStatus ? (
-                    <span
-                      className="small"
-                      style={{
-                        color:
-                          workerNameSaveStatus === "Saved."
-                            ? "var(--muted)"
-                            : workerNameSaveStatus === "Saving..."
-                              ? "var(--muted)"
-                              : "var(--danger)",
-                      }}
-                    >
-                      {workerNameSaveStatus}
-                    </span>
-                  ) : null}
+                <div>
+                  <label className="small" htmlFor="profile-email" style={{ display: "block", marginBottom: 4 }}>
+                    Email
+                  </label>
+                  <input
+                    id="profile-email"
+                    className="input"
+                    type="email"
+                    value={workerEmailDraft}
+                    onChange={(e) => {
+                      setWorkerEmailDraft(e.target.value);
+                      if (profileFieldsSaveStatus && profileFieldsSaveStatus !== "Saving...") {
+                        setProfileFieldsSaveStatus("");
+                      }
+                    }}
+                    autoComplete="email"
+                  />
                 </div>
-                <div className="small" style={{ opacity: 0.85, lineHeight: 1.45 }}>
-                  Updates this profile and trip roster rows that match this worker&apos;s email.
-                </div>
-              </div>
-            ) : (
-              <div style={{ fontWeight: 900, fontSize: 18 }}>{profile?.name || "-"}</div>
-            )}
-            <div style={{ height: 10 }} />
-            <div className="small">Email</div>
-            {canEditWorkerProfileEmail ? (
-              <div style={{ display: "grid", gap: 8, marginTop: 4 }}>
-                <input
-                  className="input"
-                  type="email"
-                  value={workerEmailDraft}
-                  onChange={(e) => {
-                    setWorkerEmailDraft(e.target.value);
-                    if (workerEmailSaveStatus && workerEmailSaveStatus !== "Saving...") {
-                      setWorkerEmailSaveStatus("");
-                    }
-                  }}
-                  placeholder="worker@email.com"
-                  autoComplete="email"
-                />
-                <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                  <button type="button" className="btn btnPrimary" onClick={() => void handleSaveWorkerEmail()}>
-                    Save email
-                  </button>
-                  {workerEmailSaveStatus ? (
-                    <span
-                      className="small"
-                      style={{
-                        color:
-                          workerEmailSaveStatus === "Saved."
-                            ? "var(--muted)"
-                            : workerEmailSaveStatus === "Saving..."
-                              ? "var(--muted)"
-                              : "var(--danger)",
-                      }}
-                    >
-                      {workerEmailSaveStatus}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="small" style={{ opacity: 0.85, lineHeight: 1.45 }}>
-                  Updates this profile and roster rows that used the previous address. Supabase Auth login
-                  email is separate—change it in the Auth dashboard if the worker should sign in with this
-                  address.
-                </div>
-              </div>
-            ) : (
-              <div style={{ fontWeight: 800 }}>{profile?.email || "-"}</div>
-            )}
-            <div style={{ height: 10 }} />
-            <div className="small">Role</div>
-            <span className="badge">{formatProfileRole(profile?.role)}</span>
-            <div style={{ height: 10 }} />
-            <div className="small">Gender</div>
-            <div style={{ fontWeight: 800 }}>{profile?.gender || "-"}</div>
-          </div>
-
-          {contactFieldsAvailable ? (
-            <div className="card pad">
-              <div className="appSectionBadge" style={{ marginBottom: 8 }}>
-                Phone & T-shirt
-              </div>
-              <p className="small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-                Used for trip logistics and roster. Saving updates this profile and trip roster rows that
-                match this email.
-              </p>
-              {canEditContactDetails ? (
-                <div style={{ display: "grid", gap: 10 }}>
+                {contactFieldsAvailable ? (
                   <div>
                     <label className="small" htmlFor="profile-phone" style={{ display: "block", marginBottom: 4 }}>
                       Phone number
@@ -653,14 +684,40 @@ export default function Profile() {
                       value={phoneDraft}
                       onChange={(e) => {
                         setPhoneDraft(e.target.value);
-                        if (contactSaveStatus && contactSaveStatus !== "Saving...") {
-                          setContactSaveStatus("");
+                        if (profileFieldsSaveStatus && profileFieldsSaveStatus !== "Saving...") {
+                          setProfileFieldsSaveStatus("");
                         }
                       }}
                       placeholder="Cell or best number"
                       autoComplete="tel"
                     />
                   </div>
+                ) : null}
+                {genderFieldsAvailable ? (
+                  <div>
+                    <label className="small" htmlFor="profile-gender" style={{ display: "block", marginBottom: 4 }}>
+                      Gender
+                    </label>
+                    <select
+                      id="profile-gender"
+                      className="input"
+                      value={genderDraft}
+                      onChange={(e) => {
+                        setGenderDraft(e.target.value);
+                        if (profileFieldsSaveStatus && profileFieldsSaveStatus !== "Saving...") {
+                          setProfileFieldsSaveStatus("");
+                        }
+                      }}
+                    >
+                      {PROFILE_GENDER_OPTIONS.map((g) => (
+                        <option key={g || "unset"} value={g}>
+                          {g || "—"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+                {contactFieldsAvailable ? (
                   <div>
                     <label className="small" htmlFor="profile-tshirt" style={{ display: "block", marginBottom: 4 }}>
                       T-shirt size
@@ -671,8 +728,8 @@ export default function Profile() {
                       value={tshirtDraft}
                       onChange={(e) => {
                         setTshirtDraft(e.target.value);
-                        if (contactSaveStatus && contactSaveStatus !== "Saving...") {
-                          setContactSaveStatus("");
+                        if (profileFieldsSaveStatus && profileFieldsSaveStatus !== "Saving...") {
+                          setProfileFieldsSaveStatus("");
                         }
                       }}
                     >
@@ -684,43 +741,71 @@ export default function Profile() {
                       ))}
                     </select>
                   </div>
-                  <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                    <button type="button" className="btn btnPrimary" onClick={() => void handleSaveContactDetails()}>
-                      Save
-                    </button>
-                    {contactSaveStatus ? (
-                      <span
-                        className="small"
-                        style={{
-                          color:
-                            contactSaveStatus === "Saved."
+                ) : null}
+                <div className="row" style={{ flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                  <button type="button" className="btn btnPrimary" onClick={() => void handleSaveProfileFields()}>
+                    Save
+                  </button>
+                  <button type="button" className="btn" onClick={cancelEditProfileFields}>
+                    Cancel
+                  </button>
+                  {profileFieldsSaveStatus ? (
+                    <span
+                      className="small"
+                      style={{
+                        color:
+                          profileFieldsSaveStatus === "Saved."
+                            ? "var(--muted)"
+                            : profileFieldsSaveStatus === "Saving..."
                               ? "var(--muted)"
-                              : contactSaveStatus === "Saving..."
-                                ? "var(--muted)"
-                                : "var(--danger)",
-                        }}
-                      >
-                        {contactSaveStatus}
-                      </span>
-                    ) : null}
-                  </div>
+                              : "var(--danger)",
+                      }}
+                    >
+                      {profileFieldsSaveStatus}
+                    </span>
+                  ) : null}
                 </div>
-              ) : (
-                <div style={{ display: "grid", gap: 8 }}>
-                  <div>
-                    <div className="small">Phone number</div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(100px, 140px) 1fr",
+                  gap: "10px 16px",
+                  alignItems: "baseline",
+                }}
+              >
+                <div className="small">Name</div>
+                <div style={{ fontWeight: 800 }}>{profile?.name || "—"}</div>
+                <div className="small">Email</div>
+                <div style={{ fontWeight: 800, wordBreak: "break-word" }}>{profile?.email || "—"}</div>
+                {contactFieldsAvailable ? (
+                  <>
+                    <div className="small">Phone</div>
                     <div style={{ fontWeight: 800 }}>{profile?.phone?.trim() || "—"}</div>
-                  </div>
-                  <div>
-                    <div className="small">T-shirt size</div>
+                  </>
+                ) : null}
+                {genderFieldsAvailable ? (
+                  <>
+                    <div className="small">Gender</div>
+                    <div style={{ fontWeight: 800 }}>{profile?.gender || "—"}</div>
+                  </>
+                ) : null}
+                {contactFieldsAvailable ? (
+                  <>
+                    <div className="small">T-shirt</div>
                     <div style={{ fontWeight: 800 }}>{profile?.tshirtSize?.trim() || "—"}</div>
-                  </div>
+                  </>
+                ) : null}
+                <div className="small">Role</div>
+                <div>
+                  <span className="badge">{formatProfileRole(profile?.role)}</span>
                 </div>
-              )}
-            </div>
-          ) : null}
+              </div>
+            )}
+          </div>
 
-          <div className="card pad">
+          <div className="card pad" style={{ flex: "1 1 280px", minWidth: 0 }}>
             <div className="small">Trips</div>
             <div style={{ fontWeight: 900, fontSize: 18 }}>{assignments.length}</div>
             <div className="small" style={{ marginTop: 8 }}>
