@@ -452,13 +452,6 @@ function shouldShowLastContactToggle(record, contactActivity) {
   return formatLastContactSummary(record).length > 90;
 }
 
-function getRecruitingStageBadgeClass(record) {
-  if (record?.stage === 3) return "badgeSuccess";
-  if (record?.stage === 2) return "badgeWarn";
-  if (record?.stage === 1) return "badgeInfo";
-  return "badgeDanger";
-}
-
 function getRecruitingOwnerBadgeClass(owner) {
   const normalizedOwner = normalizeOwnerName(owner);
   if (normalizedOwner === normalizeOwnerName(PRIMARY_OWNER)) return "recruitingOwnerBadgePrimary";
@@ -2430,22 +2423,20 @@ export default function RecruitingPage() {
       <DraggableTable>
         <table className={`table recruitingCompactTable recruitingFitTable recruitingFont-${tableFontSize}`}>
           <colgroup>
-            <col style={{ width: "20%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "8%" }} />
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "11%" }} />
             <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "11%" }} />
             <col style={{ width: "9%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "12%" }} />
           </colgroup>
           <thead>
             <tr>
               <th>Team Name</th>
               <th>Email</th>
               <th>Owner</th>
-              <th>Stage</th>
               <th>Site</th>
               <th>Timing</th>
               <th>Mackayla Notes</th>
@@ -2457,7 +2448,6 @@ export default function RecruitingPage() {
             {recordsToRender.map((record) => {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-              const stageLabel = record.stageLabel;
               const primaryContact = formatContactName(record);
               const additionalPeople = getAdditionalRecordPeople(record);
 
@@ -2487,13 +2477,8 @@ export default function RecruitingPage() {
                       <span className={`badge recruitingOwnerBadge ${getRecruitingOwnerBadgeClass(record.assignedTo || PRIMARY_OWNER)}`}>
                         {record.assignedTo || PRIMARY_OWNER}
                       </span>
-                    </td>
-                    <td>
-                      <span className={`badge ${getRecruitingStageBadgeClass(record)} recruitingStageBadge`}>
-                        {stageLabel}
-                      </span>
                       {attention ? (
-                        <span className={`badge ${attention.badgeClass}`} style={{ marginTop: 4 }}>
+                        <span className={`badge ${attention.badgeClass}`} style={{ marginTop: 4, display: "inline-block" }}>
                           {attention.label}
                         </span>
                       ) : null}
@@ -2576,7 +2561,6 @@ export default function RecruitingPage() {
         {recordsToRender.map((record) => {
           const attention = getAttentionMeta(record);
           const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-          const stageLabel = record.stageLabel;
 
           return (
             <div
@@ -2590,7 +2574,6 @@ export default function RecruitingPage() {
                   <div className="recruitingMobileCardTitle">{record.teamName || formatContactName(record)}</div>
                   <div className="small recruitingMobileCardEmail">{record.contact?.email || "-"}</div>
                 </div>
-                <span className={`badge ${getRecruitingStageBadgeClass(record)}`}>{stageLabel}</span>
               </div>
               {renderDuplicateNotice(duplicateInfo, { compact: true })}
               <div className="recruitingMobileMeta">
@@ -2693,11 +2676,18 @@ export default function RecruitingPage() {
                 <td>{record.linkedTrip?.status || "Locked"}</td>
                 <td>
                   <div className="row recruitingActionRow" onClick={(event) => event.stopPropagation()}>
+                    <button
+                      className="btn btnPrimary"
+                      type="button"
+                      onClick={() => void openRecordDetails(record.id, "details")}
+                    >
+                      Edit
+                    </button>
                     <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>
                       View History
                     </button>
                     {record.convertedTeamId ? (
-                      <button className="btn btnPrimary" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
+                      <button className="btn" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
                         Open Team
                       </button>
                     ) : null}
@@ -2753,11 +2743,14 @@ export default function RecruitingPage() {
               <span>{record.linkedTrip?.departureDate ? formatDate(record.linkedTrip.departureDate) : formatFlexibleDepartureDate(record.departureDate)}</span>
             </div>
             <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
+              <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
+                Edit
+              </button>
               <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>
                 View History
               </button>
               {record.convertedTeamId ? (
-                <button className="btn btnPrimary" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
+                <button className="btn" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
                   Open Team
                 </button>
               ) : null}
@@ -2953,13 +2946,22 @@ export default function RecruitingPage() {
                 </button>
               ))}
               {selectedRecord && activeTab === "converted" ? (
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => void openRecordDetails(selectedRecord?.id, "history")}
-                >
-                  Open Lock Team History
-                </button>
+                <>
+                  <button
+                    className="btn btnPrimary"
+                    type="button"
+                    onClick={() => void openRecordDetails(selectedRecord?.id, "details")}
+                  >
+                    Edit team
+                  </button>
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => void openRecordDetails(selectedRecord?.id, "history")}
+                  >
+                    Open Lock Team History
+                  </button>
+                </>
               ) : null}
             </div>
 
@@ -3063,6 +3065,11 @@ export default function RecruitingPage() {
                       : "Delete"}
                 </button>
               ) : null}
+              {selectedRecord && recordDetailsMode === "details" ? (
+                <button className="btn" type="button" onClick={() => setRecordDetailsMode("history")}>
+                  Contact history
+                </button>
+              ) : null}
               <button className="btn" type="button" onClick={() => setRecordDetailsModalOpen(false)}>
                 Close
               </button>
@@ -3092,8 +3099,8 @@ export default function RecruitingPage() {
                 {recordDetailsMode !== "history" ? (
                   <>
                     <RecruitingFormCard
-                      title="Team information"
-                      subtitle="Team name, site, timing, stage, and owner."
+                      title="Team name & roster"
+                      subtitle="Same structure as Lock Team: team name, then primary contact and teammates."
                     >
                       {selectedRecord.convertedTeamId ? (
                         <div>
@@ -3111,101 +3118,15 @@ export default function RecruitingPage() {
                           </div>
                         </div>
                       ) : null}
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                          gap: 10,
-                        }}
-                      >
-                        <div style={{ gridColumn: "1 / -1" }}>
-                          <div className="small" style={{ marginBottom: 6 }}>Team name</div>
-                          <input
-                            className="input"
-                            value={selectedRecord.teamName || ""}
-                            onChange={(event) => updateSelectedRecord("teamName", event.target.value)}
-                            placeholder="Team name"
-                          />
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Stage</div>
-                          <select
-                            className="input"
-                            value={selectedRecord.stage}
-                            onChange={(event) => updateSelectedRecord("stage", Number(event.target.value))}
-                          >
-                            {RECRUITING_STAGES.map((stage) => (
-                              <option key={stage.value} value={stage.value}>
-                                {stage.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Owner</div>
-                          <select
-                            className="input"
-                            value={selectedRecord.assignedTo || PRIMARY_OWNER}
-                            onChange={(event) => updateRecordOwner(selectedRecord.id, event.target.value)}
-                          >
-                            {OWNER_OPTIONS.map((owner) => (
-                              <option key={owner} value={owner}>
-                                {owner}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Site</div>
-                          <select
-                            className="input"
-                            value={selectedRecord.site || ""}
-                            onChange={(event) => updateSelectedRecord("site", event.target.value)}
-                          >
-                            <option value="">Select site</option>
-                            {mergeSiteOptionListWithCurrent(sitePickerLabels, selectedRecord.site).map((siteOption) => (
-                              <option key={siteOption} value={siteOption}>
-                                {siteOption}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Project dates</div>
-                          <input
-                            className="input"
-                            value={selectedRecord.projectDates || ""}
-                            onChange={(event) => updateSelectedRecord("projectDates", event.target.value)}
-                            placeholder="Dates or season"
-                          />
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
-                          <input
-                            className="input"
-                            type="number"
-                            min="0"
-                            value={selectedRecord.weeks || ""}
-                            onChange={(event) => updateSelectedRecord("weeks", event.target.value)}
-                            placeholder="Number of weeks"
-                          />
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Departure date</div>
-                          <input
-                            className="input"
-                            value={selectedRecord.departureDate || ""}
-                            onChange={(event) => updateSelectedRecord("departureDate", event.target.value)}
-                            placeholder="Month, season, or exact date"
-                          />
-                        </div>
+                      <div>
+                        <div className="small" style={{ marginBottom: 6 }}>Team name</div>
+                        <input
+                          className="input"
+                          value={selectedRecord.teamName || ""}
+                          onChange={(event) => updateSelectedRecord("teamName", event.target.value)}
+                          placeholder="Team name"
+                        />
                       </div>
-                    </RecruitingFormCard>
-
-                    <RecruitingFormCard
-                      title="Workers"
-                      subtitle="Primary contact and anyone else on this recruiting row."
-                    >
                       <div
                         style={{
                           display: "grid",
@@ -3219,6 +3140,7 @@ export default function RecruitingPage() {
                             className="input"
                             value={selectedRecord.contact?.firstName || ""}
                             onChange={(event) => updateContactField(selectedRecord.id, "firstName", event.target.value)}
+                            autoComplete="given-name"
                           />
                         </div>
                         <div>
@@ -3227,23 +3149,28 @@ export default function RecruitingPage() {
                             className="input"
                             value={selectedRecord.contact?.lastName || ""}
                             onChange={(event) => updateContactField(selectedRecord.id, "lastName", event.target.value)}
+                            autoComplete="family-name"
                           />
                         </div>
                         <div>
                           <div className="small" style={{ marginBottom: 6 }}>Email</div>
                           <input
                             className="input"
+                            type="email"
                             value={selectedRecord.contact?.email || ""}
                             onChange={(event) => updateContactField(selectedRecord.id, "email", event.target.value)}
+                            autoComplete="email"
                           />
                         </div>
                         <div>
                           <div className="small" style={{ marginBottom: 6 }}>Phone</div>
                           <input
                             className="input"
-                            value={selectedRecord.contact?.phone || ""}
+                            type="tel"
+                            value={selectedRecord.contact?.phone ?? ""}
                             onChange={(event) => updateContactField(selectedRecord.id, "phone", event.target.value)}
                             placeholder="Phone number"
+                            autoComplete="tel"
                           />
                         </div>
                         <div>
@@ -3388,6 +3315,92 @@ export default function RecruitingPage() {
                             </button>
                           </div>
                           {renderDuplicateNotice(recordPersonDuplicateInfo)}
+                        </div>
+                      </div>
+                    </RecruitingFormCard>
+
+                    <RecruitingFormCard
+                      title="Site, stage & timing"
+                      subtitle="Site, pipeline stage, owner, and timing — same fields as the recruiting section on Lock Team."
+                    >
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                          gap: 10,
+                        }}
+                      >
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Stage</div>
+                          <select
+                            className="input"
+                            value={selectedRecord.stage}
+                            onChange={(event) => updateSelectedRecord("stage", Number(event.target.value))}
+                          >
+                            {RECRUITING_STAGES.map((stage) => (
+                              <option key={stage.value} value={stage.value}>
+                                {stage.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Owner</div>
+                          <select
+                            className="input"
+                            value={selectedRecord.assignedTo || PRIMARY_OWNER}
+                            onChange={(event) => updateRecordOwner(selectedRecord.id, event.target.value)}
+                          >
+                            {OWNER_OPTIONS.map((owner) => (
+                              <option key={owner} value={owner}>
+                                {owner}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Site</div>
+                          <select
+                            className="input"
+                            value={selectedRecord.site || ""}
+                            onChange={(event) => updateSelectedRecord("site", event.target.value)}
+                          >
+                            <option value="">Select site</option>
+                            {mergeSiteOptionListWithCurrent(sitePickerLabels, selectedRecord.site).map((siteOption) => (
+                              <option key={siteOption} value={siteOption}>
+                                {siteOption}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Project dates</div>
+                          <input
+                            className="input"
+                            value={selectedRecord.projectDates || ""}
+                            onChange={(event) => updateSelectedRecord("projectDates", event.target.value)}
+                            placeholder="Dates or season"
+                          />
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
+                          <input
+                            className="input"
+                            type="number"
+                            min="0"
+                            value={selectedRecord.weeks || ""}
+                            onChange={(event) => updateSelectedRecord("weeks", event.target.value)}
+                            placeholder="Number of weeks"
+                          />
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Departure date</div>
+                          <input
+                            className="input"
+                            value={selectedRecord.departureDate || ""}
+                            onChange={(event) => updateSelectedRecord("departureDate", event.target.value)}
+                            placeholder="Month, season, or exact date"
+                          />
                         </div>
                       </div>
                     </RecruitingFormCard>
@@ -3584,6 +3597,15 @@ export default function RecruitingPage() {
                   </>
                 ) : (
                   <>
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                      <button
+                        className="btn btnPrimary"
+                        type="button"
+                        onClick={() => setRecordDetailsMode("details")}
+                      >
+                        Edit details
+                      </button>
+                    </div>
                     <div className="small">
                       {selectedRecord.teamName || formatContactName(selectedRecord)} | {selectedRecord.assignedTo || PRIMARY_OWNER} | {selectedRecord.stageLabel}
                     </div>
