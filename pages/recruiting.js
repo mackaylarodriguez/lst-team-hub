@@ -24,7 +24,8 @@ import {
   mergeRecruitingCycleContacts,
   saveRecruitingCycleContact,
 } from "@/lib/recruitingCycles";
-import { SITE_OPTIONS } from "@/lib/siteOptions";
+import { buildSiteLabelsOrdered } from "@/lib/siteMaterials";
+import { listSiteBudgetNotes } from "@/lib/tripBudget";
 import { listTripTeamMembersForDuplicateCheck } from "@/lib/tripTeamMembers";
 import {
   DEFAULT_TRAINING_TIMELINE_TYPE,
@@ -209,10 +210,11 @@ function formatFlexibleDepartureDate(value) {
   return rawValue;
 }
 
-function getSiteOptionsWithCurrent(currentValue) {
-  const options = [...(SITE_OPTIONS || [])];
+/** Site dropdown: canonical + housing-added sites, plus current value if not already listed. */
+function mergeSiteOptionListWithCurrent(orderedLabels, currentValue) {
+  const options = [...(orderedLabels || [])];
   const trimmedValue = String(currentValue || "").trim();
-  if (trimmedValue && !options.includes(trimmedValue)) {
+  if (trimmedValue && !options.some((o) => String(o).toLowerCase() === trimmedValue.toLowerCase())) {
     options.push(trimmedValue);
   }
   return options;
@@ -833,6 +835,7 @@ export default function RecruitingPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [records, setRecords] = useState([]);
   const [tripTeamMembers, setTripTeamMembers] = useState([]);
+  const [siteBudgetNotes, setSiteBudgetNotes] = useState([]);
   const [historyByRecordId, setHistoryByRecordId] = useState({});
   const [historyLoadingByRecordId, setHistoryLoadingByRecordId] = useState({});
   const [latestActivityByRecordId, setLatestActivityByRecordId] = useState({});
@@ -945,9 +948,10 @@ export default function RecruitingPage() {
 
     async function loadRecruitingData() {
       try {
-        const [nextRecords, nextTripTeamMembers] = await Promise.all([
+        const [nextRecords, nextTripTeamMembers, nextSiteNotes] = await Promise.all([
           listRecruitingCycleContacts(selectedYear),
           listTripTeamMembersForDuplicateCheck(),
+          listSiteBudgetNotes(),
         ]);
         const [nextLatestActivity, nextContactActivity] = await Promise.all([
           listLatestRecruitingActivityByIds(nextRecords.map((record) => record.id)),
@@ -955,6 +959,7 @@ export default function RecruitingPage() {
         ]);
         setRecords(nextRecords);
         setTripTeamMembers(nextTripTeamMembers);
+        setSiteBudgetNotes(nextSiteNotes);
         setLatestActivityByRecordId(nextLatestActivity);
         setContactActivityByRecordId(nextContactActivity);
         setError("");
@@ -1151,10 +1156,13 @@ export default function RecruitingPage() {
     void ensureRecordHistoryLoaded(selectedRecordId);
   }, [activeTab, selectedRecordId]);
 
+  const sitePickerLabels = useMemo(() => buildSiteLabelsOrdered(siteBudgetNotes), [siteBudgetNotes]);
+
   async function refreshCurrentYear() {
-    const [nextRecords, nextTripTeamMembers] = await Promise.all([
+    const [nextRecords, nextTripTeamMembers, nextSiteNotes] = await Promise.all([
       listRecruitingCycleContacts(selectedYear),
       listTripTeamMembersForDuplicateCheck(),
+      listSiteBudgetNotes(),
     ]);
     const [nextLatestActivity, nextContactActivity] = await Promise.all([
       listLatestRecruitingActivityByIds(nextRecords.map((record) => record.id)),
@@ -1162,6 +1170,7 @@ export default function RecruitingPage() {
     ]);
     setRecords(nextRecords);
     setTripTeamMembers(nextTripTeamMembers);
+    setSiteBudgetNotes(nextSiteNotes);
     setLatestActivityByRecordId(nextLatestActivity);
     setContactActivityByRecordId(nextContactActivity);
   }
@@ -3253,7 +3262,7 @@ export default function RecruitingPage() {
                           onChange={(event) => updateSelectedRecord("site", event.target.value)}
                         >
                           <option value="">Select site</option>
-                          {getSiteOptionsWithCurrent(selectedRecord.site).map((siteOption) => (
+                          {mergeSiteOptionListWithCurrent(sitePickerLabels, selectedRecord.site).map((siteOption) => (
                             <option key={siteOption} value={siteOption}>{siteOption}</option>
                           ))}
                         </select>
@@ -3701,7 +3710,7 @@ export default function RecruitingPage() {
                   onChange={(event) => setPromoteDraft((current) => ({ ...current, site: event.target.value }))}
                 >
                   <option value="">Select site</option>
-                  {getSiteOptionsWithCurrent(promoteDraft.site).map((siteOption) => (
+                  {mergeSiteOptionListWithCurrent(sitePickerLabels, promoteDraft.site).map((siteOption) => (
                     <option key={siteOption} value={siteOption}>{siteOption}</option>
                   ))}
                 </select>
@@ -4374,7 +4383,7 @@ export default function RecruitingPage() {
                     onChange={(event) => updateTeamFormDraft("location", event.target.value)}
                   >
                     <option value="">Select site</option>
-                    {getSiteOptionsWithCurrent(teamFormDraft.location).map((siteOption) => (
+                    {mergeSiteOptionListWithCurrent(sitePickerLabels, teamFormDraft.location).map((siteOption) => (
                       <option key={siteOption} value={siteOption}>{siteOption}</option>
                     ))}
                   </select>

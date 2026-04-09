@@ -5,20 +5,13 @@ import { useRouter } from "next/router";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
-import {
-  findSiteBudgetNoteForOption,
-} from "@/lib/siteMaterials";
+import { buildSiteLabelsOrdered, findSiteBudgetNoteForOption } from "@/lib/siteMaterials";
 import {
   listSiteBudgetNotes,
   updateSiteBudgetNote,
   upsertSiteBudgetNote,
 } from "@/lib/tripBudget";
-import {
-  SITE_OPTIONS,
-  isLegacyCombinedVicenzaPadovaSiteName,
-  isValidSiteOptionLabelFormat,
-  normalizeSiteOptionLabel,
-} from "@/lib/siteOptions";
+import { isValidSiteOptionLabelFormat, normalizeSiteOptionLabel } from "@/lib/siteOptions";
 import {
   WORKBOOK_REFERENCE_COLUMNS,
   WORKBOOK_SERIES_HEADER_STYLE,
@@ -82,26 +75,7 @@ export default function SitesPage() {
   const [addSiteLogisticsDraft, setAddSiteLogisticsDraft] = useState("");
   const [savingAddSite, setSavingAddSite] = useState(false);
 
-  const siteLabelsOrdered = useMemo(() => {
-    const matchedNoteIds = new Set();
-    for (const o of SITE_OPTIONS) {
-      const n = findSiteBudgetNoteForOption(o, siteNotes);
-      if (n?.id) matchedNoteIds.add(n.id);
-    }
-    const extras = [];
-    const seenExtraLower = new Set();
-    for (const note of siteNotes) {
-      const sn = String(note?.siteName || "").trim();
-      if (!sn || matchedNoteIds.has(note.id)) continue;
-      if (isLegacyCombinedVicenzaPadovaSiteName(sn)) continue;
-      const k = sn.toLowerCase();
-      if (seenExtraLower.has(k)) continue;
-      seenExtraLower.add(k);
-      extras.push(sn);
-    }
-    extras.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-    return [...SITE_OPTIONS, ...extras];
-  }, [siteNotes]);
+  const siteLabelsOrdered = useMemo(() => buildSiteLabelsOrdered(siteNotes), [siteNotes]);
 
   useEffect(() => {
     let cancelled = false;
