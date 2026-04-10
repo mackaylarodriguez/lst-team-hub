@@ -3189,34 +3189,262 @@ export default function RecruitingPage() {
                     {isSavingNotes ? "Saving changes..." : pageStatus}
                   </div>
                 ) : null}
-                <div>
-                  <div style={{ fontWeight: 800 }}>{formatContactName(selectedRecord)}</div>
-                  <div className="small">{selectedRecord.contact?.email}</div>
-                  {selectedRecord.contact?.phone ? (
-                    <div className="small">{selectedRecord.contact.phone}</div>
-                  ) : null}
-                  {recordDetailsMode !== "history"
-                    ? renderDuplicateNotice(
-                        getDuplicateInfoForEmail(selectedRecord.contact?.email, {
-                          excludeRecordId: selectedRecord.id,
-                          ignoreTripIds: ignoreTripIdsForConvertedRecruitingRecord(selectedRecord),
-                        })
-                      )
-                    : null}
-                </div>
+                {recordDetailsMode === "history" ? (
+                  <div>
+                    <div style={{ fontWeight: 800 }}>{formatContactName(selectedRecord)}</div>
+                    <div className="small">{selectedRecord.contact?.email}</div>
+                    {selectedRecord.contact?.phone ? (
+                      <div className="small">{selectedRecord.contact.phone}</div>
+                    ) : null}
+                  </div>
+                ) : null}
                 {recordDetailsMode !== "history" ? (
                   <>
-                    <RecruitingFormCard
-                      title="Site, stage & timing"
-                      subtitle="Site, pipeline stage, owner, and timing — same fields as the recruiting section on Lock Team."
-                    >
+                    <div style={{ display: "grid", gap: 12 }}>
+                      <div className="small" style={{ color: "var(--muted)" }}>
+                        Same order as <strong>Lock team</strong> (team name, members, then site and recruiting dates) so
+                        values carry over cleanly.
+                      </div>
+                      {selectedRecord.convertedTeamId ? (
+                        <div>
+                          <button
+                            className="btn btnPrimary"
+                            type="button"
+                            onClick={() =>
+                              router.push(`/trips/${encodeURIComponent(selectedRecord.convertedTeamId)}`)
+                            }
+                          >
+                            Open team trip
+                          </button>
+                          <div className="small" style={{ marginTop: 8, color: "var(--muted)" }}>
+                            Linked to a live trip; recruiting fields stay editable for your chart.
+                          </div>
+                        </div>
+                      ) : null}
+                      <div>
+                        <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
+                        <input
+                          className="input"
+                          value={selectedRecord.teamName || ""}
+                          onChange={(event) => updateSelectedRecord("teamName", event.target.value)}
+                          placeholder="2026 Brazil Team"
+                        />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 900, marginBottom: 6 }}>Team Members</div>
+                        <div className="small" style={{ marginBottom: 10 }}>
+                          Add the roster here. ★ is the primary recruiting contact (first member when you lock). Phone
+                          and gender stay on this roster until the trip exists.
+                        </div>
+                        <div style={{ display: "grid", gap: 10 }}>
+                          {selectedRosterRows.map((person, index) => {
+                            const isPrimary = index === 0;
+                            const duplicateInfo = person.email
+                              ? getDuplicateInfoForEmail(person.email, {
+                                  excludeRecordId: selectedRecord.id,
+                                  ignoreTripIds: ignoreTripIdsForConvertedRecruitingRecord(selectedRecord),
+                                })
+                              : null;
+                            return (
+                              <div
+                                key={`${selectedRecord.id}-roster-${index}`}
+                                style={{
+                                  border: "1px solid rgba(18, 16, 12, 0.08)",
+                                  borderRadius: 14,
+                                  padding: 12,
+                                  background: "rgba(255,255,255,.72)",
+                                }}
+                              >
+                                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      alignItems: "center",
+                                      gap: 6,
+                                      flex: "0 0 auto",
+                                      paddingTop: 2,
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      title={isPrimary ? "Primary contact" : "Set as primary contact"}
+                                      aria-label={isPrimary ? "Primary contact" : "Set as primary contact"}
+                                      disabled={isPrimary}
+                                      onClick={() => setRosterPrimaryForSelectedRecord(index)}
+                                      style={{
+                                        border: "none",
+                                        background: "transparent",
+                                        fontSize: "1.2rem",
+                                        lineHeight: 1,
+                                        padding: "2px 4px",
+                                        cursor: isPrimary ? "default" : "pointer",
+                                        color: "var(--primary)",
+                                      }}
+                                    >
+                                      {isPrimary ? "★" : "☆"}
+                                    </button>
+                                    {person.isMinor ? (
+                                      <span className="badge" style={{ fontSize: 11, textAlign: "center" }}>
+                                        Minor{person.minorAge ? ` ${person.minorAge}` : ""}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 10 }}>
+                                    <div
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                                        gap: 10,
+                                      }}
+                                    >
+                                      <input
+                                        className="input"
+                                        value={person.firstName}
+                                        onChange={(event) =>
+                                          updateRosterRowForSelectedRecord(index, { firstName: event.target.value })
+                                        }
+                                        placeholder="First name"
+                                        autoComplete="given-name"
+                                      />
+                                      <input
+                                        className="input"
+                                        value={person.lastName}
+                                        onChange={(event) =>
+                                          updateRosterRowForSelectedRecord(index, { lastName: event.target.value })
+                                        }
+                                        placeholder="Last name"
+                                        autoComplete="family-name"
+                                      />
+                                      <input
+                                        className="input"
+                                        type="email"
+                                        value={person.email}
+                                        onChange={(event) =>
+                                          updateRosterRowForSelectedRecord(index, { email: event.target.value })
+                                        }
+                                        placeholder="Email"
+                                        autoComplete="email"
+                                      />
+                                    </div>
+                                    <div
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                                        gap: 10,
+                                      }}
+                                    >
+                                      <div>
+                                        <div className="small" style={{ marginBottom: 6 }}>Phone</div>
+                                        <input
+                                          className="input"
+                                          type="tel"
+                                          value={person.phone ?? ""}
+                                          onChange={(event) =>
+                                            updateRosterRowForSelectedRecord(index, { phone: event.target.value })
+                                          }
+                                          placeholder="Phone"
+                                          autoComplete="tel"
+                                        />
+                                      </div>
+                                      <div>
+                                        <div className="small" style={{ marginBottom: 6 }}>Gender</div>
+                                        <select
+                                          className="input"
+                                          value={person.gender || ""}
+                                          onChange={(event) =>
+                                            updateRosterRowForSelectedRecord(index, { gender: event.target.value })
+                                          }
+                                        >
+                                          <option value="">Select</option>
+                                          <option value="Male">Male</option>
+                                          <option value="Female">Female</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                    <div className="row">
+                                      <div className="small" style={{ alignSelf: "center" }}>
+                                        Click ☆ to set primary. Lock team uses the same first / last / email layout for
+                                        each member.
+                                      </div>
+                                      <div className="spacer" />
+                                      <button
+                                        className="btn"
+                                        type="button"
+                                        disabled={selectedRosterRows.length <= 1}
+                                        onClick={() => removeRosterRowForSelectedRecord(index)}
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                                {duplicateInfo ? (
+                                  <div style={{ marginTop: 8 }}>
+                                    {renderDuplicateNotice(duplicateInfo, { compact: true })}
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="row" style={{ marginTop: 10 }}>
+                          <button className="btn" type="button" onClick={addRosterRowForSelectedRecord}>
+                            Add Team Member
+                          </button>
+                        </div>
+                      </div>
                       <div
                         style={{
                           display: "grid",
-                          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                           gap: 10,
                         }}
                       >
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Site</div>
+                          <select
+                            className="input"
+                            value={selectedRecord.site || ""}
+                            onChange={(event) => updateSelectedRecord("site", event.target.value)}
+                          >
+                            <option value="">Select site</option>
+                            {mergeSiteOptionListWithCurrent(sitePickerLabels, selectedRecord.site).map((siteOption) => (
+                              <option key={siteOption} value={siteOption}>
+                                {siteOption}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Project Dates</div>
+                          <input
+                            className="input"
+                            value={selectedRecord.projectDates || ""}
+                            onChange={(event) => updateSelectedRecord("projectDates", event.target.value)}
+                            placeholder="Dates or season"
+                          />
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
+                          <input
+                            className="input"
+                            type="number"
+                            min="0"
+                            value={selectedRecord.weeks || ""}
+                            onChange={(event) => updateSelectedRecord("weeks", event.target.value)}
+                            placeholder="Number of weeks"
+                          />
+                        </div>
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Departure Date</div>
+                          <input
+                            className="input"
+                            value={selectedRecord.departureDate || ""}
+                            onChange={(event) => updateSelectedRecord("departureDate", event.target.value)}
+                            placeholder="Month, season, or exact date"
+                          />
+                        </div>
                         <div>
                           <div className="small" style={{ marginBottom: 6 }}>Stage</div>
                           <select
@@ -3245,211 +3473,12 @@ export default function RecruitingPage() {
                             ))}
                           </select>
                         </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Site</div>
-                          <select
-                            className="input"
-                            value={selectedRecord.site || ""}
-                            onChange={(event) => updateSelectedRecord("site", event.target.value)}
-                          >
-                            <option value="">Select site</option>
-                            {mergeSiteOptionListWithCurrent(sitePickerLabels, selectedRecord.site).map((siteOption) => (
-                              <option key={siteOption} value={siteOption}>
-                                {siteOption}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Project dates</div>
-                          <input
-                            className="input"
-                            value={selectedRecord.projectDates || ""}
-                            onChange={(event) => updateSelectedRecord("projectDates", event.target.value)}
-                            placeholder="Dates or season"
-                          />
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
-                          <input
-                            className="input"
-                            type="number"
-                            min="0"
-                            value={selectedRecord.weeks || ""}
-                            onChange={(event) => updateSelectedRecord("weeks", event.target.value)}
-                            placeholder="Number of weeks"
-                          />
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Departure date</div>
-                          <input
-                            className="input"
-                            value={selectedRecord.departureDate || ""}
-                            onChange={(event) => updateSelectedRecord("departureDate", event.target.value)}
-                            placeholder="Month, season, or exact date"
-                          />
-                        </div>
                       </div>
-                    </RecruitingFormCard>
-
-                    <RecruitingFormCard
-                      title="Team name & roster"
-                      subtitle="Star (★) is the primary contact — stored on the main contact record. Other rows are saved to the roster text."
-                    >
-                      {selectedRecord.convertedTeamId ? (
-                        <div>
-                          <button
-                            className="btn btnPrimary"
-                            type="button"
-                            onClick={() =>
-                              router.push(`/trips/${encodeURIComponent(selectedRecord.convertedTeamId)}`)
-                            }
-                          >
-                            Open team trip
-                          </button>
-                          <div className="small" style={{ marginTop: 8, color: "var(--muted)" }}>
-                            Linked to a live trip; recruiting fields stay editable for your chart.
-                          </div>
-                        </div>
-                      ) : null}
-                      <div>
-                        <div className="small" style={{ marginBottom: 6 }}>Team name</div>
-                        <input
-                          className="input"
-                          value={selectedRecord.teamName || ""}
-                          onChange={(event) => updateSelectedRecord("teamName", event.target.value)}
-                          placeholder="Team name"
-                        />
+                      <div className="small" style={{ color: "var(--muted)" }}>
+                        Project leave and return, host, site type, training, fees, and extra travel are set in the Lock
+                        team dialog.
                       </div>
-                      <div className="small" style={{ fontWeight: 700, marginBottom: 8 }}>
-                        Roster — click a hollow star (☆) to make someone the primary contact
-                      </div>
-                      <div style={{ display: "grid", gap: 10 }}>
-                        {selectedRosterRows.map((person, index) => {
-                          const isPrimary = index === 0;
-                          const duplicateInfo = person.email
-                            ? getDuplicateInfoForEmail(person.email, {
-                                excludeRecordId: selectedRecord.id,
-                                ignoreTripIds: ignoreTripIdsForConvertedRecruitingRecord(selectedRecord),
-                              })
-                            : null;
-                          return (
-                            <div
-                              key={`${selectedRecord.id}-roster-${index}`}
-                              style={{
-                                padding: "10px 12px",
-                                borderRadius: 12,
-                                border: "1px solid rgba(15, 23, 42, 0.1)",
-                                background: "rgba(248, 250, 252, 0.85)",
-                              }}
-                            >
-                              <div
-                                className="row"
-                                style={{
-                                  alignItems: "center",
-                                  gap: 8,
-                                  flexWrap: "wrap",
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  title={isPrimary ? "Primary contact" : "Set as primary contact"}
-                                  aria-label={isPrimary ? "Primary contact" : "Set as primary contact"}
-                                  disabled={isPrimary}
-                                  onClick={() => setRosterPrimaryForSelectedRecord(index)}
-                                  style={{
-                                    border: "none",
-                                    background: "transparent",
-                                    fontSize: "1.2rem",
-                                    lineHeight: 1,
-                                    padding: "2px 4px",
-                                    cursor: isPrimary ? "default" : "pointer",
-                                    color: "var(--primary)",
-                                    flex: "0 0 auto",
-                                  }}
-                                >
-                                  {isPrimary ? "★" : "☆"}
-                                </button>
-                                {person.isMinor ? (
-                                  <span className="badge" style={{ flex: "0 0 auto" }}>
-                                    Minor{person.minorAge ? ` ${person.minorAge}` : ""}
-                                  </span>
-                                ) : null}
-                                <input
-                                  className="input"
-                                  style={{ minWidth: 90, flex: "1 1 100px" }}
-                                  value={person.firstName}
-                                  onChange={(event) =>
-                                    updateRosterRowForSelectedRecord(index, { firstName: event.target.value })
-                                  }
-                                  placeholder="First"
-                                  autoComplete="given-name"
-                                />
-                                <input
-                                  className="input"
-                                  style={{ minWidth: 90, flex: "1 1 100px" }}
-                                  value={person.lastName}
-                                  onChange={(event) =>
-                                    updateRosterRowForSelectedRecord(index, { lastName: event.target.value })
-                                  }
-                                  placeholder="Last"
-                                  autoComplete="family-name"
-                                />
-                                <input
-                                  className="input"
-                                  type="email"
-                                  style={{ minWidth: 160, flex: "2 1 180px" }}
-                                  value={person.email}
-                                  onChange={(event) =>
-                                    updateRosterRowForSelectedRecord(index, { email: event.target.value })
-                                  }
-                                  placeholder="Email"
-                                  autoComplete="email"
-                                />
-                                <input
-                                  className="input"
-                                  type="tel"
-                                  style={{ minWidth: 120, flex: "1 1 120px" }}
-                                  value={person.phone ?? ""}
-                                  onChange={(event) =>
-                                    updateRosterRowForSelectedRecord(index, { phone: event.target.value })
-                                  }
-                                  placeholder="Phone"
-                                  autoComplete="tel"
-                                />
-                                <select
-                                  className="input"
-                                  style={{ minWidth: 100, flex: "0 1 110px" }}
-                                  value={person.gender || ""}
-                                  onChange={(event) =>
-                                    updateRosterRowForSelectedRecord(index, { gender: event.target.value })
-                                  }
-                                >
-                                  <option value="">Gender</option>
-                                  <option value="Male">Male</option>
-                                  <option value="Female">Female</option>
-                                </select>
-                                <button
-                                  className="btn"
-                                  type="button"
-                                  disabled={selectedRosterRows.length <= 1}
-                                  onClick={() => removeRosterRowForSelectedRecord(index)}
-                                  style={{ flex: "0 0 auto" }}
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                              {duplicateInfo ? (
-                                <div style={{ marginTop: 8 }}>{renderDuplicateNotice(duplicateInfo, { compact: true })}</div>
-                              ) : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <button className="btn" type="button" onClick={addRosterRowForSelectedRecord} style={{ marginTop: 6 }}>
-                        Add roster member
-                      </button>
-                    </RecruitingFormCard>
+                    </div>
 
                     <RecruitingFormCard
                       title="Fundraising & pipeline"
