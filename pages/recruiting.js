@@ -158,10 +158,15 @@ function parseTeamMemberEntries(value) {
     const trimmedEntry = String(entry || "").trim();
     if (!trimmedEntry) return null;
 
-    const minorMatch = trimmedEntry.match(/^\[minor(?::\s*(\d+))?\]\s*/i);
+    const pipeParts = trimmedEntry.split(/\s+\|\s+/);
+    const phoneExtra = pipeParts.length > 1 ? String(pipeParts[1] ?? "").trim() : "";
+    const genderExtra = pipeParts.length > 2 ? String(pipeParts[2] ?? "").trim() : "";
+    const core = pipeParts[0] || trimmedEntry;
+
+    const minorMatch = core.match(/^\[minor(?::\s*(\d+))?\]\s*/i);
     const isMinor = Boolean(minorMatch);
     const minorAge = minorMatch?.[1] ? String(minorMatch[1]).trim() : "";
-    const withoutMinorLabel = trimmedEntry.replace(/^\[minor(?::\s*\d+)?\]\s*/i, "").trim();
+    const withoutMinorLabel = core.replace(/^\[minor(?::\s*\d+)?\]\s*/i, "").trim();
 
     const angleMatch = withoutMinorLabel.match(/^(.*?)\s*<([^>]+)>$/);
     if (angleMatch) {
@@ -169,6 +174,8 @@ function parseTeamMemberEntries(value) {
         raw: trimmedEntry,
         name: String(angleMatch[1] || "").trim(),
         email: normalizeEmailValue(angleMatch[2]),
+        phone: phoneExtra,
+        gender: genderExtra,
         isMinor,
         minorAge,
       };
@@ -182,6 +189,8 @@ function parseTeamMemberEntries(value) {
         raw: trimmedEntry,
         name,
         email,
+        phone: phoneExtra,
+        gender: genderExtra,
         isMinor,
         minorAge,
       };
@@ -191,6 +200,8 @@ function parseTeamMemberEntries(value) {
       raw: trimmedEntry,
       name: withoutMinorLabel,
       email: "",
+      phone: phoneExtra,
+      gender: genderExtra,
       isMinor,
       minorAge,
     };
@@ -210,8 +221,13 @@ function formatTeamMemberEntry(person) {
   const minorPrefix = person?.isMinor
     ? `[Minor${person?.minorAge ? `:${String(person.minorAge).trim()}` : ""}] `
     : "";
-  if (name && email) return `${minorPrefix}${name} <${email}>`;
-  return `${minorPrefix}${name || email || ""}`.trim();
+  let base;
+  if (name && email) base = `${minorPrefix}${name} <${email}>`;
+  else base = `${minorPrefix}${name || email || ""}`.trim();
+  const phone = String(person?.phone || "").trim();
+  const gender = String(person?.gender || "").trim();
+  if (!phone && !gender) return base;
+  return `${base} | ${phone} | ${gender}`;
 }
 
 function buildTeamMembersText(people) {
@@ -219,6 +235,85 @@ function buildTeamMembersText(people) {
     .map((person) => formatTeamMemberEntry(person))
     .filter(Boolean)
     .join("\n");
+}
+
+function emptyRosterPerson() {
+  return { firstName: "", lastName: "", email: "", phone: "", gender: "", isMinor: false, minorAge: "" };
+}
+
+function rosterPersonFromParsedEntry(p) {
+  const sp = splitPersonName(p?.name || "");
+  return {
+    firstName: sp.firstName,
+    lastName: sp.lastName,
+    email: p?.email || "",
+    phone: p?.phone || "",
+    gender: p?.gender || "",
+    isMinor: !!p?.isMinor,
+    minorAge: p?.minorAge || "",
+  };
+}
+
+function recruitingRosterRowsFromRecord(record) {
+  if (!record) return [emptyRosterPerson()];
+  const c = record.contact || {};
+  const primary = {
+    firstName: c.firstName || "",
+    lastName: c.lastName || "",
+    email: c.email || "",
+    phone: c.phone || "",
+    gender: c.gender || "",
+    isMinor: false,
+    minorAge: "",
+  };
+  const rest = parseTeamMemberEntries(record.teamMembers || "").map(rosterPersonFromParsedEntry);
+  return [primary, ...rest];
+}
+
+function rosterPersonToMemberPayload(person) {
+  const name = [person.firstName, person.lastName].filter(Boolean).join(" ").trim();
+  return {
+    name: name || person.email || "",
+    email: person.email,
+    phone: person.phone,
+    gender: person.gender,
+    isMinor: person.isMinor,
+    minorAge: person.minorAge,
+  };
+}
+
+function buildTeamMembersFromRosterRows(rows, primaryIndex) {
+  const others = rows.filter((_, i) => i !== primaryIndex);
+  return buildTeamMembersText(others.map(rosterPersonToMemberPayload));
+}
+
+function syncRosterIntoRecord(record, rows, primaryIndex) {
+  const safeRows = rows.length ? rows : [emptyRosterPerson()];
+  const pi = Math.min(Math.max(0, primaryIndex), safeRows.length - 1);
+  const primary = safeRows[pi] || emptyRosterPerson();
+  const teamMembers = buildTeamMembersFromRosterRows(safeRows, pi);
+  return {
+    ...record,
+    contact: {
+      ...(record.contact || {}),
+      firstName: primary.firstName,
+      lastName: primary.lastName,
+      email: primary.email,
+      phone: primary.phone,
+      gender: primary.gender,
+    },
+    teamMembers,
+  };
+}
+
+/** Move row at primaryIndex to front so they become the recruiting contact (primary). */
+function makePrimaryRosterRow(rows, primaryIndex) {
+  if (!rows.length) return [emptyRosterPerson()];
+  const pi = Math.min(Math.max(0, primaryIndex), rows.length - 1);
+  if (pi === 0) return rows;
+  const chosen = rows[pi];
+  const others = [...rows.slice(0, pi), ...rows.slice(pi + 1)];
+  return [chosen, ...others];
 }
 
 function getRecordPeopleList(record) {
@@ -713,6 +808,26 @@ function buildMackaylaNotes(baseNotes, handoffSummary) {
     .join("\n\n");
 }
 
+function createEmptyNewContactDraft() {
+  return {
+    teamName: "",
+    rosterRows: [emptyRosterPerson()],
+    assignedTo: PRIMARY_OWNER,
+    stage: 0,
+    site: "",
+    projectDates: "",
+    weeks: "",
+    departureDate: "",
+    interestedTrip: "",
+    alumniYearLabel: "",
+    priority: "",
+    nextFollowUp: "",
+    mackaylaNotesBody: "",
+    handoffSummary: "",
+    lesleeNotes: "",
+  };
+}
+
 function isAssignedTo(record, owner) {
   return normalizeOwnerName(record?.assignedTo) === normalizeOwnerName(owner);
 }
@@ -909,17 +1024,7 @@ export default function RecruitingPage() {
   const [expandedLastContactById, setExpandedLastContactById] = useState({});
   const [expandedContactHistoryById, setExpandedContactHistoryById] = useState({});
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
-  const [newContactDraft, setNewContactDraft] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    gender: "",
-    teamName: "",
-    teamMembers: "",
-    assignedTo: "",
-  });
-  const [newContactPersonDraft, setNewContactPersonDraft] = useState({ name: "", email: "", isMinor: false, minorAge: "" });
+  const [newContactDraft, setNewContactDraft] = useState(() => createEmptyNewContactDraft());
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importPreviewRows, setImportPreviewRows] = useState([]);
   const [importDestination, setImportDestination] = useState("outreach");
@@ -942,7 +1047,6 @@ export default function RecruitingPage() {
   const [recordDetailsModalOpen, setRecordDetailsModalOpen] = useState(false);
   const [recordDetailsMode, setRecordDetailsMode] = useState("details");
   const [promoteDraft, setPromoteDraft] = useState(() => buildPromoteDraft(null));
-  const [recordPersonDraft, setRecordPersonDraft] = useState({ name: "", email: "", isMinor: false, minorAge: "" });
   const [promotePersonDraft, setPromotePersonDraft] = useState({ name: "", email: "", isMinor: false, minorAge: "" });
   const [formTeamModalOpen, setFormTeamModalOpen] = useState(false);
   const [teamFormDraft, setTeamFormDraft] = useState(() => buildTeamFormDraft(null));
@@ -1349,29 +1453,9 @@ export default function RecruitingPage() {
     );
   }, [records, duplicateSourceLookup]);
 
-  const newContactDuplicateInfo = useMemo(
-    () => getDuplicateInfoForEmail(newContactDraft.email),
-    [newContactDraft.email, duplicateSourceLookup]
-  );
-  const newContactPeople = useMemo(
-    () => parseTeamMemberEntries(newContactDraft.teamMembers),
-    [newContactDraft.teamMembers]
-  );
-  const newContactPersonDuplicateInfo = useMemo(
-    () => getDuplicateInfoForEmail(newContactPersonDraft.email),
-    [newContactPersonDraft.email, duplicateSourceLookup]
-  );
-  const selectedRecordPeople = useMemo(
-    () => parseTeamMemberEntries(selectedRecord?.teamMembers),
-    [selectedRecord?.teamMembers]
-  );
-  const recordPersonDuplicateInfo = useMemo(
-    () =>
-      getDuplicateInfoForEmail(recordPersonDraft.email, {
-        excludeRecordId: selectedRecord?.id,
-        ignoreTripIds: ignoreTripIdsForConvertedRecruitingRecord(selectedRecord),
-      }),
-    [recordPersonDraft.email, selectedRecord?.id, selectedRecord?.isConvertedToTeam, selectedRecord?.convertedTeamId, duplicateSourceLookup]
+  const selectedRosterRows = useMemo(
+    () => (selectedRecord ? recruitingRosterRowsFromRecord(selectedRecord) : []),
+    [selectedRecord]
   );
   const promotePeople = useMemo(
     () => parseTeamMemberEntries(promoteDraft.teamMembers),
@@ -1498,35 +1582,46 @@ export default function RecruitingPage() {
   }
 
   async function handleCreateContact() {
-    if (!String(newContactDraft.firstName || "").trim() || !String(newContactDraft.lastName || "").trim()) {
-      setError("First and last name are required.");
+    const rows =
+      newContactDraft.rosterRows?.length > 0 ? newContactDraft.rosterRows : [emptyRosterPerson()];
+    const primary = rows[0];
+    if (!String(primary.firstName || "").trim() || !String(primary.lastName || "").trim()) {
+      setError("First and last name are required for the starred primary contact.");
       return;
     }
+    const teamMembers = buildTeamMembersFromRosterRows(rows, 0);
     try {
-      await saveRecruitingCycleContact({
-        recruitingYear: selectedYear,
-        firstName: newContactDraft.firstName,
-        lastName: newContactDraft.lastName,
-        email: newContactDraft.email,
-        phone: newContactDraft.phone,
-        gender: newContactDraft.gender,
-        teamName: newContactDraft.teamName,
-        teamMembers: newContactDraft.teamMembers,
-        assignedTo: newContactDraft.assignedTo,
-        stage: 0,
-      });
+      await saveRecruitingCycleContact(
+        {
+          recruitingYear: selectedYear,
+          firstName: primary.firstName,
+          lastName: primary.lastName,
+          email: primary.email,
+          phone: primary.phone,
+          gender: primary.gender,
+          teamName: newContactDraft.teamName,
+          teamMembers,
+          assignedTo: newContactDraft.assignedTo || PRIMARY_OWNER,
+          stage: Number(newContactDraft.stage),
+          site: newContactDraft.site,
+          projectDates: newContactDraft.projectDates,
+          weeks: newContactDraft.weeks,
+          departureDate: newContactDraft.departureDate,
+          interestedTrip: newContactDraft.interestedTrip,
+          alumniYearLabel: newContactDraft.alumniYearLabel,
+          priority: newContactDraft.priority,
+          nextFollowUp: newContactDraft.nextFollowUp || "",
+          mackaylaNotes: buildMackaylaNotes(
+            newContactDraft.mackaylaNotesBody,
+            newContactDraft.handoffSummary
+          ),
+          lesleeNotes: newContactDraft.lesleeNotes,
+          isPotentialTeam: false,
+        },
+        { requireContactNames: true }
+      );
 
-      setNewContactDraft({
-        firstName: "",
-        lastName: "",
-        email: "",
-        phone: "",
-        gender: "",
-        teamName: "",
-        teamMembers: "",
-        assignedTo: "",
-      });
-      setNewContactPersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
+      setNewContactDraft(createEmptyNewContactDraft());
       setAddContactModalOpen(false);
       setError("");
       await refreshCurrentYear();
@@ -1632,7 +1727,6 @@ export default function RecruitingPage() {
     setRecordDetailsMode(mode);
     setRecordDetailsModalOpen(true);
     setPageStatus("");
-    setRecordPersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
     await ensureRecordHistoryLoaded(recordId);
   }
 
@@ -2010,60 +2104,83 @@ export default function RecruitingPage() {
     updateRecordField(selectedRecordId, field, value);
   }
 
-  function handleAddPersonToSelectedRecord() {
-    if (!selectedRecord) return;
-
-    const nextEntry = {
-      name: recordPersonDraft.name,
-      email: recordPersonDraft.email,
-      isMinor: recordPersonDraft.isMinor,
-      minorAge: recordPersonDraft.isMinor ? recordPersonDraft.minorAge : "",
-    };
-    const formattedEntry = formatTeamMemberEntry(nextEntry);
-    if (!formattedEntry) return;
-
-    updateSelectedRecord(
-      "teamMembers",
-      buildTeamMembersText([...selectedRecordPeople, nextEntry])
-    );
-    setRecordPersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
-  }
-
-  function handleRemovePersonFromSelectedRecord(indexToRemove) {
-    if (!selectedRecord) return;
-
-    updateSelectedRecord(
-      "teamMembers",
-      buildTeamMembersText(
-        selectedRecordPeople.filter((_, index) => index !== indexToRemove)
-      )
+  function updateRosterRowForSelectedRecord(rowIndex, patch) {
+    if (!selectedRecordId) return;
+    setRecords((current) =>
+      current.map((record) => {
+        if (record.id !== selectedRecordId) return record;
+        const rows = recruitingRosterRowsFromRecord(record);
+        rows[rowIndex] = { ...rows[rowIndex], ...patch };
+        return syncRosterIntoRecord(record, rows, 0);
+      })
     );
   }
 
-  function handleAddPersonToNewContact() {
-    const nextEntry = {
-      name: newContactPersonDraft.name,
-      email: newContactPersonDraft.email,
-      isMinor: newContactPersonDraft.isMinor,
-      minorAge: newContactPersonDraft.isMinor ? newContactPersonDraft.minorAge : "",
-    };
-    const formattedEntry = formatTeamMemberEntry(nextEntry);
-    if (!formattedEntry) return;
-
-    setNewContactDraft((current) => ({
-      ...current,
-      teamMembers: buildTeamMembersText([...parseTeamMemberEntries(current.teamMembers), nextEntry]),
-    }));
-    setNewContactPersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
+  function setRosterPrimaryForSelectedRecord(rowIndex) {
+    if (!selectedRecordId || rowIndex === 0) return;
+    setRecords((current) =>
+      current.map((record) => {
+        if (record.id !== selectedRecordId) return record;
+        const rows = makePrimaryRosterRow(recruitingRosterRowsFromRecord(record), rowIndex);
+        return syncRosterIntoRecord(record, rows, 0);
+      })
+    );
   }
 
-  function handleRemovePersonFromNewContact(indexToRemove) {
+  function addRosterRowForSelectedRecord() {
+    if (!selectedRecordId) return;
+    setRecords((current) =>
+      current.map((record) => {
+        if (record.id !== selectedRecordId) return record;
+        const rows = [...recruitingRosterRowsFromRecord(record), emptyRosterPerson()];
+        return syncRosterIntoRecord(record, rows, 0);
+      })
+    );
+  }
+
+  function removeRosterRowForSelectedRecord(rowIndex) {
+    if (!selectedRecordId) return;
+    setRecords((current) =>
+      current.map((record) => {
+        if (record.id !== selectedRecordId) return record;
+        const rows = recruitingRosterRowsFromRecord(record);
+        if (rows.length <= 1) return record;
+        rows.splice(rowIndex, 1);
+        return syncRosterIntoRecord(record, rows, 0);
+      })
+    );
+  }
+
+  function updateNewContactRosterRow(rowIndex, patch) {
     setNewContactDraft((current) => ({
       ...current,
-      teamMembers: buildTeamMembersText(
-        parseTeamMemberEntries(current.teamMembers).filter((_, index) => index !== indexToRemove)
-      ),
+      rosterRows: current.rosterRows.map((row, i) => (i === rowIndex ? { ...row, ...patch } : row)),
     }));
+  }
+
+  function setNewContactPrimaryRow(rowIndex) {
+    setNewContactDraft((current) => ({
+      ...current,
+      rosterRows: makePrimaryRosterRow(current.rosterRows?.length ? current.rosterRows : [emptyRosterPerson()], rowIndex),
+    }));
+  }
+
+  function addNewContactRosterRow() {
+    setNewContactDraft((current) => ({
+      ...current,
+      rosterRows: [...(current.rosterRows?.length ? current.rosterRows : [emptyRosterPerson()]), emptyRosterPerson()],
+    }));
+  }
+
+  function removeNewContactRosterRow(rowIndex) {
+    setNewContactDraft((current) => {
+      const rows = current.rosterRows?.length ? current.rosterRows : [emptyRosterPerson()];
+      if (rows.length <= 1) return current;
+      return {
+        ...current,
+        rosterRows: rows.filter((_, i) => i !== rowIndex),
+      };
+    });
   }
 
   function handleAddPersonToPromoteDraft() {
@@ -2149,17 +2266,8 @@ export default function RecruitingPage() {
   }
 
   function openAddContactModal() {
-    setNewContactDraft({
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      gender: "",
-      teamName: "",
-      teamMembers: "",
-      assignedTo: "",
-    });
-    setNewContactPersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
+    setNewContactDraft(createEmptyNewContactDraft());
+    setError("");
     setAddContactModalOpen(true);
   }
 
@@ -3099,227 +3207,6 @@ export default function RecruitingPage() {
                 {recordDetailsMode !== "history" ? (
                   <>
                     <RecruitingFormCard
-                      title="Team name & roster"
-                      subtitle="Same structure as Lock Team: team name, then primary contact and teammates."
-                    >
-                      {selectedRecord.convertedTeamId ? (
-                        <div>
-                          <button
-                            className="btn btnPrimary"
-                            type="button"
-                            onClick={() =>
-                              router.push(`/trips/${encodeURIComponent(selectedRecord.convertedTeamId)}`)
-                            }
-                          >
-                            Open team trip
-                          </button>
-                          <div className="small" style={{ marginTop: 8, color: "var(--muted)" }}>
-                            Linked to a live trip; recruiting fields stay editable for your chart.
-                          </div>
-                        </div>
-                      ) : null}
-                      <div>
-                        <div className="small" style={{ marginBottom: 6 }}>Team name</div>
-                        <input
-                          className="input"
-                          value={selectedRecord.teamName || ""}
-                          onChange={(event) => updateSelectedRecord("teamName", event.target.value)}
-                          placeholder="Team name"
-                        />
-                      </div>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                          gap: 10,
-                        }}
-                      >
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>First name</div>
-                          <input
-                            className="input"
-                            value={selectedRecord.contact?.firstName || ""}
-                            onChange={(event) => updateContactField(selectedRecord.id, "firstName", event.target.value)}
-                            autoComplete="given-name"
-                          />
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Last name</div>
-                          <input
-                            className="input"
-                            value={selectedRecord.contact?.lastName || ""}
-                            onChange={(event) => updateContactField(selectedRecord.id, "lastName", event.target.value)}
-                            autoComplete="family-name"
-                          />
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Email</div>
-                          <input
-                            className="input"
-                            type="email"
-                            value={selectedRecord.contact?.email || ""}
-                            onChange={(event) => updateContactField(selectedRecord.id, "email", event.target.value)}
-                            autoComplete="email"
-                          />
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Phone</div>
-                          <input
-                            className="input"
-                            type="tel"
-                            value={selectedRecord.contact?.phone ?? ""}
-                            onChange={(event) => updateContactField(selectedRecord.id, "phone", event.target.value)}
-                            placeholder="Phone number"
-                            autoComplete="tel"
-                          />
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Gender</div>
-                          <select
-                            className="input"
-                            value={selectedRecord.contact?.gender || ""}
-                            onChange={(event) => updateContactField(selectedRecord.id, "gender", event.target.value)}
-                          >
-                            <option value="">Not set</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div
-                        style={{
-                          marginTop: 4,
-                          paddingTop: 14,
-                          borderTop: "1px solid rgba(15, 23, 42, 0.08)",
-                        }}
-                      >
-                        <div className="small" style={{ fontWeight: 700, marginBottom: 10 }}>
-                          Additional people
-                        </div>
-                        <div style={{ display: "grid", gap: 8 }}>
-                          {selectedRecordPeople.length > 0 ? (
-                            selectedRecordPeople.map((person, index) => {
-                              const duplicateInfo = person.email
-                                ? getDuplicateInfoForEmail(person.email, {
-                                    excludeRecordId: selectedRecord.id,
-                                    ignoreTripIds: ignoreTripIdsForConvertedRecruitingRecord(selectedRecord),
-                                  })
-                                : null;
-
-                              return (
-                                <div
-                                  key={`${person.email || person.name || "person"}-${index}`}
-                                  style={{
-                                    display: "grid",
-                                    gap: 6,
-                                    padding: 10,
-                                    borderRadius: 12,
-                                    border: "1px solid var(--border)",
-                                    background: "rgba(248, 250, 252, 0.9)",
-                                  }}
-                                >
-                                  <div className="row" style={{ alignItems: "flex-start" }}>
-                                    <div style={{ flex: 1 }}>
-                                      <div className={person.isMinor ? "recruitingMinorName" : ""} style={{ fontWeight: 700 }}>
-                                        {formatPersonDisplayName(person) || "Unnamed person"}
-                                      </div>
-                                      <div className="small">{person.email || "No email added"}</div>
-                                      {renderDuplicateNotice(duplicateInfo)}
-                                    </div>
-                                    <button
-                                      className="btn"
-                                      type="button"
-                                      onClick={() => handleRemovePersonFromSelectedRecord(index)}
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <div className="small" style={{ color: "var(--muted)" }}>
-                              Add teammates beyond the primary contact here.
-                            </div>
-                          )}
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                              gap: 8,
-                              alignItems: "end",
-                            }}
-                          >
-                            <div>
-                              <div className="small" style={{ marginBottom: 6 }}>Name</div>
-                              <input
-                                className="input"
-                                value={recordPersonDraft.name}
-                                onChange={(event) =>
-                                  setRecordPersonDraft((current) => ({
-                                    ...current,
-                                    name: event.target.value,
-                                  }))
-                                }
-                                placeholder="Person name"
-                              />
-                            </div>
-                            <div>
-                              <div className="small" style={{ marginBottom: 6 }}>Email</div>
-                              <input
-                                className="input"
-                                value={recordPersonDraft.email}
-                                onChange={(event) =>
-                                  setRecordPersonDraft((current) => ({
-                                    ...current,
-                                    email: event.target.value,
-                                  }))
-                                }
-                                placeholder="person@email.com"
-                              />
-                            </div>
-                            <label className="small" style={{ display: "grid", gap: 6 }}>
-                              <span>Minor</span>
-                              <input
-                                type="checkbox"
-                                checked={recordPersonDraft.isMinor}
-                                onChange={(event) =>
-                                  setRecordPersonDraft((current) => ({
-                                    ...current,
-                                    isMinor: event.target.checked,
-                                    minorAge: event.target.checked ? current.minorAge : "",
-                                  }))
-                                }
-                              />
-                            </label>
-                            {recordPersonDraft.isMinor ? (
-                              <div>
-                                <div className="small" style={{ marginBottom: 6 }}>Age</div>
-                                <input
-                                  className="input"
-                                  type="number"
-                                  min="0"
-                                  value={recordPersonDraft.minorAge}
-                                  onChange={(event) =>
-                                    setRecordPersonDraft((current) => ({
-                                      ...current,
-                                      minorAge: event.target.value,
-                                    }))
-                                  }
-                                  placeholder="14"
-                                />
-                              </div>
-                            ) : null}
-                            <button className="btn" type="button" onClick={handleAddPersonToSelectedRecord}>
-                              Add person
-                            </button>
-                          </div>
-                          {renderDuplicateNotice(recordPersonDuplicateInfo)}
-                        </div>
-                      </div>
-                    </RecruitingFormCard>
-
-                    <RecruitingFormCard
                       title="Site, stage & timing"
                       subtitle="Site, pipeline stage, owner, and timing — same fields as the recruiting section on Lock Team."
                     >
@@ -3403,6 +3290,165 @@ export default function RecruitingPage() {
                           />
                         </div>
                       </div>
+                    </RecruitingFormCard>
+
+                    <RecruitingFormCard
+                      title="Team name & roster"
+                      subtitle="Star (★) is the primary contact — stored on the main contact record. Other rows are saved to the roster text."
+                    >
+                      {selectedRecord.convertedTeamId ? (
+                        <div>
+                          <button
+                            className="btn btnPrimary"
+                            type="button"
+                            onClick={() =>
+                              router.push(`/trips/${encodeURIComponent(selectedRecord.convertedTeamId)}`)
+                            }
+                          >
+                            Open team trip
+                          </button>
+                          <div className="small" style={{ marginTop: 8, color: "var(--muted)" }}>
+                            Linked to a live trip; recruiting fields stay editable for your chart.
+                          </div>
+                        </div>
+                      ) : null}
+                      <div>
+                        <div className="small" style={{ marginBottom: 6 }}>Team name</div>
+                        <input
+                          className="input"
+                          value={selectedRecord.teamName || ""}
+                          onChange={(event) => updateSelectedRecord("teamName", event.target.value)}
+                          placeholder="Team name"
+                        />
+                      </div>
+                      <div className="small" style={{ fontWeight: 700, marginBottom: 8 }}>
+                        Roster — click a hollow star (☆) to make someone the primary contact
+                      </div>
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {selectedRosterRows.map((person, index) => {
+                          const isPrimary = index === 0;
+                          const duplicateInfo = person.email
+                            ? getDuplicateInfoForEmail(person.email, {
+                                excludeRecordId: selectedRecord.id,
+                                ignoreTripIds: ignoreTripIdsForConvertedRecruitingRecord(selectedRecord),
+                              })
+                            : null;
+                          return (
+                            <div
+                              key={`${selectedRecord.id}-roster-${index}`}
+                              style={{
+                                padding: "10px 12px",
+                                borderRadius: 12,
+                                border: "1px solid rgba(15, 23, 42, 0.1)",
+                                background: "rgba(248, 250, 252, 0.85)",
+                              }}
+                            >
+                              <div
+                                className="row"
+                                style={{
+                                  alignItems: "center",
+                                  gap: 8,
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  title={isPrimary ? "Primary contact" : "Set as primary contact"}
+                                  aria-label={isPrimary ? "Primary contact" : "Set as primary contact"}
+                                  disabled={isPrimary}
+                                  onClick={() => setRosterPrimaryForSelectedRecord(index)}
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    fontSize: "1.2rem",
+                                    lineHeight: 1,
+                                    padding: "2px 4px",
+                                    cursor: isPrimary ? "default" : "pointer",
+                                    color: "var(--primary)",
+                                    flex: "0 0 auto",
+                                  }}
+                                >
+                                  {isPrimary ? "★" : "☆"}
+                                </button>
+                                {person.isMinor ? (
+                                  <span className="badge" style={{ flex: "0 0 auto" }}>
+                                    Minor{person.minorAge ? ` ${person.minorAge}` : ""}
+                                  </span>
+                                ) : null}
+                                <input
+                                  className="input"
+                                  style={{ minWidth: 90, flex: "1 1 100px" }}
+                                  value={person.firstName}
+                                  onChange={(event) =>
+                                    updateRosterRowForSelectedRecord(index, { firstName: event.target.value })
+                                  }
+                                  placeholder="First"
+                                  autoComplete="given-name"
+                                />
+                                <input
+                                  className="input"
+                                  style={{ minWidth: 90, flex: "1 1 100px" }}
+                                  value={person.lastName}
+                                  onChange={(event) =>
+                                    updateRosterRowForSelectedRecord(index, { lastName: event.target.value })
+                                  }
+                                  placeholder="Last"
+                                  autoComplete="family-name"
+                                />
+                                <input
+                                  className="input"
+                                  type="email"
+                                  style={{ minWidth: 160, flex: "2 1 180px" }}
+                                  value={person.email}
+                                  onChange={(event) =>
+                                    updateRosterRowForSelectedRecord(index, { email: event.target.value })
+                                  }
+                                  placeholder="Email"
+                                  autoComplete="email"
+                                />
+                                <input
+                                  className="input"
+                                  type="tel"
+                                  style={{ minWidth: 120, flex: "1 1 120px" }}
+                                  value={person.phone ?? ""}
+                                  onChange={(event) =>
+                                    updateRosterRowForSelectedRecord(index, { phone: event.target.value })
+                                  }
+                                  placeholder="Phone"
+                                  autoComplete="tel"
+                                />
+                                <select
+                                  className="input"
+                                  style={{ minWidth: 100, flex: "0 1 110px" }}
+                                  value={person.gender || ""}
+                                  onChange={(event) =>
+                                    updateRosterRowForSelectedRecord(index, { gender: event.target.value })
+                                  }
+                                >
+                                  <option value="">Gender</option>
+                                  <option value="Male">Male</option>
+                                  <option value="Female">Female</option>
+                                </select>
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  disabled={selectedRosterRows.length <= 1}
+                                  onClick={() => removeRosterRowForSelectedRecord(index)}
+                                  style={{ flex: "0 0 auto" }}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                              {duplicateInfo ? (
+                                <div style={{ marginTop: 8 }}>{renderDuplicateNotice(duplicateInfo, { compact: true })}</div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <button className="btn" type="button" onClick={addRosterRowForSelectedRecord} style={{ marginTop: 6 }}>
+                        Add roster member
+                      </button>
                     </RecruitingFormCard>
 
                     <RecruitingFormCard
@@ -4134,204 +4180,377 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad appModalCard" style={{ width: "min(620px, 100%)" }}>
+          <div className="card pad appModalCard" style={{ width: "min(920px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
             <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>Add Contact Or Team</div>
+              <div style={{ fontWeight: 900 }}>Add team & recruiting</div>
               <div className="spacer" />
-              <button className="btn" type="button" onClick={() => setAddContactModalOpen(false)}>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  setAddContactModalOpen(false);
+                  setError("");
+                }}
+              >
                 Close
               </button>
             </div>
-            <div style={{ display: "grid", gap: 10 }}>
-              <div className="small">
-                Use one row for a single person, a couple, or a whole team. Keep the primary contact here and list the rest below.
+            <div className="small" style={{ marginBottom: 14, color: "var(--muted)" }}>
+              Same layout as Edit. First and last name are required on the starred primary row; everything else is optional. Log
+              contact history after you save.
+            </div>
+            {error ? (
+              <div className="card pad" style={{ marginBottom: 14, color: "var(--danger)" }}>
+                {error}
               </div>
-              <div className="small">
-                Only first and last name are required. Email and phone are optional.
-              </div>
-              <input
-                className="input"
-                value={newContactDraft.firstName}
-                onChange={(event) =>
-                  setNewContactDraft((current) => ({ ...current, firstName: event.target.value }))
-                }
-                placeholder="Primary Contact First Name"
-              />
-              <input
-                className="input"
-                value={newContactDraft.lastName}
-                onChange={(event) =>
-                  setNewContactDraft((current) => ({ ...current, lastName: event.target.value }))
-                }
-                placeholder="Primary Contact Last Name"
-              />
-              <input
-                className="input"
-                value={newContactDraft.teamName}
-                onChange={(event) =>
-                  setNewContactDraft((current) => ({ ...current, teamName: event.target.value }))
-                }
-                placeholder="Team Name"
-              />
-              <input
-                className="input"
-                value={newContactDraft.email}
-                onChange={(event) =>
-                  setNewContactDraft((current) => ({ ...current, email: event.target.value }))
-                }
-                placeholder="Primary Contact Email"
-              />
-              <input
-                className="input"
-                value={newContactDraft.phone}
-                onChange={(event) =>
-                  setNewContactDraft((current) => ({ ...current, phone: event.target.value }))
-                }
-                placeholder="Primary Contact Phone"
-              />
-              {renderDuplicateNotice(newContactDuplicateInfo)}
-              <select
-                className="input"
-                value={newContactDraft.gender}
-                onChange={(event) =>
-                  setNewContactDraft((current) => ({ ...current, gender: event.target.value }))
-                }
+            ) : null}
+            <div style={{ display: "grid", gap: 16 }}>
+              <RecruitingFormCard
+                title="Site, stage & timing"
+                subtitle="Site, pipeline stage, owner, and timing — same fields as Edit."
               >
-                <option value="">Gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </select>
-              <select
-                className="input"
-                value={newContactDraft.assignedTo}
-                onChange={(event) =>
-                  setNewContactDraft((current) => ({ ...current, assignedTo: event.target.value }))
-                }
-              >
-                <option value="">Assign Staff</option>
-                {OWNER_OPTIONS.map((owner) => (
-                  <option key={owner} value={owner}>{owner}</option>
-                ))}
-              </select>
-              <div style={{ display: "grid", gap: 8 }}>
-                <div className="small">Team Members</div>
-                {newContactPeople.length > 0 ? (
-                  newContactPeople.map((person, index) => {
-                    const duplicateInfo = person.email
-                      ? getDuplicateInfoForEmail(person.email)
-                      : null;
-
-                    return (
-                      <div
-                        key={`${person.email || person.name || "person"}-${index}`}
-                        style={{
-                          display: "grid",
-                          gap: 6,
-                          padding: 10,
-                          borderRadius: 12,
-                          border: "1px solid var(--border)",
-                          background: "#fff",
-                        }}
-                      >
-                        <div className="row" style={{ alignItems: "flex-start" }}>
-                          <div style={{ flex: 1 }}>
-                            <div className={person.isMinor ? "recruitingMinorName" : ""} style={{ fontWeight: 700 }}>
-                              {formatPersonDisplayName(person) || "Unnamed person"}
-                            </div>
-                            <div className="small">{person.email || "No email added"}</div>
-                            {renderDuplicateNotice(duplicateInfo)}
-                          </div>
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => handleRemovePersonFromNewContact(index)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="small">Add additional team members here.</div>
-                )}
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                    gap: 8,
-                    alignItems: "end",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: 10,
                   }}
                 >
                   <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Name</div>
+                    <div className="small" style={{ marginBottom: 6 }}>Stage</div>
+                    <select
+                      className="input"
+                      value={newContactDraft.stage}
+                      onChange={(event) =>
+                        setNewContactDraft((current) => ({ ...current, stage: Number(event.target.value) }))
+                      }
+                    >
+                      {RECRUITING_STAGES.map((stage) => (
+                        <option key={stage.value} value={stage.value}>
+                          {stage.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Owner</div>
+                    <select
+                      className="input"
+                      value={newContactDraft.assignedTo || PRIMARY_OWNER}
+                      onChange={(event) =>
+                        setNewContactDraft((current) => ({ ...current, assignedTo: event.target.value }))
+                      }
+                    >
+                      {OWNER_OPTIONS.map((owner) => (
+                        <option key={owner} value={owner}>
+                          {owner}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Site</div>
+                    <select
+                      className="input"
+                      value={newContactDraft.site}
+                      onChange={(event) =>
+                        setNewContactDraft((current) => ({ ...current, site: event.target.value }))
+                      }
+                    >
+                      <option value="">Select site</option>
+                      {mergeSiteOptionListWithCurrent(sitePickerLabels, newContactDraft.site).map((siteOption) => (
+                        <option key={siteOption} value={siteOption}>
+                          {siteOption}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Project dates</div>
                     <input
                       className="input"
-                      value={newContactPersonDraft.name}
+                      value={newContactDraft.projectDates}
                       onChange={(event) =>
-                        setNewContactPersonDraft((current) => ({
-                          ...current,
-                          name: event.target.value,
-                        }))
+                        setNewContactDraft((current) => ({ ...current, projectDates: event.target.value }))
                       }
-                      placeholder="Person name"
+                      placeholder="Dates or season"
                     />
                   </div>
                   <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Email</div>
+                    <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
                     <input
                       className="input"
-                      value={newContactPersonDraft.email}
+                      type="number"
+                      min="0"
+                      value={newContactDraft.weeks}
                       onChange={(event) =>
-                        setNewContactPersonDraft((current) => ({
-                          ...current,
-                          email: event.target.value,
-                        }))
+                        setNewContactDraft((current) => ({ ...current, weeks: event.target.value }))
                       }
-                      placeholder="person@email.com"
+                      placeholder="Number of weeks"
                     />
                   </div>
-                  <label className="small" style={{ display: "grid", gap: 6 }}>
-                    <span>Minor</span>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Departure date</div>
                     <input
-                      type="checkbox"
-                      checked={newContactPersonDraft.isMinor}
+                      className="input"
+                      value={newContactDraft.departureDate}
                       onChange={(event) =>
-                        setNewContactPersonDraft((current) => ({
-                          ...current,
-                          isMinor: event.target.checked,
-                          minorAge: event.target.checked ? current.minorAge : "",
-                        }))
+                        setNewContactDraft((current) => ({ ...current, departureDate: event.target.value }))
+                      }
+                      placeholder="Month, season, or exact date"
+                    />
+                  </div>
+                </div>
+              </RecruitingFormCard>
+
+              <RecruitingFormCard
+                title="Team name & roster"
+                subtitle="Star (★) is the primary contact. Everyone is on one roster row with first, last, email, phone, gender."
+              >
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Team name</div>
+                  <input
+                    className="input"
+                    value={newContactDraft.teamName}
+                    onChange={(event) =>
+                      setNewContactDraft((current) => ({ ...current, teamName: event.target.value }))
+                    }
+                    placeholder="Team name"
+                  />
+                </div>
+                <div className="small" style={{ fontWeight: 700, marginBottom: 8 }}>
+                  Roster — click ☆ to choose the primary contact
+                </div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {(newContactDraft.rosterRows?.length ? newContactDraft.rosterRows : [emptyRosterPerson()]).map(
+                    (person, index) => {
+                      const isPrimary = index === 0;
+                      const duplicateInfo = person.email ? getDuplicateInfoForEmail(person.email) : null;
+                      const rowCount = newContactDraft.rosterRows?.length || 1;
+                      return (
+                        <div
+                          key={`new-roster-${index}`}
+                          style={{
+                            padding: "10px 12px",
+                            borderRadius: 12,
+                            border: "1px solid rgba(15, 23, 42, 0.1)",
+                            background: "rgba(248, 250, 252, 0.85)",
+                          }}
+                        >
+                          <div
+                            className="row"
+                            style={{
+                              alignItems: "center",
+                              gap: 8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <button
+                              type="button"
+                              title={isPrimary ? "Primary contact" : "Set as primary contact"}
+                              aria-label={isPrimary ? "Primary contact" : "Set as primary contact"}
+                              disabled={isPrimary}
+                              onClick={() => setNewContactPrimaryRow(index)}
+                              style={{
+                                border: "none",
+                                background: "transparent",
+                                fontSize: "1.2rem",
+                                lineHeight: 1,
+                                padding: "2px 4px",
+                                cursor: isPrimary ? "default" : "pointer",
+                                color: "var(--primary)",
+                                flex: "0 0 auto",
+                              }}
+                            >
+                              {isPrimary ? "★" : "☆"}
+                            </button>
+                            {person.isMinor ? (
+                              <span className="badge" style={{ flex: "0 0 auto" }}>
+                                Minor{person.minorAge ? ` ${person.minorAge}` : ""}
+                              </span>
+                            ) : null}
+                            <input
+                              className="input"
+                              style={{ minWidth: 90, flex: "1 1 100px" }}
+                              value={person.firstName}
+                              onChange={(event) =>
+                                updateNewContactRosterRow(index, { firstName: event.target.value })
+                              }
+                              placeholder="First"
+                              autoComplete="given-name"
+                            />
+                            <input
+                              className="input"
+                              style={{ minWidth: 90, flex: "1 1 100px" }}
+                              value={person.lastName}
+                              onChange={(event) =>
+                                updateNewContactRosterRow(index, { lastName: event.target.value })
+                              }
+                              placeholder="Last"
+                              autoComplete="family-name"
+                            />
+                            <input
+                              className="input"
+                              type="email"
+                              style={{ minWidth: 160, flex: "2 1 180px" }}
+                              value={person.email}
+                              onChange={(event) =>
+                                updateNewContactRosterRow(index, { email: event.target.value })
+                              }
+                              placeholder="Email"
+                              autoComplete="email"
+                            />
+                            <input
+                              className="input"
+                              type="tel"
+                              style={{ minWidth: 120, flex: "1 1 120px" }}
+                              value={person.phone ?? ""}
+                              onChange={(event) =>
+                                updateNewContactRosterRow(index, { phone: event.target.value })
+                              }
+                              placeholder="Phone"
+                              autoComplete="tel"
+                            />
+                            <select
+                              className="input"
+                              style={{ minWidth: 100, flex: "0 1 110px" }}
+                              value={person.gender || ""}
+                              onChange={(event) =>
+                                updateNewContactRosterRow(index, { gender: event.target.value })
+                              }
+                            >
+                              <option value="">Gender</option>
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                            </select>
+                            <button
+                              className="btn"
+                              type="button"
+                              disabled={rowCount <= 1}
+                              onClick={() => removeNewContactRosterRow(index)}
+                              style={{ flex: "0 0 auto" }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          {duplicateInfo ? (
+                            <div style={{ marginTop: 8 }}>{renderDuplicateNotice(duplicateInfo, { compact: true })}</div>
+                          ) : null}
+                        </div>
+                      );
+                    }
+                  )}
+                </div>
+                <button className="btn" type="button" onClick={addNewContactRosterRow} style={{ marginTop: 6 }}>
+                  Add roster member
+                </button>
+              </RecruitingFormCard>
+
+              <RecruitingFormCard
+                title="Fundraising & pipeline"
+                subtitle="Interest, follow-up, and handoff for Leslee."
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div className="small" style={{ marginBottom: 6 }}>Interested trip / notes</div>
+                    <input
+                      className="input"
+                      value={newContactDraft.interestedTrip}
+                      onChange={(event) =>
+                        setNewContactDraft((current) => ({ ...current, interestedTrip: event.target.value }))
+                      }
+                      placeholder="Trip or program they’re considering"
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Alumni year</div>
+                    <input
+                      className="input"
+                      value={newContactDraft.alumniYearLabel}
+                      onChange={(event) =>
+                        setNewContactDraft((current) => ({ ...current, alumniYearLabel: event.target.value }))
+                      }
+                      placeholder="e.g. 2024"
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Priority</div>
+                    <input
+                      className="input"
+                      value={newContactDraft.priority}
+                      onChange={(event) =>
+                        setNewContactDraft((current) => ({ ...current, priority: event.target.value }))
+                      }
+                      placeholder="Optional priority label"
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Next follow-up</div>
+                    <input
+                      className="input"
+                      type="date"
+                      value={newContactDraft.nextFollowUp ? String(newContactDraft.nextFollowUp).slice(0, 10) : ""}
+                      onChange={(event) =>
+                        setNewContactDraft((current) => ({ ...current, nextFollowUp: event.target.value || "" }))
                       }
                     />
-                  </label>
-                  {newContactPersonDraft.isMinor ? (
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Age</div>
-                      <input
-                        className="input"
-                        type="number"
-                        min="0"
-                        value={newContactPersonDraft.minorAge}
-                        onChange={(event) =>
-                          setNewContactPersonDraft((current) => ({
-                            ...current,
-                            minorAge: event.target.value,
-                          }))
-                        }
-                        placeholder="14"
-                      />
-                    </div>
-                  ) : null}
-                  <button className="btn" type="button" onClick={handleAddPersonToNewContact}>
-                    Add Person
-                  </button>
+                  </div>
                 </div>
-                {renderDuplicateNotice(newContactPersonDuplicateInfo)}
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Boss handoff summary</div>
+                  <textarea
+                    className="input"
+                    rows={3}
+                    value={newContactDraft.handoffSummary}
+                    onChange={(event) =>
+                      setNewContactDraft((current) => ({ ...current, handoffSummary: event.target.value }))
+                    }
+                    placeholder="Short summary for Leslee (stored with Mackayla notes)"
+                  />
+                </div>
+              </RecruitingFormCard>
+
+              <RecruitingFormCard
+                title="Recruiting notes"
+                subtitle="Internal notes. After saving, open the row to log contact history."
+              >
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Mackayla notes</div>
+                  <textarea
+                    className="input"
+                    rows={4}
+                    value={newContactDraft.mackaylaNotesBody}
+                    onChange={(event) =>
+                      setNewContactDraft((current) => ({ ...current, mackaylaNotesBody: event.target.value }))
+                    }
+                    placeholder="Internal recruiting notes"
+                  />
+                </div>
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Leslee notes</div>
+                  <textarea
+                    className="input"
+                    rows={4}
+                    value={newContactDraft.lesleeNotes}
+                    onChange={(event) =>
+                      setNewContactDraft((current) => ({ ...current, lesleeNotes: event.target.value }))
+                    }
+                    placeholder="Leslee follow-up notes"
+                  />
+                </div>
+              </RecruitingFormCard>
+
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", paddingTop: 4 }}>
+                <button className="btn btnPrimary" type="button" onClick={handleCreateContact}>
+                  Save recruiting row
+                </button>
               </div>
-              <button className="btn btnPrimary" type="button" onClick={handleCreateContact}>
-                Save Recruiting Row
-              </button>
             </div>
           </div>
         </div>
