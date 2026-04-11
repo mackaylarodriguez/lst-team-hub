@@ -1289,7 +1289,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   line-height:inherit;
 }
 .recruitingFundingInput{
-  color:var(--muted);
+  color:var(--text);
 }
 .recruitingFundingInput::placeholder{
   color:var(--muted);
