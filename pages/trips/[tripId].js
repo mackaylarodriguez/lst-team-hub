@@ -1431,6 +1431,15 @@ export default function TripPage() {
       window.history.replaceState({}, "", nextUrl.toString());
     }
   }, [router.query.edit, trip?.id, staffViewAllParticipants, isEditingTripSetup]);
+
+  useEffect(() => {
+    if (tripSetupStatus !== "Saved.") return;
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      document.getElementById("trip-setup")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [tripSetupStatus]);
+
   const trainingAccessUrl = "https://lst365.sharepoint.com/:b:/g/IQD0aBKBPtQsQ6oh55gqMG4IAe3aFtSVxmywEXEBasP_5jY?e=SZ9m0j";
   const basicTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=134&";
   const gatewayTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=136&";
@@ -4880,12 +4889,22 @@ function parseDateSafe(dateStr) {
     if (!trip?.id) return;
 
     if (!String(tripSetupDraft.name || "").trim()) {
-      setTripSetupStatus("Team name is required.");
+      const msg = "Team name is required.";
+      setTripSetupStatus(msg);
+      showToast(msg, "error");
+      window.requestAnimationFrame(() => {
+        document.getElementById("trip-setup")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return;
     }
 
     if (!String(tripSetupDraft.location || "").trim()) {
-      setTripSetupStatus("Site is required.");
+      const msg = "Site is required.";
+      setTripSetupStatus(msg);
+      showToast(msg, "error");
+      window.requestAnimationFrame(() => {
+        document.getElementById("trip-setup")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return;
     }
 
@@ -4915,6 +4934,7 @@ function parseDateSafe(dateStr) {
       setIsCustomSiteInput(false);
       setIsConfirmingTripDelete(false);
       setTripSetupStatus("Saved.");
+      showToast("Trip details saved.", "success");
     } catch (error) {
       console.error("Unable to save trip details", error);
       const errMsg = error.message || "Unable to save trip details.";
@@ -5224,18 +5244,17 @@ function parseDateSafe(dateStr) {
           <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap", flexShrink: 0, marginTop: 2 }}>
             {tripSetupStatus ? (
               <div className="row" style={{ alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span
-                  className="small"
-                  style={
-                    tripSetupStatus !== "Saving..." &&
-                    tripSetupStatus !== "Saved." &&
-                    tripSetupStatus !== "Deleting trip..."
-                      ? { color: "var(--danger)" }
-                      : {}
+                <AppStatusMessage
+                  message={tripSetupStatus}
+                  tone={
+                    tripSetupStatus === "Saved."
+                      ? "success"
+                      : tripSetupStatus === "Saving..." || tripSetupStatus === "Deleting trip..."
+                        ? "info"
+                        : "danger"
                   }
-                >
-                  {tripSetupStatus}
-                </span>
+                  compact
+                />
                 {tripSetupStatus !== "Saving..." &&
                 tripSetupStatus !== "Saved." &&
                 tripSetupStatus !== "Deleting trip..." &&
