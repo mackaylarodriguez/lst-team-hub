@@ -128,6 +128,406 @@ function RecruitingFormCard({ title, subtitle, children }) {
   );
 }
 
+/** Same cards / labels as the Lock Team modal — used by Lock Team and Potential Teams edit. */
+function LockTeamFormCards({
+  draft,
+  onFieldChange,
+  onMemberChange,
+  onAddMember,
+  onRemoveMember,
+  showMemberTripDates,
+  onToggleMemberTripDates,
+  memberKeyPrefix,
+  sitePickerLabels,
+  mergeSiteOptionListWithCurrent,
+}) {
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <RecruitingFormCard title="Site & logistics" subtitle="Project dates, location, and trip logistics.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Project Leave Date</div>
+            <input
+              className="input"
+              type="date"
+              value={draft.startDate}
+              onChange={(event) => onFieldChange("startDate", event.target.value)}
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Project Return Date</div>
+            <input
+              className="input"
+              type="date"
+              value={draft.endDate}
+              onChange={(event) => onFieldChange("endDate", event.target.value)}
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Site</div>
+            <select
+              className="input"
+              value={draft.location}
+              onChange={(event) => onFieldChange("location", event.target.value)}
+            >
+              <option value="">Select site</option>
+              {mergeSiteOptionListWithCurrent(sitePickerLabels, draft.location).map((siteOption) => (
+                <option key={siteOption} value={siteOption}>{siteOption}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Host Name</div>
+            <input
+              className="input"
+              value={draft.host}
+              onChange={(event) => onFieldChange("host", event.target.value)}
+              placeholder="Host name"
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Site Type</div>
+            <select
+              className="input"
+              value={draft.siteType}
+              onChange={(event) => onFieldChange("siteType", event.target.value)}
+            >
+              <option value="">Select site type</option>
+              <option value="partner">Partner</option>
+              <option value="managed">Managed</option>
+              <option value="seasonal">Seasonal</option>
+            </select>
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Training Timeline</div>
+            <select
+              className="input"
+              value={draft.trainingTimelineType}
+              onChange={(event) => onFieldChange("trainingTimelineType", event.target.value)}
+            >
+              {TRAINING_TIMELINE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Length of Projects</div>
+            <input
+              className="input"
+              value={draft.projectLengthSummary}
+              onChange={(event) => onFieldChange("projectLengthSummary", event.target.value)}
+              placeholder="6 weeks, with a 3-week subgroup"
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Type of Project</div>
+            <select
+              className="input"
+              value={draft.projectType}
+              onChange={(event) => onFieldChange("projectType", event.target.value)}
+            >
+              <option value="">Select project type</option>
+              <option value="LST">LST</option>
+              <option value="YF">YF</option>
+              <option value="TP">TP</option>
+            </select>
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Extra Travel</div>
+            <select
+              className="input"
+              value={draft.extraTravelStatus}
+              onChange={(event) => onFieldChange("extraTravelStatus", event.target.value)}
+            >
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+              <option value="maybe">Maybe</option>
+            </select>
+          </div>
+        </div>
+      </RecruitingFormCard>
+
+      <RecruitingFormCard
+        title="Team name & members"
+        subtitle="Email and phone are optional. Use Different Trip Dates when someone’s leave/return differs from the project."
+      >
+        <div>
+          <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
+          <input
+            className="input"
+            value={draft.name}
+            onChange={(event) => onFieldChange("name", event.target.value)}
+            placeholder="2026 Brazil Team"
+          />
+        </div>
+        <div className="row" style={{ flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+          <div style={{ fontWeight: 800 }}>Team Members</div>
+          <div className="spacer" />
+          <button className="btn" type="button" onClick={onToggleMemberTripDates}>
+            {showMemberTripDates ? "Hide different trip dates" : "Different Trip Dates?"}
+          </button>
+        </div>
+        {showMemberTripDates ? (
+          <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
+            Leave member dates blank to use the main project dates.
+          </div>
+        ) : null}
+        <div style={{ display: "grid", gap: 10 }}>
+          {draft.teamMembers.map((member, index) => (
+            <div
+              key={`${memberKeyPrefix}-${index}`}
+              style={{
+                border: "1px solid rgba(18, 16, 12, 0.08)",
+                borderRadius: 14,
+                padding: 12,
+                background: "rgba(255,255,255,.72)",
+              }}
+            >
+              <div style={{ display: "grid", gap: 10 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                    gap: 10,
+                  }}
+                >
+                  <input
+                    className="input"
+                    value={member.firstName}
+                    onChange={(event) => onMemberChange(index, "firstName", event.target.value)}
+                    placeholder="First name"
+                    autoComplete="given-name"
+                  />
+                  <input
+                    className="input"
+                    value={member.lastName}
+                    onChange={(event) => onMemberChange(index, "lastName", event.target.value)}
+                    placeholder="Last name"
+                    autoComplete="family-name"
+                  />
+                  <input
+                    className="input"
+                    type="email"
+                    value={member.email}
+                    onChange={(event) => onMemberChange(index, "email", event.target.value)}
+                    placeholder="Email (optional)"
+                    autoComplete="email"
+                  />
+                  <input
+                    className="input"
+                    type="tel"
+                    value={member.phone ?? ""}
+                    onChange={(event) => onMemberChange(index, "phone", event.target.value)}
+                    placeholder="Phone (optional)"
+                    autoComplete="tel"
+                  />
+                </div>
+                {showMemberTripDates ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                      gap: 10,
+                    }}
+                  >
+                    <div>
+                      <div className="small" style={{ marginBottom: 6 }}>Leave Date</div>
+                      <input
+                        className="input"
+                        type="date"
+                        value={member.startDate}
+                        onChange={(event) => onMemberChange(index, "startDate", event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <div className="small" style={{ marginBottom: 6 }}>Return Date</div>
+                      <input
+                        className="input"
+                        type="date"
+                        value={member.endDate}
+                        onChange={(event) => onMemberChange(index, "endDate", event.target.value)}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+                <div className="row">
+                  <div className="spacer" />
+                  <button className="btn" type="button" onClick={() => onRemoveMember(index)}>
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button className="btn" type="button" onClick={onAddMember}>
+          Add Team Member
+        </button>
+      </RecruitingFormCard>
+
+      <RecruitingFormCard title="Funding & Fees" subtitle="Defaults match typical trip fee settings; adjust as needed.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Fundraising Goal</div>
+            <input
+              className="input recruitingFundingInput"
+              type="number"
+              min="0"
+              step="1"
+              value={draft.fundraisingGoalAmount}
+              onChange={(event) => onFieldChange("fundraisingGoalAmount", event.target.value)}
+              placeholder="Leave blank if not needed"
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Fee</div>
+            <input
+              className="input recruitingFundingInput"
+              type="number"
+              min="0"
+              step="1"
+              value={draft.tripFeeAmount}
+              onChange={(event) => onFieldChange("tripFeeAmount", event.target.value)}
+              placeholder="600"
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Materials Fee</div>
+            <input
+              className="input recruitingFundingInput"
+              type="number"
+              min="0"
+              step="1"
+              value={draft.materialsFeeAmount}
+              onChange={(event) => onFieldChange("materialsFeeAmount", event.target.value)}
+              placeholder="250"
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Deferred Worker</div>
+            <select
+              className="input"
+              value={draft.hasDeferredWorker}
+              onChange={(event) => onFieldChange("hasDeferredWorker", event.target.value)}
+            >
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Hannover Housing Fee</div>
+            <input
+              className="input recruitingFundingInput"
+              type="number"
+              min="0"
+              step="1"
+              value={draft.hannoverHousingFeeAmount}
+              onChange={(event) => onFieldChange("hannoverHousingFeeAmount", event.target.value)}
+              placeholder="600"
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Domestic Project</div>
+            <input
+              className="input recruitingFundingInput"
+              type="number"
+              min="0"
+              step="1"
+              value={draft.domesticProjectFeeAmount}
+              onChange={(event) => onFieldChange("domesticProjectFeeAmount", event.target.value)}
+              placeholder="575"
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Domestic Fee</div>
+            <input
+              className="input recruitingFundingInput"
+              type="number"
+              min="0"
+              step="1"
+              value={draft.domesticFeeAmount}
+              onChange={(event) => onFieldChange("domesticFeeAmount", event.target.value)}
+              placeholder="300"
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Domestic Materials Fee</div>
+            <input
+              className="input recruitingFundingInput"
+              type="number"
+              min="0"
+              step="1"
+              value={draft.domesticMaterialsFeeAmount}
+              onChange={(event) => onFieldChange("domesticMaterialsFeeAmount", event.target.value)}
+              placeholder="225"
+            />
+          </div>
+        </div>
+      </RecruitingFormCard>
+
+      <RecruitingFormCard
+        title="Past recruiting details"
+        subtitle="Loose dates and notes from the recruiting row; edit here if something should carry into the trip record."
+      >
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Project Dates</div>
+            <input
+              className="input"
+              value={draft.recruitingProjectDates}
+              onChange={(event) => onFieldChange("recruitingProjectDates", event.target.value)}
+              placeholder="Dates or season"
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
+            <input
+              className="input"
+              value={draft.recruitingWeeks}
+              onChange={(event) => onFieldChange("recruitingWeeks", event.target.value)}
+              placeholder="Number of weeks"
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Departure Date</div>
+            <input
+              className="input"
+              value={draft.recruitingDepartureDate}
+              onChange={(event) => onFieldChange("recruitingDepartureDate", event.target.value)}
+              placeholder="Month, season, or exact date"
+            />
+          </div>
+        </div>
+        {!draft.startDate && draft.recruitingDepartureDate ? (
+          <div className="small">
+            Recruiting departure note saved: {draft.recruitingDepartureDate}
+          </div>
+        ) : null}
+        <div>
+          <div className="small" style={{ marginBottom: 6 }}>Mackayla Notes</div>
+          <textarea
+            className="input"
+            rows={3}
+            value={draft.mackaylaNotes}
+            onChange={(event) => onFieldChange("mackaylaNotes", event.target.value)}
+          />
+        </div>
+        <div>
+          <div className="small" style={{ marginBottom: 6 }}>Leslee Notes</div>
+          <textarea
+            className="input"
+            rows={3}
+            value={draft.lesleeNotes}
+            onChange={(event) => onFieldChange("lesleeNotes", event.target.value)}
+          />
+        </div>
+      </RecruitingFormCard>
+    </div>
+  );
+}
+
 function buildPromoteDraft(record) {
   return {
     firstName: record?.contact?.firstName || "",
@@ -438,7 +838,33 @@ function buildTeamMemberDrafts(record) {
   return nextMembers.length > 0 ? nextMembers : [createEmptyTripTeamMember()];
 }
 
+function buildPendingLockTeamSetupFromDraft(draft, showMemberTripDates) {
+  return {
+    host: draft.host,
+    siteType: draft.siteType,
+    trainingTimelineType: draft.trainingTimelineType,
+    projectType: draft.projectType,
+    projectLengthSummary: draft.projectLengthSummary,
+    extraTravelStatus: draft.extraTravelStatus,
+    startDate: draft.startDate,
+    endDate: draft.endDate,
+    fundraisingGoalAmount: draft.fundraisingGoalAmount,
+    tripFeeAmount: draft.tripFeeAmount,
+    materialsFeeAmount: draft.materialsFeeAmount,
+    hasDeferredWorker: draft.hasDeferredWorker,
+    hannoverHousingFeeAmount: draft.hannoverHousingFeeAmount,
+    domesticProjectFeeAmount: draft.domesticProjectFeeAmount,
+    domesticFeeAmount: draft.domesticFeeAmount,
+    domesticMaterialsFeeAmount: draft.domesticMaterialsFeeAmount,
+    teamMembers: draft.teamMembers,
+    showMemberTripDates,
+  };
+}
+
 function buildTeamFormDraft(record) {
+  const pending = record?.pendingLockTeamSetup && typeof record.pendingLockTeamSetup === "object"
+    ? record.pendingLockTeamSetup
+    : {};
   const weeksLabel = record?.weeks
     ? `${record.weeks} week${String(record.weeks) === "1" ? "" : "s"}`
     : "";
@@ -447,28 +873,42 @@ function buildTeamFormDraft(record) {
     .join(" - ");
   const recruitingDepartureDate = String(record?.departureDate || "").trim();
 
+  const builtMembers = buildTeamMemberDrafts(record);
+  const teamMembers =
+    Array.isArray(pending.teamMembers) && pending.teamMembers.length > 0
+      ? pending.teamMembers.map((member) => ({ ...createEmptyTripTeamMember(), ...member }))
+      : builtMembers;
+
   return {
     name: record?.teamName || formatContactName(record),
-    location: record?.site || "",
-    host: "",
-    siteType: "",
-    trainingTimelineType: DEFAULT_TRAINING_TIMELINE_TYPE,
-    projectType: "",
-    projectLengthSummary,
-    extraTravelStatus: "no",
-    startDate: /^\d{4}-\d{2}-\d{2}$/.test(recruitingDepartureDate) ? recruitingDepartureDate : "",
-    endDate: "",
-    fundraisingGoalAmount: "",
-    tripFeeAmount: "600",
-    materialsFeeAmount: "250",
-    hasDeferredWorker: "no",
-    hannoverHousingFeeAmount: "600",
-    domesticProjectFeeAmount: "",
-    domesticFeeAmount: "",
-    domesticMaterialsFeeAmount: "",
-    teamMembers: buildTeamMemberDrafts(record),
+    location: record?.site || pending.location || "",
+    host: pending.host ?? "",
+    siteType: pending.siteType ?? "",
+    trainingTimelineType: pending.trainingTimelineType || DEFAULT_TRAINING_TIMELINE_TYPE,
+    projectType: pending.projectType ?? "",
+    projectLengthSummary: pending.projectLengthSummary || projectLengthSummary,
+    extraTravelStatus: pending.extraTravelStatus || "no",
+    startDate:
+      pending.startDate !== undefined && pending.startDate !== ""
+        ? pending.startDate
+        : /^\d{4}-\d{2}-\d{2}$/.test(recruitingDepartureDate)
+          ? recruitingDepartureDate
+          : "",
+    endDate: pending.endDate ?? "",
+    fundraisingGoalAmount: pending.fundraisingGoalAmount ?? "",
+    tripFeeAmount: pending.tripFeeAmount ?? "600",
+    materialsFeeAmount: pending.materialsFeeAmount ?? "250",
+    hasDeferredWorker: pending.hasDeferredWorker || "no",
+    hannoverHousingFeeAmount: pending.hannoverHousingFeeAmount ?? "600",
+    domesticProjectFeeAmount: pending.domesticProjectFeeAmount ?? "",
+    domesticFeeAmount: pending.domesticFeeAmount ?? "",
+    domesticMaterialsFeeAmount: pending.domesticMaterialsFeeAmount ?? "",
+    teamMembers,
     recruitingProjectDates: record?.projectDates || "",
-    recruitingWeeks: record?.weeks || "",
+    recruitingWeeks:
+      record?.weeks === null || record?.weeks === undefined || record?.weeks === ""
+        ? ""
+        : String(record.weeks),
     recruitingDepartureDate,
     mackaylaNotes: record?.mackaylaNotes || "",
     lesleeNotes: record?.lesleeNotes || "",
@@ -825,12 +1265,7 @@ function createEmptyNewContactDraft() {
     projectDates: "",
     weeks: "",
     departureDate: "",
-    interestedTrip: "",
-    alumniYearLabel: "",
-    priority: "",
-    nextFollowUp: "",
     mackaylaNotesBody: "",
-    handoffSummary: "",
     lesleeNotes: "",
   };
 }
@@ -933,6 +1368,7 @@ function buildRecruitingRecordPayload(record, overrides = {}) {
     bulkLastContactMethod: record.bulkLastContactMethod,
     isConvertedToTeam: record.isConvertedToTeam,
     convertedTeamId: record.convertedTeamId,
+    pendingLockTeamSetup: record.pendingLockTeamSetup ?? {},
     ...overrides,
   };
 }
@@ -1058,6 +1494,9 @@ export default function RecruitingPage() {
   const [formTeamModalOpen, setFormTeamModalOpen] = useState(false);
   const [teamFormDraft, setTeamFormDraft] = useState(() => buildTeamFormDraft(null));
   const [teamFormShowMemberTripDates, setTeamFormShowMemberTripDates] = useState(false);
+  const [potentialTeamEditDraft, setPotentialTeamEditDraft] = useState(() => buildTeamFormDraft(null));
+  const [potentialEditShowMemberTripDates, setPotentialEditShowMemberTripDates] = useState(false);
+  const potentialEditSnapshotKey = useRef("");
   const [contactActionDraft, setContactActionDraft] = useState({
     recordId: "",
     actionType: "email",
@@ -1067,6 +1506,20 @@ export default function RecruitingPage() {
   const importInputRef = useRef(null);
   const historyCacheRef = useRef({});
   const loadingHistoryRef = useRef({});
+
+  useEffect(() => {
+    if (!recordDetailsModalOpen || recordDetailsMode !== "details" || activeTab !== "potential") {
+      potentialEditSnapshotKey.current = "";
+      return;
+    }
+    const rec = records.find((row) => row.id === selectedRecordId);
+    if (!rec || rec.isConvertedToTeam) return;
+    const snap = `${rec.id}:${rec.updatedAt || ""}`;
+    if (potentialEditSnapshotKey.current === snap) return;
+    potentialEditSnapshotKey.current = snap;
+    setPotentialTeamEditDraft(buildTeamFormDraft(rec));
+    setPotentialEditShowMemberTripDates(Boolean(rec.pendingLockTeamSetup?.showMemberTripDates));
+  }, [recordDetailsModalOpen, recordDetailsMode, activeTab, selectedRecordId, records]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1615,14 +2068,11 @@ export default function RecruitingPage() {
           projectDates: newContactDraft.projectDates,
           weeks: newContactDraft.weeks,
           departureDate: newContactDraft.departureDate,
-          interestedTrip: newContactDraft.interestedTrip,
-          alumniYearLabel: newContactDraft.alumniYearLabel,
-          priority: newContactDraft.priority,
-          nextFollowUp: newContactDraft.nextFollowUp || "",
-          mackaylaNotes: buildMackaylaNotes(
-            newContactDraft.mackaylaNotesBody,
-            newContactDraft.handoffSummary
-          ),
+          interestedTrip: "",
+          alumniYearLabel: "",
+          priority: "",
+          nextFollowUp: "",
+          mackaylaNotes: buildMackaylaNotes(newContactDraft.mackaylaNotesBody, ""),
           lesleeNotes: newContactDraft.lesleeNotes,
           isPotentialTeam: false,
         },
@@ -1735,6 +2185,7 @@ export default function RecruitingPage() {
     setRecordDetailsMode(mode);
     setRecordDetailsModalOpen(true);
     setPageStatus("");
+    setError("");
     await ensureRecordHistoryLoaded(recordId);
   }
 
@@ -2009,6 +2460,69 @@ export default function RecruitingPage() {
     } catch (saveError) {
       console.error("Unable to save recruiting record", saveError);
       setError(saveError.message || "Unable to save record.");
+    } finally {
+      setIsSavingNotes(false);
+    }
+  }
+
+  async function handleSavePotentialTeamDetails() {
+    const record = records.find((item) => item.id === selectedRecordId);
+    if (!record) return;
+    const d = potentialTeamEditDraft;
+    const primary = d.teamMembers[0] || createEmptyTripTeamMember();
+    if (!String(primary.firstName || "").trim() || !String(primary.lastName || "").trim()) {
+      setError("First and last name are required for the first team member.");
+      return;
+    }
+    const rosterRows = d.teamMembers.map((m) => ({
+      firstName: m.firstName || "",
+      lastName: m.lastName || "",
+      email: m.email || "",
+      phone: m.phone ?? "",
+      gender: "",
+      isMinor: false,
+      minorAge: "",
+    }));
+    const synced = syncRosterIntoRecord(record, rosterRows, 0);
+    const weeksValue = d.recruitingWeeks;
+    const weeksParsed =
+      weeksValue === "" || weeksValue === null || weeksValue === undefined
+        ? null
+        : Number(weeksValue);
+    try {
+      setIsSavingNotes(true);
+      setError("");
+      await saveRecruitingCycleContact(
+        buildRecruitingRecordPayload({
+          ...record,
+          ...synced,
+          teamName: d.name,
+          site: d.location,
+          projectDates: d.recruitingProjectDates,
+          weeks: Number.isFinite(weeksParsed) ? weeksParsed : null,
+          departureDate: d.recruitingDepartureDate,
+          mackaylaNotes: d.mackaylaNotes,
+          lesleeNotes: d.lesleeNotes,
+          pendingLockTeamSetup: buildPendingLockTeamSetupFromDraft(d, potentialEditShowMemberTripDates),
+        })
+      );
+      await logRecruitingActivity({
+        recruitingCycleContactId: record.id,
+        actionType: "update",
+        actionDate: new Date().toISOString(),
+        staffMember: session?.name || session?.email || "Staff",
+        summary: "Updated recruiting details (lock-form fields).",
+      });
+      await refreshCurrentYear();
+      await ensureRecordHistoryLoaded(record.id, { force: true });
+      setRecordDetailsModalOpen(false);
+      setError("");
+      setPageStatus("Saved.");
+      potentialEditSnapshotKey.current = "";
+    } catch (saveError) {
+      console.error("Unable to save recruiting record", saveError);
+      setError(saveError.message || "Unable to save record.");
+      setPageStatus("");
     } finally {
       setIsSavingNotes(false);
     }
@@ -3209,6 +3723,71 @@ export default function RecruitingPage() {
                 ) : null}
                 {recordDetailsMode !== "history" ? (
                   <>
+                    {activeTab === "potential" && !selectedRecord.isConvertedToTeam ? (
+                      <>
+                        <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
+                          Same fields as <strong>Lock Team</strong>. Saving updates this recruiting row only (does not
+                          create a trip). Use <strong>Contact history</strong> in the header to log calls and emails.
+                        </div>
+                        {error ? (
+                          <div className="card pad" style={{ color: "var(--danger)" }}>{error}</div>
+                        ) : null}
+                        <LockTeamFormCards
+                          draft={potentialTeamEditDraft}
+                          onFieldChange={(field, value) =>
+                            setPotentialTeamEditDraft((current) => ({ ...current, [field]: value }))
+                          }
+                          onMemberChange={(index, field, value) =>
+                            setPotentialTeamEditDraft((current) => ({
+                              ...current,
+                              teamMembers: current.teamMembers.map((member, memberIndex) =>
+                                memberIndex === index ? { ...member, [field]: value } : member
+                              ),
+                            }))
+                          }
+                          onAddMember={() =>
+                            setPotentialTeamEditDraft((current) => ({
+                              ...current,
+                              teamMembers: [...current.teamMembers, createEmptyTripTeamMember()],
+                            }))
+                          }
+                          onRemoveMember={(index) =>
+                            setPotentialTeamEditDraft((current) => ({
+                              ...current,
+                              teamMembers:
+                                current.teamMembers.length === 1
+                                  ? [createEmptyTripTeamMember()]
+                                  : current.teamMembers.filter((_, memberIndex) => memberIndex !== index),
+                            }))
+                          }
+                          showMemberTripDates={potentialEditShowMemberTripDates}
+                          onToggleMemberTripDates={() =>
+                            setPotentialEditShowMemberTripDates((toggle) => !toggle)
+                          }
+                          memberKeyPrefix={`${selectedRecord.id}-potential-edit`}
+                          sitePickerLabels={sitePickerLabels}
+                          mergeSiteOptionListWithCurrent={mergeSiteOptionListWithCurrent}
+                        />
+                        <div
+                          className="row"
+                          style={{
+                            gap: 8,
+                            flexWrap: "wrap",
+                            paddingTop: 4,
+                            borderTop: "1px solid rgba(15, 23, 42, 0.06)",
+                          }}
+                        >
+                          <button
+                            className="btn btnPrimary"
+                            type="button"
+                            onClick={() => void handleSavePotentialTeamDetails()}
+                          >
+                            {isSavingNotes ? "Saving..." : "Save record"}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
                     <div style={{ display: "grid", gap: 12 }}>
                       <div className="small" style={{ color: "var(--muted)" }}>
                         Same order as <strong>Lock team</strong> (site & logistics first, then team name & members, then
@@ -3678,6 +4257,8 @@ export default function RecruitingPage() {
                         </button>
                       ) : null}
                     </div>
+                    </>
+                    )}
                   </>
                 ) : (
                   <>
@@ -4485,76 +5066,6 @@ export default function RecruitingPage() {
               </RecruitingFormCard>
 
               <RecruitingFormCard
-                title="Fundraising & pipeline"
-                subtitle="Interest, follow-up, and handoff for Leslee."
-              >
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                    gap: 10,
-                  }}
-                >
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <div className="small" style={{ marginBottom: 6 }}>Interested trip / notes</div>
-                    <input
-                      className="input"
-                      value={newContactDraft.interestedTrip}
-                      onChange={(event) =>
-                        setNewContactDraft((current) => ({ ...current, interestedTrip: event.target.value }))
-                      }
-                      placeholder="Trip or program they’re considering"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Alumni year</div>
-                    <input
-                      className="input"
-                      value={newContactDraft.alumniYearLabel}
-                      onChange={(event) =>
-                        setNewContactDraft((current) => ({ ...current, alumniYearLabel: event.target.value }))
-                      }
-                      placeholder="e.g. 2024"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Priority</div>
-                    <input
-                      className="input"
-                      value={newContactDraft.priority}
-                      onChange={(event) =>
-                        setNewContactDraft((current) => ({ ...current, priority: event.target.value }))
-                      }
-                      placeholder="Optional priority label"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Next follow-up</div>
-                    <input
-                      className="input"
-                      type="date"
-                      value={newContactDraft.nextFollowUp ? String(newContactDraft.nextFollowUp).slice(0, 10) : ""}
-                      onChange={(event) =>
-                        setNewContactDraft((current) => ({ ...current, nextFollowUp: event.target.value || "" }))
-                      }
-                    />
-                  </div>
-                </div>
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Boss handoff summary</div>
-                  <textarea
-                    className="input"
-                    rows={3}
-                    value={newContactDraft.handoffSummary}
-                    onChange={(event) =>
-                      setNewContactDraft((current) => ({ ...current, handoffSummary: event.target.value }))
-                    }
-                    placeholder="Short summary for Leslee (stored with Mackayla notes)"
-                  />
-                </div>
-              </RecruitingFormCard>
-
-              <RecruitingFormCard
                 title="Recruiting notes"
                 subtitle="Internal notes. After saving, open the row to log contact history."
               >
@@ -4628,396 +5139,18 @@ export default function RecruitingPage() {
                 {pageStatus}
               </div>
             ) : null}
-            <div style={{ display: "grid", gap: 16 }}>
-              <RecruitingFormCard
-                title="Site & logistics"
-                subtitle="Project dates, location, and trip logistics."
-              >
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Project Leave Date</div>
-                    <input
-                      className="input"
-                      type="date"
-                      value={teamFormDraft.startDate}
-                      onChange={(event) => updateTeamFormDraft("startDate", event.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Project Return Date</div>
-                    <input
-                      className="input"
-                      type="date"
-                      value={teamFormDraft.endDate}
-                      onChange={(event) => updateTeamFormDraft("endDate", event.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Site</div>
-                    <select
-                      className="input"
-                      value={teamFormDraft.location}
-                      onChange={(event) => updateTeamFormDraft("location", event.target.value)}
-                    >
-                      <option value="">Select site</option>
-                      {mergeSiteOptionListWithCurrent(sitePickerLabels, teamFormDraft.location).map((siteOption) => (
-                        <option key={siteOption} value={siteOption}>{siteOption}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Host Name</div>
-                    <input
-                      className="input"
-                      value={teamFormDraft.host}
-                      onChange={(event) => updateTeamFormDraft("host", event.target.value)}
-                      placeholder="Host name"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Site Type</div>
-                    <select
-                      className="input"
-                      value={teamFormDraft.siteType}
-                      onChange={(event) => updateTeamFormDraft("siteType", event.target.value)}
-                    >
-                      <option value="">Select site type</option>
-                      <option value="partner">Partner</option>
-                      <option value="managed">Managed</option>
-                      <option value="seasonal">Seasonal</option>
-                    </select>
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Training Timeline</div>
-                    <select
-                      className="input"
-                      value={teamFormDraft.trainingTimelineType}
-                      onChange={(event) => updateTeamFormDraft("trainingTimelineType", event.target.value)}
-                    >
-                      {TRAINING_TIMELINE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Length of Projects</div>
-                    <input
-                      className="input"
-                      value={teamFormDraft.projectLengthSummary}
-                      onChange={(event) => updateTeamFormDraft("projectLengthSummary", event.target.value)}
-                      placeholder="6 weeks, with a 3-week subgroup"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Type of Project</div>
-                    <select
-                      className="input"
-                      value={teamFormDraft.projectType}
-                      onChange={(event) => updateTeamFormDraft("projectType", event.target.value)}
-                    >
-                      <option value="">Select project type</option>
-                      <option value="LST">LST</option>
-                      <option value="YF">YF</option>
-                      <option value="TP">TP</option>
-                    </select>
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Extra Travel</div>
-                    <select
-                      className="input"
-                      value={teamFormDraft.extraTravelStatus}
-                      onChange={(event) => updateTeamFormDraft("extraTravelStatus", event.target.value)}
-                    >
-                      <option value="no">No</option>
-                      <option value="yes">Yes</option>
-                      <option value="maybe">Maybe</option>
-                    </select>
-                  </div>
-                </div>
-              </RecruitingFormCard>
-
-              <RecruitingFormCard
-                title="Team name & members"
-                subtitle="Email and phone are optional. Use Different Trip Dates when someone’s leave/return differs from the project."
-              >
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
-                  <input
-                    className="input"
-                    value={teamFormDraft.name}
-                    onChange={(event) => updateTeamFormDraft("name", event.target.value)}
-                    placeholder="2026 Brazil Team"
-                  />
-                </div>
-                <div className="row" style={{ flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-                  <div style={{ fontWeight: 800 }}>Team Members</div>
-                  <div className="spacer" />
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => setTeamFormShowMemberTripDates((current) => !current)}
-                  >
-                    {teamFormShowMemberTripDates ? "Hide different trip dates" : "Different Trip Dates?"}
-                  </button>
-                </div>
-                {teamFormShowMemberTripDates ? (
-                  <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
-                    Leave member dates blank to use the main project dates.
-                  </div>
-                ) : null}
-                <div style={{ display: "grid", gap: 10 }}>
-                  {teamFormDraft.teamMembers.map((member, index) => (
-                    <div
-                      key={`form-team-member-${index}`}
-                      style={{
-                        border: "1px solid rgba(18, 16, 12, 0.08)",
-                        borderRadius: 14,
-                        padding: 12,
-                        background: "rgba(255,255,255,.72)",
-                      }}
-                    >
-                      <div style={{ display: "grid", gap: 10 }}>
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                            gap: 10,
-                          }}
-                        >
-                          <input
-                            className="input"
-                            value={member.firstName}
-                            onChange={(event) => updateTeamFormMember(index, "firstName", event.target.value)}
-                            placeholder="First name"
-                            autoComplete="given-name"
-                          />
-                          <input
-                            className="input"
-                            value={member.lastName}
-                            onChange={(event) => updateTeamFormMember(index, "lastName", event.target.value)}
-                            placeholder="Last name"
-                            autoComplete="family-name"
-                          />
-                          <input
-                            className="input"
-                            type="email"
-                            value={member.email}
-                            onChange={(event) => updateTeamFormMember(index, "email", event.target.value)}
-                            placeholder="Email (optional)"
-                            autoComplete="email"
-                          />
-                          <input
-                            className="input"
-                            type="tel"
-                            value={member.phone ?? ""}
-                            onChange={(event) => updateTeamFormMember(index, "phone", event.target.value)}
-                            placeholder="Phone (optional)"
-                            autoComplete="tel"
-                          />
-                        </div>
-                        {teamFormShowMemberTripDates ? (
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                              gap: 10,
-                            }}
-                          >
-                            <div>
-                              <div className="small" style={{ marginBottom: 6 }}>Leave Date</div>
-                              <input
-                                className="input"
-                                type="date"
-                                value={member.startDate}
-                                onChange={(event) => updateTeamFormMember(index, "startDate", event.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <div className="small" style={{ marginBottom: 6 }}>Return Date</div>
-                              <input
-                                className="input"
-                                type="date"
-                                value={member.endDate}
-                                onChange={(event) => updateTeamFormMember(index, "endDate", event.target.value)}
-                              />
-                            </div>
-                          </div>
-                        ) : null}
-                        <div className="row">
-                          <div className="spacer" />
-                          <button className="btn" type="button" onClick={() => removeTeamFormMemberRow(index)}>
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button className="btn" type="button" onClick={addTeamFormMemberRow}>
-                  Add Team Member
-                </button>
-              </RecruitingFormCard>
-
-              <RecruitingFormCard title="Funding & Fees" subtitle="Defaults match typical trip fee settings; adjust as needed.">
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Fundraising Goal</div>
-                    <input
-                      className="input recruitingFundingInput"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={teamFormDraft.fundraisingGoalAmount}
-                      onChange={(event) => updateTeamFormDraft("fundraisingGoalAmount", event.target.value)}
-                      placeholder="Leave blank if not needed"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Fee</div>
-                    <input
-                      className="input recruitingFundingInput"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={teamFormDraft.tripFeeAmount}
-                      onChange={(event) => updateTeamFormDraft("tripFeeAmount", event.target.value)}
-                      placeholder="600"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Materials Fee</div>
-                    <input
-                      className="input recruitingFundingInput"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={teamFormDraft.materialsFeeAmount}
-                      onChange={(event) => updateTeamFormDraft("materialsFeeAmount", event.target.value)}
-                      placeholder="250"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Deferred Worker</div>
-                    <select
-                      className="input"
-                      value={teamFormDraft.hasDeferredWorker}
-                      onChange={(event) => updateTeamFormDraft("hasDeferredWorker", event.target.value)}
-                    >
-                      <option value="no">No</option>
-                      <option value="yes">Yes</option>
-                    </select>
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Hannover Housing Fee</div>
-                    <input
-                      className="input recruitingFundingInput"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={teamFormDraft.hannoverHousingFeeAmount}
-                      onChange={(event) => updateTeamFormDraft("hannoverHousingFeeAmount", event.target.value)}
-                      placeholder="600"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Domestic Project</div>
-                    <input
-                      className="input recruitingFundingInput"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={teamFormDraft.domesticProjectFeeAmount}
-                      onChange={(event) => updateTeamFormDraft("domesticProjectFeeAmount", event.target.value)}
-                      placeholder="575"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Domestic Fee</div>
-                    <input
-                      className="input recruitingFundingInput"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={teamFormDraft.domesticFeeAmount}
-                      onChange={(event) => updateTeamFormDraft("domesticFeeAmount", event.target.value)}
-                      placeholder="300"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Domestic Materials Fee</div>
-                    <input
-                      className="input recruitingFundingInput"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={teamFormDraft.domesticMaterialsFeeAmount}
-                      onChange={(event) => updateTeamFormDraft("domesticMaterialsFeeAmount", event.target.value)}
-                      placeholder="225"
-                    />
-                  </div>
-                </div>
-              </RecruitingFormCard>
-
-              <RecruitingFormCard
-                title="Past recruiting details"
-                subtitle="Loose dates and notes from the recruiting row; edit here if something should carry into the trip record."
-              >
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Project Dates</div>
-                    <input
-                      className="input"
-                      value={teamFormDraft.recruitingProjectDates}
-                      onChange={(event) => updateTeamFormDraft("recruitingProjectDates", event.target.value)}
-                      placeholder="Dates or season"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
-                    <input
-                      className="input"
-                      value={teamFormDraft.recruitingWeeks}
-                      onChange={(event) => updateTeamFormDraft("recruitingWeeks", event.target.value)}
-                      placeholder="Number of weeks"
-                    />
-                  </div>
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Departure Date</div>
-                    <input
-                      className="input"
-                      value={teamFormDraft.recruitingDepartureDate}
-                      onChange={(event) => updateTeamFormDraft("recruitingDepartureDate", event.target.value)}
-                      placeholder="Month, season, or exact date"
-                    />
-                  </div>
-                </div>
-                {!teamFormDraft.startDate && teamFormDraft.recruitingDepartureDate ? (
-                  <div className="small">
-                    Recruiting departure note saved: {teamFormDraft.recruitingDepartureDate}
-                  </div>
-                ) : null}
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Mackayla Notes</div>
-                  <textarea
-                    className="input"
-                    rows={3}
-                    value={teamFormDraft.mackaylaNotes}
-                    onChange={(event) => updateTeamFormDraft("mackaylaNotes", event.target.value)}
-                  />
-                </div>
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Leslee Notes</div>
-                  <textarea
-                    className="input"
-                    rows={3}
-                    value={teamFormDraft.lesleeNotes}
-                    onChange={(event) => updateTeamFormDraft("lesleeNotes", event.target.value)}
-                  />
-                </div>
-              </RecruitingFormCard>
-            </div>
+            <LockTeamFormCards
+              draft={teamFormDraft}
+              onFieldChange={updateTeamFormDraft}
+              onMemberChange={updateTeamFormMember}
+              onAddMember={addTeamFormMemberRow}
+              onRemoveMember={removeTeamFormMemberRow}
+              showMemberTripDates={teamFormShowMemberTripDates}
+              onToggleMemberTripDates={() => setTeamFormShowMemberTripDates((c) => !c)}
+              memberKeyPrefix="form-team-member"
+              sitePickerLabels={sitePickerLabels}
+              mergeSiteOptionListWithCurrent={mergeSiteOptionListWithCurrent}
+            />
             <div className="row" style={{ marginTop: 12 }}>
               <button
                 className="btn btnPrimary"
