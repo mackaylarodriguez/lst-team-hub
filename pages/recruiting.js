@@ -3576,24 +3576,6 @@ export default function RecruitingPage() {
                   </span>
                 </button>
               ))}
-              {selectedRecord && activeTab === "converted" ? (
-                <>
-                  <button
-                    className="btn btnPrimary"
-                    type="button"
-                    onClick={() => void openRecordDetails(selectedRecord?.id, "details")}
-                  >
-                    Edit team
-                  </button>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => void openRecordDetails(selectedRecord?.id, "history")}
-                  >
-                    Open Lock Team History
-                  </button>
-                </>
-              ) : null}
             </div>
 
             {activeTab === "outreach" ? (
