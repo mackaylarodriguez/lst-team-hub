@@ -2393,14 +2393,15 @@ export default function BudgetPage() {
           <div className="card pad" style={budgetSectionCardStyle}>
             <div style={{ fontWeight: 900, marginBottom: 8 }}>Printed checks (Donna / accounting)</div>
             <p className="small" style={{ margin: "0 0 16px", color: "var(--muted)", lineHeight: 1.5 }}>
-              Staff and admin can request a printed check for a trip. The assignee gets a personal Finance task
-              (due in about 14 days by default) and an optional email when{" "}
+              Staff and admin can request a printed check for a trip. Each request creates a personal{" "}
+              <strong>Finance</strong> task for <strong>Donna</strong>, due <strong>two weeks</strong> from the
+              request (override with <code style={{ fontSize: "0.92em" }}>BUDGET_CHECK_DUE_DAYS</code>). Tasks go to{" "}
+              <strong>Donna Tucker</strong> at <code style={{ fontSize: "0.92em" }}>donna.tucker@lst.org</code> unless
+              you set <code style={{ fontSize: "0.92em" }}>DONNA_STAFF_EMAIL</code> or{" "}
+              <code style={{ fontSize: "0.92em" }}>BUDGET_CHECK_ASSIGNEE_EMAIL</code>. Optional email: set{" "}
               <code style={{ fontSize: "0.92em" }}>RESEND_API_KEY</code> and{" "}
-              <code style={{ fontSize: "0.92em" }}>BUDGET_CHECK_FROM_EMAIL</code> are set. During testing, set{" "}
-              <code style={{ fontSize: "0.92em" }}>BUDGET_CHECK_NOTIFY_EMAIL</code> to your address so notifications
-              do not go to finance until you are ready. Assignee email:{" "}
-              <code style={{ fontSize: "0.92em" }}>BUDGET_CHECK_ASSIGNEE_EMAIL</code> or{" "}
-              <code style={{ fontSize: "0.92em" }}>DONNA_STAFF_EMAIL</code>.
+              <code style={{ fontSize: "0.92em" }}>BUDGET_CHECK_FROM_EMAIL</code>; for testing, add{" "}
+              <code style={{ fontSize: "0.92em" }}>BUDGET_CHECK_NOTIFY_EMAIL</code>.
             </p>
 
             <div

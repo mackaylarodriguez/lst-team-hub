@@ -3,9 +3,10 @@
  *
  * Env (optional):
  * - BUDGET_CHECK_NOTIFY_EMAIL — notification recipient (use during testing so finance isn’t flooded).
- * - BUDGET_CHECK_ASSIGNEE_EMAIL or DONNA_STAFF_EMAIL — personal task assignee (Donna’s staff email).
- * - BUDGET_CHECK_ASSIGNEE_NAME — optional display name on the misc task.
- * - BUDGET_CHECK_DUE_DAYS — days until misc-task due date (default 14).
+ * - BUDGET_CHECK_ASSIGNEE_EMAIL or DONNA_STAFF_EMAIL — optional override for the misc-task assignee (defaults to
+ *   donna.tucker@lst.org so other “Donna” profiles are never picked by mistake).
+ * - BUDGET_CHECK_ASSIGNEE_NAME — optional display name on the misc task (defaults to “Donna Tucker” for Donna’s email).
+ * - BUDGET_CHECK_DUE_DAYS — days until misc-task due date (default 14 = two weeks).
  * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL — send notification email via Resend (both required for email).
  *
  * PATCH body: { id, action } — actions: mark_processed | update (amount, note; pending only) | delete.
@@ -149,6 +150,36 @@ function addDaysIsoDate(days) {
   return d.toISOString().slice(0, 10);
 }
 
+/** Printed-check tasks are always due two weeks out unless BUDGET_CHECK_DUE_DAYS overrides. */
+const DEFAULT_BUDGET_CHECK_TASK_DUE_DAYS = 14;
+
+/** Donna Tucker (accounting) — fixed default so first-name profile search never hits the wrong Donna. */
+const DEFAULT_DONNA_BUDGET_CHECK_EMAIL = "donna.tucker@lst.org";
+const DEFAULT_DONNA_BUDGET_CHECK_NAME = "Donna Tucker";
+
+/**
+ * Budget check requests assign a `staff_misc_tasks` row to Donna Tucker (Finance).
+ * Order: BUDGET_CHECK_ASSIGNEE_EMAIL → DONNA_STAFF_EMAIL → donna.tucker@lst.org
+ */
+function resolveBudgetCheckTaskAssignee() {
+  const defaultEmail = normalizeEmail(DEFAULT_DONNA_BUDGET_CHECK_EMAIL);
+  const email =
+    normalizeEmail(process.env.BUDGET_CHECK_ASSIGNEE_EMAIL) ||
+    normalizeEmail(process.env.DONNA_STAFF_EMAIL) ||
+    defaultEmail;
+
+  const explicitName = normalizeText(process.env.BUDGET_CHECK_ASSIGNEE_NAME);
+  if (explicitName) {
+    return { email, name: explicitName };
+  }
+
+  if (email === defaultEmail) {
+    return { email, name: DEFAULT_DONNA_BUDGET_CHECK_NAME };
+  }
+
+  return { email, name: "Donna" };
+}
+
 async function sendNotifyEmail({ to, subject, html }) {
   const key = normalizeText(process.env.RESEND_API_KEY);
   const from = normalizeText(process.env.BUDGET_CHECK_FROM_EMAIL);
@@ -258,14 +289,13 @@ export default async function handler(req, res) {
         ? ""
         : String(budget.budget_amount);
 
-    const dueDays = Number(process.env.BUDGET_CHECK_DUE_DAYS || 14);
-    const safeDueDays = Number.isFinite(dueDays) && dueDays > 0 ? dueDays : 14;
+    const dueDaysRaw = process.env.BUDGET_CHECK_DUE_DAYS;
+    const dueDaysParsed = dueDaysRaw === undefined || dueDaysRaw === "" ? DEFAULT_BUDGET_CHECK_TASK_DUE_DAYS : Number(dueDaysRaw);
+    const safeDueDays =
+      Number.isFinite(dueDaysParsed) && dueDaysParsed > 0 ? dueDaysParsed : DEFAULT_BUDGET_CHECK_TASK_DUE_DAYS;
     const dueDate = addDaysIsoDate(safeDueDays);
 
-    const assigneeEmail =
-      normalizeEmail(process.env.BUDGET_CHECK_ASSIGNEE_EMAIL) ||
-      normalizeEmail(process.env.DONNA_STAFF_EMAIL);
-    const assigneeName = normalizeText(process.env.BUDGET_CHECK_ASSIGNEE_NAME) || null;
+    const assignee = resolveBudgetCheckTaskAssignee();
 
     const requesterLine = getProfileDisplayName(profile) || profile.email || profile.id;
     const taskTitle = buildBudgetCheckMiscTaskTitle(tripName, tripId, amountRequested);
@@ -280,32 +310,25 @@ export default async function handler(req, res) {
       requesterLine,
     });
 
-    let staffMiscTaskId = null;
-    if (assigneeEmail) {
-      const { data: taskRow, error: taskErr } = await admin
-        .from("staff_misc_tasks")
-        .insert({
-          staff_email: assigneeEmail,
-          staff_name: assigneeName,
-          work_area: "Finance",
-          task_name: taskTitle,
-          progress: "Not started",
-          due_date: dueDate,
-          notes: taskNotes,
-        })
-        .select("id")
-        .single();
+    const { data: taskRow, error: taskErr } = await admin
+      .from("staff_misc_tasks")
+      .insert({
+        staff_email: assignee.email,
+        staff_name: assignee.name || DEFAULT_DONNA_BUDGET_CHECK_NAME,
+        work_area: "Finance",
+        task_name: taskTitle,
+        progress: "Not started",
+        due_date: dueDate,
+        notes: taskNotes,
+      })
+      .select("id")
+      .single();
 
-      if (taskErr) {
-        console.error("[budget-check-request] staff_misc_tasks insert", taskErr);
-        return res.status(500).json({ error: taskErr.message || "Could not create assignee task." });
-      }
-      staffMiscTaskId = taskRow?.id || null;
-    } else {
-      console.warn(
-        "[budget-check-request] No BUDGET_CHECK_ASSIGNEE_EMAIL or DONNA_STAFF_EMAIL; skipping misc task."
-      );
+    if (taskErr) {
+      console.error("[budget-check-request] staff_misc_tasks insert", taskErr);
+      return res.status(500).json({ error: taskErr.message || "Could not create Donna’s staff task." });
     }
+    const staffMiscTaskId = taskRow?.id || null;
 
     const insertPayload = {
       trip_id: tripId,
@@ -338,7 +361,7 @@ export default async function handler(req, res) {
 
     const notifyTo =
       normalizeEmail(process.env.BUDGET_CHECK_NOTIFY_EMAIL) ||
-      assigneeEmail ||
+      assignee.email ||
       normalizeEmail(profile.email);
     const requesterLabel = getProfileDisplayName(profile) || profile.email || "Staff";
     const subject = `Budget check request — ${tripName || "Trip"} — ${amountRequested}`;

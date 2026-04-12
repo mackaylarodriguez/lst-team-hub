@@ -1909,7 +1909,11 @@ export default function RecruitingPage() {
     }
 
     if (!recordsForActiveTab.some((record) => record.id === selectedRecordId)) {
-      setSelectedRecordId(recordsForActiveTab[0].id);
+      // Only snap to a row when the current selection is stale (non-empty id missing from this tab).
+      // Leave empty selection alone so closing the edit modal does not re-highlight a row.
+      if (selectedRecordId) {
+        setSelectedRecordId(recordsForActiveTab[0].id);
+      }
     }
   }, [baseFilteredRecords, filterConfig.searchQuery, recordsForActiveTab, selectedRecordId]);
 
@@ -2264,6 +2268,7 @@ export default function RecruitingPage() {
     setPromoteModalOpen(false);
     handleChangeTab("potential");
     setSelectedRecordId(record.id);
+    setRecordDetailsMode("details");
     setRecordDetailsModalOpen(true);
     await refreshCurrentYear();
     await ensureRecordHistoryLoaded(record.id, { force: true });
@@ -2289,6 +2294,20 @@ export default function RecruitingPage() {
     await ensureRecordHistoryLoaded(recordId);
   }
 
+  function closeRecordDetailsModal() {
+    setRecordDetailsModalOpen(false);
+    setSelectedRecordId("");
+    setConfirmingDeleteRecordId("");
+    setRecordDetailsMode("details");
+    setError("");
+  }
+
+  /** Desktop table: double-click row to open edit; ignore when interacting with controls. */
+  function handleRecruitingTableRowDoubleClick(event, recordId) {
+    if (event.target.closest("button, a, input, textarea, select, label")) return;
+    void openRecordDetails(recordId, "details");
+  }
+
   async function handleDeleteRecord(recordId = selectedRecordId) {
     const record = records.find((item) => item.id === recordId);
     if (!record) return;
@@ -2296,12 +2315,7 @@ export default function RecruitingPage() {
     try {
       setDeletingRecordId(record.id);
       await deleteRecruitingCycleContact(record.id);
-      if (selectedRecordId === record.id) {
-        setSelectedRecordId("");
-      }
-      setRecordDetailsModalOpen(false);
-      setError("");
-      setConfirmingDeleteRecordId("");
+      closeRecordDetailsModal();
       setPageStatus(`${record.teamName || formatContactName(record)} deleted.`);
       await refreshCurrentYear();
     } catch (deleteError) {
@@ -2385,8 +2399,7 @@ export default function RecruitingPage() {
       setError("");
       await revertRecruitingLockedTeam(record);
       if (selectedRecordId === record.id) {
-        setRecordDetailsModalOpen(false);
-        setSelectedRecordId("");
+        closeRecordDetailsModal();
       }
       await refreshCurrentYear();
       handleChangeTab("potential");
@@ -2554,8 +2567,7 @@ export default function RecruitingPage() {
       });
       await refreshCurrentYear();
       await ensureRecordHistoryLoaded(recordId, { force: true });
-      setRecordDetailsModalOpen(false);
-      setError("");
+      closeRecordDetailsModal();
       setPageStatus("Saved.");
     } catch (saveError) {
       console.error("Unable to save recruiting record", saveError);
@@ -2615,8 +2627,7 @@ export default function RecruitingPage() {
       });
       await refreshCurrentYear();
       await ensureRecordHistoryLoaded(record.id, { force: true });
-      setRecordDetailsModalOpen(false);
-      setError("");
+      closeRecordDetailsModal();
       setPageStatus("Saved.");
       potentialEditSnapshotKey.current = "";
     } catch (saveError) {
@@ -2647,8 +2658,7 @@ export default function RecruitingPage() {
         summary: `Moved recruiting record to ${NEXT_RECRUITING_YEAR}.`,
       });
       await refreshCurrentYear();
-      setRecordDetailsModalOpen(false);
-      setError("");
+      closeRecordDetailsModal();
       setPageStatus(`Moved to ${NEXT_RECRUITING_YEAR}.`);
     } catch (moveError) {
       console.error(`Unable to move recruiting record to ${NEXT_RECRUITING_YEAR}`, moveError);
@@ -2978,16 +2988,13 @@ export default function RecruitingPage() {
               const contactActivity = contactActivityByRecordId[record.id] || [];
               const isLastContactExpanded = Boolean(expandedLastContactById[record.id]);
               const showLastContactToggle = shouldShowLastContactToggle(record, contactActivity);
-              const isSelected = record.id === selectedRecordId;
-              const rowClass = [rowIndex % 2 === 1 ? "recruitingRowAlt" : "", isSelected ? "recruitingRowSelected" : ""]
-                .filter(Boolean)
-                .join(" ");
+              const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
 
               return (
                 <tr
                   key={record.id}
                   className={rowClass}
-                  onClick={() => setSelectedRecordId(record.id)}
+                  onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
                   style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
                   <td style={{ minWidth: 140, verticalAlign: "middle" }}>
@@ -3126,8 +3133,8 @@ export default function RecruitingPage() {
             <div
               key={record.id}
               className="card pad recruitingMobileCard"
-              onClick={() => setSelectedRecordId(record.id)}
-              style={getRecordRowStyle(record, record.id === selectedRecordId)}
+              onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
+              style={getRecordRowStyle(record, false)}
             >
               <div className="recruitingMobileCardHeader">
                 <div>
@@ -3240,16 +3247,13 @@ export default function RecruitingPage() {
             {recordsToRender.map((record, rowIndex) => {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-              const isSelected = record.id === selectedRecordId;
-              const rowClass = [rowIndex % 2 === 1 ? "recruitingRowAlt" : "", isSelected ? "recruitingRowSelected" : ""]
-                .filter(Boolean)
-                .join(" ");
+              const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
 
               return (
                 <tr
                   key={record.id}
                   className={rowClass}
-                  onClick={() => setSelectedRecordId(record.id)}
+                  onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
                   style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
                   <td style={{ minWidth: 140, verticalAlign: "middle" }}>
@@ -3348,8 +3352,8 @@ export default function RecruitingPage() {
             <div
               key={record.id}
               className="card pad recruitingMobileCard"
-              onClick={() => setSelectedRecordId(record.id)}
-              style={getRecordRowStyle(record, record.id === selectedRecordId)}
+              onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
+              style={getRecordRowStyle(record, false)}
             >
               <div className="recruitingMobileCardHeader">
                 <div>
@@ -3461,12 +3465,13 @@ export default function RecruitingPage() {
           </thead>
           <tbody>
             {recordsToRender.map((record, rowIndex) => {
-              const isSelected = record.id === selectedRecordId;
-              const rowClass = [rowIndex % 2 === 1 ? "recruitingRowAlt" : "", isSelected ? "recruitingRowSelected" : ""]
-                .filter(Boolean)
-                .join(" ");
+              const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
               return (
-                <tr key={record.id} className={rowClass} onClick={() => setSelectedRecordId(record.id)}>
+                <tr
+                  key={record.id}
+                  className={rowClass}
+                  onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
+                >
                   <td style={{ minWidth: 140, verticalAlign: "middle" }}>
                     <span className="recruitingTeamNamePill" title={record.teamName || record.linkedTrip?.name || ""}>
                       {record.teamName || record.linkedTrip?.name || "—"}
@@ -3551,7 +3556,7 @@ export default function RecruitingPage() {
           <div
             key={record.id}
             className="card pad recruitingMobileCard"
-            onClick={() => setSelectedRecordId(record.id)}
+            onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
           >
             <div className="recruitingMobileCardHeader">
               <div>
@@ -3768,6 +3773,9 @@ export default function RecruitingPage() {
                 </button>
               ))}
             </div>
+            <div className="small recruitingDesktopOnly" style={{ marginBottom: 10, color: "var(--muted)", lineHeight: 1.45 }}>
+              Double-click a row to open the edit form. Click the dimmed area outside the form to close it (or use Close).
+            </div>
 
             {activeTab === "outreach" ? (
               <>
@@ -3810,6 +3818,8 @@ export default function RecruitingPage() {
       {recordDetailsModalOpen ? (
         <div
           className="appModalOverlay"
+          role="presentation"
+          onClick={closeRecordDetailsModal}
           style={{
             position: "fixed",
             inset: 0,
@@ -3820,7 +3830,13 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad appModalCard" style={{ width: "min(920px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
+          <div
+            className="card pad appModalCard"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+            style={{ width: "min(920px, 100%)", maxHeight: "85vh", overflow: "auto" }}
+          >
             <div className="row" style={{ marginBottom: 10 }}>
               <div style={{ fontWeight: 900 }}>
                 {recordDetailsMode === "history"
@@ -3874,7 +3890,7 @@ export default function RecruitingPage() {
                   Contact history
                 </button>
               ) : null}
-              <button className="btn" type="button" onClick={() => setRecordDetailsModalOpen(false)}>
+              <button className="btn" type="button" onClick={closeRecordDetailsModal}>
                 Close
               </button>
             </div>
