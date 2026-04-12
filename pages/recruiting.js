@@ -2920,7 +2920,8 @@ export default function RecruitingPage() {
     }
 
     return (
-      <DraggableTable>
+      <div className="recruitingBoardTableHost">
+        <DraggableTable>
         <table
           className={`table recruitingCompactTable recruitingBoardWideTable recruitingBoardTable recruitingFont-${tableFontSize}`}
         >
@@ -3097,7 +3098,8 @@ export default function RecruitingPage() {
             })}
           </tbody>
         </table>
-      </DraggableTable>
+        </DraggableTable>
+      </div>
     );
   }
 
@@ -3194,7 +3196,8 @@ export default function RecruitingPage() {
     }
 
     return (
-      <DraggableTable>
+      <div className="recruitingBoardTableHost">
+        <DraggableTable>
         <table
           className={`table recruitingCompactTable recruitingBoardWideTable recruitingBoardTable recruitingFont-${tableFontSize}`}
         >
@@ -3319,7 +3322,8 @@ export default function RecruitingPage() {
             })}
           </tbody>
         </table>
-      </DraggableTable>
+        </DraggableTable>
+      </div>
     );
   }
 
@@ -3419,7 +3423,8 @@ export default function RecruitingPage() {
     }
 
     return (
-      <DraggableTable>
+      <div className="recruitingBoardTableHost">
+        <DraggableTable>
         <table
           className={`table recruitingCompactTable recruitingBoardWideTable recruitingBoardTable recruitingFont-${tableFontSize}`}
         >
@@ -3524,7 +3529,8 @@ export default function RecruitingPage() {
             })}
           </tbody>
         </table>
-      </DraggableTable>
+        </DraggableTable>
+      </div>
     );
   }
 
@@ -3741,9 +3747,9 @@ export default function RecruitingPage() {
         </div>
       ) : null}
 
-      <div style={{ display: "grid", gap: 16 }}>
-        <div style={{ display: "grid", gap: 16 }}>
-          <div className="card pad">
+      <div className="recruitingPageStack" style={{ display: "grid", gap: 16 }}>
+        <div className="recruitingPageStack" style={{ display: "grid", gap: 16 }}>
+          <div className="card pad recruitingBoardCard">
             <div className="recruitingBoardTabs" style={{ marginBottom: 10 }}>
               {RECRUITING_TABS.map((tab) => (
                 <button

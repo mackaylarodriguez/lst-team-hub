@@ -1089,9 +1089,27 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .sitesLogisticsOpenLink:hover{text-decoration:underline}
 .recruitingTableScroller{
   width:100%;
+  max-width:100%;
+  min-width:0;
   overflow-x:auto;
   overflow-y:visible;
   cursor:grab;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+}
+.recruitingBoardTableHost{
+  min-width:0;
+  width:100%;
+  max-width:100%;
+}
+.recruitingPageStack{
+  min-width:0;
+  width:100%;
+  max-width:100%;
+}
+.recruitingBoardCard{
+  min-width:0;
+  max-width:100%;
 }
 .recruitingToolbar{
   display:flex;
@@ -1241,10 +1259,22 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   cursor:grabbing;
   user-select:none;
 }
-.recruitingBoardWideTable{
+/* Must beat `.table { width:100% }` so the table is wider than the viewport and scrolls inside .recruitingTableScroller */
+.table.recruitingBoardWideTable{
   width:max-content;
   min-width:100%;
   table-layout:auto;
+}
+.recruitingBoardTable .recruitingFitEmailCell,
+.recruitingBoardTable .recruitingFitEmailCell > div,
+.recruitingBoardTable .recruitingRosterChartEmail{
+  font-size:9px;
+  line-height:1.3;
+  color:var(--muted);
+  font-weight:500;
+}
+.recruitingBoardTable .recruitingRosterChartName{
+  font-size:10px;
 }
 .recruitingBoardTable.recruitingCompactTable th,
 .recruitingBoardTable.recruitingCompactTable td{
@@ -1500,6 +1530,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   line-height:1.2;
 }
 .recruitingMobileCardEmail{
+  font-size:11px;
+  line-height:1.35;
+  color:var(--muted);
   overflow-wrap:anywhere;
 }
 .recruitingMobileMeta{
