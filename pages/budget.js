@@ -2556,7 +2556,7 @@ export default function BudgetPage() {
               </p>
             ) : (
               <div className="budgetTableScroller">
-                <table className="table dataTableStriped" style={{ minWidth: 880, fontSize: 12 }}>
+                <table className="table dataTableStriped" style={{ minWidth: 1040, fontSize: 12 }}>
                   <thead>
                     <tr>
                       <th>Requested</th>
@@ -2565,7 +2565,8 @@ export default function BudgetPage() {
                       <th>Check amount</th>
                       <th>Requested by</th>
                       <th>Processed by</th>
-                      <th style={{ minWidth: 88 }}></th>
+                      <th>Note</th>
+                      <th style={{ minWidth: 88 }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2581,6 +2582,9 @@ export default function BudgetPage() {
                         </td>
                         <td className="small">{r.requestedByName || r.requestedByEmail || "—"}</td>
                         <td className="small">{r.processedByName || r.processedByEmail || "—"}</td>
+                        <td className="small" style={{ maxWidth: 280, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                          {r.note || "—"}
+                        </td>
                         <td style={{ verticalAlign: "top" }}>
                           <button
                             type="button"
