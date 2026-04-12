@@ -6,7 +6,7 @@
  * - BUDGET_CHECK_ASSIGNEE_EMAIL or DONNA_STAFF_EMAIL — personal task assignee (Donna’s staff email).
  * - BUDGET_CHECK_ASSIGNEE_NAME — optional display name on the misc task.
  * - BUDGET_CHECK_DUE_DAYS — days until misc-task due date (default 14).
- * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL — send notification email via Resend.
+ * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL — send notification email via Resend (both required for email).
  *
  * PATCH body: { id, action } — actions: mark_processed | update (amount, note; pending only) | delete.
  */
@@ -152,8 +152,16 @@ function addDaysIsoDate(days) {
 async function sendNotifyEmail({ to, subject, html }) {
   const key = normalizeText(process.env.RESEND_API_KEY);
   const from = normalizeText(process.env.BUDGET_CHECK_FROM_EMAIL);
-  if (!key || !from || !normalizeEmail(to)) {
-    return { sent: false, reason: "missing_resend_or_from_or_to" };
+  const toNorm = normalizeEmail(to);
+
+  if (!key) {
+    return { sent: false, reason: "missing_resend_api_key" };
+  }
+  if (!from) {
+    return { sent: false, reason: "missing_from_email" };
+  }
+  if (!toNorm) {
+    return { sent: false, reason: "missing_notify_to" };
   }
 
   const res = await fetch("https://api.resend.com/emails", {
@@ -164,7 +172,7 @@ async function sendNotifyEmail({ to, subject, html }) {
     },
     body: JSON.stringify({
       from,
-      to: [normalizeEmail(to)],
+      to: [toNorm],
       subject,
       html,
     }),
@@ -348,6 +356,9 @@ export default async function handler(req, res) {
     `.trim();
 
     const emailResult = await sendNotifyEmail({ to: notifyTo, subject, html });
+    if (!emailResult.sent) {
+      console.warn("[budget-check-request] notification email not sent:", emailResult.reason, emailResult.detail || "");
+    }
 
     return res.status(200).json({
       ok: true,

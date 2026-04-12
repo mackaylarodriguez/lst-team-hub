@@ -43,6 +43,7 @@ import {
   submitBudgetCheckRequest,
   updateBudgetCheckRequest,
 } from "@/lib/budgetCheckRequests";
+import { budgetCheckSubmitToast } from "@/lib/budgetCheckSubmitFeedback";
 import { buildSiteLabelsOrdered, resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
 
 function n(val) {
@@ -895,7 +896,7 @@ export default function BudgetPage() {
     }
     try {
       setBudgetCheckSubmitting(true);
-      await submitBudgetCheckRequest({
+      const submitResult = await submitBudgetCheckRequest({
         tripId,
         amount: newBudgetCheckAmount,
         note: newBudgetCheckNote,
@@ -904,7 +905,8 @@ export default function BudgetPage() {
       setBudgetCheckRows(next);
       setNewBudgetCheckAmount("");
       setNewBudgetCheckNote("");
-      showToast("Budget check requested.", "success");
+      const { type, message } = budgetCheckSubmitToast(submitResult);
+      showToast(message, type);
     } catch (e) {
       showToast(e.message || "Request failed.", "error");
     } finally {

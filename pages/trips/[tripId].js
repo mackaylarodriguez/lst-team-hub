@@ -136,6 +136,7 @@ import {
   submitBudgetCheckRequest,
   updateBudgetCheckRequest,
 } from "@/lib/budgetCheckRequests";
+import { budgetCheckSubmitToast } from "@/lib/budgetCheckSubmitFeedback";
 import { getTripTeamLogisticsForViewer, saveTripTeamLogisticsByTeam } from "@/lib/tripTeamLogistics";
 import {
   buildSiteLabelsOrdered,
@@ -7338,12 +7339,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
         });
         showToast("Check request updated.", "success");
       } else {
-        await submitBudgetCheckRequest({
+        const submitResult = await submitBudgetCheckRequest({
           tripId: trip.id,
           amount: amt,
           note: budgetCheckNote,
         });
-        showToast("Budget check requested. Track it on Budget → Checks.", "success");
+        const { type, message } = budgetCheckSubmitToast(submitResult);
+        if (type === "success") {
+          showToast(`${message.replace(/\.\s*$/, "")}. Track it on Budget → Checks.`, "success");
+        } else {
+          showToast(message, "error");
+        }
       }
       try {
         setTripBudgetCheckRequests(await listBudgetCheckRequestsForTrip(trip.id));

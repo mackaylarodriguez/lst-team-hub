@@ -18,7 +18,9 @@ export default function Toast() {
       if (!message) return;
       if (timeoutId) clearTimeout(timeoutId);
       setToast({ message, type: type || "success" });
-      timeoutId = setTimeout(() => setToast(null), 4000);
+      const ms =
+        type === "error" && String(message || "").length > 120 ? 10000 : 4000;
+      timeoutId = setTimeout(() => setToast(null), ms);
     }
 
     window.addEventListener(TOAST_EVENT, handle);
