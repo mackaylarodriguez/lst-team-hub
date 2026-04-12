@@ -947,6 +947,38 @@ function buildTeamFormDraft(record) {
   };
 }
 
+function getPendingLockSetupRecord(record) {
+  const p = record?.pendingLockTeamSetup && typeof record.pendingLockTeamSetup === "object"
+    ? record.pendingLockTeamSetup
+    : {};
+  return p;
+}
+
+/** Slim board "Project dates" column: row `project_dates`, else Site & logistics leave/return. */
+function recruitingBoardProjectDatesLabel(record) {
+  const pd = String(record?.projectDates || "").trim();
+  if (pd) return pd;
+  const pending = getPendingLockSetupRecord(record);
+  const a = String(pending.startDate || "").trim();
+  const b = String(pending.endDate || "").trim();
+  if (a && b) {
+    return `${formatDate(a)} → ${formatDate(b)}`;
+  }
+  if (a) return formatDate(a);
+  if (b) return formatDate(b);
+  return "";
+}
+
+/** Slim board "Weeks" column: numeric `weeks`, else length-of-projects from lock setup draft. */
+function recruitingBoardWeeksLabel(record) {
+  if (record?.weeks !== null && record?.weeks !== undefined && String(record.weeks).trim() !== "") {
+    return String(record.weeks);
+  }
+  const summary = String(getPendingLockSetupRecord(record).projectLengthSummary || "").trim();
+  if (summary) return summary;
+  return "";
+}
+
 function formatDateTime(value) {
   if (!value) return "";
   return new Date(value).toLocaleString([], {
@@ -2903,13 +2935,13 @@ export default function RecruitingPage() {
                   </td>
                   <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterBoardColumn(record)}</td>
                   <td style={{ minWidth: 124, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(d.recruitingProjectDates)}</div>
+                    <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
                   </td>
                   <td style={{ minWidth: 128, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(d.location)}</div>
                   </td>
                   <td style={{ minWidth: 72, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(d.recruitingWeeks)}</div>
+                    <div className="recruitingChartCell">{chartDashText(recruitingBoardWeeksLabel(record))}</div>
                   </td>
                   <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
@@ -2993,9 +3025,9 @@ export default function RecruitingPage() {
               </div>
               <div style={{ marginTop: 4 }}>{renderRecruitingRosterBoardColumn(record)}</div>
               <div className="recruitingMobileMeta">
-                <span title="Project dates">{chartDashText(d.recruitingProjectDates)}</span>
+                <span title="Project dates">{chartDashText(recruitingBoardProjectDatesLabel(record))}</span>
                 <span title="Site">{chartDashText(d.location)}</span>
-                <span title="Weeks">{chartDashText(d.recruitingWeeks)}</span>
+                <span title="Weeks">{chartDashText(recruitingBoardWeeksLabel(record))}</span>
               </div>
               <div className="recruitingMobileNotes">
                 <textarea
@@ -3086,13 +3118,13 @@ export default function RecruitingPage() {
                   </td>
                   <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterBoardColumn(record)}</td>
                   <td style={{ minWidth: 124, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(d.recruitingProjectDates)}</div>
+                    <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
                   </td>
                   <td style={{ minWidth: 128, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(d.location)}</div>
                   </td>
                   <td style={{ minWidth: 72, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(d.recruitingWeeks)}</div>
+                    <div className="recruitingChartCell">{chartDashText(recruitingBoardWeeksLabel(record))}</div>
                   </td>
                   <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
@@ -3174,9 +3206,9 @@ export default function RecruitingPage() {
               </div>
               <div style={{ marginTop: 4 }}>{renderRecruitingRosterBoardColumn(record)}</div>
               <div className="recruitingMobileMeta">
-                <span title="Project dates">{chartDashText(d.recruitingProjectDates)}</span>
+                <span title="Project dates">{chartDashText(recruitingBoardProjectDatesLabel(record))}</span>
                 <span title="Site">{chartDashText(d.location)}</span>
-                <span title="Weeks">{chartDashText(d.recruitingWeeks)}</span>
+                <span title="Weeks">{chartDashText(recruitingBoardWeeksLabel(record))}</span>
               </div>
               <div className="recruitingMobileNotes">
                 <textarea
@@ -3271,13 +3303,13 @@ export default function RecruitingPage() {
                   </td>
                   <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterBoardColumn(record)}</td>
                   <td style={{ minWidth: 124, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(d.recruitingProjectDates)}</div>
+                    <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
                   </td>
                   <td style={{ minWidth: 128, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(d.location)}</div>
                   </td>
                   <td style={{ minWidth: 72, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(d.recruitingWeeks)}</div>
+                    <div className="recruitingChartCell">{chartDashText(recruitingBoardWeeksLabel(record))}</div>
                   </td>
                   <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
@@ -3372,9 +3404,9 @@ export default function RecruitingPage() {
             </div>
             <div style={{ marginTop: 4 }}>{renderRecruitingRosterBoardColumn(record)}</div>
             <div className="recruitingMobileMeta">
-              <span title="Project dates">{chartDashText(d.recruitingProjectDates)}</span>
+              <span title="Project dates">{chartDashText(recruitingBoardProjectDatesLabel(record))}</span>
               <span title="Site">{chartDashText(d.location)}</span>
-              <span title="Weeks">{chartDashText(d.recruitingWeeks)}</span>
+              <span title="Weeks">{chartDashText(recruitingBoardWeeksLabel(record))}</span>
             </div>
             <div className="recruitingMobileNotes">
               <textarea
