@@ -4392,19 +4392,6 @@ function parseDateSafe(dateStr) {
     }).format(date);
   }
 
-  /** Incomplete worker task with a due date before today (local calendar). */
-  function isWorkerTripTaskPastDue(dueStr, isComplete) {
-    if (isComplete) return false;
-    const ymd = toDateInputValue(dueStr);
-    if (!ymd) return false;
-    const due = parseDateSafe(ymd);
-    if (!due) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    due.setHours(0, 0, 0, 0);
-    return due.getTime() < today.getTime();
-  }
-
   function groupTasksByWorkArea(tasks) {
     const groups = {};
 
@@ -8275,26 +8262,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
               {overviewUpcomingTasks.length > 0 ? (
                 <div style={{ display: "grid", gap: 10 }}>
                   {overviewUpcomingTasks.map((task) => {
-                    const workerOverviewItem =
-                      task.destinationTab === "Tasks" || task.destinationTab === "Trip Documents";
-                    const workerOverviewPastDue =
-                      !canViewTeamDashboard &&
-                      workerOverviewItem &&
-                      isWorkerTripTaskPastDue(task.dueDate, false);
                     return (
                     <div
                       key={task.id}
                       style={{
                         paddingBottom: 10,
                         borderBottom: "1px solid var(--border)",
-                        ...(workerOverviewPastDue
-                          ? {
-                              color: "var(--danger)",
-                              borderLeft: "3px solid var(--danger)",
-                              paddingLeft: 10,
-                              marginLeft: -4,
-                            }
-                          : {}),
                       }}
                     >
                       {canViewTeamDashboard ? (
@@ -10150,7 +10123,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           <div style={{ display: "grid", gap: 0 }}>
                             {sectionTasks.map((task) => {
                               const done = !!taskState[task.id];
-                              const workerTaskPastDue = isWorkerTripTaskPastDue(task.due, done);
                               const isTravelFormTask = task.title === "Fill out Travel Form";
                               const canFillTravelForm = isTravelFormTask && String(participant.id) === String(currentParticipant?.id);
                               const workerTaskTemplate = findWorkerTaskTemplate(task);
@@ -10188,15 +10160,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                     padding: "8px 0",
                                     borderBottom: "1px solid var(--border)",
                                     alignItems: "flex-start",
-                                    ...(workerTaskPastDue
-                                      ? {
-                                          background: "rgba(239, 68, 68, 0.07)",
-                                          borderLeft: "3px solid var(--danger)",
-                                          paddingLeft: 10,
-                                          marginLeft: -4,
-                                          borderRadius: 6,
-                                        }
-                                      : {}),
                                   }}
                                 >
                                   <input
@@ -10209,10 +10172,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                   <div
                                       style={{
                                         fontSize: 13,
-                                        fontWeight: workerTaskPastDue ? 600 : 400,
+                                        fontWeight: 400,
                                         lineHeight: 1.35,
                                         marginBottom: 4,
-                                        color: workerTaskPastDue ? "var(--danger)" : undefined,
                                       }}
                                     >
                                       {task.title}
@@ -10314,8 +10276,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                         <div
                                           className="small"
                                           style={{
-                                            color: workerTaskPastDue ? "var(--danger)" : "var(--muted)",
-                                            fontWeight: workerTaskPastDue ? 600 : undefined,
+                                            color: "var(--muted)",
                                             lineHeight: 1.4,
                                           }}
                                         >
@@ -10336,11 +10297,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                         <button
                                           type="button"
                                           className="staffTaskDateButton"
-                                          style={
-                                            workerTaskPastDue
-                                              ? { color: "var(--danger)", fontWeight: 700 }
-                                              : undefined
-                                          }
                                           onClick={() => {
                                             setEditingWorkerTaskDateId(task.id);
                                             setEditingWorkerDueParticipantKey(workerDueParticipantKey);
@@ -10351,12 +10307,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                         </button>
                                       )
                                       ) : (
-                                        <div
-                                          className="small"
-                                          style={
-                                            workerTaskPastDue ? { color: "var(--danger)", fontWeight: 600 } : undefined
-                                          }
-                                        >
+                                        <div className="small">
                                         {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
                                       </div>
                                     )}
