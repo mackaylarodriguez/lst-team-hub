@@ -7370,6 +7370,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
       } catch {
         /* list refresh is best-effort */
       }
+      if (typeof window !== "undefined" && trip.id) {
+        window.dispatchEvent(
+          new CustomEvent(STAFF_TASKS_UPDATED_EVENT, { detail: { tripId: trip.id } })
+        );
+      }
       setBudgetCheckModalOpen(false);
       setBudgetCheckEditingId("");
       setBudgetCheckAmount("");
@@ -7390,6 +7395,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
         setTripBudgetCheckRequests(await listBudgetCheckRequestsForTrip(trip.id));
       } catch {
         /* ignore */
+      }
+      if (typeof window !== "undefined" && trip.id) {
+        window.dispatchEvent(
+          new CustomEvent(STAFF_TASKS_UPDATED_EVENT, { detail: { tripId: trip.id } })
+        );
       }
       showToast("Request deleted.", "success");
     } catch (e) {

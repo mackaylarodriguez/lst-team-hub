@@ -1,6 +1,9 @@
 /**
  * Budget check (printed check) workflow for staff/admin.
  *
+ * Creates `staff_misc_tasks` for the finance assignee (personal task list) and
+ * `trip_staff_tasks` so the request appears on the trip **Staff Tasks** tab.
+ *
  * Env (optional):
  * - BUDGET_CHECK_NOTIFY_EMAIL — notification recipient (use during testing so finance isn’t flooded).
  * - BUDGET_CHECK_ASSIGNEE_EMAIL or DONNA_STAFF_EMAIL — optional override for the misc-task assignee (defaults to
@@ -222,6 +225,17 @@ function buildBudgetCheckMiscTaskTitle(tripName, tripIdFallback, amountRequested
   return `Print check — ${t} (${amountRequested})`;
 }
 
+/** Trip Staff Tasks tab reads `trip_staff_tasks`; id must stay stable per budget_check_requests row. */
+function buildBudgetCheckTripStaffTaskId(tripId, budgetRequestId) {
+  return `${tripId}-finance-budget-check-${budgetRequestId}`;
+}
+
+function assigneeDisplayFirstName(assigneeName) {
+  const n = normalizeText(assigneeName);
+  if (!n) return "Donna";
+  return n.split(/\s+/)[0];
+}
+
 function buildBudgetCheckMiscTaskNotes({
   tripId,
   tripName,
@@ -359,6 +373,30 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: insertErr.message || "Could not save request." });
     }
 
+    const tripStaffTaskId = buildBudgetCheckTripStaffTaskId(tripId, row.id);
+    const { error: tripTaskErr } = await admin.from("trip_staff_tasks").insert({
+      id: tripStaffTaskId,
+      trip_id: tripId,
+      work_area: "Finance",
+      sequence: 1,
+      task_name: taskTitle,
+      assigned_to: assigneeDisplayFirstName(assignee.name),
+      progress: "Not started",
+      due_date: dueDate,
+      notes: taskNotes,
+    });
+
+    if (tripTaskErr) {
+      console.error("[budget-check-request] trip_staff_tasks insert", tripTaskErr);
+      await admin.from("budget_check_requests").delete().eq("id", row.id);
+      if (staffMiscTaskId) {
+        await admin.from("staff_misc_tasks").delete().eq("id", staffMiscTaskId);
+      }
+      return res.status(500).json({
+        error: tripTaskErr.message || "Could not add this request to the trip Staff Tasks list.",
+      });
+    }
+
     const notifyTo =
       normalizeEmail(process.env.BUDGET_CHECK_NOTIFY_EMAIL) ||
       assignee.email ||
@@ -444,24 +482,25 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: updErr.message || "Could not update request." });
       }
 
+      const nowIso = new Date().toISOString();
+      const tripNameSnap = normalizeText(existing.trip_name_snapshot);
+      const taskTitle = buildBudgetCheckMiscTaskTitle(
+        tripNameSnap,
+        existing.trip_id,
+        amountRequested
+      );
+      const taskNotes = buildBudgetCheckMiscTaskNotes({
+        tripId: existing.trip_id,
+        tripName: tripNameSnap,
+        teamNameSnap: normalizeText(existing.team_name_snapshot),
+        accountantSnap: normalizeText(existing.team_accountant_snapshot),
+        budgetAmtSnap: normalizeText(existing.budget_amount_snapshot),
+        amountRequested,
+        note,
+        requesterLine,
+      });
+
       if (existing.staff_misc_task_id) {
-        const nowIso = new Date().toISOString();
-        const tripNameSnap = normalizeText(existing.trip_name_snapshot);
-        const taskTitle = buildBudgetCheckMiscTaskTitle(
-          tripNameSnap,
-          existing.trip_id,
-          amountRequested
-        );
-        const taskNotes = buildBudgetCheckMiscTaskNotes({
-          tripId: existing.trip_id,
-          tripName: tripNameSnap,
-          teamNameSnap: normalizeText(existing.team_name_snapshot),
-          accountantSnap: normalizeText(existing.team_accountant_snapshot),
-          budgetAmtSnap: normalizeText(existing.budget_amount_snapshot),
-          amountRequested,
-          note,
-          requesterLine,
-        });
         const { error: taskUpdErr } = await admin
           .from("staff_misc_tasks")
           .update({
@@ -476,18 +515,38 @@ export default async function handler(req, res) {
         }
       }
 
+      const tripStaffTaskId = buildBudgetCheckTripStaffTaskId(existing.trip_id, existing.id);
+      const { error: tripSyncErr } = await admin
+        .from("trip_staff_tasks")
+        .update({
+          task_name: taskTitle,
+          notes: taskNotes,
+          updated_at: nowIso,
+        })
+        .eq("id", tripStaffTaskId);
+      if (tripSyncErr) {
+        console.error("[budget-check-request] trip staff task sync on update", tripSyncErr);
+      }
+
       return res.status(200).json({ ok: true, request: updated });
     }
 
     if (action === "delete") {
       const { data: existing, error: loadErr } = await admin
         .from("budget_check_requests")
-        .select("id, staff_misc_task_id")
+        .select("id, trip_id, staff_misc_task_id")
         .eq("id", id)
         .maybeSingle();
 
       if (loadErr || !existing) {
         return res.status(404).json({ error: "Request not found." });
+      }
+
+      const tripStaffTaskId = buildBudgetCheckTripStaffTaskId(existing.trip_id, existing.id);
+      const { error: delTripTaskErr } = await admin.from("trip_staff_tasks").delete().eq("id", tripStaffTaskId);
+      if (delTripTaskErr) {
+        console.error("[budget-check-request] delete trip staff task", delTripTaskErr);
+        return res.status(500).json({ error: delTripTaskErr.message || "Could not remove trip staff task." });
       }
 
       if (existing.staff_misc_task_id) {
@@ -553,6 +612,12 @@ export default async function handler(req, res) {
         .update({ progress: "Complete", updated_at: nowIso })
         .eq("id", existing.staff_misc_task_id);
     }
+
+    const tripStaffTaskIdDone = buildBudgetCheckTripStaffTaskId(existing.trip_id, existing.id);
+    await admin
+      .from("trip_staff_tasks")
+      .update({ progress: "Complete", updated_at: nowIso })
+      .eq("id", tripStaffTaskIdDone);
 
     return res.status(200).json({ ok: true, request: updated });
   }

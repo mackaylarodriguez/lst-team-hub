@@ -44,6 +44,7 @@ import {
   updateBudgetCheckRequest,
 } from "@/lib/budgetCheckRequests";
 import { budgetCheckSubmitToast } from "@/lib/budgetCheckSubmitFeedback";
+import { STAFF_TASKS_UPDATED_EVENT } from "@/lib/staffTasks";
 import { buildSiteLabelsOrdered, resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
 
 function n(val) {
@@ -907,6 +908,11 @@ export default function BudgetPage() {
       setNewBudgetCheckNote("");
       const { type, message } = budgetCheckSubmitToast(submitResult);
       showToast(message, type);
+      if (typeof window !== "undefined" && tripId) {
+        window.dispatchEvent(
+          new CustomEvent(STAFF_TASKS_UPDATED_EVENT, { detail: { tripId } })
+        );
+      }
     } catch (e) {
       showToast(e.message || "Request failed.", "error");
     } finally {
@@ -917,10 +923,16 @@ export default function BudgetPage() {
   async function handleMarkBudgetCheckProcessed(id) {
     try {
       setBudgetCheckProcessingId(id);
+      const rowForTrip = budgetCheckRows.find((r) => r.id === id);
       await markBudgetCheckRequestProcessed(id);
       const next = await listBudgetCheckRequests();
       setBudgetCheckRows(next);
       showToast("Marked processed.", "success");
+      if (typeof window !== "undefined" && rowForTrip?.tripId) {
+        window.dispatchEvent(
+          new CustomEvent(STAFF_TASKS_UPDATED_EVENT, { detail: { tripId: rowForTrip.tripId } })
+        );
+      }
     } catch (e) {
       showToast(e.message || "Could not update.", "error");
     } finally {
@@ -958,6 +970,12 @@ export default function BudgetPage() {
       setBudgetCheckRows(next);
       closeBudgetCheckEdit();
       showToast("Request updated.", "success");
+      const edited = next.find((r) => r.id === budgetCheckEditId);
+      if (typeof window !== "undefined" && edited?.tripId) {
+        window.dispatchEvent(
+          new CustomEvent(STAFF_TASKS_UPDATED_EVENT, { detail: { tripId: edited.tripId } })
+        );
+      }
     } catch (e) {
       showToast(e.message || "Could not save.", "error");
     } finally {
@@ -967,12 +985,18 @@ export default function BudgetPage() {
 
   async function handleConfirmDeleteBudgetCheck() {
     if (!budgetCheckDeleteId) return;
+    const rowForTrip = budgetCheckRows.find((r) => r.id === budgetCheckDeleteId);
     try {
       await deleteBudgetCheckRequest(budgetCheckDeleteId);
       const next = await listBudgetCheckRequests();
       setBudgetCheckRows(next);
       setBudgetCheckDeleteId("");
       showToast("Request deleted.", "success");
+      if (typeof window !== "undefined" && rowForTrip?.tripId) {
+        window.dispatchEvent(
+          new CustomEvent(STAFF_TASKS_UPDATED_EVENT, { detail: { tripId: rowForTrip.tripId } })
+        );
+      }
     } catch (e) {
       showToast(e.message || "Could not delete.", "error");
     }
