@@ -500,6 +500,19 @@ function formatDraftAmount(value) {
   return value === null || value === undefined || value === "" ? "" : String(value);
 }
 
+/** Standard defaults — show empty field + grey placeholder like domestic fees, not prefilled values. */
+const DEFAULT_TRIP_FEE_AMOUNT = 600;
+const DEFAULT_MATERIALS_FEE_AMOUNT = 250;
+const DEFAULT_HANNOVER_HOUSING_FEE_AMOUNT = 600;
+
+function draftFeeAmountUnlessDefault(storedValue, defaultAmount) {
+  if (storedValue === null || storedValue === undefined || storedValue === "") return "";
+  const n = Number(storedValue);
+  if (!Number.isFinite(n)) return formatDraftAmount(storedValue);
+  if (n === defaultAmount) return "";
+  return String(n);
+}
+
 function buildDateOffsetFromToday(daysToAdd) {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
@@ -522,10 +535,13 @@ function buildTripSetupDraft(trip) {
     startDate: trip?.startDate || "",
     endDate: trip?.endDate || "",
     fundraisingGoalAmount: formatDraftAmount(trip?.fundraisingGoalAmount),
-    tripFeeAmount: formatDraftAmount(trip?.tripFeeAmount),
-    materialsFeeAmount: formatDraftAmount(trip?.materialsFeeAmount),
+    tripFeeAmount: draftFeeAmountUnlessDefault(trip?.tripFeeAmount, DEFAULT_TRIP_FEE_AMOUNT),
+    materialsFeeAmount: draftFeeAmountUnlessDefault(trip?.materialsFeeAmount, DEFAULT_MATERIALS_FEE_AMOUNT),
     hasDeferredWorker: trip?.hasDeferredWorker ? "yes" : "no",
-    hannoverHousingFeeAmount: formatDraftAmount(trip?.hannoverHousingFeeAmount),
+    hannoverHousingFeeAmount: draftFeeAmountUnlessDefault(
+      trip?.hannoverHousingFeeAmount,
+      DEFAULT_HANNOVER_HOUSING_FEE_AMOUNT
+    ),
     domesticProjectFeeAmount: formatDraftAmount(trip?.domesticProjectFeeAmount),
     domesticFeeAmount: formatDraftAmount(trip?.domesticFeeAmount),
     domesticMaterialsFeeAmount: formatDraftAmount(trip?.domesticMaterialsFeeAmount),
@@ -4910,9 +4926,15 @@ function parseDateSafe(dateStr) {
 
     try {
       setTripSetupStatus("Saving...");
+      const trimmedTripFee = String(tripSetupDraft.tripFeeAmount ?? "").trim();
+      const trimmedMaterials = String(tripSetupDraft.materialsFeeAmount ?? "").trim();
+      const trimmedHannover = String(tripSetupDraft.hannoverHousingFeeAmount ?? "").trim();
       const savedTrip = await updateTripForCurrentUser({
         tripId: trip.id,
         ...tripSetupDraft,
+        tripFeeAmount: trimmedTripFee || String(DEFAULT_TRIP_FEE_AMOUNT),
+        materialsFeeAmount: trimmedMaterials || String(DEFAULT_MATERIALS_FEE_AMOUNT),
+        hannoverHousingFeeAmount: trimmedHannover || String(DEFAULT_HANNOVER_HOUSING_FEE_AMOUNT),
       });
 
       setTrip((current) =>
@@ -5551,23 +5573,25 @@ function parseDateSafe(dateStr) {
                   <div>
                     <div className="small" style={{ marginBottom: 6 }}>Fee</div>
                     <input
-                      className="input"
+                      className="input recruitingFundingInput"
                       type="number"
                       min="0"
                       step="1"
                       value={tripSetupDraft.tripFeeAmount}
                       onChange={(event) => updateTripSetupDraft("tripFeeAmount", event.target.value)}
+                      placeholder={String(DEFAULT_TRIP_FEE_AMOUNT)}
                     />
                   </div>
                   <div>
                     <div className="small" style={{ marginBottom: 6 }}>Materials Fee</div>
                     <input
-                      className="input"
+                      className="input recruitingFundingInput"
                       type="number"
                       min="0"
                       step="1"
                       value={tripSetupDraft.materialsFeeAmount}
                       onChange={(event) => updateTripSetupDraft("materialsFeeAmount", event.target.value)}
+                      placeholder={String(DEFAULT_MATERIALS_FEE_AMOUNT)}
                     />
                   </div>
                   <div>
@@ -5584,12 +5608,13 @@ function parseDateSafe(dateStr) {
                   <div>
                     <div className="small" style={{ marginBottom: 6 }}>Hannover Housing Fee</div>
                     <input
-                      className="input"
+                      className="input recruitingFundingInput"
                       type="number"
                       min="0"
                       step="1"
                       value={tripSetupDraft.hannoverHousingFeeAmount}
                       onChange={(event) => updateTripSetupDraft("hannoverHousingFeeAmount", event.target.value)}
+                      placeholder={String(DEFAULT_HANNOVER_HOUSING_FEE_AMOUNT)}
                     />
                   </div>
                   <div>
