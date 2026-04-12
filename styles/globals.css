@@ -1265,6 +1265,11 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   min-width:100%;
   table-layout:auto;
 }
+.table.recruitingBoardSlimTable{
+  width:100%;
+  min-width:0;
+  table-layout:auto;
+}
 .recruitingBoardTable .recruitingFitEmailCell,
 .recruitingBoardTable .recruitingFitEmailCell > div,
 .recruitingBoardTable .recruitingRosterChartEmail{

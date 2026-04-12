@@ -747,39 +747,8 @@ function chartDashText(value) {
   return s || "—";
 }
 
-const SITE_TYPE_CHART_LABELS = {
-  partner: "Partner",
-  managed: "Managed",
-  seasonal: "Seasonal",
-};
-
-function chartSiteTypeLabel(value) {
-  const key = String(value || "").trim().toLowerCase();
-  return SITE_TYPE_CHART_LABELS[key] || chartDashText(value);
-}
-
-function chartTrainingTimelineLabel(value) {
-  const v = String(value || "").trim();
-  const hit = TRAINING_TIMELINE_OPTIONS.find((o) => o.value === v);
-  return hit?.label || chartDashText(value);
-}
-
-function chartExtraTravelLabel(value) {
-  const v = String(value || "").trim().toLowerCase();
-  if (v === "yes") return "Yes";
-  if (v === "maybe") return "Maybe";
-  return "No";
-}
-
-function formatChartMemberStartEnd(member) {
-  const a = String(member?.startDate || "").trim();
-  const b = String(member?.endDate || "").trim();
-  if (a && b) return `${a} → ${b}`;
-  return chartDashText(a || b);
-}
-
-/** All roster members with name + email (+ phone / per-member trip dates when present) for board tables. */
-function renderRecruitingRosterChartColumn(record) {
+/** Roster column for board tables: name + email only (full roster detail stays in Edit). */
+function renderRecruitingRosterBoardColumn(record) {
   const draft = buildTeamFormDraft(record);
   const members = draft.teamMembers?.length ? draft.teamMembers : [];
 
@@ -787,9 +756,8 @@ function renderRecruitingRosterChartColumn(record) {
     <div className="recruitingRosterChartStack">
       {members.map((member, index) => {
         const name = [member.firstName, member.lastName].filter(Boolean).join(" ").trim();
-        const dates = formatChartMemberStartEnd(member);
         return (
-          <div key={`${record.id}-chart-roster-${index}`} className="recruitingRosterChartBlock">
+          <div key={`${record.id}-board-roster-${index}`} className="recruitingRosterChartBlock">
             <div className="recruitingRosterChartName">
               {index === 0 ? (
                 <span className="recruitingRosterPrimaryMark" title="Primary recruiting contact">
@@ -799,45 +767,11 @@ function renderRecruitingRosterChartColumn(record) {
               {name || chartDashText(member.email)}
             </div>
             {member.email ? <div className="recruitingRosterChartEmail">{member.email}</div> : null}
-            {member.phone ? <div className="small">{member.phone}</div> : null}
-            {dates !== "—" ? <div className="small">{dates}</div> : null}
           </div>
         );
       })}
     </div>
   );
-}
-
-function lockDraftChartCells(record) {
-  const d = buildTeamFormDraft(record);
-  const cell = (key, minWidth, content) => (
-    <td key={`${record.id}-lck-${key}`} style={{ minWidth, verticalAlign: "top" }}>
-      <div className="recruitingChartCell">{content}</div>
-    </td>
-  );
-
-  return [
-    cell("sd", 104, chartDashText(d.startDate)),
-    cell("ed", 104, chartDashText(d.endDate)),
-    cell("loc", 128, chartDashText(d.location)),
-    cell("host", 108, chartDashText(d.host)),
-    cell("stype", 92, chartSiteTypeLabel(d.siteType)),
-    cell("tt", 120, chartTrainingTimelineLabel(d.trainingTimelineType)),
-    cell("plen", 132, chartDashText(d.projectLengthSummary)),
-    cell("ptype", 76, chartDashText(d.projectType)),
-    cell("xt", 80, chartExtraTravelLabel(d.extraTravelStatus)),
-    cell("fg", 92, chartDashText(d.fundraisingGoalAmount)),
-    cell("fee", 76, chartDashText(d.tripFeeAmount)),
-    cell("mat", 84, chartDashText(d.materialsFeeAmount)),
-    cell("def", 80, d.hasDeferredWorker === "yes" ? "Yes" : "No"),
-    cell("han", 88, chartDashText(d.hannoverHousingFeeAmount)),
-    cell("dpr", 88, chartDashText(d.domesticProjectFeeAmount)),
-    cell("dfe", 80, chartDashText(d.domesticFeeAmount)),
-    cell("dma", 88, chartDashText(d.domesticMaterialsFeeAmount)),
-    cell("rpd", 124, chartDashText(d.recruitingProjectDates)),
-    cell("rwk", 68, chartDashText(d.recruitingWeeks)),
-    cell("rdep", 112, chartDashText(d.recruitingDepartureDate)),
-  ];
 }
 
 function formatDate(value) {
@@ -1032,16 +966,6 @@ function formatCompactDateTime(value) {
   });
 }
 
-function formatMonthDay(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-US", {
-    month: "numeric",
-    day: "numeric",
-  });
-}
-
 function formatContactActionLabel(actionType) {
   const normalizedAction = String(actionType || "").trim().toLowerCase();
   if (normalizedAction === "email") return "Emailed";
@@ -1052,23 +976,10 @@ function formatContactActionLabel(actionType) {
   return String(actionType || "").trim();
 }
 
-function formatLastContactSummary(record) {
-  if (!record?.lastContactedAt) return "-";
-  const dateLabel = formatMonthDay(record.lastContactedAt);
-  const actionLabel = formatContactActionLabel(record.lastContactMethod);
-  return actionLabel && dateLabel ? `${actionLabel} ${dateLabel}` : dateLabel || actionLabel || "-";
-}
-
 function isContactActionType(actionType) {
   return ["email", "call", "text", "bulk email", "bulk text"].includes(
     String(actionType || "").trim().toLowerCase()
   );
-}
-
-function formatContactHistorySummary(entry) {
-  const actionLabel = formatContactActionLabel(entry?.actionType);
-  const dateLabel = formatMonthDay(entry?.actionDate || entry?.createdAt);
-  return [actionLabel, dateLabel].filter(Boolean).join(" ");
 }
 
 function formatPreviousContactLabel(entry) {
@@ -1079,24 +990,6 @@ function formatPreviousContactLabel(entry) {
   if (normalizedAction === "bulk email") return "Bulk emailed previously";
   if (normalizedAction === "bulk text") return "Bulk texted previously";
   return `${formatContactActionLabel(entry?.actionType) || "Contacted"} previously`;
-}
-
-function shouldShowLastContactToggle(record, contactActivity) {
-  if (contactActivity.length > 1) return true;
-  if (contactActivity.length === 1) {
-    const entry = contactActivity[0];
-    const combinedText = [formatContactHistorySummary(entry), entry?.summary].filter(Boolean).join(" ");
-    return combinedText.length > 90;
-  }
-
-  return formatLastContactSummary(record).length > 90;
-}
-
-function getRecruitingOwnerBadgeClass(owner) {
-  const normalizedOwner = normalizeOwnerName(owner);
-  if (normalizedOwner === normalizeOwnerName(PRIMARY_OWNER)) return "recruitingOwnerBadgePrimary";
-  if (normalizedOwner === normalizeOwnerName(BOSS_OWNER)) return "recruitingOwnerBadgeBoss";
-  return "badgeInfo";
 }
 
 function formatRecruitingUpdateMeta(record, latestActivity) {
@@ -1562,7 +1455,6 @@ export default function RecruitingPage() {
   const [activeTab, setActiveTab] = useState("outreach");
   const [selectedRecordId, setSelectedRecordId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
-  const [expandedLastContactById, setExpandedLastContactById] = useState({});
   const [expandedContactHistoryById, setExpandedContactHistoryById] = useState({});
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [newContactDraft, setNewContactDraft] = useState(() => createEmptyNewContactDraft());
@@ -2904,13 +2796,6 @@ export default function RecruitingPage() {
     setAddContactModalOpen(true);
   }
 
-  function toggleLastContactExpanded(recordId) {
-    setExpandedLastContactById((current) => ({
-      ...current,
-      [recordId]: !current[recordId],
-    }));
-  }
-
   function toggleContactHistoryExpanded(recordId) {
     setExpandedContactHistoryById((current) => ({
       ...current,
@@ -2933,49 +2818,15 @@ export default function RecruitingPage() {
       <div className="recruitingBoardTableHost">
         <DraggableTable>
         <table
-          className={`table recruitingCompactTable recruitingBoardWideTable recruitingBoardTable recruitingFont-${tableFontSize}`}
+          className={`table recruitingCompactTable recruitingBoardSlimTable recruitingBoardTable recruitingFont-${tableFontSize}`}
         >
           <thead>
             <tr>
               <th style={{ minWidth: 140 }}>Team</th>
               <th style={{ minWidth: 184 }}>Team roster</th>
-              <th style={{ minWidth: 88 }}>First</th>
-              <th style={{ minWidth: 88 }}>Last</th>
-              <th style={{ minWidth: 148 }}>Email / phone</th>
-              <th style={{ minWidth: 72 }}>Gender</th>
-              {[
-                ["Project leave", 104],
-                ["Project return", 104],
-                ["Site", 128],
-                ["Host", 108],
-                ["Site type", 92],
-                ["Training timeline", 120],
-                ["Length of projects", 132],
-                ["Project type", 76],
-                ["Extra travel", 80],
-                ["Fundraising", 92],
-                ["Fee", 76],
-                ["Materials", 84],
-                ["Deferred", 80],
-                ["Hannover", 88],
-                ["Domestic project", 88],
-                ["Domestic fee", 80],
-                ["Domestic materials", 88],
-                ["Recruiting project dates", 124],
-                ["Weeks", 68],
-                ["Recruiting departure", 112],
-              ].map(([label, w], colIdx) => (
-                <th key={`outreach-lock-h-${colIdx}`} style={{ minWidth: w }}>
-                  {label}
-                </th>
-              ))}
-              <th style={{ minWidth: 140 }}>Trip snapshot</th>
-              <th style={{ minWidth: 120 }}>Last contacted</th>
-              <th style={{ minWidth: 88 }}>Stage</th>
-              <th style={{ minWidth: 104 }}>Next follow-up</th>
-              <th style={{ minWidth: 120 }}>Interested trip</th>
-              <th style={{ minWidth: 88 }}>Priority</th>
-              <th style={{ minWidth: 88 }}>Alumni</th>
+              <th style={{ minWidth: 124 }}>Project dates</th>
+              <th style={{ minWidth: 128 }}>Site</th>
+              <th style={{ minWidth: 72 }}>Weeks</th>
               <th style={{ minWidth: 168 }}>Mackayla notes</th>
               <th style={{ minWidth: 168 }}>Leslee notes</th>
               <th style={{ minWidth: 220 }}>Actions</th>
@@ -2985,10 +2836,8 @@ export default function RecruitingPage() {
             {recordsToRender.map((record, rowIndex) => {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-              const contactActivity = contactActivityByRecordId[record.id] || [];
-              const isLastContactExpanded = Boolean(expandedLastContactById[record.id]);
-              const showLastContactToggle = shouldShowLastContactToggle(record, contactActivity);
               const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
+              const d = buildTeamFormDraft(record);
 
               return (
                 <tr
@@ -3006,72 +2855,18 @@ export default function RecruitingPage() {
                         <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
                       </div>
                     ) : null}
-                  </td>
-                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterChartColumn(record)}</td>
-                  <td style={{ minWidth: 88 }}>{record.contact?.firstName || "-"}</td>
-                  <td style={{ minWidth: 88 }}>{record.contact?.lastName || "-"}</td>
-                  <td className="recruitingFitEmailCell" style={{ minWidth: 148 }}>
-                    <div>{record.contact?.email || record.contact?.phone || "-"}</div>
                     {renderDuplicateNotice(duplicateInfo, { compact: true })}
                   </td>
-                  <td style={{ minWidth: 72 }}>
-                    <div>{record.contact?.gender || "-"}</div>
+                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterBoardColumn(record)}</td>
+                  <td style={{ minWidth: 124, verticalAlign: "top" }}>
+                    <div className="recruitingChartCell">{chartDashText(d.recruitingProjectDates)}</div>
                   </td>
-                  {lockDraftChartCells(record)}
-                  <td style={{ minWidth: 140, verticalAlign: "top" }}>
-                    <div className="recruitingSnapshotText">
-                      {[record.site, record.projectDates, record.departureDate ? `Departs ${formatFlexibleDepartureDate(record.departureDate)}` : ""]
-                        .filter(Boolean)
-                        .join(" | ") || "-"}
-                    </div>
+                  <td style={{ minWidth: 128, verticalAlign: "top" }}>
+                    <div className="recruitingChartCell">{chartDashText(d.location)}</div>
                   </td>
-                  <td style={{ minWidth: 120, verticalAlign: "top" }}>
-                    {contactActivity.length > 0 ? (
-                      <div className="recruitingLastContactWrap">
-                        <div
-                          className={`recruitingContactHistoryList ${
-                            isLastContactExpanded ? "isExpanded" : "isCollapsed"
-                          }`}
-                        >
-                          {contactActivity.map((entry) => (
-                            <div
-                              key={entry.id}
-                              className="recruitingContactHistoryItem"
-                              title={entry.summary || formatDateTime(entry.actionDate)}
-                            >
-                              <div className="recruitingLastContactCell">
-                                {formatContactHistorySummary(entry)}
-                              </div>
-                              {entry.summary ? (
-                                <div className="small">{entry.summary}</div>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                        {showLastContactToggle ? (
-                          <button
-                            className="recruitingLastContactToggle"
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              toggleLastContactExpanded(record.id);
-                            }}
-                          >
-                            {isLastContactExpanded ? "See less" : "See more"}
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <div className="recruitingLastContactCell">{formatLastContactSummary(record)}</div>
-                    )}
+                  <td style={{ minWidth: 72, verticalAlign: "top" }}>
+                    <div className="recruitingChartCell">{chartDashText(d.recruitingWeeks)}</div>
                   </td>
-                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.stageLabel)}</td>
-                  <td style={{ minWidth: 104, verticalAlign: "top" }}>
-                    {record.nextFollowUp ? formatDate(record.nextFollowUp) : "—"}
-                  </td>
-                  <td style={{ minWidth: 120, verticalAlign: "top" }}>{chartDashText(record.interestedTrip)}</td>
-                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.priority)}</td>
-                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.alumniYearLabel)}</td>
                   <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
@@ -3126,8 +2921,7 @@ export default function RecruitingPage() {
         {recordsToRender.map((record) => {
           const attention = getAttentionMeta(record);
           const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-          const contactActivity = contactActivityByRecordId[record.id] || [];
-          const latestContact = contactActivity[0] || null;
+          const d = buildTeamFormDraft(record);
 
           return (
             <div
@@ -3139,7 +2933,7 @@ export default function RecruitingPage() {
               <div className="recruitingMobileCardHeader">
                 <div>
                   <div className="recruitingMobileCardTitle">
-                    {formatContactName(record)}
+                    {record.teamName || formatContactName(record) || "—"}
                   </div>
                   <div className="small recruitingMobileCardEmail">
                     {record.contact?.email || record.contact?.phone || "-"}
@@ -3150,13 +2944,14 @@ export default function RecruitingPage() {
                 ) : null}
               </div>
               {renderDuplicateNotice(duplicateInfo, { compact: true })}
-              <div className="recruitingMobileMeta">
-                <span>{record.contact?.gender || "Gender not set"}</span>
-                <span>{record.site || "No site yet"}</span>
-                <span>{record.projectDates || "Timing not set"}</span>
+              <div className="small" style={{ marginTop: 8 }}>
+                <strong>Team roster</strong>
               </div>
-              <div className="small">
-                {latestContact ? formatContactHistorySummary(latestContact) : formatLastContactSummary(record)}
+              <div style={{ marginTop: 4 }}>{renderRecruitingRosterBoardColumn(record)}</div>
+              <div className="recruitingMobileMeta">
+                <span title="Project dates">{chartDashText(d.recruitingProjectDates)}</span>
+                <span title="Site">{chartDashText(d.location)}</span>
+                <span title="Weeks">{chartDashText(d.recruitingWeeks)}</span>
               </div>
               <div className="recruitingMobileNotes">
                 <textarea
@@ -3206,41 +3001,18 @@ export default function RecruitingPage() {
       <div className="recruitingBoardTableHost">
         <DraggableTable>
         <table
-          className={`table recruitingCompactTable recruitingBoardWideTable recruitingBoardTable recruitingFont-${tableFontSize}`}
+          className={`table recruitingCompactTable recruitingBoardSlimTable recruitingBoardTable recruitingFont-${tableFontSize}`}
         >
           <thead>
             <tr>
               <th style={{ minWidth: 140 }}>Team</th>
               <th style={{ minWidth: 184 }}>Team roster</th>
-              <th style={{ minWidth: 104 }}>Project leave</th>
-              <th style={{ minWidth: 104 }}>Project return</th>
+              <th style={{ minWidth: 124 }}>Project dates</th>
               <th style={{ minWidth: 128 }}>Site</th>
-              <th style={{ minWidth: 108 }}>Host</th>
-              <th style={{ minWidth: 92 }}>Site type</th>
-              <th style={{ minWidth: 120 }}>Training timeline</th>
-              <th style={{ minWidth: 132 }}>Length of projects</th>
-              <th style={{ minWidth: 76 }}>Project type</th>
-              <th style={{ minWidth: 80 }}>Extra travel</th>
-              <th style={{ minWidth: 92 }}>Fundraising</th>
-              <th style={{ minWidth: 76 }}>Fee</th>
-              <th style={{ minWidth: 84 }}>Materials</th>
-              <th style={{ minWidth: 80 }}>Deferred</th>
-              <th style={{ minWidth: 88 }}>Hannover</th>
-              <th style={{ minWidth: 88 }}>Domestic project</th>
-              <th style={{ minWidth: 80 }}>Domestic fee</th>
-              <th style={{ minWidth: 88 }}>Domestic materials</th>
-              <th style={{ minWidth: 124 }}>Recruiting project dates</th>
-              <th style={{ minWidth: 68 }}>Weeks</th>
-              <th style={{ minWidth: 112 }}>Recruiting departure</th>
-              <th style={{ minWidth: 96 }}>Owner</th>
-              <th style={{ minWidth: 88 }}>Stage</th>
-              <th style={{ minWidth: 104 }}>Next follow-up</th>
-              <th style={{ minWidth: 120 }}>Interested trip</th>
-              <th style={{ minWidth: 88 }}>Priority</th>
-              <th style={{ minWidth: 88 }}>Alumni</th>
+              <th style={{ minWidth: 72 }}>Weeks</th>
               <th style={{ minWidth: 168 }}>Mackayla notes</th>
               <th style={{ minWidth: 168 }}>Leslee notes</th>
-              <th style={{ minWidth: 220 }}>Actions</th>
+              <th style={{ minWidth: 160 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -3248,6 +3020,7 @@ export default function RecruitingPage() {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
               const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
+              const d = buildTeamFormDraft(record);
 
               return (
                 <tr
@@ -3267,20 +3040,16 @@ export default function RecruitingPage() {
                     ) : null}
                     {renderDuplicateNotice(duplicateInfo, { compact: true })}
                   </td>
-                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterChartColumn(record)}</td>
-                  {lockDraftChartCells(record)}
-                  <td style={{ minWidth: 96, verticalAlign: "top" }}>
-                    <span className={`badge recruitingOwnerBadge ${getRecruitingOwnerBadgeClass(record.assignedTo || PRIMARY_OWNER)}`}>
-                      {record.assignedTo || PRIMARY_OWNER}
-                    </span>
+                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterBoardColumn(record)}</td>
+                  <td style={{ minWidth: 124, verticalAlign: "top" }}>
+                    <div className="recruitingChartCell">{chartDashText(d.recruitingProjectDates)}</div>
                   </td>
-                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.stageLabel)}</td>
-                  <td style={{ minWidth: 104, verticalAlign: "top" }}>
-                    {record.nextFollowUp ? formatDate(record.nextFollowUp) : "—"}
+                  <td style={{ minWidth: 128, verticalAlign: "top" }}>
+                    <div className="recruitingChartCell">{chartDashText(d.location)}</div>
                   </td>
-                  <td style={{ minWidth: 120, verticalAlign: "top" }}>{chartDashText(record.interestedTrip)}</td>
-                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.priority)}</td>
-                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.alumniYearLabel)}</td>
+                  <td style={{ minWidth: 72, verticalAlign: "top" }}>
+                    <div className="recruitingChartCell">{chartDashText(d.recruitingWeeks)}</div>
+                  </td>
                   <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
@@ -3301,20 +3070,10 @@ export default function RecruitingPage() {
                       placeholder="Add Leslee notes"
                     />
                   </td>
-                  <td style={{ minWidth: 220, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ minWidth: 160, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow recruitingFitActionRow">
                       <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
-                        Edit Details
-                      </button>
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={() => void handleMoveRecordToNextYear(record.id)}
-                        disabled={isSavingNotes || record.recruitingYear === NEXT_RECRUITING_YEAR}
-                      >
-                        {record.recruitingYear === NEXT_RECRUITING_YEAR
-                          ? `On ${NEXT_RECRUITING_YEAR}`
-                          : `Move to ${NEXT_RECRUITING_YEAR}`}
+                        Edit
                       </button>
                       <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>
                         Lock Team
@@ -3347,6 +3106,7 @@ export default function RecruitingPage() {
         {recordsToRender.map((record) => {
           const attention = getAttentionMeta(record);
           const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
+          const d = buildTeamFormDraft(record);
 
           return (
             <div
@@ -3360,16 +3120,20 @@ export default function RecruitingPage() {
                   <div className="recruitingMobileCardTitle">{record.teamName || formatContactName(record)}</div>
                   <div className="small recruitingMobileCardEmail">{record.contact?.email || "-"}</div>
                 </div>
+                {attention ? (
+                  <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
+                ) : null}
               </div>
               {renderDuplicateNotice(duplicateInfo, { compact: true })}
-              <div className="recruitingMobileMeta">
-                <span>{record.assignedTo || PRIMARY_OWNER}</span>
-                <span>{record.site || "No site yet"}</span>
-                <span>{record.projectDates || "Timing not set"}</span>
+              <div className="small" style={{ marginTop: 8 }}>
+                <strong>Team roster</strong>
               </div>
-              {attention ? (
-                <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
-              ) : null}
+              <div style={{ marginTop: 4 }}>{renderRecruitingRosterBoardColumn(record)}</div>
+              <div className="recruitingMobileMeta">
+                <span title="Project dates">{chartDashText(d.recruitingProjectDates)}</span>
+                <span title="Site">{chartDashText(d.location)}</span>
+                <span title="Weeks">{chartDashText(d.recruitingWeeks)}</span>
+              </div>
               <div className="recruitingMobileNotes">
                 <textarea
                   className="input recruitingInlineNoteInput"
@@ -3392,17 +3156,7 @@ export default function RecruitingPage() {
               </div>
               <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
                 <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
-                  Edit Details
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => void handleMoveRecordToNextYear(record.id)}
-                  disabled={isSavingNotes || record.recruitingYear === NEXT_RECRUITING_YEAR}
-                >
-                  {record.recruitingYear === NEXT_RECRUITING_YEAR
-                    ? `On ${NEXT_RECRUITING_YEAR}`
-                    : `Move to ${NEXT_RECRUITING_YEAR}`}
+                  Edit
                 </button>
                 <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>
                   Lock Team
@@ -3430,42 +3184,24 @@ export default function RecruitingPage() {
       <div className="recruitingBoardTableHost">
         <DraggableTable>
         <table
-          className={`table recruitingCompactTable recruitingBoardWideTable recruitingBoardTable recruitingFont-${tableFontSize}`}
+          className={`table recruitingCompactTable recruitingBoardSlimTable recruitingBoardTable recruitingFont-${tableFontSize}`}
         >
           <thead>
             <tr>
               <th style={{ minWidth: 140 }}>Team</th>
               <th style={{ minWidth: 184 }}>Team roster</th>
-              <th style={{ minWidth: 104 }}>Project leave</th>
-              <th style={{ minWidth: 104 }}>Project return</th>
+              <th style={{ minWidth: 124 }}>Project dates</th>
               <th style={{ minWidth: 128 }}>Site</th>
-              <th style={{ minWidth: 108 }}>Host</th>
-              <th style={{ minWidth: 92 }}>Site type</th>
-              <th style={{ minWidth: 120 }}>Training timeline</th>
-              <th style={{ minWidth: 132 }}>Length of projects</th>
-              <th style={{ minWidth: 76 }}>Project type</th>
-              <th style={{ minWidth: 80 }}>Extra travel</th>
-              <th style={{ minWidth: 92 }}>Fundraising</th>
-              <th style={{ minWidth: 76 }}>Fee</th>
-              <th style={{ minWidth: 84 }}>Materials</th>
-              <th style={{ minWidth: 80 }}>Deferred</th>
-              <th style={{ minWidth: 88 }}>Hannover</th>
-              <th style={{ minWidth: 88 }}>Domestic project</th>
-              <th style={{ minWidth: 80 }}>Domestic fee</th>
-              <th style={{ minWidth: 88 }}>Domestic materials</th>
-              <th style={{ minWidth: 124 }}>Recruiting project dates</th>
-              <th style={{ minWidth: 68 }}>Weeks</th>
-              <th style={{ minWidth: 112 }}>Recruiting departure</th>
-              <th style={{ minWidth: 140 }}>Trip name</th>
-              <th style={{ minWidth: 128 }}>Trip / site</th>
-              <th style={{ minWidth: 112 }}>Departure</th>
-              <th style={{ minWidth: 88 }}>Status</th>
+              <th style={{ minWidth: 72 }}>Weeks</th>
+              <th style={{ minWidth: 168 }}>Mackayla notes</th>
+              <th style={{ minWidth: 168 }}>Leslee notes</th>
               <th style={{ minWidth: 200 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {recordsToRender.map((record, rowIndex) => {
               const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
+              const d = buildTeamFormDraft(record);
               return (
                 <tr
                   key={record.id}
@@ -3489,16 +3225,36 @@ export default function RecruitingPage() {
                       </div>
                     ) : null}
                   </td>
-                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterChartColumn(record)}</td>
-                  {lockDraftChartCells(record)}
-                  <td style={{ minWidth: 140, verticalAlign: "top" }}>{chartDashText(record.linkedTrip?.name)}</td>
-                  <td style={{ minWidth: 128, verticalAlign: "top" }}>{chartDashText(record.linkedTrip?.site || record.site)}</td>
-                  <td style={{ minWidth: 112, verticalAlign: "top" }}>
-                    {record.linkedTrip?.departureDate
-                      ? formatDate(record.linkedTrip.departureDate)
-                      : formatFlexibleDepartureDate(record.departureDate)}
+                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterBoardColumn(record)}</td>
+                  <td style={{ minWidth: 124, verticalAlign: "top" }}>
+                    <div className="recruitingChartCell">{chartDashText(d.recruitingProjectDates)}</div>
                   </td>
-                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{record.linkedTrip?.status || "Locked"}</td>
+                  <td style={{ minWidth: 128, verticalAlign: "top" }}>
+                    <div className="recruitingChartCell">{chartDashText(d.location)}</div>
+                  </td>
+                  <td style={{ minWidth: 72, verticalAlign: "top" }}>
+                    <div className="recruitingChartCell">{chartDashText(d.recruitingWeeks)}</div>
+                  </td>
+                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    <textarea
+                      className="input recruitingInlineNoteInput"
+                      rows={3}
+                      value={stripHandoffSummary(record.mackaylaNotes)}
+                      onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      placeholder="Add Mackayla notes"
+                    />
+                  </td>
+                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    <textarea
+                      className="input recruitingInlineNoteInput"
+                      rows={3}
+                      value={record.lesleeNotes || ""}
+                      onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      placeholder="Add Leslee notes"
+                    />
+                  </td>
                   <td style={{ minWidth: 200, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow">
                       <button
@@ -3552,7 +3308,9 @@ export default function RecruitingPage() {
 
     return (
       <div className="recruitingMobileCards">
-        {recordsToRender.map((record) => (
+        {recordsToRender.map((record) => {
+          const d = buildTeamFormDraft(record);
+          return (
           <div
             key={record.id}
             className="card pad recruitingMobileCard"
@@ -3565,9 +3323,34 @@ export default function RecruitingPage() {
               </div>
               <span className="badge">{record.linkedTrip?.status || "Locked"}</span>
             </div>
+            <div className="small" style={{ marginTop: 8 }}>
+              <strong>Team roster</strong>
+            </div>
+            <div style={{ marginTop: 4 }}>{renderRecruitingRosterBoardColumn(record)}</div>
             <div className="recruitingMobileMeta">
-              <span>{record.linkedTrip?.site || record.site || "-"}</span>
-              <span>{record.linkedTrip?.departureDate ? formatDate(record.linkedTrip.departureDate) : formatFlexibleDepartureDate(record.departureDate)}</span>
+              <span title="Project dates">{chartDashText(d.recruitingProjectDates)}</span>
+              <span title="Site">{chartDashText(d.location)}</span>
+              <span title="Weeks">{chartDashText(d.recruitingWeeks)}</span>
+            </div>
+            <div className="recruitingMobileNotes">
+              <textarea
+                className="input recruitingInlineNoteInput"
+                rows={3}
+                value={stripHandoffSummary(record.mackaylaNotes)}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
+                onBlur={() => void handleSaveRecord(record.id)}
+                placeholder="Add Mackayla notes"
+              />
+              <textarea
+                className="input recruitingInlineNoteInput"
+                rows={3}
+                value={record.lesleeNotes || ""}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
+                onBlur={() => void handleSaveRecord(record.id)}
+                placeholder="Add Leslee notes"
+              />
             </div>
             <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
               <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
@@ -3594,7 +3377,8 @@ export default function RecruitingPage() {
               ) : null}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     );
   }
@@ -3848,18 +3632,6 @@ export default function RecruitingPage() {
                   : "Edit team & recruiting"}
               </div>
               <div className="spacer" />
-              {selectedRecord && recordDetailsMode !== "history" && !selectedRecord.isConvertedToTeam ? (
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => void handleMoveRecordToNextYear(selectedRecord.id)}
-                  disabled={isSavingNotes || selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR}
-                >
-                  {selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR
-                    ? `Already on ${NEXT_RECRUITING_YEAR}`
-                    : `Move to ${NEXT_RECRUITING_YEAR} Chart`}
-                </button>
-              ) : null}
               {selectedRecord && recordDetailsMode !== "history" ? (
                 <button
                   className="btn"
@@ -3985,6 +3757,28 @@ export default function RecruitingPage() {
                               Promote to Potential Teams
                             </button>
                           ) : null}
+                        </div>
+                        <div
+                          style={{
+                            paddingTop: 12,
+                            marginTop: 8,
+                            borderTop: "1px solid rgba(15, 23, 42, 0.06)",
+                          }}
+                        >
+                          <div className="small" style={{ marginBottom: 8, color: "var(--muted)", lineHeight: 1.45 }}>
+                            Move this row to the <strong>{NEXT_RECRUITING_YEAR}</strong> recruiting board when you are
+                            planning for that year (does not change trip data).
+                          </div>
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={() => void handleMoveRecordToNextYear(selectedRecord.id)}
+                            disabled={isSavingNotes || selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR}
+                          >
+                            {selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR
+                              ? `Already on ${NEXT_RECRUITING_YEAR}`
+                              : `Move to ${NEXT_RECRUITING_YEAR} chart`}
+                          </button>
                         </div>
                       </>
                     ) : (
