@@ -1165,7 +1165,7 @@ export default function BudgetPage() {
           </button>
         </div>
 
-        {averages && (
+        {averages && tab !== "Checks" && (
           <div className="card pad" style={{ marginBottom: 24 }}>
             <div style={{ fontWeight: 900, marginBottom: 12 }}>Budget averages</div>
             <div
