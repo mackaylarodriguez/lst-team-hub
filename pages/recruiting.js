@@ -1364,32 +1364,60 @@ function buildRecruitingRecordPayload(record, overrides = {}) {
   };
 }
 
+const RECRUITING_TABLE_DRAG_THRESHOLD_PX = 10;
+
 function DraggableTable({ children }) {
   const containerRef = useRef(null);
+  /** `idle` — no drag; `pending` — mousedown, waiting for horizontal move; `dragging` — scroll pan */
   const dragStateRef = useRef({
-    isDragging: false,
+    mode: "idle",
     pointerId: null,
-    startX: 0,
-    scrollLeft: 0,
+    startClientX: 0,
+    scrollAtStart: 0,
   });
+  const windowPointerEndCleanupRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  function clearWindowPointerEndListeners() {
+    if (windowPointerEndCleanupRef.current) {
+      windowPointerEndCleanupRef.current();
+      windowPointerEndCleanupRef.current = null;
+    }
+  }
+
   function endDrag() {
-    if (
-      containerRef.current &&
-      dragStateRef.current.pointerId !== null &&
-      containerRef.current.hasPointerCapture?.(dragStateRef.current.pointerId)
-    ) {
-      containerRef.current.releasePointerCapture(dragStateRef.current.pointerId);
+    clearWindowPointerEndListeners();
+    const pid = dragStateRef.current.pointerId;
+    const el = containerRef.current;
+    if (el && pid !== null && el.hasPointerCapture?.(pid)) {
+      try {
+        el.releasePointerCapture(pid);
+      } catch {
+        /* ignore */
+      }
     }
 
     dragStateRef.current = {
-      isDragging: false,
+      mode: "idle",
       pointerId: null,
-      startX: 0,
-      scrollLeft: containerRef.current?.scrollLeft || 0,
+      startClientX: 0,
+      scrollAtStart: el?.scrollLeft || 0,
     };
     setIsDragging(false);
+  }
+
+  function attachWindowPointerEndWhilePending(pointerId) {
+    clearWindowPointerEndListeners();
+    const onEnd = (e) => {
+      if (e.pointerId !== pointerId) return;
+      endDrag();
+    };
+    window.addEventListener("pointerup", onEnd);
+    window.addEventListener("pointercancel", onEnd);
+    windowPointerEndCleanupRef.current = () => {
+      window.removeEventListener("pointerup", onEnd);
+      window.removeEventListener("pointercancel", onEnd);
+    };
   }
 
   function handlePointerDown(event) {
@@ -1403,19 +1431,33 @@ function DraggableTable({ children }) {
     }
 
     dragStateRef.current = {
-      isDragging: true,
+      mode: "pending",
       pointerId: event.pointerId,
-      startX: event.clientX,
-      scrollLeft: containerRef.current.scrollLeft,
+      startClientX: event.clientX,
+      scrollAtStart: containerRef.current.scrollLeft,
     };
-    containerRef.current.setPointerCapture?.(event.pointerId);
-    setIsDragging(true);
+    attachWindowPointerEndWhilePending(event.pointerId);
   }
 
   function handlePointerMove(event) {
-    if (!dragStateRef.current.isDragging || !containerRef.current) return;
-    const deltaX = event.clientX - dragStateRef.current.startX;
-    containerRef.current.scrollLeft = dragStateRef.current.scrollLeft - deltaX;
+    const st = dragStateRef.current;
+    const el = containerRef.current;
+    if (!el || st.pointerId !== event.pointerId || st.mode === "idle") return;
+
+    if (st.mode === "pending") {
+      if (Math.abs(event.clientX - st.startClientX) < RECRUITING_TABLE_DRAG_THRESHOLD_PX) return;
+      st.mode = "dragging";
+      st.scrollAtStart = el.scrollLeft;
+      st.startClientX = event.clientX;
+      el.setPointerCapture?.(event.pointerId);
+      setIsDragging(true);
+      clearWindowPointerEndListeners();
+    }
+
+    if (st.mode === "dragging") {
+      const deltaX = event.clientX - st.startClientX;
+      el.scrollLeft = st.scrollAtStart - deltaX;
+    }
   }
 
   return (
@@ -1426,7 +1468,9 @@ function DraggableTable({ children }) {
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
-      onPointerLeave={endDrag}
+      onPointerLeave={() => {
+        if (dragStateRef.current.mode !== "dragging") endDrag();
+      }}
     >
       {children}
     </div>
