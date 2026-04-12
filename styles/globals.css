@@ -1241,6 +1241,77 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   cursor:grabbing;
   user-select:none;
 }
+.recruitingBoardWideTable{
+  width:max-content;
+  min-width:100%;
+  table-layout:auto;
+}
+.recruitingBoardTable.recruitingCompactTable th,
+.recruitingBoardTable.recruitingCompactTable td{
+  white-space:normal;
+  word-break:break-word;
+}
+.recruitingBoardTable tbody tr.recruitingRowAlt:not(.recruitingRowSelected) td{
+  background-color:rgba(15,23,42,.025);
+}
+.recruitingBoardTable tbody tr:not(.recruitingRowSelected):hover td{
+  background-color:rgba(67,164,213,.09);
+}
+.recruitingBoardTable tbody tr.recruitingRowSelected td{
+  background-color:rgba(47,73,147,.1);
+}
+.recruitingBoardTable tbody tr.recruitingRowSelected:hover td{
+  background-color:rgba(47,73,147,.14);
+}
+.recruitingTeamNamePill{
+  display:inline-flex;
+  align-items:center;
+  max-width:min(280px,100%);
+  padding:5px 12px;
+  border-radius:999px;
+  font-weight:800;
+  font-size:11px;
+  letter-spacing:.02em;
+  line-height:1.25;
+  background:linear-gradient(135deg,rgba(47,73,147,.12),rgba(67,164,213,.16));
+  border:1px solid rgba(47,73,147,.22);
+  color:var(--text);
+  white-space:normal;
+  word-break:break-word;
+}
+.recruitingRosterChartStack{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-width:168px;
+}
+.recruitingRosterChartBlock{
+  padding-bottom:6px;
+  border-bottom:1px solid rgba(15,23,42,.08);
+}
+.recruitingRosterChartBlock:last-child{
+  padding-bottom:0;
+  border-bottom:none;
+}
+.recruitingRosterChartName{
+  font-weight:700;
+  font-size:11px;
+  line-height:1.25;
+}
+.recruitingRosterPrimaryMark{
+  color:var(--primary);
+  font-size:12px;
+}
+.recruitingRosterChartEmail{
+  font-size:10px;
+  margin-top:2px;
+  color:var(--text);
+  overflow-wrap:anywhere;
+}
+.recruitingChartCell{
+  font-size:11px;
+  line-height:1.35;
+}
 .recruitingCompactTable th,
 .recruitingCompactTable td{
   padding:5px 6px;

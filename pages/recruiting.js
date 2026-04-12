@@ -742,6 +742,104 @@ function getAdditionalRecordPeople(record) {
   return getRecordPeopleList(record).filter((person) => person && person !== primaryContact);
 }
 
+function chartDashText(value) {
+  const s = String(value ?? "").trim();
+  return s || "—";
+}
+
+const SITE_TYPE_CHART_LABELS = {
+  partner: "Partner",
+  managed: "Managed",
+  seasonal: "Seasonal",
+};
+
+function chartSiteTypeLabel(value) {
+  const key = String(value || "").trim().toLowerCase();
+  return SITE_TYPE_CHART_LABELS[key] || chartDashText(value);
+}
+
+function chartTrainingTimelineLabel(value) {
+  const v = String(value || "").trim();
+  const hit = TRAINING_TIMELINE_OPTIONS.find((o) => o.value === v);
+  return hit?.label || chartDashText(value);
+}
+
+function chartExtraTravelLabel(value) {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "yes") return "Yes";
+  if (v === "maybe") return "Maybe";
+  return "No";
+}
+
+function formatChartMemberStartEnd(member) {
+  const a = String(member?.startDate || "").trim();
+  const b = String(member?.endDate || "").trim();
+  if (a && b) return `${a} → ${b}`;
+  return chartDashText(a || b);
+}
+
+/** All roster members with name + email (+ phone / per-member trip dates when present) for board tables. */
+function renderRecruitingRosterChartColumn(record) {
+  const draft = buildTeamFormDraft(record);
+  const members = draft.teamMembers?.length ? draft.teamMembers : [];
+
+  return (
+    <div className="recruitingRosterChartStack">
+      {members.map((member, index) => {
+        const name = [member.firstName, member.lastName].filter(Boolean).join(" ").trim();
+        const dates = formatChartMemberStartEnd(member);
+        return (
+          <div key={`${record.id}-chart-roster-${index}`} className="recruitingRosterChartBlock">
+            <div className="recruitingRosterChartName">
+              {index === 0 ? (
+                <span className="recruitingRosterPrimaryMark" title="Primary recruiting contact">
+                  ★{" "}
+                </span>
+              ) : null}
+              {name || chartDashText(member.email)}
+            </div>
+            {member.email ? <div className="recruitingRosterChartEmail">{member.email}</div> : null}
+            {member.phone ? <div className="small">{member.phone}</div> : null}
+            {dates !== "—" ? <div className="small">{dates}</div> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function lockDraftChartCells(record) {
+  const d = buildTeamFormDraft(record);
+  const cell = (key, minWidth, content) => (
+    <td key={`${record.id}-lck-${key}`} style={{ minWidth, verticalAlign: "top" }}>
+      <div className="recruitingChartCell">{content}</div>
+    </td>
+  );
+
+  return [
+    cell("sd", 104, chartDashText(d.startDate)),
+    cell("ed", 104, chartDashText(d.endDate)),
+    cell("loc", 128, chartDashText(d.location)),
+    cell("host", 108, chartDashText(d.host)),
+    cell("stype", 92, chartSiteTypeLabel(d.siteType)),
+    cell("tt", 120, chartTrainingTimelineLabel(d.trainingTimelineType)),
+    cell("plen", 132, chartDashText(d.projectLengthSummary)),
+    cell("ptype", 76, chartDashText(d.projectType)),
+    cell("xt", 80, chartExtraTravelLabel(d.extraTravelStatus)),
+    cell("fg", 92, chartDashText(d.fundraisingGoalAmount)),
+    cell("fee", 76, chartDashText(d.tripFeeAmount)),
+    cell("mat", 84, chartDashText(d.materialsFeeAmount)),
+    cell("def", 80, d.hasDeferredWorker === "yes" ? "Yes" : "No"),
+    cell("han", 88, chartDashText(d.hannoverHousingFeeAmount)),
+    cell("dpr", 88, chartDashText(d.domesticProjectFeeAmount)),
+    cell("dfe", 80, chartDashText(d.domesticFeeAmount)),
+    cell("dma", 88, chartDashText(d.domesticMaterialsFeeAmount)),
+    cell("rpd", 124, chartDashText(d.recruitingProjectDates)),
+    cell("rwk", 68, chartDashText(d.recruitingWeeks)),
+    cell("rdep", 112, chartDashText(d.recruitingDepartureDate)),
+  ];
+}
+
 function formatDate(value) {
   if (!value) return "Not set";
   return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
@@ -2823,67 +2921,103 @@ export default function RecruitingPage() {
 
     return (
       <DraggableTable>
-        <table className={`table recruitingCompactTable recruitingFitTable recruitingFont-${tableFontSize}`}>
-          <colgroup>
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "14%" }} />
-            <col style={{ width: "6%" }} />
-            <col style={{ width: "13%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "11%" }} />
-          </colgroup>
+        <table
+          className={`table recruitingCompactTable recruitingBoardWideTable recruitingBoardTable recruitingFont-${tableFontSize}`}
+        >
           <thead>
             <tr>
-              <th>First Name</th>
-              <th>Last Name</th>
-              <th>Email</th>
-              <th>Gender</th>
-              <th>Trip Details</th>
-              <th>Last Contacted</th>
-              <th>Mackayla Notes</th>
-              <th>Leslee Notes</th>
-              <th>Actions</th>
+              <th style={{ minWidth: 140 }}>Team</th>
+              <th style={{ minWidth: 184 }}>Team roster</th>
+              <th style={{ minWidth: 88 }}>First</th>
+              <th style={{ minWidth: 88 }}>Last</th>
+              <th style={{ minWidth: 148 }}>Email / phone</th>
+              <th style={{ minWidth: 72 }}>Gender</th>
+              {[
+                ["Project leave", 104],
+                ["Project return", 104],
+                ["Site", 128],
+                ["Host", 108],
+                ["Site type", 92],
+                ["Training timeline", 120],
+                ["Length of projects", 132],
+                ["Project type", 76],
+                ["Extra travel", 80],
+                ["Fundraising", 92],
+                ["Fee", 76],
+                ["Materials", 84],
+                ["Deferred", 80],
+                ["Hannover", 88],
+                ["Domestic project", 88],
+                ["Domestic fee", 80],
+                ["Domestic materials", 88],
+                ["Recruiting project dates", 124],
+                ["Weeks", 68],
+                ["Recruiting departure", 112],
+              ].map(([label, w], colIdx) => (
+                <th key={`outreach-lock-h-${colIdx}`} style={{ minWidth: w }}>
+                  {label}
+                </th>
+              ))}
+              <th style={{ minWidth: 140 }}>Trip snapshot</th>
+              <th style={{ minWidth: 120 }}>Last contacted</th>
+              <th style={{ minWidth: 88 }}>Stage</th>
+              <th style={{ minWidth: 104 }}>Next follow-up</th>
+              <th style={{ minWidth: 120 }}>Interested trip</th>
+              <th style={{ minWidth: 88 }}>Priority</th>
+              <th style={{ minWidth: 88 }}>Alumni</th>
+              <th style={{ minWidth: 168 }}>Mackayla notes</th>
+              <th style={{ minWidth: 168 }}>Leslee notes</th>
+              <th style={{ minWidth: 220 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {recordsToRender.map((record) => {
+            {recordsToRender.map((record, rowIndex) => {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
               const contactActivity = contactActivityByRecordId[record.id] || [];
               const isLastContactExpanded = Boolean(expandedLastContactById[record.id]);
               const showLastContactToggle = shouldShowLastContactToggle(record, contactActivity);
+              const isSelected = record.id === selectedRecordId;
+              const rowClass = [rowIndex % 2 === 1 ? "recruitingRowAlt" : "", isSelected ? "recruitingRowSelected" : ""]
+                .filter(Boolean)
+                .join(" ");
 
               return (
                 <tr
                   key={record.id}
+                  className={rowClass}
                   onClick={() => setSelectedRecordId(record.id)}
-                  style={getRecordRowStyle(record, record.id === selectedRecordId)}
+                  style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
-                  <td>{record.contact?.firstName || "-"}</td>
-                  <td>{record.contact?.lastName || "-"}</td>
-                  <td className="recruitingFitEmailCell">
+                  <td style={{ minWidth: 140, verticalAlign: "middle" }}>
+                    <span className="recruitingTeamNamePill" title={record.teamName || formatContactName(record)}>
+                      {record.teamName || formatContactName(record) || "—"}
+                    </span>
+                    {attention ? (
+                      <div style={{ marginTop: 6 }}>
+                        <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
+                      </div>
+                    ) : null}
+                  </td>
+                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterChartColumn(record)}</td>
+                  <td style={{ minWidth: 88 }}>{record.contact?.firstName || "-"}</td>
+                  <td style={{ minWidth: 88 }}>{record.contact?.lastName || "-"}</td>
+                  <td className="recruitingFitEmailCell" style={{ minWidth: 148 }}>
                     <div>{record.contact?.email || record.contact?.phone || "-"}</div>
                     {renderDuplicateNotice(duplicateInfo, { compact: true })}
                   </td>
-                  <td>
+                  <td style={{ minWidth: 72 }}>
                     <div>{record.contact?.gender || "-"}</div>
                   </td>
-                  <td>
+                  {lockDraftChartCells(record)}
+                  <td style={{ minWidth: 140, verticalAlign: "top" }}>
                     <div className="recruitingSnapshotText">
                       {[record.site, record.projectDates, record.departureDate ? `Departs ${formatFlexibleDepartureDate(record.departureDate)}` : ""]
                         .filter(Boolean)
                         .join(" | ") || "-"}
                     </div>
-                    {attention ? (
-                      <span className={`badge ${attention.badgeClass}`} style={{ marginTop: 4 }}>
-                        {attention.label}
-                      </span>
-                    ) : null}
                   </td>
-                  <td>
+                  <td style={{ minWidth: 120, verticalAlign: "top" }}>
                     {contactActivity.length > 0 ? (
                       <div className="recruitingLastContactWrap">
                         <div
@@ -2923,7 +3057,14 @@ export default function RecruitingPage() {
                       <div className="recruitingLastContactCell">{formatLastContactSummary(record)}</div>
                     )}
                   </td>
-                  <td onClick={(event) => event.stopPropagation()}>
+                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.stageLabel)}</td>
+                  <td style={{ minWidth: 104, verticalAlign: "top" }}>
+                    {record.nextFollowUp ? formatDate(record.nextFollowUp) : "—"}
+                  </td>
+                  <td style={{ minWidth: 120, verticalAlign: "top" }}>{chartDashText(record.interestedTrip)}</td>
+                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.priority)}</td>
+                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.alumniYearLabel)}</td>
+                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
                       rows={3}
@@ -2933,7 +3074,7 @@ export default function RecruitingPage() {
                       placeholder="Add Mackayla notes"
                     />
                   </td>
-                  <td onClick={(event) => event.stopPropagation()}>
+                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
                       rows={3}
@@ -2943,7 +3084,7 @@ export default function RecruitingPage() {
                       placeholder="Add Leslee notes"
                     />
                   </td>
-                  <td onClick={(event) => event.stopPropagation()}>
+                  <td style={{ minWidth: 220, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow recruitingFitActionRow">
                       <button className="btn" type="button" onClick={() => openContactActionModal(record, "email")}>Emailed</button>
                       <button className="btn" type="button" onClick={() => openContactActionModal(record, "call")}>Called</button>
@@ -3054,122 +3195,126 @@ export default function RecruitingPage() {
 
     return (
       <DraggableTable>
-        <table className={`table recruitingCompactTable recruitingFitTable recruitingFont-${tableFontSize}`}>
-          <colgroup>
-            <col style={{ width: "22%" }} />
-            <col style={{ width: "16%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "9%" }} />
-          </colgroup>
+        <table
+          className={`table recruitingCompactTable recruitingBoardWideTable recruitingBoardTable recruitingFont-${tableFontSize}`}
+        >
           <thead>
             <tr>
-              <th>Team Name</th>
-              <th>Email</th>
-              <th>Owner</th>
-              <th>Site</th>
-              <th>Timing</th>
-              <th>Mackayla Notes</th>
-              <th>Leslee Notes</th>
-              <th>Actions</th>
+              <th style={{ minWidth: 140 }}>Team</th>
+              <th style={{ minWidth: 184 }}>Team roster</th>
+              <th style={{ minWidth: 104 }}>Project leave</th>
+              <th style={{ minWidth: 104 }}>Project return</th>
+              <th style={{ minWidth: 128 }}>Site</th>
+              <th style={{ minWidth: 108 }}>Host</th>
+              <th style={{ minWidth: 92 }}>Site type</th>
+              <th style={{ minWidth: 120 }}>Training timeline</th>
+              <th style={{ minWidth: 132 }}>Length of projects</th>
+              <th style={{ minWidth: 76 }}>Project type</th>
+              <th style={{ minWidth: 80 }}>Extra travel</th>
+              <th style={{ minWidth: 92 }}>Fundraising</th>
+              <th style={{ minWidth: 76 }}>Fee</th>
+              <th style={{ minWidth: 84 }}>Materials</th>
+              <th style={{ minWidth: 80 }}>Deferred</th>
+              <th style={{ minWidth: 88 }}>Hannover</th>
+              <th style={{ minWidth: 88 }}>Domestic project</th>
+              <th style={{ minWidth: 80 }}>Domestic fee</th>
+              <th style={{ minWidth: 88 }}>Domestic materials</th>
+              <th style={{ minWidth: 124 }}>Recruiting project dates</th>
+              <th style={{ minWidth: 68 }}>Weeks</th>
+              <th style={{ minWidth: 112 }}>Recruiting departure</th>
+              <th style={{ minWidth: 96 }}>Owner</th>
+              <th style={{ minWidth: 88 }}>Stage</th>
+              <th style={{ minWidth: 104 }}>Next follow-up</th>
+              <th style={{ minWidth: 120 }}>Interested trip</th>
+              <th style={{ minWidth: 88 }}>Priority</th>
+              <th style={{ minWidth: 88 }}>Alumni</th>
+              <th style={{ minWidth: 168 }}>Mackayla notes</th>
+              <th style={{ minWidth: 168 }}>Leslee notes</th>
+              <th style={{ minWidth: 220 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {recordsToRender.map((record) => {
+            {recordsToRender.map((record, rowIndex) => {
               const attention = getAttentionMeta(record);
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-              const primaryContact = formatContactName(record);
-              const additionalPeople = getAdditionalRecordPeople(record);
+              const isSelected = record.id === selectedRecordId;
+              const rowClass = [rowIndex % 2 === 1 ? "recruitingRowAlt" : "", isSelected ? "recruitingRowSelected" : ""]
+                .filter(Boolean)
+                .join(" ");
 
               return (
                 <tr
                   key={record.id}
+                  className={rowClass}
                   onClick={() => setSelectedRecordId(record.id)}
-                  style={getRecordRowStyle(record, record.id === selectedRecordId)}
+                  style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
-                    <td>
-                      <div className="recruitingPotentialTeamName">{record.teamName || "-"}</div>
-                      <div className="recruitingPotentialPrimaryContact">{primaryContact}</div>
-                      {additionalPeople.length > 0 ? (
-                        <div className="small recruitingPotentialSecondaryPeople">
-                          {additionalPeople.join(", ")}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="recruitingFitEmailCell">
-                      <div className="recruitingPotentialEmail">{record.contact?.email || "-"}</div>
-                      {record.contact?.phone ? (
-                        <div className="small">{record.contact.phone}</div>
-                      ) : null}
-                      {renderDuplicateNotice(duplicateInfo, { compact: true })}
-                    </td>
-                    <td>
-                      <span className={`badge recruitingOwnerBadge ${getRecruitingOwnerBadgeClass(record.assignedTo || PRIMARY_OWNER)}`}>
-                        {record.assignedTo || PRIMARY_OWNER}
-                      </span>
-                      {attention ? (
-                        <span className={`badge ${attention.badgeClass}`} style={{ marginTop: 4, display: "inline-block" }}>
-                          {attention.label}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td>
-                      <div>{record.site || "No site yet"}</div>
-                      <div className="small" style={{ marginTop: 2 }}>
-                        {record.site ? "Site selected" : "Site still needed"}
+                  <td style={{ minWidth: 140, verticalAlign: "middle" }}>
+                    <span className="recruitingTeamNamePill" title={record.teamName || formatContactName(record)}>
+                      {record.teamName || formatContactName(record) || "—"}
+                    </span>
+                    {attention ? (
+                      <div style={{ marginTop: 6 }}>
+                        <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
                       </div>
-                    </td>
-                    <td>
-                      <div>{record.projectDates || "-"}</div>
-                      <div className="small" style={{ marginTop: 2 }}>
-                        {record.weeks ? `${record.weeks} week${String(record.weeks) === "1" ? "" : "s"}` : "Weeks not set"}
-                      </div>
-                      <div className="small" style={{ marginTop: 2 }}>
-                        {record.departureDate ? `Departs ${formatFlexibleDepartureDate(record.departureDate)}` : "No departure yet"}
-                      </div>
-                    </td>
-                    <td onClick={(event) => event.stopPropagation()}>
-                      <textarea
-                        className="input recruitingInlineNoteInput"
-                        rows={3}
-                        value={stripHandoffSummary(record.mackaylaNotes)}
-                        onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
-                        onBlur={() => void handleSaveRecord(record.id)}
-                        placeholder="Add Mackayla notes"
-                      />
-                    </td>
-                    <td onClick={(event) => event.stopPropagation()}>
-                      <textarea
-                        className="input recruitingInlineNoteInput"
-                        rows={3}
-                        value={record.lesleeNotes || ""}
-                        onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
-                        onBlur={() => void handleSaveRecord(record.id)}
-                        placeholder="Add Leslee notes"
-                      />
-                    </td>
-                    <td onClick={(event) => event.stopPropagation()}>
-                      <div className="row recruitingActionRow recruitingFitActionRow">
-                        <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
-                          Edit Details
-                        </button>
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => void handleMoveRecordToNextYear(record.id)}
-                          disabled={isSavingNotes || record.recruitingYear === NEXT_RECRUITING_YEAR}
-                        >
-                          {record.recruitingYear === NEXT_RECRUITING_YEAR
-                            ? `On ${NEXT_RECRUITING_YEAR}`
-                            : `Move to ${NEXT_RECRUITING_YEAR}`}
-                        </button>
-                        <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>Lock Team</button>
-                      </div>
-                    </td>
-                  </tr>
+                    ) : null}
+                    {renderDuplicateNotice(duplicateInfo, { compact: true })}
+                  </td>
+                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterChartColumn(record)}</td>
+                  {lockDraftChartCells(record)}
+                  <td style={{ minWidth: 96, verticalAlign: "top" }}>
+                    <span className={`badge recruitingOwnerBadge ${getRecruitingOwnerBadgeClass(record.assignedTo || PRIMARY_OWNER)}`}>
+                      {record.assignedTo || PRIMARY_OWNER}
+                    </span>
+                  </td>
+                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.stageLabel)}</td>
+                  <td style={{ minWidth: 104, verticalAlign: "top" }}>
+                    {record.nextFollowUp ? formatDate(record.nextFollowUp) : "—"}
+                  </td>
+                  <td style={{ minWidth: 120, verticalAlign: "top" }}>{chartDashText(record.interestedTrip)}</td>
+                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.priority)}</td>
+                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{chartDashText(record.alumniYearLabel)}</td>
+                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    <textarea
+                      className="input recruitingInlineNoteInput"
+                      rows={3}
+                      value={stripHandoffSummary(record.mackaylaNotes)}
+                      onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      placeholder="Add Mackayla notes"
+                    />
+                  </td>
+                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    <textarea
+                      className="input recruitingInlineNoteInput"
+                      rows={3}
+                      value={record.lesleeNotes || ""}
+                      onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      placeholder="Add Leslee notes"
+                    />
+                  </td>
+                  <td style={{ minWidth: 220, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    <div className="row recruitingActionRow recruitingFitActionRow">
+                      <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
+                        Edit Details
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => void handleMoveRecordToNextYear(record.id)}
+                        disabled={isSavingNotes || record.recruitingYear === NEXT_RECRUITING_YEAR}
+                      >
+                        {record.recruitingYear === NEXT_RECRUITING_YEAR
+                          ? `On ${NEXT_RECRUITING_YEAR}`
+                          : `Move to ${NEXT_RECRUITING_YEAR}`}
+                      </button>
+                      <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>
+                        Lock Team
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               );
             })}
           </tbody>
@@ -3275,70 +3420,108 @@ export default function RecruitingPage() {
 
     return (
       <DraggableTable>
-        <table className={`table recruitingCompactTable recruitingFont-${tableFontSize}`} style={{ minWidth: 760 }}>
+        <table
+          className={`table recruitingCompactTable recruitingBoardWideTable recruitingBoardTable recruitingFont-${tableFontSize}`}
+        >
           <thead>
             <tr>
-              <th>Team Name</th>
-              <th>Primary Contact</th>
-              <th>Trip / Site</th>
-              <th>Departure Date</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th style={{ minWidth: 140 }}>Team</th>
+              <th style={{ minWidth: 184 }}>Team roster</th>
+              <th style={{ minWidth: 104 }}>Project leave</th>
+              <th style={{ minWidth: 104 }}>Project return</th>
+              <th style={{ minWidth: 128 }}>Site</th>
+              <th style={{ minWidth: 108 }}>Host</th>
+              <th style={{ minWidth: 92 }}>Site type</th>
+              <th style={{ minWidth: 120 }}>Training timeline</th>
+              <th style={{ minWidth: 132 }}>Length of projects</th>
+              <th style={{ minWidth: 76 }}>Project type</th>
+              <th style={{ minWidth: 80 }}>Extra travel</th>
+              <th style={{ minWidth: 92 }}>Fundraising</th>
+              <th style={{ minWidth: 76 }}>Fee</th>
+              <th style={{ minWidth: 84 }}>Materials</th>
+              <th style={{ minWidth: 80 }}>Deferred</th>
+              <th style={{ minWidth: 88 }}>Hannover</th>
+              <th style={{ minWidth: 88 }}>Domestic project</th>
+              <th style={{ minWidth: 80 }}>Domestic fee</th>
+              <th style={{ minWidth: 88 }}>Domestic materials</th>
+              <th style={{ minWidth: 124 }}>Recruiting project dates</th>
+              <th style={{ minWidth: 68 }}>Weeks</th>
+              <th style={{ minWidth: 112 }}>Recruiting departure</th>
+              <th style={{ minWidth: 140 }}>Trip name</th>
+              <th style={{ minWidth: 128 }}>Trip / site</th>
+              <th style={{ minWidth: 112 }}>Departure</th>
+              <th style={{ minWidth: 88 }}>Status</th>
+              <th style={{ minWidth: 200 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {recordsToRender.map((record) => (
-              <tr key={record.id} onClick={() => setSelectedRecordId(record.id)}>
-                <td>
-                  <div>{record.teamName || record.linkedTrip?.name || "-"}</div>
-                  {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id]) ? (
-                    <div
-                      className="small recruitingUpdatedMeta"
-                      title={
-                        latestActivityByRecordId[record.id]?.summary ||
-                        formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])
-                      }
-                    >
-                      {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])}
-                    </div>
-                  ) : null}
-                </td>
-                <td>{formatContactName(record)}</td>
-                <td>{record.linkedTrip?.site || record.site || "-"}</td>
-                <td>{record.linkedTrip?.departureDate ? formatDate(record.linkedTrip.departureDate) : formatFlexibleDepartureDate(record.departureDate)}</td>
-                <td>{record.linkedTrip?.status || "Locked"}</td>
-                <td>
-                  <div className="row recruitingActionRow" onClick={(event) => event.stopPropagation()}>
-                    <button
-                      className="btn btnPrimary"
-                      type="button"
-                      onClick={() => void openRecordDetails(record.id, "details")}
-                    >
-                      Edit
-                    </button>
-                    <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>
-                      View History
-                    </button>
-                    {record.convertedTeamId ? (
-                      <button className="btn" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
-                        Open Team
-                      </button>
-                    ) : null}
-                    {canUnlockLockedTeams && record.convertedTeamId ? (
-                      <button
-                        className="btn"
-                        type="button"
-                        style={RECRUITING_UNLOCK_TEAM_BUTTON_STYLE}
-                        disabled={unlockingLockedTeamRecordId === record.id}
-                        onClick={() => void handleUnlockLockedTeam(record)}
+            {recordsToRender.map((record, rowIndex) => {
+              const isSelected = record.id === selectedRecordId;
+              const rowClass = [rowIndex % 2 === 1 ? "recruitingRowAlt" : "", isSelected ? "recruitingRowSelected" : ""]
+                .filter(Boolean)
+                .join(" ");
+              return (
+                <tr key={record.id} className={rowClass} onClick={() => setSelectedRecordId(record.id)}>
+                  <td style={{ minWidth: 140, verticalAlign: "middle" }}>
+                    <span className="recruitingTeamNamePill" title={record.teamName || record.linkedTrip?.name || ""}>
+                      {record.teamName || record.linkedTrip?.name || "—"}
+                    </span>
+                    {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id]) ? (
+                      <div
+                        className="small recruitingUpdatedMeta"
+                        style={{ marginTop: 6 }}
+                        title={
+                          latestActivityByRecordId[record.id]?.summary ||
+                          formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])
+                        }
                       >
-                        {unlockingLockedTeamRecordId === record.id ? "Unlocking…" : "Unlock team"}
-                      </button>
+                        {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])}
+                      </div>
                     ) : null}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterChartColumn(record)}</td>
+                  {lockDraftChartCells(record)}
+                  <td style={{ minWidth: 140, verticalAlign: "top" }}>{chartDashText(record.linkedTrip?.name)}</td>
+                  <td style={{ minWidth: 128, verticalAlign: "top" }}>{chartDashText(record.linkedTrip?.site || record.site)}</td>
+                  <td style={{ minWidth: 112, verticalAlign: "top" }}>
+                    {record.linkedTrip?.departureDate
+                      ? formatDate(record.linkedTrip.departureDate)
+                      : formatFlexibleDepartureDate(record.departureDate)}
+                  </td>
+                  <td style={{ minWidth: 88, verticalAlign: "top" }}>{record.linkedTrip?.status || "Locked"}</td>
+                  <td style={{ minWidth: 200, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    <div className="row recruitingActionRow">
+                      <button
+                        className="btn btnPrimary"
+                        type="button"
+                        onClick={() => void openRecordDetails(record.id, "details")}
+                      >
+                        Edit
+                      </button>
+                      <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>
+                        View History
+                      </button>
+                      {record.convertedTeamId ? (
+                        <button className="btn" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
+                          Open Team
+                        </button>
+                      ) : null}
+                      {canUnlockLockedTeams && record.convertedTeamId ? (
+                        <button
+                          className="btn"
+                          type="button"
+                          style={RECRUITING_UNLOCK_TEAM_BUTTON_STYLE}
+                          disabled={unlockingLockedTeamRecordId === record.id}
+                          onClick={() => void handleUnlockLockedTeam(record)}
+                        >
+                          {unlockingLockedTeamRecordId === record.id ? "Unlocking…" : "Unlock team"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </DraggableTable>
