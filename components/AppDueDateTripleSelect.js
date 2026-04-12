@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { coerceSqlDateToYmd } from "@/lib/isoDateYmd";
 
 const DUE_DATE_YEAR_OPTIONS = (() => {
   const end = new Date().getFullYear() + 6;
@@ -32,7 +33,8 @@ const DUE_DATE_MONTH_OPTIONS = [
 const PLACEHOLDER_LEAP_YEAR = 2024;
 
 function parseYmdParts(ymd) {
-  const t = String(ymd || "").trim();
+  const canonical = coerceSqlDateToYmd(ymd);
+  const t = canonical || String(ymd || "").trim();
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
   if (!m) return { year: "", month: "", day: "" };
   return { year: m[1], month: String(Number(m[2])), day: String(Number(m[3])) };

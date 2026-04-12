@@ -1665,13 +1665,6 @@ export default function TripPage() {
     });
     setIsEditingTeamFundraising(false);
     setEditingParticipantFundraisingId("");
-    setTripSetupDraft(buildTripSetupDraft(trip));
-    setIsEditingTripSetup(false);
-    setTripSetupStatus("");
-    setIsCustomSiteInput(false);
-    setRosterDraft(trip.teamMembers || []);
-    setIsEditingRoster(false);
-    setRosterStatus("");
     setIsAddingStaffTask(false);
     setNewStaffTaskDraft({
       workArea: "Project Formation",
@@ -1681,6 +1674,27 @@ export default function TripPage() {
       notes: "",
     });
   }, [trip]);
+
+  useEffect(() => {
+    if (!trip?.id) return;
+    setIsEditingTripSetup(false);
+    setIsEditingRoster(false);
+  }, [trip?.id]);
+
+  useEffect(() => {
+    if (!trip) return;
+    if (isEditingTripSetup) return;
+    setTripSetupDraft(buildTripSetupDraft(trip));
+    setTripSetupStatus("");
+    setIsCustomSiteInput(false);
+  }, [trip, isEditingTripSetup]);
+
+  useEffect(() => {
+    if (!trip) return;
+    if (isEditingRoster) return;
+    setRosterDraft(trip.teamMembers || []);
+    setRosterStatus("");
+  }, [trip, isEditingRoster]);
 
   useEffect(() => {
     if (!trip?.id) return;
