@@ -1508,7 +1508,9 @@ export default function RecruitingPage() {
   const loadingHistoryRef = useRef({});
 
   useEffect(() => {
-    if (!recordDetailsModalOpen || recordDetailsMode !== "details" || activeTab !== "potential") {
+    const useLockStyleEdit =
+      activeTab === "potential" || activeTab === "outreach";
+    if (!recordDetailsModalOpen || recordDetailsMode !== "details" || !useLockStyleEdit) {
       potentialEditSnapshotKey.current = "";
       return;
     }
@@ -3705,11 +3707,18 @@ export default function RecruitingPage() {
                 ) : null}
                 {recordDetailsMode !== "history" ? (
                   <>
-                    {activeTab === "potential" && !selectedRecord.isConvertedToTeam ? (
+                    {(activeTab === "potential" || activeTab === "outreach") &&
+                    !selectedRecord.isConvertedToTeam ? (
                       <>
                         <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
                           Same fields as <strong>Lock Team</strong>. Saving updates this recruiting row only (does not
                           create a trip). Use <strong>Contact history</strong> in the header to log calls and emails.
+                          {activeTab === "outreach" ? (
+                            <>
+                              {" "}
+                              When ready, use <strong>Promote to Potential Teams</strong> below.
+                            </>
+                          ) : null}
                         </div>
                         {error ? (
                           <div className="card pad" style={{ color: "var(--danger)" }}>{error}</div>
@@ -3746,7 +3755,7 @@ export default function RecruitingPage() {
                           onToggleMemberTripDates={() =>
                             setPotentialEditShowMemberTripDates((toggle) => !toggle)
                           }
-                          memberKeyPrefix={`${selectedRecord.id}-potential-edit`}
+                          memberKeyPrefix={`${selectedRecord.id}-${activeTab}-lock-edit`}
                           sitePickerLabels={sitePickerLabels}
                           mergeSiteOptionListWithCurrent={mergeSiteOptionListWithCurrent}
                         />
@@ -3766,6 +3775,11 @@ export default function RecruitingPage() {
                           >
                             {isSavingNotes ? "Saving..." : "Save record"}
                           </button>
+                          {activeTab === "outreach" ? (
+                            <button className="btn" type="button" onClick={() => handlePromote(selectedRecord)}>
+                              Promote to Potential Teams
+                            </button>
+                          ) : null}
                         </div>
                       </>
                     ) : (
