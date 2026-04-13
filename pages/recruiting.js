@@ -1001,6 +1001,106 @@ function recruitingBoardFundraisingGoalLabel(record) {
   return raw;
 }
 
+function sanitizeExcelClipboardField(value) {
+  return String(value ?? "")
+    .replace(/\t/g, "    ")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n/g, " ")
+    .trim();
+}
+
+function recruitingBoardClipboardTeamName(record) {
+  if (record?.isConvertedToTeam) {
+    return String(record.teamName || record?.linkedTrip?.name || formatContactName(record) || "").trim();
+  }
+  return String(record?.teamName || formatContactName(record) || "").trim();
+}
+
+function formatRecruitingRosterForExcelClipboard(record) {
+  const members = buildTeamFormDraft(record).teamMembers || [];
+  const parts = [];
+  for (const member of members) {
+    const name = [member.firstName, member.lastName].filter(Boolean).join(" ").trim();
+    const email = String(member.email || "").trim();
+    const phone = String(member.phone || "").trim();
+    if (!name && !email && !phone) continue;
+    let part = "";
+    if (name && email) part = `${name} <${email}>`;
+    else if (name) part = name;
+    else if (email) part = email;
+    else part = phone;
+    if (phone && part !== phone && !part.includes(phone)) {
+      part = `${part} (${phone})`;
+    }
+    parts.push(part.replace(/\t/g, " ").replace(/\r?\n/g, " "));
+  }
+  return parts.join("; ");
+}
+
+function buildRecruitingBoardExcelClipboardText(record) {
+  const teamName = sanitizeExcelClipboardField(recruitingBoardClipboardTeamName(record));
+  const roster = sanitizeExcelClipboardField(formatRecruitingRosterForExcelClipboard(record));
+  const d = buildTeamFormDraft(record);
+  const site = sanitizeExcelClipboardField(d.location || record?.site || "");
+  const projectDates = sanitizeExcelClipboardField(recruitingBoardProjectDatesLabel(record));
+  const header = "Team Name\tRoster\tSite\tProject dates";
+  const row = [teamName, roster, site, projectDates].join("\t");
+  return `${header}\n${row}`;
+}
+
+function copyRecruitingBoardRowToClipboard(record) {
+  const text = buildRecruitingBoardExcelClipboardText(record);
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      resolve(undefined);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+function RecruitingBoardCopyRowButton({ record }) {
+  const [feedback, setFeedback] = useState("");
+  const handleClick = (event) => {
+    event.stopPropagation();
+    event.preventDefault();
+    void copyRecruitingBoardRowToClipboard(record)
+      .then(() => {
+        setFeedback("Copied");
+        window.setTimeout(() => setFeedback(""), 1800);
+      })
+      .catch(() => {
+        setFeedback("Failed");
+        window.setTimeout(() => setFeedback(""), 2200);
+      });
+  };
+  return (
+    <button
+      type="button"
+      className="recruitingCopyRowBtn"
+      aria-label="Copy tab-separated row for Excel: team name, roster, site, project dates"
+      title="Copy for Excel: team name, roster (names and emails), site, project dates"
+      onClick={handleClick}
+    >
+      <AppIcon name="copy" className="recruitingCopyRowBtnIcon" />
+      {feedback ? <span className="recruitingCopyRowBtnFeedback">{feedback}</span> : null}
+    </button>
+  );
+}
+
 const ROSTER_BOARD_PREVIEW_COUNT = 4;
 
 /** Roster column for board tables: name + email + phone under email when present; “See more” when more than four people. */
@@ -2997,15 +3097,20 @@ export default function RecruitingPage() {
                   style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
                   <td style={{ width: RECRUITING_OUTREACH_COL_PCT.team, verticalAlign: "middle" }}>
-                    <span className="recruitingTeamNamePill" title={record.teamName || formatContactName(record)}>
-                      {record.teamName || formatContactName(record) || "—"}
-                    </span>
-                    {attention ? (
-                      <div style={{ marginTop: 6 }}>
-                        <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
+                    <div className="recruitingTeamCellRow">
+                      <div className="recruitingTeamCellMain">
+                        <span className="recruitingTeamNamePill" title={record.teamName || formatContactName(record)}>
+                          {record.teamName || formatContactName(record) || "—"}
+                        </span>
+                        {attention ? (
+                          <div style={{ marginTop: 6 }}>
+                            <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
+                          </div>
+                        ) : null}
+                        {renderDuplicateNotice(duplicateInfo, { compact: true })}
                       </div>
-                    ) : null}
-                    {renderDuplicateNotice(duplicateInfo, { compact: true })}
+                      <RecruitingBoardCopyRowButton record={record} />
+                    </div>
                   </td>
                   <td style={{ width: RECRUITING_OUTREACH_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
                   <td style={{ width: RECRUITING_OUTREACH_COL_PCT.projectDates, verticalAlign: "top" }}>
@@ -3191,15 +3296,20 @@ export default function RecruitingPage() {
                   style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
                   <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.team, verticalAlign: "middle" }}>
-                    <span className="recruitingTeamNamePill" title={record.teamName || formatContactName(record)}>
-                      {record.teamName || formatContactName(record) || "—"}
-                    </span>
-                    {attention ? (
-                      <div style={{ marginTop: 6 }}>
-                        <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
+                    <div className="recruitingTeamCellRow">
+                      <div className="recruitingTeamCellMain">
+                        <span className="recruitingTeamNamePill" title={record.teamName || formatContactName(record)}>
+                          {record.teamName || formatContactName(record) || "—"}
+                        </span>
+                        {attention ? (
+                          <div style={{ marginTop: 6 }}>
+                            <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
+                          </div>
+                        ) : null}
+                        {renderDuplicateNotice(duplicateInfo, { compact: true })}
                       </div>
-                    ) : null}
-                    {renderDuplicateNotice(duplicateInfo, { compact: true })}
+                      <RecruitingBoardCopyRowButton record={record} />
+                    </div>
                   </td>
                   <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
                   <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.projectDates, verticalAlign: "top" }}>
@@ -3384,21 +3494,26 @@ export default function RecruitingPage() {
                   onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
                 >
                   <td style={{ width: RECRUITING_CONVERTED_COL_PCT.team, verticalAlign: "middle" }}>
-                    <span className="recruitingTeamNamePill" title={record.teamName || record.linkedTrip?.name || ""}>
-                      {record.teamName || record.linkedTrip?.name || "—"}
-                    </span>
-                    {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id]) ? (
-                      <div
-                        className="small recruitingUpdatedMeta"
-                        style={{ marginTop: 6 }}
-                        title={
-                          latestActivityByRecordId[record.id]?.summary ||
-                          formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])
-                        }
-                      >
-                        {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])}
+                    <div className="recruitingTeamCellRow">
+                      <div className="recruitingTeamCellMain">
+                        <span className="recruitingTeamNamePill" title={record.teamName || record.linkedTrip?.name || ""}>
+                          {record.teamName || record.linkedTrip?.name || "—"}
+                        </span>
+                        {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id]) ? (
+                          <div
+                            className="small recruitingUpdatedMeta"
+                            style={{ marginTop: 6 }}
+                            title={
+                              latestActivityByRecordId[record.id]?.summary ||
+                              formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])
+                            }
+                          >
+                            {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])}
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
+                      <RecruitingBoardCopyRowButton record={record} />
+                    </div>
                   </td>
                   <td style={{ width: RECRUITING_CONVERTED_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
                   <td style={{ width: RECRUITING_CONVERTED_COL_PCT.projectDates, verticalAlign: "top" }}>
