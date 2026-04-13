@@ -1321,6 +1321,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-variant-numeric:tabular-nums;
   white-space:nowrap;
 }
+.recruitingPotentialFundraisingTh{
+  white-space:nowrap;
+}
 .recruitingTeamNamePill{
   display:inline-flex;
   align-items:center;
