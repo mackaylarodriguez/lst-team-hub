@@ -747,33 +747,6 @@ function chartDashText(value) {
   return s || "—";
 }
 
-/** Roster column for board tables: name + email only (full roster detail stays in Edit). */
-function renderRecruitingRosterBoardColumn(record) {
-  const draft = buildTeamFormDraft(record);
-  const members = draft.teamMembers?.length ? draft.teamMembers : [];
-
-  return (
-    <div className="recruitingRosterChartStack">
-      {members.map((member, index) => {
-        const name = [member.firstName, member.lastName].filter(Boolean).join(" ").trim();
-        return (
-          <div key={`${record.id}-board-roster-${index}`} className="recruitingRosterChartBlock">
-            <div className="recruitingRosterChartName">
-              {index === 0 ? (
-                <span className="recruitingRosterPrimaryMark" title="Primary recruiting contact">
-                  ★{" "}
-                </span>
-              ) : null}
-              {name || chartDashText(member.email)}
-            </div>
-            {member.email ? <div className="recruitingRosterChartEmail">{member.email}</div> : null}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function formatDate(value) {
   if (!value) return "Not set";
   return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
@@ -993,6 +966,53 @@ function recruitingBoardFundraisingGoalLabel(record) {
     }).format(n);
   }
   return raw;
+}
+
+const ROSTER_BOARD_PREVIEW_COUNT = 4;
+
+/** Roster column for board tables: name + email; “See more” when more than four people. */
+function RecruitingRosterBoardColumn({ record }) {
+  const [expanded, setExpanded] = useState(false);
+  const draft = buildTeamFormDraft(record);
+  const members = draft.teamMembers?.length ? draft.teamMembers : [];
+  const needsToggle = members.length > ROSTER_BOARD_PREVIEW_COUNT;
+  const visibleMembers =
+    needsToggle && !expanded ? members.slice(0, ROSTER_BOARD_PREVIEW_COUNT) : members;
+  const hiddenCount = members.length - ROSTER_BOARD_PREVIEW_COUNT;
+
+  return (
+    <div className="recruitingRosterChartStack">
+      {visibleMembers.map((member, index) => {
+        const name = [member.firstName, member.lastName].filter(Boolean).join(" ").trim();
+        const key = `${record.id}-board-roster-${index}-${member.email || "noemail"}`;
+        return (
+          <div key={key} className="recruitingRosterChartBlock">
+            <div className="recruitingRosterChartName">
+              {index === 0 ? (
+                <span className="recruitingRosterPrimaryMark" title="Primary recruiting contact">
+                  ★{" "}
+                </span>
+              ) : null}
+              {name || chartDashText(member.email)}
+            </div>
+            {member.email ? <div className="recruitingRosterChartEmail">{member.email}</div> : null}
+          </div>
+        );
+      })}
+      {needsToggle ? (
+        <div className="recruitingRosterSeeMoreWrap">
+          <button
+            type="button"
+            className="recruitingRosterSeeMoreBtn"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? "See less" : `See more (${hiddenCount} more)`}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function formatDateTime(value) {
@@ -2950,7 +2970,7 @@ export default function RecruitingPage() {
                     ) : null}
                     {renderDuplicateNotice(duplicateInfo, { compact: true })}
                   </td>
-                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterBoardColumn(record)}</td>
+                  <td style={{ minWidth: 184, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
                   <td style={{ minWidth: 124, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
                   </td>
@@ -3040,7 +3060,7 @@ export default function RecruitingPage() {
               <div className="small" style={{ marginTop: 8 }}>
                 <strong>Team roster</strong>
               </div>
-              <div style={{ marginTop: 4 }}>{renderRecruitingRosterBoardColumn(record)}</div>
+              <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} /></div>
               <div className="recruitingMobileMeta">
                 <span title="Project dates">{chartDashText(recruitingBoardProjectDatesLabel(record))}</span>
                 <span title="Site">{chartDashText(d.location)}</span>
@@ -3134,7 +3154,7 @@ export default function RecruitingPage() {
                     ) : null}
                     {renderDuplicateNotice(duplicateInfo, { compact: true })}
                   </td>
-                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterBoardColumn(record)}</td>
+                  <td style={{ minWidth: 184, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
                   <td style={{ minWidth: 124, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
                   </td>
@@ -3227,7 +3247,7 @@ export default function RecruitingPage() {
               <div className="small" style={{ marginTop: 8 }}>
                 <strong>Team roster</strong>
               </div>
-              <div style={{ marginTop: 4 }}>{renderRecruitingRosterBoardColumn(record)}</div>
+              <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} /></div>
               <div className="recruitingMobileMeta">
                 <span title="Project dates">{chartDashText(recruitingBoardProjectDatesLabel(record))}</span>
                 <span title="Site">{chartDashText(d.location)}</span>
@@ -3325,7 +3345,7 @@ export default function RecruitingPage() {
                       </div>
                     ) : null}
                   </td>
-                  <td style={{ minWidth: 184, verticalAlign: "top" }}>{renderRecruitingRosterBoardColumn(record)}</td>
+                  <td style={{ minWidth: 184, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
                   <td style={{ minWidth: 124, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
                   </td>
@@ -3426,7 +3446,7 @@ export default function RecruitingPage() {
             <div className="small" style={{ marginTop: 8 }}>
               <strong>Team roster</strong>
             </div>
-            <div style={{ marginTop: 4 }}>{renderRecruitingRosterBoardColumn(record)}</div>
+            <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} /></div>
             <div className="recruitingMobileMeta">
               <span title="Project dates">{chartDashText(recruitingBoardProjectDatesLabel(record))}</span>
               <span title="Site">{chartDashText(d.location)}</span>

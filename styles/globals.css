@@ -1344,6 +1344,32 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   padding-bottom:0;
   border-bottom:none;
 }
+.recruitingRosterSeeMoreWrap{
+  margin-top:6px;
+  padding-top:4px;
+}
+.recruitingRosterSeeMoreBtn{
+  padding:0;
+  border:none;
+  background:none;
+  color:var(--primary);
+  font:inherit;
+  font-weight:700;
+  font-size:13px;
+  line-height:1.35;
+  cursor:pointer;
+  text-decoration:underline;
+  text-underline-offset:2px;
+  text-align:left;
+}
+.recruitingRosterSeeMoreBtn:hover{
+  opacity:.88;
+}
+.recruitingRosterSeeMoreBtn:focus-visible{
+  outline:2px solid var(--primary);
+  outline-offset:2px;
+  border-radius:4px;
+}
 .recruitingRosterChartName{
   font-weight:700;
   font-size:14px;
