@@ -82,6 +82,39 @@ function joinLabels(labels) {
 
 const RECRUITING_BOARD_SORT = ["Recruiting", "Potential Teams", "Lock Teams"];
 
+/** Desktop board tables: percent widths (sum 100%). Team is 8% on every tab; notes columns are largest. */
+const RECRUITING_OUTREACH_COL_PCT = {
+  team: "8%",
+  roster: "13%",
+  projectDates: "7%",
+  site: "8%",
+  weeks: "4%",
+  mackayla: "26%",
+  leslee: "26%",
+  actions: "8%",
+};
+const RECRUITING_POTENTIAL_COL_PCT = {
+  team: "8%",
+  roster: "12%",
+  projectDates: "6%",
+  site: "7%",
+  weeks: "4%",
+  fundraising: "6%",
+  mackayla: "23%",
+  leslee: "23%",
+  actions: "11%",
+};
+const RECRUITING_CONVERTED_COL_PCT = {
+  team: "8%",
+  roster: "12%",
+  projectDates: "7%",
+  site: "8%",
+  weeks: "4%",
+  mackayla: "24%",
+  leslee: "24%",
+  actions: "13%",
+};
+
 function sortRecruitingBoardLabels(labels) {
   return [...labels].sort(
     (a, b) => RECRUITING_BOARD_SORT.indexOf(a) - RECRUITING_BOARD_SORT.indexOf(b)
@@ -2935,14 +2968,14 @@ export default function RecruitingPage() {
         >
           <thead>
             <tr>
-              <th style={{ minWidth: 140 }}>Team</th>
-              <th style={{ minWidth: 184 }}>Team roster</th>
-              <th style={{ minWidth: 124 }}>Project dates</th>
-              <th style={{ minWidth: 128 }}>Site</th>
-              <th style={{ minWidth: 72 }}>Weeks</th>
-              <th style={{ minWidth: 168 }}>Mackayla notes</th>
-              <th style={{ minWidth: 168 }}>Leslee notes</th>
-              <th style={{ minWidth: 220 }}>Actions</th>
+              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.team }}>Team</th>
+              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.roster }}>Team roster</th>
+              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.projectDates }}>Project dates</th>
+              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.site }}>Site</th>
+              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.weeks }}>Weeks</th>
+              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.mackayla }}>Mackayla notes</th>
+              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.leslee }}>Leslee notes</th>
+              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.actions }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -2959,7 +2992,7 @@ export default function RecruitingPage() {
                   onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
                   style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
-                  <td style={{ minWidth: 140, verticalAlign: "middle" }}>
+                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.team, verticalAlign: "middle" }}>
                     <span className="recruitingTeamNamePill" title={record.teamName || formatContactName(record)}>
                       {record.teamName || formatContactName(record) || "—"}
                     </span>
@@ -2970,37 +3003,37 @@ export default function RecruitingPage() {
                     ) : null}
                     {renderDuplicateNotice(duplicateInfo, { compact: true })}
                   </td>
-                  <td style={{ minWidth: 184, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
-                  <td style={{ minWidth: 124, verticalAlign: "top" }}>
+                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
+                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.projectDates, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
                   </td>
-                  <td style={{ minWidth: 128, verticalAlign: "top" }}>
+                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.site, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(d.location)}</div>
                   </td>
-                  <td style={{ minWidth: 72, verticalAlign: "top" }}>
+                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.weeks, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(recruitingBoardWeeksLabel(record))}</div>
                   </td>
-                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.mackayla, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
-                      rows={3}
+                      rows={4}
                       value={stripHandoffSummary(record.mackaylaNotes)}
                       onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
                       onBlur={() => void handleSaveRecord(record.id)}
                       placeholder="Add Mackayla notes"
                     />
                   </td>
-                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.leslee, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
-                      rows={3}
+                      rows={4}
                       value={record.lesleeNotes || ""}
                       onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
                       onBlur={() => void handleSaveRecord(record.id)}
                       placeholder="Add Leslee notes"
                     />
                   </td>
-                  <td style={{ minWidth: 220, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.actions, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow recruitingFitActionRow">
                       <button className="btn" type="button" onClick={() => openContactActionModal(record, "email")}>Emailed</button>
                       <button className="btn" type="button" onClick={() => openContactActionModal(record, "call")}>Called</button>
@@ -3069,7 +3102,7 @@ export default function RecruitingPage() {
               <div className="recruitingMobileNotes">
                 <textarea
                   className="input recruitingInlineNoteInput"
-                  rows={3}
+                  rows={4}
                   value={stripHandoffSummary(record.mackaylaNotes)}
                   onClick={(event) => event.stopPropagation()}
                   onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
@@ -3078,7 +3111,7 @@ export default function RecruitingPage() {
                 />
                 <textarea
                   className="input recruitingInlineNoteInput"
-                  rows={3}
+                  rows={4}
                   value={record.lesleeNotes || ""}
                   onClick={(event) => event.stopPropagation()}
                   onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
@@ -3118,15 +3151,15 @@ export default function RecruitingPage() {
         >
           <thead>
             <tr>
-              <th style={{ minWidth: 96, width: "10%" }}>Team</th>
-              <th style={{ minWidth: 184 }}>Team roster</th>
-              <th style={{ minWidth: 124 }}>Project dates</th>
-              <th style={{ minWidth: 128 }}>Site</th>
-              <th style={{ minWidth: 72 }}>Weeks</th>
-              <th style={{ minWidth: 100 }}>Fundraising</th>
-              <th style={{ minWidth: 168 }}>Mackayla notes</th>
-              <th style={{ minWidth: 168 }}>Leslee notes</th>
-              <th style={{ minWidth: 160 }}>Actions</th>
+              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.team }}>Team</th>
+              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.roster }}>Team roster</th>
+              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.projectDates }}>Project dates</th>
+              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.site }}>Site</th>
+              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.weeks }}>Weeks</th>
+              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.fundraising }}>Fundraising</th>
+              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.mackayla }}>Mackayla notes</th>
+              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.leslee }}>Leslee notes</th>
+              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.actions }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -3143,7 +3176,7 @@ export default function RecruitingPage() {
                   onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
                   style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
-                  <td style={{ minWidth: 96, width: "10%", verticalAlign: "middle" }}>
+                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.team, verticalAlign: "middle" }}>
                     <span className="recruitingTeamNamePill" title={record.teamName || formatContactName(record)}>
                       {record.teamName || formatContactName(record) || "—"}
                     </span>
@@ -3154,42 +3187,42 @@ export default function RecruitingPage() {
                     ) : null}
                     {renderDuplicateNotice(duplicateInfo, { compact: true })}
                   </td>
-                  <td style={{ minWidth: 184, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
-                  <td style={{ minWidth: 124, verticalAlign: "top" }}>
+                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
+                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.projectDates, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
                   </td>
-                  <td style={{ minWidth: 128, verticalAlign: "top" }}>
+                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.site, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(d.location)}</div>
                   </td>
-                  <td style={{ minWidth: 72, verticalAlign: "top" }}>
+                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.weeks, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(recruitingBoardWeeksLabel(record))}</div>
                   </td>
-                  <td style={{ minWidth: 100, verticalAlign: "top" }}>
+                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.fundraising, verticalAlign: "top" }}>
                     <div className="recruitingChartCell recruitingPotentialFundraisingCell">
                       {chartDashText(recruitingBoardFundraisingGoalLabel(record))}
                     </div>
                   </td>
-                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.mackayla, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
-                      rows={3}
+                      rows={4}
                       value={stripHandoffSummary(record.mackaylaNotes)}
                       onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
                       onBlur={() => void handleSaveRecord(record.id)}
                       placeholder="Add Mackayla notes"
                     />
                   </td>
-                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.leslee, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
-                      rows={3}
+                      rows={4}
                       value={record.lesleeNotes || ""}
                       onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
                       onBlur={() => void handleSaveRecord(record.id)}
                       placeholder="Add Leslee notes"
                     />
                   </td>
-                  <td style={{ minWidth: 160, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.actions, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow recruitingFitActionRow">
                       <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
                         Edit
@@ -3257,7 +3290,7 @@ export default function RecruitingPage() {
               <div className="recruitingMobileNotes">
                 <textarea
                   className="input recruitingInlineNoteInput"
-                  rows={3}
+                  rows={4}
                   value={stripHandoffSummary(record.mackaylaNotes)}
                   onClick={(event) => event.stopPropagation()}
                   onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
@@ -3266,7 +3299,7 @@ export default function RecruitingPage() {
                 />
                 <textarea
                   className="input recruitingInlineNoteInput"
-                  rows={3}
+                  rows={4}
                   value={record.lesleeNotes || ""}
                   onClick={(event) => event.stopPropagation()}
                   onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
@@ -3308,14 +3341,14 @@ export default function RecruitingPage() {
         >
           <thead>
             <tr>
-              <th style={{ minWidth: 140 }}>Team</th>
-              <th style={{ minWidth: 184 }}>Team roster</th>
-              <th style={{ minWidth: 124 }}>Project dates</th>
-              <th style={{ minWidth: 128 }}>Site</th>
-              <th style={{ minWidth: 72 }}>Weeks</th>
-              <th style={{ minWidth: 168 }}>Mackayla notes</th>
-              <th style={{ minWidth: 168 }}>Leslee notes</th>
-              <th style={{ minWidth: 200 }}>Actions</th>
+              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.team }}>Team</th>
+              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.roster }}>Team roster</th>
+              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.projectDates }}>Project dates</th>
+              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.site }}>Site</th>
+              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.weeks }}>Weeks</th>
+              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.mackayla }}>Mackayla notes</th>
+              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.leslee }}>Leslee notes</th>
+              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.actions }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -3328,7 +3361,7 @@ export default function RecruitingPage() {
                   className={rowClass}
                   onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
                 >
-                  <td style={{ minWidth: 140, verticalAlign: "middle" }}>
+                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.team, verticalAlign: "middle" }}>
                     <span className="recruitingTeamNamePill" title={record.teamName || record.linkedTrip?.name || ""}>
                       {record.teamName || record.linkedTrip?.name || "—"}
                     </span>
@@ -3345,37 +3378,37 @@ export default function RecruitingPage() {
                       </div>
                     ) : null}
                   </td>
-                  <td style={{ minWidth: 184, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
-                  <td style={{ minWidth: 124, verticalAlign: "top" }}>
+                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
+                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.projectDates, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
                   </td>
-                  <td style={{ minWidth: 128, verticalAlign: "top" }}>
+                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.site, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(d.location)}</div>
                   </td>
-                  <td style={{ minWidth: 72, verticalAlign: "top" }}>
+                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.weeks, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(recruitingBoardWeeksLabel(record))}</div>
                   </td>
-                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.mackayla, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
-                      rows={3}
+                      rows={4}
                       value={stripHandoffSummary(record.mackaylaNotes)}
                       onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
                       onBlur={() => void handleSaveRecord(record.id)}
                       placeholder="Add Mackayla notes"
                     />
                   </td>
-                  <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.leslee, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
-                      rows={3}
+                      rows={4}
                       value={record.lesleeNotes || ""}
                       onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
                       onBlur={() => void handleSaveRecord(record.id)}
                       placeholder="Add Leslee notes"
                     />
                   </td>
-                  <td style={{ minWidth: 200, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.actions, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow">
                       <button
                         className="btn btnPrimary"
@@ -3455,7 +3488,7 @@ export default function RecruitingPage() {
             <div className="recruitingMobileNotes">
               <textarea
                 className="input recruitingInlineNoteInput"
-                rows={3}
+                rows={4}
                 value={stripHandoffSummary(record.mackaylaNotes)}
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
@@ -3464,7 +3497,7 @@ export default function RecruitingPage() {
               />
               <textarea
                 className="input recruitingInlineNoteInput"
-                rows={3}
+                rows={4}
                 value={record.lesleeNotes || ""}
                 onClick={(event) => event.stopPropagation()}
                 onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}

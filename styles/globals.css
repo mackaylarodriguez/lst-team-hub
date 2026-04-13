@@ -1268,7 +1268,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .table.recruitingBoardSlimTable{
   width:100%;
   min-width:0;
-  table-layout:auto;
+  table-layout:fixed;
 }
 .recruitingBoardTable .recruitingFitEmailCell,
 .recruitingBoardTable .recruitingFitEmailCell > div,
@@ -1286,6 +1286,12 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .recruitingBoardTable.recruitingCompactTable td{
   white-space:normal;
   word-break:break-word;
+  padding:6px 8px;
+}
+.recruitingBoardTable .recruitingInlineNoteInput{
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
 }
 .recruitingBoardTable tbody tr.recruitingRowAlt:not(.recruitingRowSelected) td{
   background-color:rgba(15,23,42,.025);
@@ -1307,7 +1313,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .recruitingPotentialBoardTable td{
   text-align:left;
 }
-.recruitingPotentialBoardTable td:first-child .recruitingTeamNamePill{
+.recruitingBoardTable td:first-child .recruitingTeamNamePill{
   max-width:100%;
 }
 .recruitingPotentialFundraisingCell{
@@ -1334,7 +1340,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:flex;
   flex-direction:column;
   gap:8px;
-  min-width:168px;
+  min-width:0;
 }
 .recruitingRosterChartBlock{
   padding-bottom:6px;
@@ -1479,7 +1485,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   white-space:normal;
 }
 .recruitingInlineNoteInput{
-  min-height:64px;
+  min-height:72px;
   padding:7px 10px;
   font-size:13px;
   line-height:1.35;
