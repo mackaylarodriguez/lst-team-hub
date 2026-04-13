@@ -2,7 +2,7 @@
  * Budget check (printed check) workflow for staff/admin.
  *
  * Creates `staff_misc_tasks` for the finance assignee (personal task list) and
- * `trip_staff_tasks` so the request appears on the trip **Staff Tasks** tab.
+ * `trip_staff_tasks` under **Fundraising** on the trip **Staff Tasks** tab.
  *
  * Env (optional):
  * - BUDGET_CHECK_NOTIFY_EMAIL — notification recipient (use during testing so finance isn’t flooded).
@@ -377,7 +377,7 @@ export default async function handler(req, res) {
     const { error: tripTaskErr } = await admin.from("trip_staff_tasks").insert({
       id: tripStaffTaskId,
       trip_id: tripId,
-      work_area: "Finance",
+      work_area: "Fundraising",
       sequence: 1,
       task_name: taskTitle,
       assigned_to: assigneeDisplayFirstName(assignee.name),
