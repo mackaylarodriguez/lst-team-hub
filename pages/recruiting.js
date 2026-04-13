@@ -96,13 +96,13 @@ const RECRUITING_OUTREACH_COL_PCT = {
 const RECRUITING_POTENTIAL_COL_PCT = {
   team: "8%",
   roster: "12%",
-  projectDates: "9%",
+  projectDates: "7%",
   site: "6%",
-  weeks: "5%",
+  weeks: "6%",
   fundraising: "9%",
   mackayla: "23%",
   leslee: "23%",
-  actions: "5%",
+  actions: "6%",
 };
 const RECRUITING_CONVERTED_COL_PCT = {
   team: "8%",

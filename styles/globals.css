@@ -1319,7 +1319,19 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .recruitingPotentialFundraisingCell{
   font-variant-numeric:tabular-nums;
-  white-space:nowrap;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+/* Keep Potential sheet within the card: long nowrap labels were widening scrollWidth past 100%. */
+.recruitingPotentialBoardTable td:nth-child(3),
+.recruitingPotentialBoardTable td:nth-child(4),
+.recruitingPotentialBoardTable td:nth-child(5),
+.recruitingPotentialBoardTable td:nth-child(6){
+  overflow-x:hidden;
+}
+.recruitingPotentialBoardTable td:nth-child(3) .recruitingChartCell{
+  font-size:12px;
+  line-height:1.35;
 }
 .recruitingPotentialFundraisingTh,
 .recruitingPotentialWeeksTh{
