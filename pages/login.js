@@ -176,7 +176,6 @@ export default function Login() {
             alt="LST logo"
           />
           <div>
-            <div className="appSectionBadge" style={{ marginBottom: 6 }}>Access</div>
             <div style={{ fontSize: 20, fontWeight: 900, letterSpacing:"-.02em" }}>LST International Projects Hub</div>
           </div>
         </div>
