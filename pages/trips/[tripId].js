@@ -1241,6 +1241,7 @@ export default function TripPage() {
     cellPhone: "",
     email: "",
   });
+  const [groupLeaderContactSaveStatus, setGroupLeaderContactSaveStatus] = useState("");
   const [travelFormStatus, setTravelFormStatus] = useState("");
   const [travelFormResponses, setTravelFormResponses] = useState([]);
   const [tripMeetings, setTripMeetings] = useState([]);
@@ -1916,6 +1917,15 @@ export default function TripPage() {
     effectiveIsLeader,
     currentParticipant?.id,
   ]);
+
+  useEffect(() => {
+    if (!trip) return;
+    setGroupLeaderTravelDraft({
+      name: trip.groupLeaderName || "",
+      cellPhone: trip.groupLeaderCellPhone || "",
+      email: trip.groupLeaderEmail || "",
+    });
+  }, [trip?.id, trip?.groupLeaderName, trip?.groupLeaderCellPhone, trip?.groupLeaderEmail]);
 
   useEffect(() => {
     if (!canManageTrips || !staffViewAllParticipants) return;
@@ -3478,11 +3488,6 @@ export default function TripPage() {
     setTravelFormTargetRefKey(refKey);
     setTravelFormStatus("");
     setTravelFormModalOpen(true);
-    setGroupLeaderTravelDraft({
-      name: trip?.groupLeaderName || "",
-      cellPhone: trip?.groupLeaderCellPhone || "",
-      email: trip?.groupLeaderEmail || "",
-    });
     getTravelFormForRef(trip.id, {
       userId: userId || undefined,
       tripTeamMemberId: tripTeamMemberId || undefined,
@@ -3533,6 +3538,35 @@ export default function TripPage() {
       });
   }
 
+  async function handleSaveGroupLeaderTravelContactOnly() {
+    if (!trip?.id || !canManageTrips) return;
+    try {
+      setGroupLeaderContactSaveStatus("Saving...");
+      const leaderPatch = await saveTripGroupLeaderTravelContact({
+        tripId: trip.id,
+        groupLeaderName: groupLeaderTravelDraft.name,
+        groupLeaderCellPhone: groupLeaderTravelDraft.cellPhone,
+        groupLeaderEmail: groupLeaderTravelDraft.email,
+      });
+      setTrip((current) =>
+        current
+          ? {
+              ...current,
+              groupLeaderName: leaderPatch.groupLeaderName,
+              groupLeaderCellPhone: leaderPatch.groupLeaderCellPhone,
+              groupLeaderEmail: leaderPatch.groupLeaderEmail,
+            }
+          : current
+      );
+      setGroupLeaderContactSaveStatus("Saved.");
+      showToast("Group leader contact saved.");
+    } catch (error) {
+      const msg = error?.message || "Unable to save group leader contact.";
+      setGroupLeaderContactSaveStatus(msg);
+      showToast(msg, "error");
+    }
+  }
+
   async function handleSaveTravelForm() {
     const refKey = normalizeTravelFormRefKey(travelFormTargetRefKey);
     const userId = refKey.startsWith("user:") ? refKey.slice(5) : "";
@@ -3550,29 +3584,8 @@ export default function TripPage() {
         ...travelFormDraft,
         teamName: travelFormDraft.teamName || trip.name,
       });
-      let leaderPatch = null;
-      if (canManageTrips) {
-        leaderPatch = await saveTripGroupLeaderTravelContact({
-          tripId: trip.id,
-          groupLeaderName: groupLeaderTravelDraft.name,
-          groupLeaderCellPhone: groupLeaderTravelDraft.cellPhone,
-          groupLeaderEmail: groupLeaderTravelDraft.email,
-        });
-      }
       const updated = await listTravelFormResponsesForTrip(trip.id);
       setTravelFormResponses(updated);
-      if (leaderPatch) {
-        setTrip((current) =>
-          current
-            ? {
-                ...current,
-                groupLeaderName: leaderPatch.groupLeaderName,
-                groupLeaderCellPhone: leaderPatch.groupLeaderCellPhone,
-                groupLeaderEmail: leaderPatch.groupLeaderEmail,
-              }
-            : current
-        );
-      }
       setTravelFormStatus("Saved.");
       showToast("Travel form saved.");
       const travelFormTask = (trip.tasks || []).find((t) => t.title === "Fill out Travel Form");
@@ -12634,6 +12647,106 @@ normalizeEmail(participant.email) === activeParticipantEmail
               </div>
             ) : null}
 
+            {canManageTrips ? (
+              <div
+                style={{
+                  marginBottom: 16,
+                  padding: 14,
+                  borderRadius: 12,
+                  border: "1px solid var(--border)",
+                  background: "var(--surfaceMuted, rgba(15, 23, 42, 0.04))",
+                }}
+              >
+                <div className="small" style={{ fontWeight: 700, marginBottom: 8 }}>
+                  Staff only — group leader contact
+                </div>
+                <div className="small" style={{ marginBottom: 12, opacity: 0.88, lineHeight: 1.45 }}>
+                  Trip-wide leader for travel coordination. Workers do not see this block. Values are saved to the
+                  trip and filled into <strong>Export for travel agency (Excel)</strong> when the spreadsheet has
+                  Group leader name / cell / email labels in the rows above the passenger list (value in the next
+                  column to the right).
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: 10,
+                  }}
+                >
+                  <div>
+                    <div className="small" style={{ marginBottom: 4 }}>
+                      Group leader name
+                    </div>
+                    <input
+                      className="input"
+                      value={groupLeaderTravelDraft.name}
+                      onChange={(e) => {
+                        setGroupLeaderContactSaveStatus("");
+                        setGroupLeaderTravelDraft((d) => ({ ...d, name: e.target.value }));
+                      }}
+                      placeholder="Leader full name"
+                      autoComplete="name"
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 4 }}>
+                      Group leader cell phone
+                    </div>
+                    <input
+                      className="input"
+                      type="tel"
+                      value={groupLeaderTravelDraft.cellPhone}
+                      onChange={(e) => {
+                        setGroupLeaderContactSaveStatus("");
+                        setGroupLeaderTravelDraft((d) => ({ ...d, cellPhone: e.target.value }));
+                      }}
+                      placeholder="Cell phone"
+                      autoComplete="tel"
+                    />
+                  </div>
+                  <div>
+                    <div className="small" style={{ marginBottom: 4 }}>
+                      Group leader email
+                    </div>
+                    <input
+                      className="input"
+                      type="email"
+                      value={groupLeaderTravelDraft.email}
+                      onChange={(e) => {
+                        setGroupLeaderContactSaveStatus("");
+                        setGroupLeaderTravelDraft((d) => ({ ...d, email: e.target.value }));
+                      }}
+                      placeholder="leader@email.com"
+                      autoComplete="email"
+                    />
+                  </div>
+                </div>
+                {groupLeaderContactSaveStatus ? (
+                  <div style={{ marginTop: 10 }}>
+                    <AppStatusMessage
+                      message={groupLeaderContactSaveStatus}
+                      tone={
+                        groupLeaderContactSaveStatus === "Saved."
+                          ? "success"
+                          : groupLeaderContactSaveStatus === "Saving..."
+                            ? "info"
+                            : "danger"
+                      }
+                    />
+                  </div>
+                ) : null}
+                <div className="row" style={{ marginTop: 12, flexWrap: "wrap", gap: 8 }}>
+                  <button
+                    className="btn btnPrimary"
+                    type="button"
+                    onClick={() => void handleSaveGroupLeaderTravelContactOnly()}
+                  >
+                    Save group leader contact
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             <div
               style={{
                 display: "grid",
@@ -13351,75 +13464,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
               </div>
             ) : null}
             <div style={{ display: "grid", gap: 12 }}>
-              {canManageTrips ? (
-                <div
-                  style={{
-                    padding: 12,
-                    borderRadius: 12,
-                    border: "1px solid var(--border)",
-                    background: "var(--surfaceMuted, rgba(15, 23, 42, 0.04))",
-                  }}
-                >
-                  <div className="small" style={{ fontWeight: 700, marginBottom: 8 }}>
-                    Staff only — group leader contact
-                  </div>
-                  <div className="small" style={{ marginBottom: 10, opacity: 0.88, lineHeight: 1.4 }}>
-                    Trip-wide leader for travel coordination. Saved with this form; workers do not see this block.
-                  </div>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                      gap: 10,
-                    }}
-                  >
-                    <div>
-                      <div className="small" style={{ marginBottom: 4 }}>
-                        Group leader name
-                      </div>
-                      <input
-                        className="input"
-                        value={groupLeaderTravelDraft.name}
-                        onChange={(e) =>
-                          setGroupLeaderTravelDraft((d) => ({ ...d, name: e.target.value }))
-                        }
-                        placeholder="Leader full name"
-                        autoComplete="name"
-                      />
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 4 }}>
-                        Group leader cell phone
-                      </div>
-                      <input
-                        className="input"
-                        type="tel"
-                        value={groupLeaderTravelDraft.cellPhone}
-                        onChange={(e) =>
-                          setGroupLeaderTravelDraft((d) => ({ ...d, cellPhone: e.target.value }))
-                        }
-                        placeholder="Cell phone"
-                        autoComplete="tel"
-                      />
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 4 }}>
-                        Group leader email
-                      </div>
-                      <input
-                        className="input"
-                        type="email"
-                        value={groupLeaderTravelDraft.email}
-                        onChange={(e) =>
-                          setGroupLeaderTravelDraft((d) => ({ ...d, email: e.target.value }))
-                        }
-                        placeholder="leader@email.com"
-                        autoComplete="email"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : null}
               {tripIsMassachusettsDomestic ? (
                 <>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
