@@ -95,14 +95,14 @@ const RECRUITING_OUTREACH_COL_PCT = {
 };
 const RECRUITING_POTENTIAL_COL_PCT = {
   team: "8%",
-  roster: "11%",
-  projectDates: "6%",
+  roster: "12%",
+  projectDates: "9%",
   site: "6%",
-  weeks: "3%",
+  weeks: "5%",
   fundraising: "9%",
   mackayla: "23%",
   leslee: "23%",
-  actions: "11%",
+  actions: "5%",
 };
 const RECRUITING_CONVERTED_COL_PCT = {
   team: "8%",
@@ -3165,7 +3165,9 @@ export default function RecruitingPage() {
               <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.roster }}>Team roster</th>
               <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.projectDates }}>Project dates</th>
               <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.site }}>Site</th>
-              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.weeks }}>Weeks</th>
+              <th className="recruitingPotentialWeeksTh" style={{ width: RECRUITING_POTENTIAL_COL_PCT.weeks }}>
+                Weeks
+              </th>
               <th className="recruitingPotentialFundraisingTh" style={{ width: RECRUITING_POTENTIAL_COL_PCT.fundraising }}>
                 Fundraising
               </th>
