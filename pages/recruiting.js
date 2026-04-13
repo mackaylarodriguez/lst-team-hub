@@ -3144,9 +3144,6 @@ export default function RecruitingPage() {
                   </td>
                   <td style={{ width: RECRUITING_OUTREACH_COL_PCT.actions, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow recruitingFitActionRow">
-                      <button className="btn" type="button" onClick={() => openContactActionModal(record, "email")}>Emailed</button>
-                      <button className="btn" type="button" onClick={() => openContactActionModal(record, "call")}>Called</button>
-                      <button className="btn" type="button" onClick={() => openContactActionModal(record, "text")}>Texted</button>
                       <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
                     </div>
                   </td>
@@ -3235,9 +3232,6 @@ export default function RecruitingPage() {
                 />
               </div>
               <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
-                <button className="btn" type="button" onClick={() => openContactActionModal(record, "email")}>Emailed</button>
-                <button className="btn" type="button" onClick={() => openContactActionModal(record, "call")}>Called</button>
-                <button className="btn" type="button" onClick={() => openContactActionModal(record, "text")}>Texted</button>
                 <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
               </div>
             </div>
