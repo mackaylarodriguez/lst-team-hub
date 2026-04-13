@@ -1003,7 +1003,7 @@ function recruitingBoardFundraisingGoalLabel(record) {
 
 const ROSTER_BOARD_PREVIEW_COUNT = 4;
 
-/** Roster column for board tables: name + email; “See more” when more than four people. */
+/** Roster column for board tables: name + email + phone under email when present; “See more” when more than four people. */
 function RecruitingRosterBoardColumn({ record }) {
   const [expanded, setExpanded] = useState(false);
   const draft = buildTeamFormDraft(record);
@@ -1017,7 +1017,8 @@ function RecruitingRosterBoardColumn({ record }) {
     <div className="recruitingRosterChartStack">
       {visibleMembers.map((member, index) => {
         const name = [member.firstName, member.lastName].filter(Boolean).join(" ").trim();
-        const key = `${record.id}-board-roster-${index}-${member.email || "noemail"}`;
+        const phone = String(member.phone || "").trim();
+        const key = `${record.id}-board-roster-${index}-${member.email || phone || "nocontact"}`;
         return (
           <div key={key} className="recruitingRosterChartBlock">
             <div className="recruitingRosterChartName">
@@ -1029,6 +1030,9 @@ function RecruitingRosterBoardColumn({ record }) {
               {name || chartDashText(member.email)}
             </div>
             {member.email ? <div className="recruitingRosterChartEmail">{member.email}</div> : null}
+            {phone ? (
+              <div className={`recruitingRosterChartPhone${member.email ? "" : " isRosterPhoneOnly"}`}>{phone}</div>
+            ) : null}
           </div>
         );
       })}
@@ -3082,7 +3086,13 @@ export default function RecruitingPage() {
                     {record.teamName || formatContactName(record) || "—"}
                   </div>
                   <div className="small recruitingMobileCardEmail">
-                    {record.contact?.email || record.contact?.phone || "-"}
+                    {record.contact?.email ? <div>{record.contact.email}</div> : null}
+                    {String(record.contact?.phone || "").trim() ? (
+                      <div style={{ marginTop: record.contact?.email ? 3 : 0 }}>
+                        {String(record.contact.phone).trim()}
+                      </div>
+                    ) : null}
+                    {!record.contact?.email && !String(record.contact?.phone || "").trim() ? "—" : null}
                   </div>
                 </div>
                 {attention ? (
@@ -3270,7 +3280,15 @@ export default function RecruitingPage() {
               <div className="recruitingMobileCardHeader">
                 <div>
                   <div className="recruitingMobileCardTitle">{record.teamName || formatContactName(record)}</div>
-                  <div className="small recruitingMobileCardEmail">{record.contact?.email || "-"}</div>
+                  <div className="small recruitingMobileCardEmail">
+                    {record.contact?.email ? <div>{record.contact.email}</div> : null}
+                    {String(record.contact?.phone || "").trim() ? (
+                      <div style={{ marginTop: record.contact?.email ? 3 : 0 }}>
+                        {String(record.contact.phone).trim()}
+                      </div>
+                    ) : null}
+                    {!record.contact?.email && !String(record.contact?.phone || "").trim() ? "—" : null}
+                  </div>
                 </div>
                 {attention ? (
                   <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>

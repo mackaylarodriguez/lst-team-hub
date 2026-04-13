@@ -1272,7 +1272,8 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .recruitingBoardTable .recruitingFitEmailCell,
 .recruitingBoardTable .recruitingFitEmailCell > div,
-.recruitingBoardTable .recruitingRosterChartEmail{
+.recruitingBoardTable .recruitingRosterChartEmail,
+.recruitingBoardTable .recruitingRosterChartPhone{
   font-size:13px;
   line-height:1.35;
   color:var(--muted);
@@ -1391,6 +1392,16 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   color:var(--text);
   overflow-wrap:anywhere;
   line-height:1.35;
+}
+.recruitingRosterChartPhone{
+  font-size:13px;
+  margin-top:2px;
+  color:var(--text);
+  overflow-wrap:anywhere;
+  line-height:1.35;
+}
+.recruitingRosterChartPhone.isRosterPhoneOnly{
+  margin-top:3px;
 }
 .recruitingChartCell{
   font-size:13px;
