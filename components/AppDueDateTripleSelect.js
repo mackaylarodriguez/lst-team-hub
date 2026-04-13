@@ -70,9 +70,12 @@ function clampDayForMonthYear(year, month, day) {
   return String(Math.min(Math.max(1, d), dim));
 }
 
-/** Optional `showNativeDatePicker` adds a browser date control alongside the triple selects (staff tasks, etc.). */
+/**
+ * Optional `showNativeDatePicker` — native `<input type="date">` before month/day/year selects.
+ * `nativeDatePickerOnly` — **only** the calendar control (no triple selects); used for staff tasks / overview.
+ */
 const AppDueDateTripleSelect = forwardRef(function AppDueDateTripleSelect(
-  { value, onChange, compact = false, showNativeDatePicker = false },
+  { value, onChange, compact = false, showNativeDatePicker = false, nativeDatePickerOnly = false },
   ref
 ) {
   const [parts, setParts] = useState(() => parseYmdParts(value));
@@ -131,6 +134,26 @@ const AppDueDateTripleSelect = forwardRef(function AppDueDateTripleSelect(
     emit(next);
     const ymd = buildYmdFromParts(next.year, next.month, next.day);
     if (ymd) onChange(ymd);
+  }
+
+  if (nativeDatePickerOnly) {
+    return (
+      <div className="row" style={{ flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+        <input
+          type="date"
+          className="input"
+          aria-label="Due date"
+          value={calendarInputValue}
+          onChange={handleNativeDateChange}
+          style={{
+            ...inputStyle,
+            width: compact ? 148 : 168,
+            maxWidth: "100%",
+            flex: "0 1 auto",
+          }}
+        />
+      </div>
+    );
   }
 
   return (

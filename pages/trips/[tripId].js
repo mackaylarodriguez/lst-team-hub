@@ -8374,8 +8374,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             <AppDueDateTripleSelect
                               ref={overviewStaffDueTripleRef}
                               compact
-                              showNativeDatePicker
-                              value={overviewStaffDueDateDraft}
+                            nativeDatePickerOnly
+                            value={overviewStaffDueDateDraft}
                               onChange={(ymd) => setOverviewStaffDueDateDraft(ymd)}
                             />
                             <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: "wrap" }}>
@@ -13258,7 +13258,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           <AppDueDateTripleSelect
                             ref={newStaffTaskTripleRef}
                             compact
-                            showNativeDatePicker
+                            nativeDatePickerOnly
                             value={newStaffTaskDraft.dueDate}
                             onChange={(ymd) =>
                               setNewStaffTaskDraft((current) => ({ ...current, dueDate: ymd }))
@@ -13422,7 +13422,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                   <AppDueDateTripleSelect
                                     ref={staffDueTripleRef}
                                     compact
-                                    showNativeDatePicker
+                                    nativeDatePickerOnly
                                     value={staffTaskDueDateDraft}
                                     onChange={(ymd) => setStaffTaskDueDateDraft(ymd)}
                                   />
