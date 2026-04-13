@@ -1242,6 +1242,9 @@ export default function TripPage() {
     notes: "",
   });
   const newStaffTaskTripleRef = useRef(null);
+  const overviewStaffDueTripleRef = useRef(null);
+  const [overviewStaffTaskDateEditId, setOverviewStaffTaskDateEditId] = useState(null);
+  const [overviewStaffDueDateDraft, setOverviewStaffDueDateDraft] = useState("");
   const [travelFormModalOpen, setTravelFormModalOpen] = useState(false);
   const [travelFormTargetRefKey, setTravelFormTargetRefKey] = useState("");
   const [travelFormDraft, setTravelFormDraft] = useState(() => ({ ...TRAVEL_FORM_EMPTY }));
@@ -4313,6 +4316,29 @@ export default function TripPage() {
       handleCancelStaffTaskEdit();
     } catch {
       /* saveStaffTasks already surfaced error; keep edit mode */
+    }
+  }
+
+  async function handleSaveOverviewStaffTaskDate(taskId) {
+    const snap = overviewStaffDueTripleRef.current?.getDueYmd?.();
+    if (snap === null) {
+      showToast(
+        "Finish choosing the due date (year, month, and day), or clear all date fields to remove it.",
+        "error"
+      );
+      return;
+    }
+    const due = snap || "";
+    const baseTasks = editableStaffTasksRef.current || [];
+    const nextTasks = baseTasks.map((task) =>
+      task.id === taskId ? { ...task, dueDate: due } : task
+    );
+    try {
+      await saveStaffTasks(nextTasks);
+      setOverviewStaffTaskDateEditId(null);
+      setOverviewStaffDueDateDraft("");
+    } catch {
+      /* saveStaffTasks already surfaced error */
     }
   }
 
@@ -8321,13 +8347,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 <div style={{ display: "grid", gap: 10 }}>
                   {overviewUpcomingTasks.map((task) => {
                     return (
-                    <div
-                      key={task.id}
-                      style={{
-                        paddingBottom: 10,
-                        borderBottom: "1px solid var(--border)",
-                      }}
-                    >
+                    <div key={task.id} className="overviewUpcomingTaskRow">
                       {canViewTeamDashboard ? (
                         <button
                           type="button"
@@ -8345,11 +8365,65 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           {task.title}
                         </button>
                       )}
-                      <div className="small">
-                        {task.dueDate
-                          ? `Due ${formatSingleDate(task.dueDate)}`
-                          : "Due when ready"}
-                      </div>
+                      {staffViewAllParticipants ? (
+                        overviewStaffTaskDateEditId === task.id ? (
+                          <div style={{ marginTop: 8 }}>
+                            <div className="small" style={{ marginBottom: 6 }}>
+                              Due date
+                            </div>
+                            <AppDueDateTripleSelect
+                              ref={overviewStaffDueTripleRef}
+                              compact
+                              showNativeDatePicker
+                              value={overviewStaffDueDateDraft}
+                              onChange={(ymd) => setOverviewStaffDueDateDraft(ymd)}
+                            />
+                            <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: "wrap" }}>
+                              <button
+                                className="btn btnPrimary"
+                                type="button"
+                                onClick={() => void handleSaveOverviewStaffTaskDate(task.id)}
+                              >
+                                Save date
+                              </button>
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={() => {
+                                  setOverviewStaffTaskDateEditId(null);
+                                  setOverviewStaffDueDateDraft("");
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="row" style={{ marginTop: 6, alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                            <div className="small">
+                              {task.dueDate
+                                ? `Due ${formatSingleDate(task.dueDate)}`
+                                : "Due when ready"}
+                            </div>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => {
+                                setOverviewStaffTaskDateEditId(task.id);
+                                setOverviewStaffDueDateDraft(toDateInputValue(task.dueDate || ""));
+                              }}
+                            >
+                              Edit date
+                            </button>
+                          </div>
+                        )
+                      ) : (
+                        <div className="small">
+                          {task.dueDate
+                            ? `Due ${formatSingleDate(task.dueDate)}`
+                            : "Due when ready"}
+                        </div>
+                      )}
                       {task.link || task.openTripDocumentsTab ? (
                         <AppDetailAction
                           href={task.openTripDocumentsTab || task.openDocumentsTab ? undefined : task.link}
@@ -13184,6 +13258,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           <AppDueDateTripleSelect
                             ref={newStaffTaskTripleRef}
                             compact
+                            showNativeDatePicker
                             value={newStaffTaskDraft.dueDate}
                             onChange={(ymd) =>
                               setNewStaffTaskDraft((current) => ({ ...current, dueDate: ymd }))
@@ -13347,6 +13422,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                   <AppDueDateTripleSelect
                                     ref={staffDueTripleRef}
                                     compact
+                                    showNativeDatePicker
                                     value={staffTaskDueDateDraft}
                                     onChange={(ymd) => setStaffTaskDueDateDraft(ymd)}
                                   />

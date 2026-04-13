@@ -70,9 +70,9 @@ function clampDayForMonthYear(year, month, day) {
   return String(Math.min(Math.max(1, d), dim));
 }
 
-/** No native calendar popup — avoids month arrows closing editors mid-selection. */
+/** Optional `showNativeDatePicker` adds a browser date control alongside the triple selects (staff tasks, etc.). */
 const AppDueDateTripleSelect = forwardRef(function AppDueDateTripleSelect(
-  { value, onChange, compact = false },
+  { value, onChange, compact = false, showNativeDatePicker = false },
   ref
 ) {
   const [parts, setParts] = useState(() => parseYmdParts(value));
@@ -115,8 +115,40 @@ const AppDueDateTripleSelect = forwardRef(function AppDueDateTripleSelect(
     ? { padding: "6px 8px", fontSize: 12, minWidth: 0 }
     : { padding: "7px 10px", fontSize: 13, minWidth: 0 };
 
+  const calendarInputValue =
+    year && month && day
+      ? buildYmdFromParts(year, month, day)
+      : coerceSqlDateToYmd(value) || "";
+
+  function handleNativeDateChange(event) {
+    const raw = event.target.value;
+    if (!raw) {
+      emit({ year: "", month: "", day: "" });
+      onChange("");
+      return;
+    }
+    const next = parseYmdParts(raw);
+    emit(next);
+    const ymd = buildYmdFromParts(next.year, next.month, next.day);
+    if (ymd) onChange(ymd);
+  }
+
   return (
     <div className="row" style={{ flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+      {showNativeDatePicker ? (
+        <input
+          type="date"
+          className="input"
+          aria-label="Pick date on calendar"
+          value={calendarInputValue}
+          onChange={handleNativeDateChange}
+          style={{
+            ...inputStyle,
+            width: compact ? 132 : 148,
+            flex: "0 0 auto",
+          }}
+        />
+      ) : null}
       <select
         className="input"
         aria-label="Date month"

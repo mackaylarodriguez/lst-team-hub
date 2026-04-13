@@ -2373,6 +2373,19 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .overviewTaskJumpButton:focus-visible{
   outline:none;
 }
+.overviewUpcomingTaskRow{
+  padding:8px 10px 10px;
+  margin:0 -2px;
+  border-radius:12px;
+  border:1px solid transparent;
+  border-bottom:1px solid var(--border);
+  transition:background-color .14s ease,border-color .14s ease;
+}
+.overviewUpcomingTaskRow:hover{
+  background:rgba(67,164,213,.1);
+  border-color:rgba(67,164,213,.16);
+  border-bottom-color:rgba(67,164,213,.14);
+}
 .adminTaskJumpButton{
   font-size:12px;
   font-weight:700;
