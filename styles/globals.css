@@ -1273,13 +1273,14 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .recruitingBoardTable .recruitingFitEmailCell,
 .recruitingBoardTable .recruitingFitEmailCell > div,
 .recruitingBoardTable .recruitingRosterChartEmail{
-  font-size:9px;
-  line-height:1.3;
+  font-size:12px;
+  line-height:1.35;
   color:var(--muted);
   font-weight:500;
 }
 .recruitingBoardTable .recruitingRosterChartName{
-  font-size:10px;
+  font-size:13px;
+  line-height:1.35;
 }
 .recruitingBoardTable.recruitingCompactTable th,
 .recruitingBoardTable.recruitingCompactTable td{
@@ -1330,18 +1331,19 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .recruitingRosterChartName{
   font-weight:700;
-  font-size:11px;
-  line-height:1.25;
+  font-size:14px;
+  line-height:1.35;
 }
 .recruitingRosterPrimaryMark{
   color:var(--primary);
-  font-size:12px;
+  font-size:15px;
 }
 .recruitingRosterChartEmail{
-  font-size:10px;
-  margin-top:2px;
+  font-size:13px;
+  margin-top:3px;
   color:var(--text);
   overflow-wrap:anywhere;
+  line-height:1.35;
 }
 .recruitingChartCell{
   font-size:11px;
