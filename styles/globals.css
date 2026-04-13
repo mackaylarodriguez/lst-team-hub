@@ -1299,6 +1299,21 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .recruitingBoardTable tbody tr.recruitingRowSelected:hover td{
   background-color:rgba(47,73,147,.14);
 }
+/* Potential Teams sheet: align left; narrow team column uses full cell width for pill text */
+.recruitingPotentialBoardTable{
+  text-align:left;
+}
+.recruitingPotentialBoardTable th,
+.recruitingPotentialBoardTable td{
+  text-align:left;
+}
+.recruitingPotentialBoardTable td:first-child .recruitingTeamNamePill{
+  max-width:100%;
+}
+.recruitingPotentialFundraisingCell{
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
 .recruitingTeamNamePill{
   display:inline-flex;
   align-items:center;

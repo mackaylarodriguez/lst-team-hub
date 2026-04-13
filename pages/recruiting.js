@@ -979,6 +979,22 @@ function recruitingBoardWeeksLabel(record) {
   return "";
 }
 
+/** Potential Teams board: fundraising goal from lock-team draft (`pendingLockTeamSetup`). */
+function recruitingBoardFundraisingGoalLabel(record) {
+  const raw = String(buildTeamFormDraft(record).fundraisingGoalAmount || "").trim();
+  if (!raw) return "";
+  const cleaned = raw.replace(/[^0-9.-]/g, "");
+  const n = Number(cleaned);
+  if (Number.isFinite(n) && cleaned !== "") {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(n);
+  }
+  return raw;
+}
+
 function formatDateTime(value) {
   if (!value) return "";
   return new Date(value).toLocaleString([], {
@@ -3078,15 +3094,16 @@ export default function RecruitingPage() {
       <div className="recruitingBoardTableHost">
         <DraggableTable>
         <table
-          className={`table recruitingCompactTable recruitingBoardSlimTable recruitingBoardTable recruitingFont-${tableFontSize}`}
+          className={`table recruitingCompactTable recruitingBoardSlimTable recruitingBoardTable recruitingPotentialBoardTable recruitingFont-${tableFontSize}`}
         >
           <thead>
             <tr>
-              <th style={{ minWidth: 140 }}>Team</th>
+              <th style={{ minWidth: 96, width: "10%" }}>Team</th>
               <th style={{ minWidth: 184 }}>Team roster</th>
               <th style={{ minWidth: 124 }}>Project dates</th>
               <th style={{ minWidth: 128 }}>Site</th>
               <th style={{ minWidth: 72 }}>Weeks</th>
+              <th style={{ minWidth: 100 }}>Fundraising</th>
               <th style={{ minWidth: 168 }}>Mackayla notes</th>
               <th style={{ minWidth: 168 }}>Leslee notes</th>
               <th style={{ minWidth: 160 }}>Actions</th>
@@ -3106,7 +3123,7 @@ export default function RecruitingPage() {
                   onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
                   style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
-                  <td style={{ minWidth: 140, verticalAlign: "middle" }}>
+                  <td style={{ minWidth: 96, width: "10%", verticalAlign: "middle" }}>
                     <span className="recruitingTeamNamePill" title={record.teamName || formatContactName(record)}>
                       {record.teamName || formatContactName(record) || "—"}
                     </span>
@@ -3126,6 +3143,11 @@ export default function RecruitingPage() {
                   </td>
                   <td style={{ minWidth: 72, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(recruitingBoardWeeksLabel(record))}</div>
+                  </td>
+                  <td style={{ minWidth: 100, verticalAlign: "top" }}>
+                    <div className="recruitingChartCell recruitingPotentialFundraisingCell">
+                      {chartDashText(recruitingBoardFundraisingGoalLabel(record))}
+                    </div>
                   </td>
                   <td style={{ minWidth: 168, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
@@ -3210,6 +3232,7 @@ export default function RecruitingPage() {
                 <span title="Project dates">{chartDashText(recruitingBoardProjectDatesLabel(record))}</span>
                 <span title="Site">{chartDashText(d.location)}</span>
                 <span title="Weeks">{chartDashText(recruitingBoardWeeksLabel(record))}</span>
+                <span title="Fundraising goal">{chartDashText(recruitingBoardFundraisingGoalLabel(record))}</span>
               </div>
               <div className="recruitingMobileNotes">
                 <textarea
