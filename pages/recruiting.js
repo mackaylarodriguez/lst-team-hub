@@ -3730,12 +3730,6 @@ export default function RecruitingPage() {
         </div>
       ) : null}
 
-      {pageStatus ? (
-        <div className="card pad" style={{ marginBottom: 14, color: "var(--primary)" }}>
-          {pageStatus}
-        </div>
-      ) : null}
-
       {importSummary ? (
         <div className="card pad" style={{ marginBottom: 14 }}>
           <div style={{ fontWeight: 900 }}>{importSummary}</div>
