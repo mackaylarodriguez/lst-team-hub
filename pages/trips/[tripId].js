@@ -8374,8 +8374,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                             <AppDueDateTripleSelect
                               ref={overviewStaffDueTripleRef}
                               compact
-                            nativeDatePickerOnly
-                            value={overviewStaffDueDateDraft}
+                              nativeDatePickerOnly
+                              value={overviewStaffDueDateDraft}
                               onChange={(ymd) => setOverviewStaffDueDateDraft(ymd)}
                             />
                             <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: "wrap" }}>
@@ -10347,9 +10347,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                         </button>
                                       ) : null}
                                     </div>
-                                    {canViewTeamDashboard ? (
-                                      editingWorkerTaskDateId === task.id &&
-                                      workerDueParticipantKey === editingWorkerDueParticipantKey ? (
+                                    {editingWorkerTaskDateId === task.id &&
+                                    workerDueParticipantKey === editingWorkerDueParticipantKey ? (
                                         <div
                                           style={{
                                             display: "flex",
@@ -10367,6 +10366,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                                 workerDueTripleHandlesRef.current.set(key, imp);
                                               }
                                             }}
+                                            compact
+                                            nativeDatePickerOnly
                                             value={workerTaskDueDateDraft}
                                             onChange={setWorkerTaskDueDateDraft}
                                           />
@@ -10426,23 +10427,32 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                           </div>
                                         </div>
                                       ) : (
-                                        <button
-                                          type="button"
-                                          className="staffTaskDateButton"
-                                          onClick={() => {
-                                            setEditingWorkerTaskDateId(task.id);
-                                            setEditingWorkerDueParticipantKey(workerDueParticipantKey);
-                                            setWorkerTaskDueDateDraft(toDateInputValue(task.due));
+                                        <div
+                                          className="row"
+                                          style={{
+                                            alignItems: "center",
+                                            gap: 8,
+                                            flexWrap: "wrap",
+                                            marginTop: 2,
                                           }}
                                         >
-                                          {task.due ? `Due: ${formatShortDate(task.due)}` : "Add due date"}
-                                        </button>
-                                      )
-                                      ) : (
-                                        <div className="small">
-                                        {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
-                                      </div>
-                                    )}
+                                          <span className="small" style={{ color: "var(--muted)" }}>
+                                            {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            className="btn"
+                                            style={{ padding: "2px 10px", fontSize: 12 }}
+                                            onClick={() => {
+                                              setEditingWorkerTaskDateId(task.id);
+                                              setEditingWorkerDueParticipantKey(workerDueParticipantKey);
+                                              setWorkerTaskDueDateDraft(toDateInputValue(task.due));
+                                            }}
+                                          >
+                                            Edit due
+                                          </button>
+                                        </div>
+                                      )}
                                     {taskDetails ? (
                                       <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
                                         {taskDetails}
