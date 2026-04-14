@@ -1171,6 +1171,10 @@ export default function TripPage() {
   const [editingWorkerDueParticipantKey, setEditingWorkerDueParticipantKey] = useState("");
   /** Local value while editing worker task due date (commit on Save, not on every calendar change). */
   const [workerTaskDueDateDraft, setWorkerTaskDueDateDraft] = useState("");
+  /** Inline editor key for training-module dates (`participant::module`). */
+  const [editingTrainingDateKey, setEditingTrainingDateKey] = useState("");
+  /** Local value while editing training-module date (saved only on explicit Save). */
+  const [trainingDateDraft, setTrainingDateDraft] = useState("");
   const workerDueTripleHandlesRef = useRef(new Map());
 
   useEffect(() => {
@@ -9816,6 +9820,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
           >
             {visibleTrainingParticipants.map((participant) => {
               const trainingState = participant.trainingState || {};
+              const trainingParticipantKey =
+                normalizeEmail(participant.email || "") || String(participant.id || "");
 
               return (
                 <div key={participant.email} className="card pad">
@@ -9920,6 +9926,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         const sessionOptions = getTrainingSessionOptionsForModuleTitle(module.title);
                         const dateKey = `${modKey}Date`;
                         const rawStored = trainingState[dateKey] || "";
+                        const trainingDateEditKey = `${trainingParticipantKey}::${modKey}`;
+                        const isEditingTrainingDate = editingTrainingDateKey === trainingDateEditKey;
+                        const formattedTrainingDate = toDateInputValue(rawStored);
                         const selectValue = sessionOptions
                           ? resolveTrainingSessionSelectValue(rawStored, sessionOptions)
                           : rawStored;
@@ -10023,13 +10032,72 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                   ) : null}
                                 </>
                               ) : (
-                                <AppDueDateTripleSelect
-                                  compact
-                                  value={toDateInputValue(trainingState[dateKey] || "")}
-                                  onChange={(ymd) =>
-                                    updateTrainingDate(modKey, ymd, participant.email)
-                                  }
-                                />
+                                <div style={{ display: "grid", gap: 6 }}>
+                                  {isEditingTrainingDate ? (
+                                    <>
+                                      <AppDueDateTripleSelect
+                                        compact
+                                        nativeDatePickerOnly
+                                        value={trainingDateDraft}
+                                        onChange={setTrainingDateDraft}
+                                      />
+                                      <div
+                                        className="row"
+                                        style={{ gap: 6, justifyContent: "flex-start", flexWrap: "wrap" }}
+                                      >
+                                        <button
+                                          type="button"
+                                          className="btn btnPrimary"
+                                          style={{ padding: "4px 10px", fontSize: 12 }}
+                                          onClick={() => {
+                                            updateTrainingDate(modKey, trainingDateDraft, participant.email);
+                                            setEditingTrainingDateKey("");
+                                            setTrainingDateDraft("");
+                                          }}
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn"
+                                          style={{ padding: "4px 10px", fontSize: 12 }}
+                                          onClick={() => {
+                                            setEditingTrainingDateKey("");
+                                            setTrainingDateDraft("");
+                                          }}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div
+                                      className="row"
+                                      style={{
+                                        alignItems: "center",
+                                        gap: 8,
+                                        flexWrap: "wrap",
+                                      }}
+                                    >
+                                      <span className="small" style={{ color: "var(--muted)" }}>
+                                        {formattedTrainingDate
+                                          ? `Date: ${formatShortDate(formattedTrainingDate)}`
+                                          : "Date: Not set"}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="btn"
+                                        style={{ padding: "2px 10px", fontSize: 12 }}
+                                        onClick={() => {
+                                          setEditingTrainingDateKey(trainingDateEditKey);
+                                          setTrainingDateDraft(formattedTrainingDate);
+                                        }}
+                                      >
+                                        Edit
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               )}
                               <div className="row" style={{ justifyContent: "flex-end" }}>
                                 <span
