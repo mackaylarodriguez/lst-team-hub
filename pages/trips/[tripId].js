@@ -1166,30 +1166,11 @@ export default function TripPage() {
   const taskDraftTripleRef = useRef(null);
   const [taskStatusMessage, setTaskStatusMessage] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
-  const [editingWorkerTaskDateId, setEditingWorkerTaskDateId] = useState("");
-  /** Which participant column opened the due-date editor (team dashboard has one grid cell per person). */
-  const [editingWorkerDueParticipantKey, setEditingWorkerDueParticipantKey] = useState("");
-  /** Local value while editing worker task due date (commit on Save, not on every calendar change). */
-  const [workerTaskDueDateDraft, setWorkerTaskDueDateDraft] = useState("");
+  const [isEditingWorkerDueDates, setIsEditingWorkerDueDates] = useState(false);
   /** Inline editor key for training-module dates (`participant::module`). */
   const [editingTrainingDateKey, setEditingTrainingDateKey] = useState("");
   /** Local value while editing training-module date (saved only on explicit Save). */
   const [trainingDateDraft, setTrainingDateDraft] = useState("");
-  const workerDueTripleHandlesRef = useRef(new Map());
-
-  useEffect(() => {
-    if (!editingWorkerTaskDateId) return undefined;
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setEditingWorkerTaskDateId("");
-        setEditingWorkerDueParticipantKey("");
-        setWorkerTaskDueDateDraft("");
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editingWorkerTaskDateId]);
 
   const [overviewNotes, setOverviewNotes] = useState([]);
   const [editingOverviewNoteId, setEditingOverviewNoteId] = useState("");
@@ -1202,6 +1183,7 @@ export default function TripPage() {
   const [announcementDraft, setAnnouncementDraft] = useState("");
   const [isEditingAnnouncement, setIsEditingAnnouncement] = useState(false);
   const [announcementStatus, setAnnouncementStatus] = useState("");
+  const announcementTextareaRef = useRef(null);
   const [teamFundraisingDraft, setTeamFundraisingDraft] = useState({
     teamFundraisingUrl: "",
     fundraisingMode: "individual",
@@ -1720,10 +1702,7 @@ export default function TripPage() {
 
   useEffect(() => {
     if (!trip?.id) return;
-    setEditingWorkerTaskDateId("");
-    setEditingWorkerDueParticipantKey("");
-    setWorkerTaskDueDateDraft("");
-    workerDueTripleHandlesRef.current.clear();
+    setIsEditingWorkerDueDates(false);
     editingStaffTaskIdRef.current = null;
     setEditingStaffTaskId(null);
     setStaffTaskTitleDraft("");
@@ -3907,53 +3886,6 @@ export default function TripPage() {
     );
   }
 
-  async function handleApplyWorkerTaskDueDate() {
-    const taskId = editingWorkerTaskDateId;
-    if (!trip || !taskId) return;
-    const handleKey = `${taskId}::${editingWorkerDueParticipantKey}`;
-    const handle = workerDueTripleHandlesRef.current.get(handleKey);
-    const fromRef = typeof handle?.getDueYmd === "function" ? handle.getDueYmd() : undefined;
-    if (fromRef === null) {
-      showToast("Choose year, month, and day for the due date, or use Clear due.", "error");
-      return;
-    }
-    const draft = String(workerTaskDueDateDraft || "").trim();
-    const draftYmd = /^\d{4}-\d{2}-\d{2}$/.test(draft);
-    const snap = draftYmd ? draft : fromRef !== undefined ? fromRef : null;
-    if (snap === null) {
-      showToast("Choose year, month, and day for the due date, or use Clear due.", "error");
-      return;
-    }
-    try {
-      await persistWorkerTaskDueDate(taskId, snap);
-      setEditingWorkerTaskDateId("");
-      setEditingWorkerDueParticipantKey("");
-      setWorkerTaskDueDateDraft("");
-      workerDueTripleHandlesRef.current.delete(handleKey);
-      setTaskStatusMessage("");
-    } catch (error) {
-      console.error("Unable to update worker task due date", error);
-      setTaskStatusMessage(error.message || "Unable to update worker task due date.");
-    }
-  }
-
-  async function handleClearWorkerTaskDueDate() {
-    const taskId = editingWorkerTaskDateId;
-    if (!trip || !taskId) return;
-    const handleKey = `${taskId}::${editingWorkerDueParticipantKey}`;
-    try {
-      await persistWorkerTaskDueDate(taskId, "");
-      setEditingWorkerTaskDateId("");
-      setEditingWorkerDueParticipantKey("");
-      setWorkerTaskDueDateDraft("");
-      workerDueTripleHandlesRef.current.delete(handleKey);
-      setTaskStatusMessage("");
-    } catch (error) {
-      console.error("Unable to clear worker task due date", error);
-      setTaskStatusMessage(error.message || "Unable to update worker task due date.");
-    }
-  }
-
   async function handleUploadParticipantDocument(userId, documentType, file) {
     if (!trip?.id || !userId || !file) return;
 
@@ -4929,6 +4861,92 @@ function parseDateSafe(dateStr) {
     setAnnouncementDraft("");
     setIsEditingAnnouncement(false);
     setAnnouncementStatus("");
+  }
+
+  function applyAnnouncementSelectionTransform(transform) {
+    const textarea = announcementTextareaRef.current;
+    if (!textarea) return;
+    const value = String(announcementDraft || "");
+    const selectionStart = textarea.selectionStart ?? 0;
+    const selectionEnd = textarea.selectionEnd ?? selectionStart;
+    const result = transform({
+      value,
+      selectionStart,
+      selectionEnd,
+    });
+    if (!result || typeof result.text !== "string") return;
+    setAnnouncementDraft(result.text);
+    window.requestAnimationFrame(() => {
+      if (!announcementTextareaRef.current) return;
+      announcementTextareaRef.current.focus();
+      announcementTextareaRef.current.setSelectionRange(result.selectionStart, result.selectionEnd);
+    });
+  }
+
+  function transformAnnouncementSelectedLines(value, selectionStart, selectionEnd, mapLine) {
+    const start = Math.max(0, selectionStart);
+    const end = Math.max(start, selectionEnd);
+    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+    const lineEndCandidate = value.indexOf("\n", end);
+    const lineEnd = lineEndCandidate === -1 ? value.length : lineEndCandidate;
+    const block = value.slice(lineStart, lineEnd);
+    const lines = block.split("\n");
+    const nextLines = lines.map((line, index) => mapLine(line, index, lines.length));
+    const nextBlock = nextLines.join("\n");
+    const nextText = `${value.slice(0, lineStart)}${nextBlock}${value.slice(lineEnd)}`;
+    return {
+      text: nextText,
+      selectionStart: lineStart,
+      selectionEnd: lineStart + nextBlock.length,
+    };
+  }
+
+  function handleAnnouncementFormatBullet() {
+    applyAnnouncementSelectionTransform(({ value, selectionStart, selectionEnd }) =>
+      transformAnnouncementSelectedLines(value, selectionStart, selectionEnd, (line) => {
+        if (!String(line || "").trim()) return line;
+        return line.startsWith("- ") ? line : `- ${line}`;
+      })
+    );
+  }
+
+  function handleAnnouncementFormatNumbered() {
+    applyAnnouncementSelectionTransform(({ value, selectionStart, selectionEnd }) => {
+      let nextNumber = 1;
+      return transformAnnouncementSelectedLines(value, selectionStart, selectionEnd, (line) => {
+        if (!String(line || "").trim()) return line;
+        const stripped = line.replace(/^\d+\.\s+/, "");
+        const out = `${nextNumber}. ${stripped}`;
+        nextNumber += 1;
+        return out;
+      });
+    });
+  }
+
+  function handleAnnouncementIndent() {
+    applyAnnouncementSelectionTransform(({ value, selectionStart, selectionEnd }) =>
+      transformAnnouncementSelectedLines(value, selectionStart, selectionEnd, (line) =>
+        String(line || "").length ? `\t${line}` : line
+      )
+    );
+  }
+
+  function handleAnnouncementOutdent() {
+    applyAnnouncementSelectionTransform(({ value, selectionStart, selectionEnd }) =>
+      transformAnnouncementSelectedLines(value, selectionStart, selectionEnd, (line) =>
+        String(line || "").replace(/^\t|^ {1,4}/, "")
+      )
+    );
+  }
+
+  function handleAnnouncementKeyDown(event) {
+    if (event.key !== "Tab") return;
+    event.preventDefault();
+    if (event.shiftKey) {
+      handleAnnouncementOutdent();
+      return;
+    }
+    handleAnnouncementIndent();
   }
 
   function updateTripSetupDraft(field, value) {
@@ -7798,13 +7816,33 @@ normalizeEmail(participant.email) === activeParticipantEmail
           </div>
           {isEditingAnnouncement ? (
             <div style={{ paddingLeft: 6 }}>
+              <div className="row" style={{ gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                <button className="btn" type="button" onClick={handleAnnouncementFormatBullet}>
+                  Bullet list
+                </button>
+                <button className="btn" type="button" onClick={handleAnnouncementFormatNumbered}>
+                  Numbered list
+                </button>
+                <button className="btn" type="button" onClick={handleAnnouncementIndent}>
+                  Indent
+                </button>
+                <button className="btn" type="button" onClick={handleAnnouncementOutdent}>
+                  Outdent
+                </button>
+              </div>
               <textarea
+                ref={announcementTextareaRef}
                 className="input"
                 rows={3}
                 value={announcementDraft}
                 onChange={(event) => setAnnouncementDraft(event.target.value)}
+                onKeyDown={handleAnnouncementKeyDown}
                 placeholder="Share an update the team should see."
+                style={{ tabSize: 4 }}
               />
+              <div className="small" style={{ marginTop: 6, opacity: 0.8 }}>
+                Tip: press Tab to indent and Shift+Tab to outdent selected lines.
+              </div>
               <div className="row" style={{ marginTop: 10 }}>
                 <button className="btn btnPrimary" type="button" onClick={handleSaveAnnouncement}>
                   Save Announcement
@@ -10213,19 +10251,29 @@ normalizeEmail(participant.email) === activeParticipantEmail
               </div>
             </div>
             {canManageTrips && staffViewAllParticipants ? (
-              <button
-                type="button"
-                className="btn btnPrimary"
-                style={{ flexShrink: 0, alignSelf: "flex-start" }}
-                onClick={() => {
-                  setIsAddingTask((current) => {
-                    if (current) setTaskStatusMessage("");
-                    return !current;
-                  });
-                }}
-              >
-                {isAddingTask ? "Cancel" : "Add task"}
-              </button>
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ flexShrink: 0, alignSelf: "flex-start" }}
+                  onClick={() => setIsEditingWorkerDueDates((current) => !current)}
+                >
+                  {isEditingWorkerDueDates ? "Done editing due dates" : "Edit due dates"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btnPrimary"
+                  style={{ flexShrink: 0, alignSelf: "flex-start" }}
+                  onClick={() => {
+                    setIsAddingTask((current) => {
+                      if (current) setTaskStatusMessage("");
+                      return !current;
+                    });
+                  }}
+                >
+                  {isAddingTask ? "Cancel" : "Add task"}
+                </button>
+              </div>
             ) : null}
           </div>
 
@@ -10307,10 +10355,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
               gap: 16,
             }}
           >
-            {visibleTaskParticipants.map((participant) => {
+            {visibleTaskParticipants.map((participant, participantIndex) => {
               const taskState = participantTaskStates[normalizeEmail(participant.email)] || {};
-              const workerDueParticipantKey =
-                normalizeEmail(participant.email || "") || String(participant.id || "");
 
               return (
                 <div key={participant.email} className="card pad">
@@ -10334,6 +10380,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           <div style={{ display: "grid", gap: 0 }}>
                             {sectionTasks.map((task) => {
                               const done = !!taskState[task.id];
+                              const canEditTaskDueInThisColumn =
+                                canViewTeamDashboard && participantIndex === 0;
                               const isTravelFormTask = task.title === "Fill out Travel Form";
                               const canFillTravelForm = isTravelFormTask && String(participant.id) === String(currentParticipant?.id);
                               const workerTaskTemplate = findWorkerTaskTemplate(task);
@@ -10426,112 +10474,51 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                         </button>
                                       ) : null}
                                     </div>
-                                    {editingWorkerTaskDateId === task.id &&
-                                    workerDueParticipantKey === editingWorkerDueParticipantKey ? (
-                                        <div
-                                          style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: 8,
-                                            alignItems: "flex-start",
-                                          }}
-                                        >
-                                          <AppDueDateTripleSelect
-                                            ref={(imp) => {
-                                              const key = `${task.id}::${workerDueParticipantKey}`;
-                                              if (imp == null) {
-                                                workerDueTripleHandlesRef.current.delete(key);
-                                              } else {
-                                                workerDueTripleHandlesRef.current.set(key, imp);
-                                              }
-                                            }}
-                                            compact
-                                            nativeDatePickerOnly
-                                            value={workerTaskDueDateDraft}
-                                            onChange={setWorkerTaskDueDateDraft}
-                                          />
-                                          <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
-                                            <button
-                                              type="button"
-                                              className="btn btnPrimary"
-                                              style={{ padding: "4px 10px", fontSize: 12 }}
-                                              onClick={() => void handleApplyWorkerTaskDueDate()}
-                                            >
-                                              Save
-                                            </button>
-                                            <button
-                                              type="button"
-                                              className="btn"
-                                              style={{ padding: "4px 10px", fontSize: 12 }}
-                                              onClick={() => {
-                                                workerDueTripleHandlesRef.current.delete(
-                                                  `${task.id}::${workerDueParticipantKey}`
-                                                );
-                                                setEditingWorkerTaskDateId("");
-                                                setEditingWorkerDueParticipantKey("");
-                                                setWorkerTaskDueDateDraft("");
-                                              }}
-                                            >
-                                              Cancel
-                                            </button>
-                                            <button
-                                              type="button"
-                                              className="btn"
-                                              style={{ padding: "4px 10px", fontSize: 12 }}
-                                              onClick={() => void handleClearWorkerTaskDueDate()}
-                                            >
-                                              Clear due
-                                            </button>
-                                          </div>
-                                        </div>
-                                      ) : editingWorkerTaskDateId === task.id ? (
-                                        <div
-                                          className="small"
-                                          style={{
-                                            color: "var(--muted)",
-                                            lineHeight: 1.4,
-                                          }}
-                                        >
-                                          {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
-                                          <div style={{ marginTop: 4 }}>
-                                            Editing due date in{" "}
-                                            <strong>
-                                              {visibleTaskParticipants.find(
-                                                (p) =>
-                                                  (normalizeEmail(p.email || "") ||
-                                                    String(p.id || "")) === editingWorkerDueParticipantKey
-                                              )?.name || "another participant"}
-                                            </strong>
-                                            &rsquo;s column.
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <div
-                                          className="row"
-                                          style={{
-                                            alignItems: "center",
-                                            gap: 8,
-                                            flexWrap: "wrap",
-                                            marginTop: 2,
-                                          }}
-                                        >
-                                          <span className="small" style={{ color: "var(--muted)" }}>
-                                            {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
-                                          </span>
-                                          <button
-                                            type="button"
-                                            className="btn"
-                                            style={{ padding: "2px 10px", fontSize: 12 }}
-                                            onClick={() => {
-                                              setEditingWorkerTaskDateId(task.id);
-                                              setEditingWorkerDueParticipantKey(workerDueParticipantKey);
-                                              setWorkerTaskDueDateDraft(toDateInputValue(task.due));
+                                    {canViewTeamDashboard ? (
+                                      isEditingWorkerDueDates ? (
+                                        canEditTaskDueInThisColumn ? (
+                                          <div
+                                            className="row"
+                                            style={{
+                                              alignItems: "center",
+                                              gap: 8,
+                                              flexWrap: "wrap",
+                                              marginTop: 2,
                                             }}
                                           >
-                                            Edit due
-                                          </button>
+                                            <input
+                                              className="input"
+                                              type="date"
+                                              style={{ width: 170 }}
+                                              value={toDateInputValue(task.due)}
+                                              onChange={(e) =>
+                                                void persistWorkerTaskDueDate(task.id, e.target.value)
+                                              }
+                                            />
+                                            <button
+                                              type="button"
+                                              className="btn"
+                                              style={{ padding: "2px 10px", fontSize: 12 }}
+                                              onClick={() => void persistWorkerTaskDueDate(task.id, "")}
+                                            >
+                                              Clear
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="small" style={{ color: "var(--muted)", marginTop: 2 }}>
+                                            {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
+                                          </div>
+                                        )
+                                      ) : (
+                                        <div className="small" style={{ color: "var(--muted)", marginTop: 2 }}>
+                                          {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
                                         </div>
-                                      )}
+                                      )
+                                    ) : (
+                                      <div className="small">
+                                        {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
+                                      </div>
+                                    )}
                                     {taskDetails ? (
                                       <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
                                         {taskDetails}
