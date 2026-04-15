@@ -4052,6 +4052,11 @@ export default function TripPage() {
       return;
     }
 
+    if (item.destinationTab === "Materials") {
+      setTab("Materials");
+      return;
+    }
+
     if (item.destinationTab === "Training") {
       setPendingTrainingModuleJumpId(item.destinationId);
       setTab("Training");
@@ -4394,6 +4399,7 @@ function parseDateSafe(dateStr) {
     ) {
       return "Fundraising";
     }
+    if (title.includes("material")) return "Materials";
     if (
       title.includes("passport") ||
       title.includes("government id") ||
@@ -4421,7 +4427,7 @@ function parseDateSafe(dateStr) {
       groups.set(section, existing);
     });
 
-    const sectionOrder = ["General", "Fundraising", "Training", "Travel", "Uploads"];
+    const sectionOrder = ["General", "Materials", "Fundraising", "Training", "Travel", "Uploads"];
 
     return Array.from(groups.entries()).sort((left, right) => {
       const leftIndex = sectionOrder.indexOf(left[0]);
@@ -7109,6 +7115,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
         const section = getWorkerTaskSection(task);
         const isChecklistTask = task.id === "worker-task-checklist" || task.title === "Received and has reviewed Project Management Checklist";
         const isTicketsTask = task.id === "worker-task-tickets" || task.title === "Proofread my tickets";
+        const isMaterialsPageTask = wt?.id === "worker-task-materials-page";
         const isDocumentsTask = isWorkerPassportOrVisaUploadTask(task);
         const documentsTabUrl = trip?.id
           ? `/trips/${encodeURIComponent(trip.id)}?tab=documents`
@@ -7126,7 +7133,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
           title: getWorkerTaskDisplayTitle(task, trip?.location),
           dueDate: task.due,
           detail: hideSectionLabelTitles.includes(task.title) ? "" : section,
-          destinationTab: openTripDocumentsTab ? "Trip Documents" : "Tasks",
+          destinationTab: isMaterialsPageTask
+            ? "Materials"
+            : openTripDocumentsTab
+              ? "Trip Documents"
+              : "Tasks",
           destinationId: task.id,
           link: link || null,
           openTripDocumentsTab,
@@ -10403,6 +10414,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                               const workerTaskTemplate = findWorkerTaskTemplate(task);
                               const isChecklistTask = task.id === "worker-task-checklist" || task.title === "Received and has reviewed Project Management Checklist";
                               const isTicketsTask = task.id === "worker-task-tickets" || task.title === "Proofread my tickets";
+                              const isMaterialsPageTask = workerTaskTemplate?.id === "worker-task-materials-page";
                               const isDocumentsTask = isWorkerPassportOrVisaUploadTask(task);
                               const documentsTabUrl = trip?.id
           ? `/trips/${encodeURIComponent(trip.id)}?tab=documents`
@@ -10453,16 +10465,22 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                       }}
                                     >
                                       {getWorkerTaskDisplayTitle(task, trip?.location)}
-                                      {taskLink || isTicketsTask ? (
+                                      {taskLink || isTicketsTask || isMaterialsPageTask ? (
                                         <span style={{ marginLeft: 8 }}>
                                           <AppDetailAction
-                                            href={isTicketsTask || isDocumentsTask ? undefined : taskLink}
+                                            href={
+                                              isTicketsTask || isDocumentsTask || isMaterialsPageTask
+                                                ? undefined
+                                                : taskLink
+                                            }
                                             onClick={
                                               isTicketsTask
                                                 ? () => setTab(tripDocumentsTabLabel)
-                                                : isDocumentsTask
-                                                  ? () => setTab(participantDocumentsTabLabel)
-                                                  : undefined
+                                                : isMaterialsPageTask
+                                                  ? () => setTab("Materials")
+                                                  : isDocumentsTask
+                                                    ? () => setTab(participantDocumentsTabLabel)
+                                                    : undefined
                                             }
                                             compact
                                           >
