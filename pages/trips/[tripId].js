@@ -9208,8 +9208,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   : "If your total goal matches the first milestone, there is no separate 30-day balance."}
               </div>
             </div>
-            {canViewFundraisingTeamDashboard ? (
-              <div
+            <div
               className="card pad"
               style={{
                 boxShadow: "none",
@@ -9240,8 +9239,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
               >
                 General financial information
               </a>
-              </div>
-            ) : null}
+            </div>
           </div>
 
           <CollapsibleSection defaultOpen>
