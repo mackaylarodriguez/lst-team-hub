@@ -1,6 +1,7 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import EmptyState from "@/components/EmptyState";
+import { showToast } from "@/components/Toast";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
@@ -1747,6 +1748,42 @@ export default function RecruitingPage() {
   const historyCacheRef = useRef({});
   const loadingHistoryRef = useRef({});
 
+  function normalizeTeamNameKey(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  }
+
+  function findTeamNameConflict(teamName, { excludeRecordId = "" } = {}) {
+    const key = normalizeTeamNameKey(teamName);
+    if (!key) return null;
+    return (
+      records.find((record) => {
+        if (excludeRecordId && String(record.id || "") === String(excludeRecordId || "")) {
+          return false;
+        }
+        const candidates = [record.teamName, record.linkedTrip?.name];
+        return candidates.some((candidate) => normalizeTeamNameKey(candidate) === key);
+      }) || null
+    );
+  }
+
+  function notifyDuplicateTeamName(teamName, options = {}) {
+    const trimmedName = String(teamName || "").trim();
+    if (!trimmedName) return false;
+    const conflict = findTeamNameConflict(trimmedName, options);
+    if (!conflict) return false;
+    const conflictName =
+      String(conflict.teamName || conflict.linkedTrip?.name || formatContactName(conflict) || "another team")
+        .trim() || "another team";
+    const message = `Team name "${trimmedName}" is already used by "${conflictName}". Please choose a unique team name.`;
+    setError(message);
+    setPageStatus("");
+    showToast(message, "error");
+    return true;
+  }
+
   useEffect(() => {
     const useLockStyleEdit =
       activeTab === "potential" || activeTab === "outreach";
@@ -2297,6 +2334,9 @@ export default function RecruitingPage() {
       return;
     }
     const teamMembers = buildTeamMembersFromRosterRows(rows, 0);
+    if (notifyDuplicateTeamName(newContactDraft.teamName)) {
+      return;
+    }
     try {
       await saveRecruitingCycleContact(
         {
@@ -2371,6 +2411,9 @@ export default function RecruitingPage() {
   async function handleConfirmPromote() {
     const record = records.find((item) => item.id === selectedRecordId);
     if (!record) return;
+    if (notifyDuplicateTeamName(promoteDraft.teamName, { excludeRecordId: record.id })) {
+      return;
+    }
 
     await saveRecruitingCycleContact(
       buildRecruitingRecordPayload(record, {
@@ -2479,6 +2522,9 @@ export default function RecruitingPage() {
 
   async function handleFormTeam() {
     if (!selectedRecord) return;
+    if (notifyDuplicateTeamName(teamFormDraft.name, { excludeRecordId: selectedRecord.id })) {
+      return;
+    }
 
     try {
       setIsFormingTeam(true);
@@ -2696,6 +2742,9 @@ export default function RecruitingPage() {
   async function handleSaveRecord(recordId = selectedRecordId) {
     const recordToSave = records.find((record) => record.id === recordId);
     if (!recordToSave) return;
+    if (notifyDuplicateTeamName(recordToSave.teamName, { excludeRecordId: recordToSave.id })) {
+      return;
+    }
 
     try {
       setIsSavingNotes(true);
@@ -2723,6 +2772,9 @@ export default function RecruitingPage() {
     const record = records.find((item) => item.id === selectedRecordId);
     if (!record) return;
     const d = potentialTeamEditDraft;
+    if (notifyDuplicateTeamName(d.name, { excludeRecordId: record.id })) {
+      return;
+    }
     const primary = d.teamMembers[0] || createEmptyTripTeamMember();
     if (!String(primary.firstName || "").trim() || !String(primary.lastName || "").trim()) {
       setError("First and last name are required for the first team member.");
