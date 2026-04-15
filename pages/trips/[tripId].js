@@ -1482,22 +1482,13 @@ export default function TripPage() {
       accent: "#3caae1",
     },
     {
-      id: "gateway",
+      id: "gateway-endmeetings",
       group: "required",
-      title: "Gateway Training",
-      description: "Pre-departure preparation.",
+      title: "Gateway Training & EndMeetings",
+      description: "Pre-departure preparation and post-project debriefing — same survey link.",
       url: gatewayTrainingUrl,
       icon: "GT",
       accent: "#f99d2a",
-    },
-    {
-      id: "endmeetings",
-      group: "required",
-      title: "EndMeetings",
-      description: "Post-project debriefing.",
-      url: gatewayTrainingUrl,
-      icon: "EM",
-      accent: "#4c7c3d",
     },
     {
       id: "optional",
@@ -9751,20 +9742,20 @@ normalizeEmail(participant.email) === activeParticipantEmail
           <CollapsibleSection defaultOpen>
           <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Training resources</div>
-            <div className="small" style={{ marginBottom: 10, opacity: 0.88 }}>
-              Required and optional links for this trip.
-            </div>
             <p className="small">
               Central place for training links and module tracking.
             </p>
 
             <div style={{ height: 14 }} />
 
+            <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
+              Required training
+            </div>
             <div
               className="tripTrainingResourceGrid"
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                 gap: 16,
               }}
             >
@@ -9812,7 +9803,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
             <div style={{ height: 18 }} />
 
             <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
-              Advanced Training
+              Optional
             </div>
 
             <div
