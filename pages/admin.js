@@ -43,6 +43,31 @@ function getProgressInputClass(progress) {
   }
 }
 
+function getProgressBadgeClass(progress) {
+  switch (progress) {
+    case "Complete":
+      return "badgeSuccess";
+    case "In progress":
+      return "badgeInfo";
+    case "Waiting":
+      return "badgeInfo";
+    default:
+      return "badgeDanger";
+  }
+}
+
+function formatAdminDueDate(value) {
+  const ymd = toCalendarDatePart(value);
+  if (!ymd) return "Not set";
+  const d = new Date(`${ymd}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function Admin() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -876,37 +901,55 @@ function TaskSection({
                     )}
                   </td>
                   <td className="adminTaskDueCell">
-                    <AppDueDateTripleSelect
-                      compact
-                      value={task.dueDate || ""}
-                      onChange={(ymd) =>
-                        void onUpdateTask(task.tripId, task.id, "dueDate", ymd)
-                      }
-                    />
+                    {isEditingTitle ? (
+                      <input
+                        className="input"
+                        type="date"
+                        value={toCalendarDatePart(task.dueDate) || ""}
+                        onChange={(e) =>
+                          void onUpdateTask(task.tripId, task.id, "dueDate", e.target.value)
+                        }
+                      />
+                    ) : (
+                      <div className="small">{formatAdminDueDate(task.dueDate)}</div>
+                    )}
                   </td>
                   <td>
-                    <select
-                      className={`input statusSelect ${getProgressInputClass(
-                        task.progress || "Not started"
-                      )}`}
-                      value={task.progress || "Not started"}
-                      onChange={(e) =>
-                        onUpdateTask(task.tripId, task.id, "progress", e.target.value)
-                      }
-                    >
-                      {PROGRESS_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
+                    {isEditingTitle ? (
+                      <select
+                        className={`input statusSelect ${getProgressInputClass(
+                          task.progress || "Not started"
+                        )}`}
+                        value={task.progress || "Not started"}
+                        onChange={(e) =>
+                          onUpdateTask(task.tripId, task.id, "progress", e.target.value)
+                        }
+                      >
+                        {PROGRESS_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className={`badge ${getProgressBadgeClass(task.progress || "Not started")}`}>
+                        {task.progress || "Not started"}
+                      </span>
+                    )}
                   </td>
                   <td className="adminTaskNotesCell">
                     <input
                       className="input adminTaskNotesInput"
                       value={task.notes || ""}
-                      onChange={(e) => onTaskNotesChange(task.tripId, task.id, e.target.value)}
-                      onBlur={(e) => onTaskNotesBlur(task.tripId, task.id, e.target.value)}
+                      onChange={(e) => {
+                        if (!isEditingTitle) return;
+                        onTaskNotesChange(task.tripId, task.id, e.target.value);
+                      }}
+                      onBlur={(e) => {
+                        if (!isEditingTitle) return;
+                        onTaskNotesBlur(task.tripId, task.id, e.target.value);
+                      }}
+                      readOnly={!isEditingTitle}
                     />
                   </td>
                   <td className="adminTaskActionsCell">
