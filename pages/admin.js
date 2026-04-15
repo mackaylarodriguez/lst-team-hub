@@ -628,7 +628,7 @@ export default function Admin() {
               {myTasks.length} total task{myTasks.length === 1 ? "" : "s"}, including your personal tasks
             </div>
           </div>
-          {staffTaskStatus ? (
+          {staffTaskStatus && staffTaskStatus !== "Saved." && staffTaskStatus !== "Saving..." ? (
             <div className="small" style={{ alignSelf: "center" }}>
               {staffTaskStatus}
             </div>
