@@ -6595,10 +6595,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
     currentParticipantFundraisingGoalAmount > 0;
   const countForDeadlines =
     useIndividualGoal || isTeamFundraisingMode ? 1 : fundraisingWorkerCount;
-  const fundraisingFirstDeadlineAmount = Math.min(
-    2000 * countForDeadlines,
-    fundraisingGoalAmount || 2000 * countForDeadlines
-  );
+  // Business rule: 90-day milestone is always $2,000 per applicable person.
+  const fundraisingFirstDeadlineAmount = 2000 * countForDeadlines;
   const fundraisingSecondDeadlineTotalAmount = Math.max(
     (fundraisingGoalAmount || 0) - fundraisingFirstDeadlineAmount,
     0

@@ -75,6 +75,7 @@ export default function Admin() {
   const [staffTasksByTrip, setStaffTasksByTrip] = useState({});
   const [miscTasks, setMiscTasks] = useState([]);
   const [editingTaskKey, setEditingTaskKey] = useState(null);
+  const [editingTaskDraft, setEditingTaskDraft] = useState(null);
   const [isAddingMiscTask, setIsAddingMiscTask] = useState(false);
   const [newMiscTaskDraft, setNewMiscTaskDraft] = useState({
     taskName: "",
@@ -528,10 +529,54 @@ export default function Admin() {
 
   function handleEditTitle(task) {
     setEditingTaskKey(getTaskKey(task.tripId, task.id));
+    setEditingTaskDraft({
+      workArea: task.workArea || "Personal Task",
+      taskName: task.taskName || task.title || "",
+      dueDate: toCalendarDatePart(task.dueDate) || "",
+      progress: task.progress || "Not started",
+      notes: task.notes || "",
+    });
   }
 
   function handleCancelTitleEdit() {
     setEditingTaskKey(null);
+    setEditingTaskDraft(null);
+  }
+
+  async function handleSaveTitle(task) {
+    const draft = editingTaskDraft;
+    if (!draft) {
+      handleCancelTitleEdit();
+      return;
+    }
+
+    const updates = [];
+    if (task.isMiscTask && String(task.workArea || "Personal Task") !== String(draft.workArea || "Personal Task")) {
+      updates.push(["workArea", draft.workArea || "Personal Task"]);
+    }
+    if (String(task.taskName || task.title || "") !== String(draft.taskName || "")) {
+      updates.push(["taskName", String(draft.taskName || "").trim() || "Untitled task"]);
+    }
+    if ((toCalendarDatePart(task.dueDate) || "") !== (toCalendarDatePart(draft.dueDate) || "")) {
+      updates.push(["dueDate", toCalendarDatePart(draft.dueDate) || ""]);
+    }
+    if (String(task.progress || "Not started") !== String(draft.progress || "Not started")) {
+      updates.push(["progress", draft.progress || "Not started"]);
+    }
+    if (String(task.notes || "") !== String(draft.notes || "")) {
+      updates.push(["notes", draft.notes || ""]);
+    }
+
+    if (updates.length === 0) {
+      handleCancelTitleEdit();
+      return;
+    }
+
+    for (const [field, value] of updates) {
+      // Save only on explicit action so rows don't reorder while editing.
+      await updateTask(task.tripId, task.id, field, value);
+    }
+    handleCancelTitleEdit();
   }
 
   function handleOpenTask(task) {
@@ -726,11 +771,12 @@ export default function Admin() {
         title="Past Due"
         tasks={categorizedTasks.pastDue}
         editingTaskKey={editingTaskKey}
+        editingTaskDraft={editingTaskDraft}
+        onEditingTaskDraftChange={setEditingTaskDraft}
         onEditTitle={handleEditTitle}
         onCancelTitleEdit={handleCancelTitleEdit}
+        onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
-        onTaskNotesChange={handleTaskNotesChange}
-        onTaskNotesBlur={flushTaskNotesSave}
         onDeleteTask={handleDeleteTask}
         onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
@@ -743,11 +789,12 @@ export default function Admin() {
         title="Upcoming"
         tasks={categorizedTasks.upcoming}
         editingTaskKey={editingTaskKey}
+        editingTaskDraft={editingTaskDraft}
+        onEditingTaskDraftChange={setEditingTaskDraft}
         onEditTitle={handleEditTitle}
         onCancelTitleEdit={handleCancelTitleEdit}
+        onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
-        onTaskNotesChange={handleTaskNotesChange}
-        onTaskNotesBlur={flushTaskNotesSave}
         onDeleteTask={handleDeleteTask}
         onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
@@ -760,11 +807,12 @@ export default function Admin() {
         title="Completed"
         tasks={categorizedTasks.completed}
         editingTaskKey={editingTaskKey}
+        editingTaskDraft={editingTaskDraft}
+        onEditingTaskDraftChange={setEditingTaskDraft}
         onEditTitle={handleEditTitle}
         onCancelTitleEdit={handleCancelTitleEdit}
+        onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
-        onTaskNotesChange={handleTaskNotesChange}
-        onTaskNotesBlur={flushTaskNotesSave}
         onDeleteTask={handleDeleteTask}
         onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
@@ -780,11 +828,12 @@ function TaskSection({
   title,
   tasks,
   editingTaskKey,
+  editingTaskDraft,
+  onEditingTaskDraftChange,
   onEditTitle,
   onCancelTitleEdit,
+  onSaveTitle,
   onUpdateTask,
-  onTaskNotesChange,
-  onTaskNotesBlur,
   onDeleteTask,
   onOpenTask,
   staffTaskRowStatus,
@@ -825,6 +874,15 @@ function TaskSection({
             {tasks.map((task) => {
               const taskKey = getTaskKey(task.tripId, task.id);
               const isEditingTitle = editingTaskKey === taskKey;
+              const draft = isEditingTitle
+                ? editingTaskDraft || {
+                    workArea: task.workArea || "Personal Task",
+                    taskName: task.taskName || task.title || "",
+                    dueDate: toCalendarDatePart(task.dueDate) || "",
+                    progress: task.progress || "Not started",
+                    notes: task.notes || "",
+                  }
+                : null;
               const rowStatus = staffTaskRowStatus[taskKey];
 
               return (
@@ -834,8 +892,13 @@ function TaskSection({
                       isEditingTitle ? (
                         <select
                           className="input"
-                          value={task.workArea || "Personal Task"}
-                          onChange={(e) => void onUpdateTask(task.tripId, task.id, "workArea", e.target.value)}
+                          value={draft?.workArea || "Personal Task"}
+                          onChange={(e) =>
+                            onEditingTaskDraftChange((current) => ({
+                              ...(current || {}),
+                              workArea: e.target.value,
+                            }))
+                          }
                         >
                           {personalTaskCategoryOptions.map((option) => (
                             <option key={`${taskKey}-${option}`} value={option}>
@@ -856,9 +919,12 @@ function TaskSection({
                     {isEditingTitle ? (
                       <input
                         className="input"
-                        value={task.taskName || task.title || ""}
+                        value={draft?.taskName || ""}
                         onChange={(e) =>
-                          void onUpdateTask(task.tripId, task.id, "taskName", e.target.value)
+                          onEditingTaskDraftChange((current) => ({
+                            ...(current || {}),
+                            taskName: e.target.value,
+                          }))
                         }
                       />
                     ) : (
@@ -882,9 +948,12 @@ function TaskSection({
                       <input
                         className="input"
                         type="date"
-                        value={toCalendarDatePart(task.dueDate) || ""}
+                        value={draft?.dueDate || ""}
                         onChange={(e) =>
-                          void onUpdateTask(task.tripId, task.id, "dueDate", e.target.value)
+                          onEditingTaskDraftChange((current) => ({
+                            ...(current || {}),
+                            dueDate: e.target.value,
+                          }))
                         }
                       />
                     ) : (
@@ -895,11 +964,14 @@ function TaskSection({
                     {isEditingTitle ? (
                       <select
                         className={`input statusSelect ${getProgressInputClass(
-                          task.progress || "Not started"
+                          draft?.progress || "Not started"
                         )}`}
-                        value={task.progress || "Not started"}
+                        value={draft?.progress || "Not started"}
                         onChange={(e) =>
-                          onUpdateTask(task.tripId, task.id, "progress", e.target.value)
+                          onEditingTaskDraftChange((current) => ({
+                            ...(current || {}),
+                            progress: e.target.value,
+                          }))
                         }
                       >
                         {PROGRESS_OPTIONS.map((option) => (
@@ -917,14 +989,13 @@ function TaskSection({
                   <td className="adminTaskNotesCell">
                     <input
                       className="input adminTaskNotesInput"
-                      value={task.notes || ""}
+                      value={isEditingTitle ? draft?.notes || "" : task.notes || ""}
                       onChange={(e) => {
                         if (!isEditingTitle) return;
-                        onTaskNotesChange(task.tripId, task.id, e.target.value);
-                      }}
-                      onBlur={(e) => {
-                        if (!isEditingTitle) return;
-                        onTaskNotesBlur(task.tripId, task.id, e.target.value);
+                        onEditingTaskDraftChange((current) => ({
+                          ...(current || {}),
+                          notes: e.target.value,
+                        }));
                       }}
                       readOnly={!isEditingTitle}
                     />
@@ -948,7 +1019,14 @@ function TaskSection({
                             type="button"
                             onClick={onCancelTitleEdit}
                           >
-                            Done
+                            Cancel
+                          </button>
+                          <button
+                            className="btn btnPrimary"
+                            type="button"
+                            onClick={() => void onSaveTitle(task)}
+                          >
+                            Save
                           </button>
                         </>
                       ) : (
