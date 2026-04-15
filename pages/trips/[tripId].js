@@ -1466,10 +1466,11 @@ export default function TripPage() {
     {
       id: "canvas",
       group: "required",
-      title: "Canvas",
-      description: "Instructions on accessing online LST team training.",
+      title: "On-Demand Training",
+      description:
+        "This is video-based training that can be done at times convenient for you on Canvas.",
       url: trainingAccessUrl,
-      icon: "CV",
+      icon: "OD",
       accent: "#2f4993",
     },
     {
@@ -7005,7 +7006,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
   const quickLinks = useMemo(() => {
     const links = [
       {
-        label: "Canvas",
+        label: "On-Demand Training",
         url: trainingAccessUrl,
         ready: true,
       },
