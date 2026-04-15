@@ -9129,14 +9129,15 @@ normalizeEmail(participant.email) === activeParticipantEmail
 
       {tab === "Fundraising" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {canViewTeamDashboard ? (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                gap: 16,
-              }}
-            >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: canViewFundraisingTeamDashboard
+                ? "repeat(auto-fit, minmax(260px, 1fr))"
+                : "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 16,
+            }}
+          >
             <div
               className="card pad"
               style={{
@@ -9207,7 +9208,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   : "If your total goal matches the first milestone, there is no separate 30-day balance."}
               </div>
             </div>
-            <div
+            {canViewFundraisingTeamDashboard ? (
+              <div
               className="card pad"
               style={{
                 boxShadow: "none",
@@ -9238,9 +9240,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
               >
                 General financial information
               </a>
-            </div>
-            </div>
-          ) : null}
+              </div>
+            ) : null}
+          </div>
 
           <CollapsibleSection defaultOpen>
           <div className="card pad">
