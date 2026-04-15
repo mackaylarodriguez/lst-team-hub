@@ -9270,15 +9270,26 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   LST handouts, Neon tips, and training references for workers and leaders.
                 </div>
               </div>
-              <a
-                className="btn btnPrimary"
-                href="https://lst.org/projects/general-financial-information/"
-                target="_blank"
-                rel="noreferrer noopener"
-                style={{ alignSelf: "flex-start" }}
-              >
-                General financial information
-              </a>
+              <div className="row" style={{ flexWrap: "wrap", gap: 10, marginTop: 4 }}>
+                <a
+                  className="btn btnPrimary"
+                  href="https://lst.org/projects/general-financial-information/"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  style={{ alignSelf: "flex-start" }}
+                >
+                  General financial information
+                </a>
+                <a
+                  className="btn"
+                  href="https://lst365.sharepoint.com/:w:/g/IQCaOfL_uQbER5SG_ngJVA7cAWAnrOS1UjRyzsWdMzn_USw"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  style={{ alignSelf: "flex-start" }}
+                >
+                  How to edit your fundraising page
+                </a>
+              </div>
             </div>
           </div>
 
