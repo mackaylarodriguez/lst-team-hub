@@ -6447,8 +6447,33 @@ normalizeEmail(participant.email) === activeParticipantEmail
       return [];
     }
 
+    const rosterGoalByEmail = new Map(
+      (trip.teamMembers || [])
+        .filter((m) => m?.email)
+        .map((m) => [normalizeEmail(m.email), m.fundraisingGoalAmount])
+    );
+
     return (trip.participants || [])
       .filter((participant) => String(participant.id) === String(currentParticipant?.id || ""))
+      .map((participant) => {
+        const rosterGoalRaw = rosterGoalByEmail.get(normalizeEmail(participant.email));
+        const participantGoal =
+          participant.fundraisingGoalAmount != null &&
+          participant.fundraisingGoalAmount !== "" &&
+          Number.isFinite(Number(participant.fundraisingGoalAmount))
+            ? Number(participant.fundraisingGoalAmount)
+            : null;
+        const rosterGoal =
+          rosterGoalRaw != null &&
+          rosterGoalRaw !== "" &&
+          Number.isFinite(Number(rosterGoalRaw))
+            ? Number(rosterGoalRaw)
+            : null;
+        return {
+          ...participant,
+          fundraisingGoalAmount: participantGoal != null ? participantGoal : rosterGoal,
+        };
+      })
       .filter((p) => shouldIncludeInTripWorkerPipeline(trip, p.email));
   }, [trip, canViewFundraisingTeamDashboard, currentParticipant]);
 
@@ -6544,10 +6569,21 @@ normalizeEmail(participant.email) === activeParticipantEmail
     ? trainingPct
     : currentTrainingProgress?.percent || 0;
   const currentParticipantFundraisingGoalAmount =
-    currentParticipant?.fundraisingGoalAmount != null &&
-    Number.isFinite(Number(currentParticipant.fundraisingGoalAmount))
-      ? Number(currentParticipant.fundraisingGoalAmount)
-      : 0;
+    (() => {
+      const participantGoalRaw = currentParticipant?.fundraisingGoalAmount;
+      if (participantGoalRaw != null && Number.isFinite(Number(participantGoalRaw))) {
+        return Number(participantGoalRaw);
+      }
+      const rosterGoalRaw = sessionTripRosterRow?.fundraisingGoalAmount;
+      if (rosterGoalRaw != null && Number.isFinite(Number(rosterGoalRaw))) {
+        return Number(rosterGoalRaw);
+      }
+      const workerCardGoalRaw = visibleFundraisingParticipants?.[0]?.fundraisingGoalAmount;
+      if (workerCardGoalRaw != null && Number.isFinite(Number(workerCardGoalRaw))) {
+        return Number(workerCardGoalRaw);
+      }
+      return 0;
+    })();
   const isTeamFundraisingMode = trip?.fundraisingMode === "team";
   const tripFundraisingGoal = Number(trip?.fundraisingGoalAmount || 0);
   const summedParticipantFundraisingGoal = useMemo(
