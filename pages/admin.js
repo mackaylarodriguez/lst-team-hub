@@ -43,19 +43,6 @@ function getProgressInputClass(progress) {
   }
 }
 
-function getProgressBadgeClass(progress) {
-  switch (progress) {
-    case "Complete":
-      return "badgeSuccess";
-    case "In progress":
-      return "badgeInfo";
-    case "Waiting":
-      return "badgeInfo";
-    default:
-      return "badgeDanger";
-  }
-}
-
 function formatAdminDueDate(value) {
   const ymd = toCalendarDatePart(value);
   if (!ymd) return "Not set";
@@ -961,30 +948,29 @@ function TaskSection({
                     )}
                   </td>
                   <td>
-                    {isEditingTitle ? (
-                      <select
-                        className={`input statusSelect ${getProgressInputClass(
-                          draft?.progress || "Not started"
-                        )}`}
-                        value={draft?.progress || "Not started"}
-                        onChange={(e) =>
+                    <select
+                      className={`input statusSelect ${getProgressInputClass(
+                        (isEditingTitle ? draft?.progress : task.progress) || "Not started"
+                      )}`}
+                      value={(isEditingTitle ? draft?.progress : task.progress) || "Not started"}
+                      onChange={(e) => {
+                        const nextProgress = e.target.value;
+                        if (isEditingTitle) {
                           onEditingTaskDraftChange((current) => ({
                             ...(current || {}),
-                            progress: e.target.value,
-                          }))
+                            progress: nextProgress,
+                          }));
+                          return;
                         }
-                      >
-                        {PROGRESS_OPTIONS.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className={`badge ${getProgressBadgeClass(task.progress || "Not started")}`}>
-                        {task.progress || "Not started"}
-                      </span>
-                    )}
+                        void onUpdateTask(task.tripId, task.id, "progress", nextProgress);
+                      }}
+                    >
+                      {PROGRESS_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td className="adminTaskNotesCell">
                     <input
