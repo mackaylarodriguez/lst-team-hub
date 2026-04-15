@@ -23,6 +23,7 @@ export default function Login() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [tshirtSize, setTshirtSize] = useState("");
+  const [phone, setPhone] = useState("");
   const [confirmResetPassword, setConfirmResetPassword] = useState("");
   const [err, setErr] = useState("");
   const [message, setMessage] = useState("");
@@ -126,6 +127,11 @@ export default function Login() {
           return;
         }
 
+        if (!String(phone || "").trim()) {
+          setErr("Enter a phone number.");
+          return;
+        }
+
         if (!password) {
           setErr("Create a password to continue.");
           return;
@@ -142,6 +148,7 @@ export default function Login() {
           firstName,
           lastName,
           tshirtSize,
+          phone,
         });
         if (session) {
           router.push(nextPath);
@@ -152,6 +159,7 @@ export default function Login() {
         setMode("signin");
         setPassword("");
         setConfirmPassword("");
+        setPhone("");
         return;
       }
 
@@ -229,6 +237,17 @@ export default function Login() {
                     <option key={size} value={size}>{size}</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Phone Number</div>
+                <input
+                  className="input"
+                  type="tel"
+                  value={phone}
+                  onChange={(e)=>setPhone(e.target.value)}
+                  placeholder="Cell phone"
+                  autoComplete="tel"
+                />
               </div>
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>Email</div>
