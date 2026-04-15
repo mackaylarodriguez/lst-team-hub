@@ -1314,6 +1314,8 @@ export default function TripPage() {
   /** Edit team fundraising setup and per-person links: staff only (trip leaders see read-only). */
   const canManageTripFundraising =
     staffViewAllParticipants || (canManageTrips && isStaffPreviewingLeader);
+  /** Fundraising team-wide view: staff-only (workers should only see their own card). */
+  const canViewFundraisingTeamDashboard = canManageTripFundraising;
 
   const sessionTripRosterRow = useMemo(() => {
     if (!trip?.teamMembers?.length || !session?.email) return null;
@@ -6397,7 +6399,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
   const visibleFundraisingParticipants = useMemo(() => {
     if (!trip) return [];
 
-    if (canViewTeamDashboard) {
+    if (canViewFundraisingTeamDashboard) {
       const participantEmails = new Set(
         (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
       );
@@ -6448,7 +6450,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     return (trip.participants || [])
       .filter((participant) => String(participant.id) === String(currentParticipant?.id || ""))
       .filter((p) => shouldIncludeInTripWorkerPipeline(trip, p.email));
-  }, [trip, canViewTeamDashboard, currentParticipant]);
+  }, [trip, canViewFundraisingTeamDashboard, currentParticipant]);
 
   const workerDocumentParticipants = useMemo(() => {
     if (!trip) return [];
@@ -9207,10 +9209,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
           <CollapsibleSection defaultOpen>
           <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>
-              {canViewTeamDashboard ? "Fundraising pages" : "My fundraising"}
+              {canViewFundraisingTeamDashboard ? "Fundraising pages" : "My fundraising"}
             </div>
             <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
-              {canViewTeamDashboard
+              {canViewFundraisingTeamDashboard
                 ? canManageTripFundraising
                   ? "Choose individual Neon pages or one team/family campaign, then manage links."
                   : "View everyone's Neon pages and progress. Staff configure trip fundraising setup and edit links."
@@ -9388,20 +9390,20 @@ normalizeEmail(participant.email) === activeParticipantEmail
               </div>
             )}
 
-            {canViewTeamDashboard && isTeamFundraisingMode ? (
+            {canViewFundraisingTeamDashboard && isTeamFundraisingMode ? (
               <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
                 Team/family mode: workers only see the shared Neon link above. Per-person links below are optional
                 (e.g. exceptions).
               </div>
             ) : null}
-            {!canViewTeamDashboard && isTeamFundraisingMode ? (
+            {!canViewFundraisingTeamDashboard && isTeamFundraisingMode ? (
               <div className="small" style={{ marginTop: 4 }}>
                 This trip uses one shared fundraising page for the whole family or team — personal Neon tiles are
                 hidden. Use the shared link above.
               </div>
             ) : visibleFundraisingParticipants.length === 0 ? (
               <div className="small">
-                {canViewTeamDashboard
+                {canViewFundraisingTeamDashboard
                   ? "No per-person fundraising tiles to show yet. Leaders not traveling with the team are omitted."
                   : "No fundraising record found for this login."}
               </div>
@@ -9409,10 +9411,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: canViewTeamDashboard
+                  gridTemplateColumns: canViewFundraisingTeamDashboard
                     ? "repeat(auto-fit, minmax(220px, 1fr))"
                     : "repeat(auto-fit, minmax(160px, 1fr))",
-                  gap: canViewTeamDashboard ? 16 : 12,
+                  gap: canViewFundraisingTeamDashboard ? 16 : 12,
                 }}
               >
                 {visibleFundraisingParticipants.map((participant) => {
@@ -9421,7 +9423,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   const fundraisingProgressMeta = getFundraisingProgressMeta(participant);
                   const canEditParticipantFundraising =
                     canManageTripFundraising &&
-                    canViewTeamDashboard &&
+                    canViewFundraisingTeamDashboard &&
                     (!participant.rosterOnly || !!participant.tripTeamMemberId);
                   return (
                     <div
@@ -9429,7 +9431,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       className="card pad"
                       style={{
                         boxShadow: "none",
-                        minHeight: canViewTeamDashboard ? 220 : 136,
+                        minHeight: canViewFundraisingTeamDashboard ? 220 : 136,
                         display: "flex",
                         flexDirection: "column",
                         justifyContent: "space-between",
@@ -9453,7 +9455,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           <div
                             style={{
                               fontWeight: 900,
-                              fontSize: canViewTeamDashboard ? 18 : 15,
+                              fontSize: canViewFundraisingTeamDashboard ? 18 : 15,
                               lineHeight: 1.2,
                             }}
                           >
