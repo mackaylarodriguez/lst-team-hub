@@ -4490,6 +4490,63 @@ function parseDateSafe(dateStr) {
     });
   }
 
+  function renderAnnouncementInlineFormatting(text, keyPrefix = "ann") {
+    const input = String(text || "");
+    const out = [];
+    const tokenPattern = /(\*\*[^*]+\*\*|==[^=]+==)/g;
+    let lastIndex = 0;
+    let match = tokenPattern.exec(input);
+    let tokenIndex = 0;
+
+    while (match) {
+      if (match.index > lastIndex) {
+        out.push(input.slice(lastIndex, match.index));
+      }
+      const token = match[0];
+      if (token.startsWith("**") && token.endsWith("**")) {
+        out.push(
+          <strong key={`${keyPrefix}-b-${tokenIndex}`}>
+            {token.slice(2, -2)}
+          </strong>
+        );
+      } else if (token.startsWith("==") && token.endsWith("==")) {
+        out.push(
+          <mark
+            key={`${keyPrefix}-h-${tokenIndex}`}
+            style={{ background: "rgba(250, 204, 21, 0.35)", padding: "0 2px", borderRadius: 3 }}
+          >
+            {token.slice(2, -2)}
+          </mark>
+        );
+      } else {
+        out.push(token);
+      }
+      lastIndex = match.index + token.length;
+      tokenIndex += 1;
+      match = tokenPattern.exec(input);
+    }
+
+    if (lastIndex < input.length) {
+      out.push(input.slice(lastIndex));
+    }
+
+    return out;
+  }
+
+  function renderAnnouncementMessage(message) {
+    const lines = String(message || "").split("\n");
+    return (
+      <>
+        {lines.map((line, index) => (
+          <span key={`announcement-line-${index}`}>
+            {renderAnnouncementInlineFormatting(line, `announcement-line-${index}`)}
+            {index < lines.length - 1 ? <br /> : null}
+          </span>
+        ))}
+      </>
+    );
+  }
+
   function formatRecentActivityTimestamp(value) {
     if (!value) return "";
 
@@ -4947,6 +5004,32 @@ function parseDateSafe(dateStr) {
       return;
     }
     handleAnnouncementIndent();
+  }
+
+  function wrapAnnouncementSelection(markerStart, markerEnd, placeholderText) {
+    applyAnnouncementSelectionTransform(({ value, selectionStart, selectionEnd }) => {
+      const start = Math.max(0, selectionStart);
+      const end = Math.max(start, selectionEnd);
+      const selected = value.slice(start, end);
+      const inner = selected || placeholderText;
+      const replacement = `${markerStart}${inner}${markerEnd}`;
+      const text = `${value.slice(0, start)}${replacement}${value.slice(end)}`;
+      const innerStart = start + markerStart.length;
+      const innerEnd = innerStart + inner.length;
+      return {
+        text,
+        selectionStart: innerStart,
+        selectionEnd: innerEnd,
+      };
+    });
+  }
+
+  function handleAnnouncementFormatBold() {
+    wrapAnnouncementSelection("**", "**", "bold text");
+  }
+
+  function handleAnnouncementFormatHighlight() {
+    wrapAnnouncementSelection("==", "==", "highlighted text");
   }
 
   function updateTripSetupDraft(field, value) {
@@ -7817,6 +7900,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
           {isEditingAnnouncement ? (
             <div style={{ paddingLeft: 6 }}>
               <div className="row" style={{ gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                <button className="btn" type="button" onClick={handleAnnouncementFormatBold}>
+                  Bold
+                </button>
+                <button className="btn" type="button" onClick={handleAnnouncementFormatHighlight}>
+                  Highlight
+                </button>
                 <button className="btn" type="button" onClick={handleAnnouncementFormatBullet}>
                   Bullet list
                 </button>
@@ -7881,7 +7970,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     boxShadow: "0 10px 20px rgba(47,73,147,.06)",
                   }}
                 >
-                  <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{announcement.message}</div>
+                  <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+                    {renderAnnouncementMessage(announcement.message)}
+                  </div>
                   <div className="small" style={{ marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <span>
                       <strong>By:</strong> {announcement.authorName || announcement.authorEmail || "Unknown user"}
