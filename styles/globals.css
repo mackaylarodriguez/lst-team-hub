@@ -2160,6 +2160,41 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .staffTasksTripPanel .btnPrimary{
   font-size:12px;
 }
+.staffTasksTripPanel table.staffTasksTripTable{
+  table-layout:fixed;
+  width:100%;
+}
+.staffTasksTripPanel table.staffTasksTripTable th,
+.staffTasksTripPanel table.staffTasksTripTable td{
+  min-width:0;
+}
+.staffTasksTripPanel table.staffTasksTripTable td:first-child{
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.staffTasksTripPanel .staffTaskNotesTd{
+  vertical-align:top;
+  padding-left:8px;
+  padding-right:8px;
+}
+.staffTasksTripPanel .staffTaskNotesTd .staffTaskNotesCell{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+}
+.staffTasksTripPanel .staffTaskNotesTd .staffTaskNotesInput{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  display:block;
+}
+.staffTasksTripPanel .staffTaskActionsTd{
+  vertical-align:top;
+  white-space:nowrap;
+  padding-left:6px;
+  padding-right:4px;
+}
 .staffTaskSectionHeader{
   display:flex;
   align-items:center;

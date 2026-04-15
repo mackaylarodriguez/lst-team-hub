@@ -13385,15 +13385,23 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   </div>
                 ) : null}
 
-                <table className="table dataTableStriped">
+                <table className="table dataTableStriped staffTasksTripTable">
+                  <colgroup>
+                    <col style={{ width: "26%" }} />
+                    <col style={{ width: "8%" }} />
+                    <col style={{ width: "11%" }} />
+                    <col style={{ width: "10%" }} />
+                    <col style={{ width: "37%" }} />
+                    <col style={{ width: "8%" }} />
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th style={{ width: "39%" }}>Task</th>
-                      <th style={{ width: "7%", textAlign: "center" }}>Assigned</th>
-                      <th style={{ width: "14%", textAlign: "center" }}>Progress</th>
-                      <th style={{ width: "10%" }}>Due Date</th>
-                      <th style={{ width: "22%" }}>Notes</th>
-                      <th style={{ width: "8%" }} />
+                      <th>Task</th>
+                      <th style={{ textAlign: "center" }}>Assigned</th>
+                      <th style={{ textAlign: "center" }}>Progress</th>
+                      <th>Due Date</th>
+                      <th>Notes</th>
+                      <th aria-label="Actions" />
                     </tr>
                   </thead>
 
@@ -13516,11 +13524,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                 )}
                               </td>
 
-                              <td>
+                              <td className="staffTaskNotesTd">
                                 <div className="staffTaskNotesCell">
                                   <textarea
                                     className="input staffTaskNotesInput"
-                                    rows={2}
+                                    rows={3}
                                     value={t.notes || ""}
                                     onChange={(e) =>
                                       handleStaffTaskNotesChange(t.id, e.target.value)
@@ -13535,7 +13543,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                 </div>
                               </td>
 
-                              <td>
+                              <td className="staffTaskActionsTd">
                                 <div
                                   className="staffTaskRowActions"
                                   style={rowStatus ? { opacity: 1, pointerEvents: "auto" } : undefined}
