@@ -9091,13 +9091,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
 
       {tab === "Fundraising" && (
         <div style={{ display: "grid", gap: 16 }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-              gap: 16,
-            }}
-          >
+          {canViewTeamDashboard ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: 16,
+              }}
+            >
             <div
               className="card pad"
               style={{
@@ -9200,7 +9201,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 General financial information
               </a>
             </div>
-          </div>
+            </div>
+          ) : null}
 
           <CollapsibleSection defaultOpen>
           <div className="card pad">
@@ -9216,46 +9218,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   ? "Shared fundraising for your family or team."
                   : "Your Neon fundraising page and team updates."}
             </div>
-
-            {!canViewTeamDashboard && (isTeamFundraisingMode || trip?.teamFundraisingUrl) ? (
-              <div
-                className="card pad"
-                style={{
-                  boxShadow: "none",
-                  marginBottom: 14,
-                  background: "linear-gradient(180deg, rgba(234,242,255,.85), rgba(255,255,255,1) 65%)",
-                  borderColor: "rgba(47,73,147,.22)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 12,
-                }}
-              >
-                <div className="cardSectionPill" style={{ marginBottom: 4 }}>
-                  {isTeamFundraisingMode ? "Family / team fundraising" : "Team Page"}
-                </div>
-                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>
-                  {isTeamFundraisingMode
-                    ? "Shared fundraising page for your family or team"
-                    : "Shared Team Fundraising Page"}
-                </div>
-                {trip.teamFundraisingUrl ? (
-                  <a
-                    className="btn btnPrimary"
-                    href={trip.teamFundraisingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ padding: "10px 16px", fontSize: 14, alignSelf: "flex-start" }}
-                  >
-                    Open shared Neon page
-                  </a>
-                ) : (
-                  <div className="small" style={{ color: "var(--muted)" }}>
-                    Your leader hasn&apos;t added the shared Neon link yet. Check back soon or ask your team
-                    contact.
-                  </div>
-                )}
-              </div>
-            ) : null}
 
             {canManageTripFundraising && (
               <div
