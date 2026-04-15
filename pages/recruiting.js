@@ -823,6 +823,9 @@ function createEmptyTripTeamMember() {
     lastName: "",
     email: "",
     phone: "",
+    gender: "",
+    isMinor: false,
+    minorAge: "",
     startDate: "",
     endDate: "",
   };
@@ -854,6 +857,9 @@ function buildTeamMemberDrafts(record) {
       lastName,
       email,
       phone,
+      gender: String(person?.gender || "").trim(),
+      isMinor: !!person?.isMinor,
+      minorAge: String(person?.minorAge || "").trim(),
       startDate: "",
       endDate: "",
     });
@@ -1119,6 +1125,7 @@ function RecruitingRosterBoardColumn({ record }) {
       {visibleMembers.map((member, index) => {
         const name = [member.firstName, member.lastName].filter(Boolean).join(" ").trim();
         const phone = String(member.phone || "").trim();
+        const gender = String(member.gender || "").trim();
         const key = `${record.id}-board-roster-${index}-${member.email || phone || "nocontact"}`;
         return (
           <div key={key} className="recruitingRosterChartBlock">
@@ -1134,6 +1141,7 @@ function RecruitingRosterBoardColumn({ record }) {
             {phone ? (
               <div className={`recruitingRosterChartPhone${member.email ? "" : " isRosterPhoneOnly"}`}>{phone}</div>
             ) : null}
+            {gender ? <div className="recruitingRosterChartGender">{gender}</div> : null}
           </div>
         );
       })}
@@ -2785,9 +2793,9 @@ export default function RecruitingPage() {
       lastName: m.lastName || "",
       email: m.email || "",
       phone: m.phone ?? "",
-      gender: "",
-      isMinor: false,
-      minorAge: "",
+      gender: String(m.gender || "").trim(),
+      isMinor: !!m.isMinor,
+      minorAge: String(m.minorAge || "").trim(),
     }));
     const synced = syncRosterIntoRecord(record, rosterRows, 0);
     const weeksValue = d.recruitingWeeks;
