@@ -1228,9 +1228,6 @@ export default function TripPage() {
     notes: "",
   });
   const newStaffTaskTripleRef = useRef(null);
-  const overviewStaffDueTripleRef = useRef(null);
-  const [overviewStaffTaskDateEditId, setOverviewStaffTaskDateEditId] = useState(null);
-  const [overviewStaffDueDateDraft, setOverviewStaffDueDateDraft] = useState("");
   const [travelFormModalOpen, setTravelFormModalOpen] = useState(false);
   const [travelFormTargetRefKey, setTravelFormTargetRefKey] = useState("");
   const [travelFormDraft, setTravelFormDraft] = useState(() => ({ ...TRAVEL_FORM_EMPTY }));
@@ -4254,29 +4251,6 @@ export default function TripPage() {
       handleCancelStaffTaskEdit();
     } catch {
       /* saveStaffTasks already surfaced error; keep edit mode */
-    }
-  }
-
-  async function handleSaveOverviewStaffTaskDate(taskId) {
-    const snap = overviewStaffDueTripleRef.current?.getDueYmd?.();
-    if (snap === null) {
-      showToast(
-        "Finish choosing the due date (year, month, and day), or clear all date fields to remove it.",
-        "error"
-      );
-      return;
-    }
-    const due = snap || "";
-    const baseTasks = editableStaffTasksRef.current || [];
-    const nextTasks = baseTasks.map((task) =>
-      task.id === taskId ? { ...task, dueDate: due } : task
-    );
-    try {
-      await saveStaffTasks(nextTasks);
-      setOverviewStaffTaskDateEditId(null);
-      setOverviewStaffDueDateDraft("");
-    } catch {
-      /* saveStaffTasks already surfaced error */
     }
   }
 
@@ -8547,65 +8521,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           {task.title}
                         </button>
                       )}
-                      {staffViewAllParticipants ? (
-                        overviewStaffTaskDateEditId === task.id ? (
-                          <div style={{ marginTop: 8 }}>
-                            <div className="small" style={{ marginBottom: 6 }}>
-                              Due date
-                            </div>
-                            <AppDueDateTripleSelect
-                              ref={overviewStaffDueTripleRef}
-                              compact
-                              nativeDatePickerOnly
-                              value={overviewStaffDueDateDraft}
-                              onChange={(ymd) => setOverviewStaffDueDateDraft(ymd)}
-                            />
-                            <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: "wrap" }}>
-                              <button
-                                className="btn btnPrimary"
-                                type="button"
-                                onClick={() => void handleSaveOverviewStaffTaskDate(task.id)}
-                              >
-                                Save date
-                              </button>
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={() => {
-                                  setOverviewStaffTaskDateEditId(null);
-                                  setOverviewStaffDueDateDraft("");
-                                }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="row" style={{ marginTop: 6, alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                            <div className="small">
-                              {task.dueDate
-                                ? `Due ${formatSingleDate(task.dueDate)}`
-                                : "Due when ready"}
-                            </div>
-                            <button
-                              className="btn"
-                              type="button"
-                              onClick={() => {
-                                setOverviewStaffTaskDateEditId(task.id);
-                                setOverviewStaffDueDateDraft(toDateInputValue(task.dueDate || ""));
-                              }}
-                            >
-                              Edit date
-                            </button>
-                          </div>
-                        )
-                      ) : (
-                        <div className="small">
-                          {task.dueDate
-                            ? `Due ${formatSingleDate(task.dueDate)}`
-                            : "Due when ready"}
-                        </div>
-                      )}
+                      <div className="small">
+                        {task.dueDate
+                          ? `Due ${formatSingleDate(task.dueDate)}`
+                          : "Due when ready"}
+                      </div>
                       {task.link || task.openTripDocumentsTab ? (
                         <AppDetailAction
                           href={task.openTripDocumentsTab || task.openDocumentsTab ? undefined : task.link}
@@ -8728,11 +8648,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 </>
               ) : null}
             </div>
-            <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-              {staffViewAllParticipants
-                ? "Members, account status, and T-shirt sizes (per person on the roster)."
-                : "Everyone on the team can see this roster, including names, emails, and cell numbers when saved. Use the T-shirt column to set your own size. Contact your leader or staff for other roster changes."}
-            </div>
+            {!staffViewAllParticipants ? (
+              <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
+                Everyone on the team can see this roster, including names, emails, and cell numbers when saved. Use the T-shirt column to set your own size. Contact your leader or staff for other roster changes.
+              </div>
+            ) : null}
 
             {staffViewAllParticipants && isAddingWorker ? (
               <div
@@ -9052,11 +8972,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
             <CollapsibleSection defaultOpen>
             <div className="card pad tripSectionCard">
               <div className="cardSectionPill" style={{ marginBottom: 10 }}>Reference emails</div>
-              <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-                {canEditTripReferenceEmails
-                  ? "Track reference contacts and sent/received status."
-                  : "Team reference tracking (read-only). Ask staff to update rows."}
-              </div>
+              {!canEditTripReferenceEmails ? (
+                <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
+                  Team reference tracking (read-only). Ask staff to update rows.
+                </div>
+              ) : null}
               <table className="table dataTableStriped">
                 <thead>
                   <tr>
@@ -9376,15 +9296,18 @@ normalizeEmail(participant.email) === activeParticipantEmail
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>
               {canViewFundraisingTeamDashboard ? "Fundraising pages" : "My fundraising"}
             </div>
-            <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
-              {canViewFundraisingTeamDashboard
-                ? canManageTripFundraising
-                  ? "Choose individual Neon pages or one team/family campaign, then manage links."
-                  : "View everyone's Neon pages and progress. Staff configure trip fundraising setup and edit links."
-                : isTeamFundraisingMode
+            {canViewFundraisingTeamDashboard && !canManageTripFundraising ? (
+              <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
+                {"View everyone's Neon pages and progress. Staff configure trip fundraising setup and edit links."}
+              </div>
+            ) : null}
+            {!canViewFundraisingTeamDashboard ? (
+              <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
+                {isTeamFundraisingMode
                   ? "Shared fundraising for your family or team."
                   : "Your Neon fundraising page and team updates."}
-            </div>
+              </div>
+            ) : null}
 
             {canManageTripFundraising && (
               <div
