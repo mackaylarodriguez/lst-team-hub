@@ -6548,13 +6548,27 @@ normalizeEmail(participant.email) === activeParticipantEmail
       : 0;
   const isTeamFundraisingMode = trip?.fundraisingMode === "team";
   const tripFundraisingGoal = Number(trip?.fundraisingGoalAmount || 0);
-  const fundraisingGoalAmount =
-    !canViewTeamDashboard && isTeamFundraisingMode
+  const summedParticipantFundraisingGoal = useMemo(
+    () =>
+      (visibleFundraisingParticipants || []).reduce((sum, participant) => {
+        const goal = Number(participant?.fundraisingGoalAmount);
+        if (!Number.isFinite(goal) || goal <= 0) return sum;
+        return sum + goal;
+      }, 0),
+    [visibleFundraisingParticipants]
+  );
+  const workerSpecificFundraisingGoalAmount =
+    currentParticipantFundraisingGoalAmount > 0
+      ? currentParticipantFundraisingGoalAmount
+      : tripFundraisingGoal;
+  const staffTeamFundraisingGoalAmount =
+    isTeamFundraisingMode
       ? tripFundraisingGoal
-      : !canViewTeamDashboard &&
-        currentParticipantFundraisingGoalAmount > 0
-        ? currentParticipantFundraisingGoalAmount
+      : summedParticipantFundraisingGoal > 0
+        ? summedParticipantFundraisingGoal
         : tripFundraisingGoal;
+  const fundraisingGoalAmount =
+    !canViewTeamDashboard ? workerSpecificFundraisingGoalAmount : staffTeamFundraisingGoalAmount;
   const fundraisingWorkerCount = useMemo(() => {
     if (!trip) return 1;
     const roster = trip.teamMembers || [];
@@ -6589,12 +6603,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
     }
     return Math.max(count, 1);
   }, [trip]);
-  const useIndividualGoal =
-    !canViewTeamDashboard &&
-    !isTeamFundraisingMode &&
-    currentParticipantFundraisingGoalAmount > 0;
-  const countForDeadlines =
-    useIndividualGoal || isTeamFundraisingMode ? 1 : fundraisingWorkerCount;
+  const countForDeadlines = !canViewTeamDashboard
+    ? 1
+    : isTeamFundraisingMode
+      ? 1
+      : fundraisingWorkerCount;
   // Business rule: 90-day milestone is always $2,000 per applicable person.
   const fundraisingFirstDeadlineAmount = 2000 * countForDeadlines;
   const fundraisingSecondDeadlineTotalAmount = Math.max(
