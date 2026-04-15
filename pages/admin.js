@@ -75,7 +75,6 @@ export default function Admin() {
   const [staffTasksByTrip, setStaffTasksByTrip] = useState({});
   const [miscTasks, setMiscTasks] = useState([]);
   const [editingTaskKey, setEditingTaskKey] = useState(null);
-  const [taskTitleDraft, setTaskTitleDraft] = useState("");
   const [isAddingMiscTask, setIsAddingMiscTask] = useState(false);
   const [newMiscTaskDraft, setNewMiscTaskDraft] = useState({
     taskName: "",
@@ -529,22 +528,10 @@ export default function Admin() {
 
   function handleEditTitle(task) {
     setEditingTaskKey(getTaskKey(task.tripId, task.id));
-    setTaskTitleDraft(task.taskName || task.title || "");
   }
 
   function handleCancelTitleEdit() {
     setEditingTaskKey(null);
-    setTaskTitleDraft("");
-  }
-
-  function handleSaveTitle(task) {
-    updateTask(
-      task.tripId,
-      task.id,
-      "taskName",
-      taskTitleDraft.trim() || "Untitled task"
-    );
-    handleCancelTitleEdit();
   }
 
   function handleOpenTask(task) {
@@ -739,11 +726,8 @@ export default function Admin() {
         title="Past Due"
         tasks={categorizedTasks.pastDue}
         editingTaskKey={editingTaskKey}
-        taskTitleDraft={taskTitleDraft}
-        onTitleDraftChange={setTaskTitleDraft}
         onEditTitle={handleEditTitle}
         onCancelTitleEdit={handleCancelTitleEdit}
-        onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
         onTaskNotesChange={handleTaskNotesChange}
         onTaskNotesBlur={flushTaskNotesSave}
@@ -759,11 +743,8 @@ export default function Admin() {
         title="Upcoming"
         tasks={categorizedTasks.upcoming}
         editingTaskKey={editingTaskKey}
-        taskTitleDraft={taskTitleDraft}
-        onTitleDraftChange={setTaskTitleDraft}
         onEditTitle={handleEditTitle}
         onCancelTitleEdit={handleCancelTitleEdit}
-        onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
         onTaskNotesChange={handleTaskNotesChange}
         onTaskNotesBlur={flushTaskNotesSave}
@@ -779,11 +760,8 @@ export default function Admin() {
         title="Completed"
         tasks={categorizedTasks.completed}
         editingTaskKey={editingTaskKey}
-        taskTitleDraft={taskTitleDraft}
-        onTitleDraftChange={setTaskTitleDraft}
         onEditTitle={handleEditTitle}
         onCancelTitleEdit={handleCancelTitleEdit}
-        onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
         onTaskNotesChange={handleTaskNotesChange}
         onTaskNotesBlur={flushTaskNotesSave}
@@ -802,11 +780,8 @@ function TaskSection({
   title,
   tasks,
   editingTaskKey,
-  taskTitleDraft,
-  onTitleDraftChange,
   onEditTitle,
   onCancelTitleEdit,
-  onSaveTitle,
   onUpdateTask,
   onTaskNotesChange,
   onTaskNotesBlur,
@@ -881,8 +856,10 @@ function TaskSection({
                     {isEditingTitle ? (
                       <input
                         className="input"
-                        value={taskTitleDraft}
-                        onChange={(e) => onTitleDraftChange(e.target.value)}
+                        value={task.taskName || task.title || ""}
+                        onChange={(e) =>
+                          void onUpdateTask(task.tripId, task.id, "taskName", e.target.value)
+                        }
                       />
                     ) : (
                       task.isMiscTask ? (
@@ -971,14 +948,7 @@ function TaskSection({
                             type="button"
                             onClick={onCancelTitleEdit}
                           >
-                            Cancel
-                          </button>
-                          <button
-                            className="btn btnPrimary"
-                            type="button"
-                            onClick={() => onSaveTitle(task)}
-                          >
-                            Save
+                            Done
                           </button>
                         </>
                       ) : (
