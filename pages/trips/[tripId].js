@@ -53,7 +53,7 @@ import {
   getSmartsheetBudgetTutorialCards,
   REQUIRED_TRIP_DOCUMENT_SLOTS,
 } from "@/lib/tripDocumentSlots";
-import { percentComplete } from "@/lib/tasks";
+import { isWorkerTaskCompletedInState, percentComplete } from "@/lib/tasks";
 import {
   listStaffTasksForTrip,
   isTaskAssignedToUser,
@@ -3575,10 +3575,11 @@ export default function TripPage() {
       setTravelFormStatus("Saved.");
       showToast("Travel form saved.");
       const travelFormTask = (trip.tasks || []).find((t) => t.title === "Fill out Travel Form");
+      const tfState = participantTaskStates[normalizeEmail(participant.email)] || {};
       if (
         participant &&
         travelFormTask &&
-        !(participantTaskStates[normalizeEmail(participant.email)] || {})[travelFormTask.id]
+        !isWorkerTaskCompletedInState(travelFormTask, tfState)
       ) {
         toggleTask(travelFormTask.id, participant.email);
       }
@@ -6037,7 +6038,9 @@ function parseDateSafe(dateStr) {
 
     const base = (trip.participants || []).map((participant) => {
       const taskState = participantTaskStates[normalizeEmail(participant.email)] || {};
-      const completed = tripTasks.filter((task) => !!taskState[task.id]).length;
+      const completed = tripTasks.filter((task) =>
+        isWorkerTaskCompletedInState(task, taskState)
+      ).length;
 
       return {
         ...participant,
@@ -6062,7 +6065,9 @@ function parseDateSafe(dateStr) {
       })
       .map((member) => {
         const taskState = participantTaskStates[normalizeEmail(member.email)] || {};
-        const completed = tripTasks.filter((task) => !!taskState[task.id]).length;
+        const completed = tripTasks.filter((task) =>
+          isWorkerTaskCompletedInState(task, taskState)
+        ).length;
         return {
           id: member.id ? `roster-member-${member.id}` : `roster-${normalizeEmail(member.email)}`,
           assignmentId: "",
@@ -7110,7 +7115,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
       "Proofread my tickets",
     ];
     const upcomingTasks = tripTasks
-      .filter((task) => !taskState[task.id])
+      .filter((task) => !isWorkerTaskCompletedInState(task, taskState))
       .map((task) => {
         const wt = findWorkerTaskTemplate(task);
         const section = getWorkerTaskSection(task);
@@ -10407,7 +10412,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           </div>
                           <div style={{ display: "grid", gap: 0 }}>
                             {sectionTasks.map((task) => {
-                              const done = !!taskState[task.id];
+                              const done = isWorkerTaskCompletedInState(task, taskState);
                               const canEditTaskDueInThisColumn =
                                 canViewTeamDashboard && participantIndex === 0;
                               const isTravelFormTask = task.title === "Fill out Travel Form";
