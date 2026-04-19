@@ -18,7 +18,7 @@ LST Team Hub is a centralized web application designed to support team coordinat
 
 - Frontend: HTML, CSS, JavaScript  
 - Backend: (add if you used one, e.g. Node.js / Firebase / etc.)  
-- Database: (if applicable)  
+- Database: Supabase
 - Tools: Git, GitHub  
 
 ---
@@ -49,7 +49,6 @@ The goal of LST Team Hub is to create an efficient and user-friendly system that
 
 ## 📷 Screenshots
 
-*(Add screenshots of your app here if you have them — this makes it look 10x better)*
 
 ---
 
