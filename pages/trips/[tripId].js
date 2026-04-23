@@ -1477,8 +1477,12 @@ export default function TripPage() {
       id: "basic",
       group: "required",
       title: "Basic Training",
-      description:
-        "Required for new workers; everyone is encouraged to do it; teaches you how to lead good reading sessions; you can do this anytime before your trip.",
+      descriptionBullets: [
+        "Required for new workers",
+        "Everyone is encouraged to do it",
+        "Teaches you how to lead good reading sessions",
+        "You can do this anytime before your trip",
+      ],
       url: basicTrainingUrl,
       icon: "BT",
       accent: "#3caae1",
@@ -1487,8 +1491,12 @@ export default function TripPage() {
       id: "gateway-endmeetings",
       group: "required",
       title: "Gateway Training & EndMeetings",
-      description:
-        "Required for the whole team; try to attend as a team; Gateway: do this 1-2 months before your trip; EndMeeting: do this the month after you return.",
+      descriptionBullets: [
+        "Required for the whole team",
+        "Try to attend as a team",
+        "Gateway: do this 1-2 months before your trip",
+        "EndMeeting: do this the month after you return",
+      ],
       url: gatewayTrainingUrl,
       icon: "GT",
       accent: "#f99d2a",
@@ -9823,7 +9831,18 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 900, marginBottom: 4 }}>{resource.title}</div>
-                      <div className="small">{resource.description}</div>
+                      {Array.isArray(resource.descriptionBullets) ? (
+                        <ul
+                          className="small"
+                          style={{ margin: "2px 0 0 16px", padding: 0, display: "grid", gap: 2 }}
+                        >
+                          {resource.descriptionBullets.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="small">{resource.description}</div>
+                      )}
                     </div>
                   </div>
                 </a>
@@ -9878,7 +9897,18 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 900, marginBottom: 4 }}>{resource.title}</div>
-                      <div className="small">{resource.description}</div>
+                      {Array.isArray(resource.descriptionBullets) ? (
+                        <ul
+                          className="small"
+                          style={{ margin: "2px 0 0 16px", padding: 0, display: "grid", gap: 2 }}
+                        >
+                          {resource.descriptionBullets.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="small">{resource.description}</div>
+                      )}
                     </div>
                   </div>
                 </a>
