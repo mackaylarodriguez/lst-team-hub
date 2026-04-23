@@ -1477,7 +1477,8 @@ export default function TripPage() {
       id: "basic",
       group: "required",
       title: "Basic Training",
-      description: "Understanding the LST approach.",
+      description:
+        "Required for new workers; everyone is encouraged to do it; teaches you how to lead good reading sessions; you can do this anytime before your trip.",
       url: basicTrainingUrl,
       icon: "BT",
       accent: "#3caae1",
@@ -1486,7 +1487,8 @@ export default function TripPage() {
       id: "gateway-endmeetings",
       group: "required",
       title: "Gateway Training & EndMeetings",
-      description: "Pre-departure preparation and post-project debriefing — same survey link.",
+      description:
+        "Required for the whole team; try to attend as a team; Gateway: do this 1-2 months before your trip; EndMeeting: do this the month after you return.",
       url: gatewayTrainingUrl,
       icon: "GT",
       accent: "#f99d2a",
@@ -1498,7 +1500,7 @@ export default function TripPage() {
       description:
         "Optional workshops offered through the year, mainly for experienced Workers.",
       url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=135&",
-      icon: "OT",
+      icon: "AT",
       accent: "#7a5af8",
     },
     {
