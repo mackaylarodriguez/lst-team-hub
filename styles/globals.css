@@ -1034,22 +1034,28 @@ table.sitesLogisticsTable thead th{
 }
 table.sitesLogisticsTable tbody td.sitesLogisticsSiteCell{
   font-weight:700;
-  width:18%;
+  width:16%;
   vertical-align:middle;
 }
+table.sitesLogisticsTable .sitesLogisticsHostCell{
+  width:14%;
+  word-break:break-word;
+  vertical-align:middle;
+  font-size:12px;
+}
 table.sitesLogisticsTable .sitesLogisticsLinkCell{
-  width:22%;
+  width:18%;
   word-break:break-word;
   vertical-align:middle;
 }
 table.sitesLogisticsTable .sitesLogisticsMetaCell{
-  width:12%;
+  width:11%;
   color:var(--muted);
   font-size:12px;
   vertical-align:middle;
 }
 table.sitesLogisticsTable .sitesLogisticsHousingCell{
-  width:33%;
+  width:26%;
   vertical-align:middle;
   font-size:12px;
 }

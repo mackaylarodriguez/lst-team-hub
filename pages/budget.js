@@ -835,6 +835,7 @@ export default function BudgetPage() {
         notes: editingSiteNoteDraft,
         workbookNotes: note.workbookNotes ?? "",
         logisticsUrl: note.logisticsUrl ?? "",
+        hostName: note.hostName ?? "",
       });
       setSiteHousingNotes((prev) => prev.map((row) => (row.id === saved.id ? saved : row)));
       cancelEditSiteHousingNote();

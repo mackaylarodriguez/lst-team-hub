@@ -145,6 +145,7 @@ import {
   buildSiteLabelsOrdered,
   findSiteBudgetNoteForOption,
   resolveCanonicalSiteLabelForTrip,
+  resolveEffectiveSiteHostName,
   resolveSiteBudgetNoteForTripLocation,
   resolveTripSiteLogisticsUrl,
 } from "@/lib/siteMaterials";
@@ -5016,10 +5017,13 @@ function parseDateSafe(dateStr) {
   }
 
   function updateTripSetupDraft(field, value) {
-    setTripSetupDraft((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setTripSetupDraft((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "location") {
+        next.host = resolveEffectiveSiteHostName(value, siteBudgetNotesList);
+      }
+      return next;
+    });
   }
 
   function handleStartTripSetupEdit() {

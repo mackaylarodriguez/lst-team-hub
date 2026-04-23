@@ -19,7 +19,11 @@ import {
 } from "@/lib/trips";
 import { listTripTeamMembers, saveTripTeamMembers } from "@/lib/tripTeamMembers";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
-import { buildSiteLabelsOrdered, resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
+import {
+  buildSiteLabelsOrdered,
+  resolveCanonicalSiteLabelForTrip,
+  resolveEffectiveSiteHostName,
+} from "@/lib/siteMaterials";
 import { listSiteBudgetNotes } from "@/lib/tripBudget";
 import { listStaffTripMetrics } from "@/lib/staffOverview";
 import {
@@ -450,7 +454,13 @@ export default function Trips() {
   const selectedSiteValue = isCustomSiteInput ? CUSTOM_SITE_OPTION : tripDraft.location || "";
 
   function updateTripDraft(field, value) {
-    setTripDraft((current) => ({ ...current, [field]: value }));
+    setTripDraft((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "location") {
+        next.host = resolveEffectiveSiteHostName(value, siteBudgetNotes);
+      }
+      return next;
+    });
   }
 
   function updateTeamMember(index, field, value) {

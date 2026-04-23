@@ -25,7 +25,7 @@ import {
   revertRecruitingLockedTeam,
   saveRecruitingCycleContact,
 } from "@/lib/recruitingCycles";
-import { buildSiteLabelsOrdered } from "@/lib/siteMaterials";
+import { buildSiteLabelsOrdered, resolveEffectiveSiteHostName } from "@/lib/siteMaterials";
 import { listSiteBudgetNotes } from "@/lib/tripBudget";
 import { listTripTeamMembersForDuplicateCheck } from "@/lib/tripTeamMembers";
 import {
@@ -2609,7 +2609,13 @@ export default function RecruitingPage() {
   }
 
   function updateTeamFormDraft(field, value) {
-    setTeamFormDraft((current) => ({ ...current, [field]: value }));
+    setTeamFormDraft((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "location") {
+        next.host = resolveEffectiveSiteHostName(value, siteBudgetNotes);
+      }
+      return next;
+    });
   }
 
   function updateTeamFormMember(index, field, value) {
@@ -2872,15 +2878,23 @@ export default function RecruitingPage() {
 
   function updateRecordField(recordId, field, value) {
     setRecords((current) =>
-      current.map((record) =>
-        record.id === recordId
-          ? {
-              ...record,
-              [field]: value,
-              ...(field === "stage" ? { stageLabel: getRecruitingStageLabel(value) } : {}),
-            }
-          : record
-      )
+      current.map((record) => {
+        if (record.id !== recordId) return record;
+        const next = {
+          ...record,
+          [field]: value,
+          ...(field === "stage" ? { stageLabel: getRecruitingStageLabel(value) } : {}),
+        };
+        if (field === "site") {
+          const host = resolveEffectiveSiteHostName(value, siteBudgetNotes);
+          const prior =
+            record.pendingLockTeamSetup && typeof record.pendingLockTeamSetup === "object"
+              ? record.pendingLockTeamSetup
+              : {};
+          next.pendingLockTeamSetup = { ...prior, host };
+        }
+        return next;
+      })
     );
   }
 
@@ -4041,7 +4055,13 @@ export default function RecruitingPage() {
                         <LockTeamFormCards
                           draft={potentialTeamEditDraft}
                           onFieldChange={(field, value) =>
-                            setPotentialTeamEditDraft((current) => ({ ...current, [field]: value }))
+                            setPotentialTeamEditDraft((current) => {
+                              const next = { ...current, [field]: value };
+                              if (field === "location") {
+                                next.host = resolveEffectiveSiteHostName(value, siteBudgetNotes);
+                              }
+                              return next;
+                            })
                           }
                           onMemberChange={(index, field, value) =>
                             setPotentialTeamEditDraft((current) => ({
