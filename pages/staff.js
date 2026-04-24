@@ -157,21 +157,22 @@ export default function StaffAssignments() {
 
   const normalizedSearchQuery = String(searchQuery || "").trim().toLowerCase();
 
-  const filteredParticipantOverview = useMemo(() => {
-    if (!normalizedSearchQuery) return participantOverview;
+  const participantByProfileId = useMemo(() => {
+    const m = new Map();
+    for (const p of participantOverview || []) {
+      if (p?.id) m.set(p.id, p);
+    }
+    return m;
+  }, [participantOverview]);
 
-    return participantOverview.filter((participant) => {
-      const tripNames = (participant.trips || [])
-        .map((trip) => `${trip.tripName || ""} ${trip.tripLocation || ""}`.toLowerCase())
-        .join(" ");
-
-      return (
-        String(participant.name || "").toLowerCase().includes(normalizedSearchQuery) ||
-        String(participant.email || "").toLowerCase().includes(normalizedSearchQuery) ||
-        tripNames.includes(normalizedSearchQuery)
-      );
-    });
-  }, [normalizedSearchQuery, participantOverview]);
+  const participantByEmail = useMemo(() => {
+    const m = new Map();
+    for (const p of participantOverview || []) {
+      const e = normalizeWorkerEmailKey(p.email);
+      if (e) m.set(e, p);
+    }
+    return m;
+  }, [participantOverview]);
 
   const filteredUnassignedWorkers = useMemo(() => {
     if (!normalizedSearchQuery) return unassignedWorkers;
@@ -188,18 +189,24 @@ export default function StaffAssignments() {
     if (!normalizedSearchQuery) return assignedWorkers;
 
     return assignedWorkers.filter((worker) => {
+      const p =
+        (worker.profileId && participantByProfileId.get(worker.profileId)) ||
+        participantByEmail.get(normalizeWorkerEmailKey(worker.email)) ||
+        null;
       const tripNames = (worker.assignments || [])
         .map((assignment) => assignment.trip?.name || "")
         .join(" ")
         .toLowerCase();
+      const extra = [p?.readiness, p?.fundraisingSummary].filter(Boolean).join(" ").toLowerCase();
 
       return (
         String(worker.name || "").toLowerCase().includes(normalizedSearchQuery) ||
         String(worker.email || "").toLowerCase().includes(normalizedSearchQuery) ||
-        tripNames.includes(normalizedSearchQuery)
+        tripNames.includes(normalizedSearchQuery) ||
+        extra.includes(normalizedSearchQuery)
       );
     });
-  }, [assignedWorkers, normalizedSearchQuery]);
+  }, [assignedWorkers, normalizedSearchQuery, participantByProfileId, participantByEmail]);
 
   function updateSelectedTrip(workerId, tripId) {
     setSelectedTripByWorker((prev) => ({
@@ -374,7 +381,8 @@ export default function StaffAssignments() {
         <span>Workers</span>
       </h1>
       <p className="p">
-        Review worker progress across trips, then manage assignments underneath.
+        Workers on trips show training, tasks, fundraising, and trip readiness. People without a trip yet appear below
+        so you can assign them.
       </p>
 
       <div style={{ height: 14 }} />
@@ -495,121 +503,12 @@ export default function StaffAssignments() {
         ) : null}
       </div>
 
-      <div className="card pad" style={{ marginBottom: 16 }}>
-        <div className="row" style={{ marginBottom: 10 }}>
-          <div>
-            <div className="appSectionBadge" style={{ marginBottom: 6 }}>Overview</div>
-            <div style={{ fontWeight: 900 }}>Worker Progress</div>
-            <div className="small">
-              Track trip coverage, training, tasks, fundraising milestones, and who needs follow-up.
-            </div>
-          </div>
-          <div className="spacer" />
-          <span className="badge">{filteredParticipantOverview.length}</span>
-        </div>
-
-        {filteredParticipantOverview.length === 0 ? (
-          <div className="small">
-            {normalizedSearchQuery ? "No workers match that search." : "No assigned workers yet."}
-          </div>
-        ) : (
-          <table className="table dataTableStriped">
-            <thead>
-              <tr>
-                <th>Worker</th>
-                <th>Trips</th>
-                <th>Training</th>
-                <th>Tasks</th>
-                <th>Fundraising</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredParticipantOverview.map((participant) => (
-                <tr key={participant.id}>
-                  <td>
-                    <div style={{ fontWeight: 800 }}>
-                      <Link href={`/profile?participantId=${encodeURIComponent(participant.id)}`}>
-                        {participant.name}
-                      </Link>
-                    </div>
-                    <div className="small">{participant.email}</div>
-                  </td>
-                  <td>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      {participant.trips.map((assignment) => (
-                        <Link
-                          key={`${participant.id}-${assignment.tripId}`}
-                          href={`/trips/${encodeURIComponent(assignment.tripId)}?tab=Tasks&participantId=${encodeURIComponent(participant.id)}`}
-                        >
-                          {assignment.tripName}
-                        </Link>
-                      ))}
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      {participant.trips.map((assignment) => (
-                        <span
-                          key={`${participant.id}-${assignment.tripId}-training`}
-                          className="badge"
-                        >
-                          {assignment.trainingPercent}%
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      {participant.trips.map((assignment) => (
-                        <span
-                          key={`${participant.id}-${assignment.tripId}-tasks`}
-                          className="badge"
-                        >
-                          {assignment.taskPercent}%
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      {participant.trips.map((assignment) => (
-                        <div key={`${participant.id}-${assignment.tripId}-fundraising`} className="small">
-                          {assignment.fundraisingSummary}
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      {participant.trips.map((assignment) => (
-                        <span
-                          key={`${participant.id}-${assignment.tripId}-status`}
-                          className={
-                            "badge " +
-                            (assignment.readiness === "Behind"
-                              ? "badgeDanger"
-                              : assignment.readiness === "Ready"
-                                ? "badgeSuccess"
-                                : "badgeWarn")
-                          }
-                        >
-                          {assignment.readiness}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <WorkerSection
-        title="Unassigned"
-        description="These workers do not have any trips yet."
-        workers={filteredUnassignedWorkers}
+      <WorkerDirectorySection
+        title="On trips"
+        description="Workers with at least one trip. Metrics combine all of their assigned trips."
+        workers={filteredAssignedWorkers}
+        participantByProfileId={participantByProfileId}
+        participantByEmail={participantByEmail}
         trips={trips}
         selectedTripByWorker={selectedTripByWorker}
         onSelectTrip={updateSelectedTrip}
@@ -622,10 +521,12 @@ export default function StaffAssignments() {
         onConfirmDeleteChange={setConfirmingDeleteWorkerId}
       />
 
-      <WorkerSection
-        title="Assigned"
-        description="Workers with one or more trip assignments."
-        workers={filteredAssignedWorkers}
+      <WorkerDirectorySection
+        title="Not on a trip yet"
+        description="Create a Hub worker profile or add them to a roster, then assign a trip here."
+        workers={filteredUnassignedWorkers}
+        participantByProfileId={participantByProfileId}
+        participantByEmail={participantByEmail}
         trips={trips}
         selectedTripByWorker={selectedTripByWorker}
         onSelectTrip={updateSelectedTrip}
@@ -641,10 +542,104 @@ export default function StaffAssignments() {
   );
 }
 
-function WorkerSection({
+const READINESS_TOOLTIP =
+  "Ready: tasks and training are 100% (if none are configured for their trips yet, that counts as complete), " +
+  "and the “fully raised” fundraising milestone is either not set up (—) or complete (100%). " +
+  "Behind: configured tasks or training under 50%; or the nearest trip is within 45 days and the $2k milestone is not complete; " +
+  "or the nearest trip is within 21 days and configured tasks or training are under 80%. " +
+  "On track: everything else.";
+
+function participantForWorker(worker, participantByProfileId, participantByEmail) {
+  if (worker?.profileId && participantByProfileId.has(worker.profileId)) {
+    return participantByProfileId.get(worker.profileId);
+  }
+  const e = normalizeWorkerEmailKey(worker.email);
+  if (e && participantByEmail.has(e)) return participantByEmail.get(e);
+  return null;
+}
+
+function MetricBar({ label, value }) {
+  if (value === null || value === undefined) {
+    return (
+      <div style={{ minWidth: 88 }}>
+        {label ? (
+          <div className="small" style={{ color: "var(--muted)", marginBottom: 2 }}>
+            {label}
+          </div>
+        ) : null}
+        <span className="small" style={{ color: "var(--muted)" }}>
+          —
+        </span>
+      </div>
+    );
+  }
+  const v = Math.max(0, Math.min(100, Number(value) || 0));
+  const fill = v >= 100 ? "rgba(34,197,94,.85)" : "rgba(50,84,163,.65)";
+  return (
+    <div style={{ minWidth: 88 }}>
+      {label ? (
+        <div className="small" style={{ color: "var(--muted)", marginBottom: 2 }}>
+          {label} <strong style={{ color: "var(--text)" }}>{v}%</strong>
+        </div>
+      ) : (
+        <div className="small" style={{ marginBottom: 2, fontWeight: 700 }}>
+          {v}%
+        </div>
+      )}
+      <div
+        style={{
+          height: 7,
+          borderRadius: 999,
+          background: "rgba(15,23,42,.08)",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ width: `${v}%`, height: "100%", background: fill }} />
+      </div>
+    </div>
+  );
+}
+
+function FundraisingVisual({ participant }) {
+  if (!participant) {
+    return <span className="small" style={{ color: "var(--muted)" }}>—</span>;
+  }
+  const a = participant.fundraising2000Percent;
+  const b = participant.fundraisingAllPercent;
+  if (a === null && b === null) {
+    return <span className="small" style={{ color: "var(--muted)" }}>No milestones</span>;
+  }
+  return (
+    <div style={{ display: "grid", gap: 8, minWidth: 100 }}>
+      {a !== null && a !== undefined ? (
+        <MetricBar label="$2k goal" value={a} />
+      ) : null}
+      {b !== null && b !== undefined ? (
+        <MetricBar label="Fully raised" value={b} />
+      ) : null}
+    </div>
+  );
+}
+
+function TripReadinessBadge({ readiness }) {
+  if (!readiness) {
+    return <span className="small" style={{ color: "var(--muted)" }}>—</span>;
+  }
+  const cls =
+    readiness === "Behind" ? "badgeDanger" : readiness === "Ready" ? "badgeSuccess" : "badgeWarn";
+  return (
+    <span className={`badge ${cls}`.trim()} title={READINESS_TOOLTIP}>
+      {readiness}
+    </span>
+  );
+}
+
+function WorkerDirectorySection({
   title,
   description,
   workers,
+  participantByProfileId,
+  participantByEmail,
   trips,
   selectedTripByWorker,
   onSelectTrip,
@@ -671,130 +666,194 @@ function WorkerSection({
       {workers.length === 0 ? (
         <EmptyState
           icon="workers"
-          title={`No ${title.toLowerCase()} workers yet`}
+          title={`No ${title.toLowerCase()} workers`}
           description={description}
         />
       ) : (
-        <table className="table dataTableStriped">
-          <thead>
-            <tr>
-              <th>Worker</th>
-              <th>Assigned Trips</th>
-              <th>Status</th>
-              <th>Invite</th>
-              <th>Assign Trip</th>
-              <th>Assign</th>
-              <th>Delete</th>
-            </tr>
-          </thead>
-          <tbody>
-            {workers.map((worker) => (
-              <tr key={worker.id}>
-                <td>
-                  <div style={{ fontWeight: 700 }}>
-                    {worker.profileId ? (
-                      <Link href={`/profile?participantId=${encodeURIComponent(worker.profileId)}`}>
-                        {worker.name || worker.email}
-                      </Link>
-                    ) : (
-                      <span title="Profile opens after this person has a Hub account (worker profile).">
-                        {worker.name || worker.email}
-                      </span>
-                    )}
-                  </div>
-                  <div className="small">{worker.email}</div>
-                </td>
-                <td>
-                  {worker.assignments.length === 0
-                    ? "None"
-                    : (
-                      <div style={{ display: "grid", gap: 6 }}>
-                        {worker.assignments.map((assignment) => (
-                          <Link
-                            key={`${worker.id}-${assignment.id || assignment.tripId}`}
-                            href={`/trips/${encodeURIComponent(assignment.tripId)}`}
-                          >
-                            {assignment.trip.name}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                </td>
-                <td>
-                  <span className={`badge ${worker.hasAccount ? "badgeSuccess" : "badgeWarn"}`.trim()}>
-                    {worker.hasAccount ? "Account Created" : "Pending Invite"}
-                  </span>
-                </td>
-                <td>
-                  <button
-                    className="btn"
-                    type="button"
-                    disabled={worker.hasAccount || !worker.assignments.length || invitingWorkerEmail === worker.email}
-                    title={
-                      worker.hasAccount
-                        ? "Account created"
-                        : worker.assignments.length
-                          ? "Send a new invite email"
-                          : "Add this person to a trip first"
-                    }
-                    style={worker.hasAccount ? { opacity: 0.55, cursor: "not-allowed" } : undefined}
-                    onClick={() => onInvite(worker)}
-                  >
-                    {invitingWorkerEmail === worker.email
-                      ? "Sending..."
-                      : worker.hasAccount
-                        ? "Account Created"
-                        : "Resend Invite"}
-                  </button>
-                </td>
-                <td style={{ width: 280 }}>
-                  <select
-                    className="input"
-                    value={selectedTripByWorker[worker.id] || ""}
-                    onChange={(event) => onSelectTrip(worker.id, event.target.value)}
-                  >
-                    <option value="">Select a trip</option>
-                    {trips.map((trip) => (
-                      <option key={trip.id} value={trip.id}>
-                        {trip.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <button
-                    className="btn btnPrimary"
-                    type="button"
-                    disabled={!selectedTripByWorker[worker.id]}
-                    onClick={() => onAssign(worker.email, worker.id)}
-                  >
-                    Assign
-                  </button>
-                </td>
-                <td>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => {
-                      if (confirmingDeleteWorkerId === worker.id) {
-                        onDelete(worker);
-                        return;
-                      }
-                      onConfirmDeleteChange(worker.id);
-                    }}
-                    disabled={deletingWorkerId === worker.id}
-                  >
-                    {deletingWorkerId === worker.id
-                      ? "Deleting..."
-                      : confirmingDeleteWorkerId === worker.id
-                        ? "Confirm Delete"
-                        : "Delete"}
-                  </button>
-                </td>
+        <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <table className="table dataTableStriped" style={{ minWidth: 920, fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th>Worker</th>
+                <th>Account</th>
+                <th>Trips</th>
+                <th>Training</th>
+                <th>Tasks</th>
+                <th>Fundraising</th>
+                <th title={READINESS_TOOLTIP}>Trip readiness</th>
+                <th style={{ width: 1 }}>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {workers.map((worker) => {
+                const participant = participantForWorker(worker, participantByProfileId, participantByEmail);
+                const showMetrics = Boolean(participant);
+                return (
+                  <tr key={worker.id}>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <div style={{ fontWeight: 700 }}>
+                        {worker.profileId ? (
+                          <Link href={`/profile?participantId=${encodeURIComponent(worker.profileId)}`}>
+                            {worker.name || worker.email}
+                          </Link>
+                        ) : (
+                          <span title="Profile opens after this person has a Hub account (worker profile).">
+                            {worker.name || worker.email}
+                          </span>
+                        )}
+                      </div>
+                      <div className="small" style={{ color: "var(--muted)" }}>
+                        {worker.email}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge ${worker.hasAccount ? "badgeSuccess" : "badgeWarn"}`.trim()}>
+                        {worker.hasAccount ? "Account created" : "Pending invite"}
+                      </span>
+                    </td>
+                    <td>
+                      {worker.assignments.length === 0 ? (
+                        <span className="small" style={{ color: "var(--muted)" }}>
+                          None
+                        </span>
+                      ) : (
+                        <div style={{ display: "grid", gap: 6 }}>
+                          {worker.assignments.map((assignment) => (
+                            <Link
+                              key={`${worker.id}-${assignment.id || assignment.tripId}`}
+                              href={`/trips/${encodeURIComponent(assignment.tripId)}`}
+                            >
+                              {assignment.trip.name}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      {showMetrics ? (
+                        <MetricBar label="" value={participant.trainingPercent} />
+                      ) : (
+                        <span className="small" style={{ color: "var(--muted)" }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      {showMetrics ? (
+                        <MetricBar label="" value={participant.taskPercent} />
+                      ) : (
+                        <span className="small" style={{ color: "var(--muted)" }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      {showMetrics ? (
+                        <FundraisingVisual participant={participant} />
+                      ) : (
+                        <span className="small" style={{ color: "var(--muted)" }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      {showMetrics ? (
+                        <TripReadinessBadge readiness={participant.readiness} />
+                      ) : (
+                        <span className="small" style={{ color: "var(--muted)" }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ verticalAlign: "top", paddingTop: 10 }}>
+                      <details className="staffWorkerActionsDetails">
+                        <summary
+                          className="sitesBtnGhost"
+                          style={{
+                            listStyle: "none",
+                            cursor: "pointer",
+                            fontWeight: 700,
+                            userSelect: "none",
+                          }}
+                        >
+                          Actions
+                        </summary>
+                        <div
+                          style={{
+                            marginTop: 10,
+                            padding: 10,
+                            borderRadius: 12,
+                            border: "1px solid var(--border)",
+                            background: "var(--card)",
+                            display: "grid",
+                            gap: 10,
+                            minWidth: 220,
+                            boxShadow: "0 8px 24px rgba(15,23,42,.12)",
+                          }}
+                        >
+                          <div>
+                            <div className="small" style={{ fontWeight: 700, marginBottom: 4 }}>
+                              Assign to trip
+                            </div>
+                            <select
+                              className="input"
+                              value={selectedTripByWorker[worker.id] || ""}
+                              onChange={(event) => onSelectTrip(worker.id, event.target.value)}
+                            >
+                              <option value="">Select trip…</option>
+                              {trips.map((trip) => (
+                                <option key={trip.id} value={trip.id}>
+                                  {trip.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="btn btnPrimary"
+                              style={{ marginTop: 8, width: "100%" }}
+                              disabled={!selectedTripByWorker[worker.id]}
+                              onClick={() => onAssign(worker.email, worker.id)}
+                            >
+                              Assign
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ width: "100%" }}
+                            disabled={
+                              worker.hasAccount ||
+                              !worker.assignments.length ||
+                              invitingWorkerEmail === worker.email
+                            }
+                            onClick={() => onInvite(worker)}
+                          >
+                            {invitingWorkerEmail === worker.email
+                              ? "Sending invite…"
+                              : worker.hasAccount
+                                ? "Invite (account exists)"
+                                : "Resend invite email"}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ width: "100%", borderColor: "rgba(239,68,68,.35)", color: "var(--danger)" }}
+                            onClick={() => {
+                              if (confirmingDeleteWorkerId === worker.id) {
+                                onDelete(worker);
+                                return;
+                              }
+                              onConfirmDeleteChange(worker.id);
+                            }}
+                            disabled={deletingWorkerId === worker.id}
+                          >
+                            {deletingWorkerId === worker.id
+                              ? "Deleting…"
+                              : confirmingDeleteWorkerId === worker.id
+                                ? "Confirm delete"
+                                : "Delete worker"}
+                          </button>
+                        </div>
+                      </details>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
