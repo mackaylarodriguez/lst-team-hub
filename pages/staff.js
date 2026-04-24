@@ -29,16 +29,66 @@ function normalizeWorkerEmailKey(email) {
   return String(email || "").trim().toLowerCase();
 }
 
+function normalizeWorkerNameKey(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 /** One row per email: duplicate summaries would otherwise show the same person in Unassigned and Assigned. */
 function dedupeWorkersByEmailKey(workers) {
-  const byKey = new Map();
+  const rows = [];
+  const rowIndexByProfileId = new Map();
+  const rowIndexByEmail = new Map();
+  const rowIndexByName = new Map();
+
+  const resolveRowIndex = (worker) => {
+    if (worker?.profileId && rowIndexByProfileId.has(worker.profileId)) {
+      return rowIndexByProfileId.get(worker.profileId);
+    }
+
+    const emailKey = normalizeWorkerEmailKey(worker?.email);
+    if (emailKey && rowIndexByEmail.has(emailKey)) {
+      return rowIndexByEmail.get(emailKey);
+    }
+
+    // Fallback for stale worker rows: if one row is profile-linked and names match, treat as same person.
+    const nameKey = normalizeWorkerNameKey(worker?.name);
+    if (nameKey && rowIndexByName.has(nameKey)) {
+      const candidateIndex = rowIndexByName.get(nameKey);
+      const candidate = rows[candidateIndex];
+      if (candidate?.profileId || worker?.profileId) {
+        return candidateIndex;
+      }
+    }
+
+    return null;
+  };
+
+  const indexRow = (row, index) => {
+    if (row?.profileId) rowIndexByProfileId.set(row.profileId, index);
+    const emailKey = normalizeWorkerEmailKey(row?.email);
+    if (emailKey) rowIndexByEmail.set(emailKey, index);
+    const nameKey = normalizeWorkerNameKey(row?.name);
+    if (nameKey) rowIndexByName.set(nameKey, index);
+  };
+
   for (const w of workers || []) {
-    const key = normalizeWorkerEmailKey(w.email) || String(w.id || "");
-    const prev = byKey.get(key);
-    if (!prev) {
-      byKey.set(key, w);
+    const existingIndex = resolveRowIndex(w);
+    if (existingIndex === null || existingIndex === undefined) {
+      rows.push(w);
+      indexRow(w, rows.length - 1);
       continue;
     }
+
+    const prev = rows[existingIndex];
+    if (!prev) {
+      rows[existingIndex] = w;
+      indexRow(w, existingIndex);
+      continue;
+    }
+
     const tripIds = new Set();
     const mergedAssignments = [];
     for (const a of [...(prev.assignments || []), ...(w.assignments || [])]) {
@@ -50,14 +100,16 @@ function dedupeWorkersByEmailKey(workers) {
       String(a.trip?.name || "").localeCompare(String(b.trip?.name || ""), undefined, { sensitivity: "base" })
     );
     const base = prev.profileId ? prev : w.profileId ? w : prev;
-    byKey.set(key, {
+    const merged = {
       ...base,
       profileId: base.profileId || w.profileId || prev.profileId,
       hasAccount: !!(prev.hasAccount || w.hasAccount),
       assignments: mergedAssignments,
-    });
+    };
+    rows[existingIndex] = merged;
+    indexRow(merged, existingIndex);
   }
-  return [...byKey.values()];
+  return rows;
 }
 
 export default function StaffAssignments() {
