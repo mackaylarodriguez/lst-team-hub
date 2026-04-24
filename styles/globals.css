@@ -2634,15 +2634,3 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   }
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .staffWorkerRow:hover .staffWorkerActionsDetails > summary,
-  .staffWorkerRow:focus-within .staffWorkerActionsDetails > summary {
-    display: none;
-  }
-
-  .staffWorkerRow:hover .staffWorkerActionsDetails > div,
-  .staffWorkerRow:focus-within .staffWorkerActionsDetails > div {
-    display: grid !important;
-    margin-top: 0 !important;
-  }
-}
