@@ -1497,29 +1497,9 @@ function isOverdueRecord(record) {
   return nextFollowUp < today;
 }
 
-function isStaleRecord(record) {
-  const referenceDate = new Date(
-    record?.lastContactedAt || record?.updatedAt || record?.createdAt || Date.now()
-  );
-  if (Number.isNaN(referenceDate.getTime())) return false;
-  const ageInDays = (Date.now() - referenceDate.getTime()) / (1000 * 60 * 60 * 24);
-
-  if (record?.isConvertedToTeam) return false;
-  if (record?.isPotentialTeam) {
-    return ageInDays >= 10;
-  }
-  if (Number(record?.stage || 0) === 0) {
-    return ageInDays >= 3;
-  }
-  return ageInDays >= 7;
-}
-
 function getAttentionMeta(record) {
   if (isOverdueRecord(record)) {
     return { label: "Overdue", badgeClass: "badgeDanger", rowAccent: "rgba(239,68,68,.18)" };
-  }
-  if (isStaleRecord(record)) {
-    return { label: "Stale", badgeClass: "badgeWarn", rowAccent: "rgba(249,157,42,.18)" };
   }
   return null;
 }
@@ -1935,10 +1915,6 @@ export default function RecruitingPage() {
       }
 
       if (filterConfig.workflowStatus === "overdue" && !isOverdueRecord(record)) {
-        return false;
-      }
-
-      if (filterConfig.workflowStatus === "stale" && !isStaleRecord(record)) {
         return false;
       }
 
