@@ -25,6 +25,41 @@ function createEmptyWorkerDraft() {
   };
 }
 
+function normalizeWorkerEmailKey(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+/** One row per email: duplicate summaries would otherwise show the same person in Unassigned and Assigned. */
+function dedupeWorkersByEmailKey(workers) {
+  const byKey = new Map();
+  for (const w of workers || []) {
+    const key = normalizeWorkerEmailKey(w.email) || String(w.id || "");
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, w);
+      continue;
+    }
+    const tripIds = new Set();
+    const mergedAssignments = [];
+    for (const a of [...(prev.assignments || []), ...(w.assignments || [])]) {
+      if (!a?.tripId || tripIds.has(a.tripId)) continue;
+      tripIds.add(a.tripId);
+      mergedAssignments.push(a);
+    }
+    mergedAssignments.sort((a, b) =>
+      String(a.trip?.name || "").localeCompare(String(b.trip?.name || ""), undefined, { sensitivity: "base" })
+    );
+    const base = prev.profileId ? prev : w.profileId ? w : prev;
+    byKey.set(key, {
+      ...base,
+      profileId: base.profileId || w.profileId || prev.profileId,
+      hasAccount: !!(prev.hasAccount || w.hasAccount),
+      assignments: mergedAssignments,
+    });
+  }
+  return [...byKey.values()];
+}
+
 export default function StaffAssignments() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -111,12 +146,14 @@ export default function StaffAssignments() {
     };
   }, [session]);
 
+  const dedupedWorkers = useMemo(() => dedupeWorkersByEmailKey(workers), [workers]);
+
   const { unassignedWorkers, assignedWorkers } = useMemo(() => {
     return {
-      unassignedWorkers: workers.filter((worker) => worker.assignments.length === 0),
-      assignedWorkers: workers.filter((worker) => worker.assignments.length > 0),
+      unassignedWorkers: dedupedWorkers.filter((worker) => worker.assignments.length === 0),
+      assignedWorkers: dedupedWorkers.filter((worker) => worker.assignments.length > 0),
     };
-  }, [workers]);
+  }, [dedupedWorkers]);
 
   const normalizedSearchQuery = String(searchQuery || "").trim().toLowerCase();
 
