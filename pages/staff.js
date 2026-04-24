@@ -689,7 +689,7 @@ function WorkerDirectorySection({
                 const participant = participantForWorker(worker, participantByProfileId, participantByEmail);
                 const showMetrics = Boolean(participant);
                 return (
-                  <tr key={worker.id}>
+                  <tr key={worker.id} className="staffWorkerRow">
                     <td style={{ whiteSpace: "nowrap" }}>
                       <div style={{ fontWeight: 700 }}>
                         {worker.profileId ? (
