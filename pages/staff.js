@@ -600,27 +600,6 @@ function MetricBar({ label, value }) {
   );
 }
 
-function FundraisingVisual({ participant }) {
-  if (!participant) {
-    return <span className="small" style={{ color: "var(--muted)" }}>—</span>;
-  }
-  const a = participant.fundraising2000Percent;
-  const b = participant.fundraisingAllPercent;
-  if (a === null && b === null) {
-    return <span className="small" style={{ color: "var(--muted)" }}>No milestones</span>;
-  }
-  return (
-    <div style={{ display: "grid", gap: 8, minWidth: 100 }}>
-      {a !== null && a !== undefined ? (
-        <MetricBar label="$2k goal" value={a} />
-      ) : null}
-      {b !== null && b !== undefined ? (
-        <MetricBar label="Fully raised" value={b} />
-      ) : null}
-    </div>
-  );
-}
-
 function TripReadinessBadge({ readiness }) {
   if (!readiness) {
     return <span className="small" style={{ color: "var(--muted)" }}>—</span>;
@@ -631,6 +610,102 @@ function TripReadinessBadge({ readiness }) {
     <span className={`badge ${cls}`.trim()} title={READINESS_TOOLTIP}>
       {readiness}
     </span>
+  );
+}
+
+function collectWorkerTripRows(worker, participant) {
+  const assignmentByTripId = new Map(
+    (worker.assignments || []).map((assignment) => [assignment.tripId, assignment])
+  );
+  const participantTripsById = new Map((participant?.trips || []).map((trip) => [trip.tripId, trip]));
+
+  const tripIds = [];
+  assignmentByTripId.forEach((_, tripId) => tripIds.push(tripId));
+  participantTripsById.forEach((_, tripId) => {
+    if (!assignmentByTripId.has(tripId)) tripIds.push(tripId);
+  });
+
+  return tripIds.map((tripId) => {
+    const assignment = assignmentByTripId.get(tripId);
+    const tripMetrics = participantTripsById.get(tripId);
+    return {
+      tripId,
+      tripName: assignment?.trip?.name || tripMetrics?.tripName || "Trip",
+      trainingPercent: tripMetrics?.trainingPercent ?? null,
+      taskPercent: tripMetrics?.taskPercent ?? null,
+      fundraising2000Complete: tripMetrics?.fundraising2000Complete,
+      fundraisingAllComplete: tripMetrics?.fundraisingAllComplete,
+      readiness: tripMetrics?.readiness || null,
+    };
+  });
+}
+
+function PerTripMetricCell({ tripRows, metricKey }) {
+  if (!tripRows.length) {
+    return <span className="small" style={{ color: "var(--muted)" }}>—</span>;
+  }
+  return (
+    <div style={{ display: "grid", gap: 8, minWidth: 120 }}>
+      {tripRows.map((tripRow) => (
+        <div key={`metric-${metricKey}-${tripRow.tripId}`}>
+          <div className="small" style={{ color: "var(--muted)", marginBottom: 3 }}>
+            {tripRow.tripName}
+          </div>
+          <MetricBar label="" value={tripRow[metricKey]} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PerTripFundraisingCell({ tripRows }) {
+  if (!tripRows.length) {
+    return <span className="small" style={{ color: "var(--muted)" }}>—</span>;
+  }
+  return (
+    <div style={{ display: "grid", gap: 8, minWidth: 130 }}>
+      {tripRows.map((tripRow) => {
+        const has2000 = typeof tripRow.fundraising2000Complete === "boolean";
+        const hasAll = typeof tripRow.fundraisingAllComplete === "boolean";
+        return (
+          <div key={`fundraising-${tripRow.tripId}`}>
+            <div className="small" style={{ color: "var(--muted)", marginBottom: 3 }}>
+              {tripRow.tripName}
+            </div>
+            {!has2000 && !hasAll ? (
+              <span className="small" style={{ color: "var(--muted)" }}>No milestones</span>
+            ) : (
+              <div style={{ display: "grid", gap: 6 }}>
+                {has2000 ? (
+                  <MetricBar label="$2k goal" value={tripRow.fundraising2000Complete ? 100 : 0} />
+                ) : null}
+                {hasAll ? (
+                  <MetricBar label="Fully raised" value={tripRow.fundraisingAllComplete ? 100 : 0} />
+                ) : null}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PerTripReadinessCell({ tripRows }) {
+  if (!tripRows.length) {
+    return <span className="small" style={{ color: "var(--muted)" }}>—</span>;
+  }
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      {tripRows.map((tripRow) => (
+        <div key={`readiness-${tripRow.tripId}`}>
+          <div className="small" style={{ color: "var(--muted)", marginBottom: 3 }}>
+            {tripRow.tripName}
+          </div>
+          <TripReadinessBadge readiness={tripRow.readiness} />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -687,7 +762,7 @@ function WorkerDirectorySection({
             <tbody>
               {workers.map((worker) => {
                 const participant = participantForWorker(worker, participantByProfileId, participantByEmail);
-                const showMetrics = Boolean(participant);
+                const tripRows = collectWorkerTripRows(worker, participant);
                 return (
                   <tr key={worker.id}>
                     <td style={{ whiteSpace: "nowrap" }}>
@@ -730,32 +805,16 @@ function WorkerDirectorySection({
                       )}
                     </td>
                     <td>
-                      {showMetrics ? (
-                        <MetricBar label="" value={participant.trainingPercent} />
-                      ) : (
-                        <span className="small" style={{ color: "var(--muted)" }}>—</span>
-                      )}
+                      <PerTripMetricCell tripRows={tripRows} metricKey="trainingPercent" />
                     </td>
                     <td>
-                      {showMetrics ? (
-                        <MetricBar label="" value={participant.taskPercent} />
-                      ) : (
-                        <span className="small" style={{ color: "var(--muted)" }}>—</span>
-                      )}
+                      <PerTripMetricCell tripRows={tripRows} metricKey="taskPercent" />
                     </td>
                     <td>
-                      {showMetrics ? (
-                        <FundraisingVisual participant={participant} />
-                      ) : (
-                        <span className="small" style={{ color: "var(--muted)" }}>—</span>
-                      )}
+                      <PerTripFundraisingCell tripRows={tripRows} />
                     </td>
                     <td>
-                      {showMetrics ? (
-                        <TripReadinessBadge readiness={participant.readiness} />
-                      ) : (
-                        <span className="small" style={{ color: "var(--muted)" }}>—</span>
-                      )}
+                      <PerTripReadinessCell tripRows={tripRows} />
                     </td>
                     <td style={{ verticalAlign: "top", paddingTop: 10 }}>
                       <details className="staffWorkerActionsDetails">
