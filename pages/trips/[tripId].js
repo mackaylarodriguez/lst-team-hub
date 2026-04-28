@@ -121,6 +121,7 @@ import {
 } from "@/lib/travelFormExport";
 import * as XLSX from "xlsx";
 import { showToast } from "@/components/Toast";
+import { formatPhoneNumber, toPhoneHref } from "@/lib/phone";
 import ExpandableCollapsibleSection from "@/components/CollapsibleSection";
 import TripTravelSafetySection from "@/components/TripTravelSafetySection";
 import RosterTshirtSizeSelect from "@/components/RosterTshirtSizeSelect";
@@ -8719,6 +8720,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     type="tel"
                     value={newWorkerDraft.cellPhone}
                     onChange={(event) => updateNewWorkerDraft("cellPhone", event.target.value)}
+                    onBlur={(event) =>
+                      updateNewWorkerDraft("cellPhone", formatPhoneNumber(event.target.value))
+                    }
                     placeholder="Cell phone (optional)"
                   />
                   <select
@@ -8813,6 +8817,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       value={member.cellPhone || ""}
                       placeholder="Cell phone"
                       onChange={(event) => updateRosterDraftMember(index, "cellPhone", event.target.value)}
+                      onBlur={(event) =>
+                        updateRosterDraftMember(index, "cellPhone", formatPhoneNumber(event.target.value))
+                      }
                     />
                     <select
                       className="input"
@@ -8967,8 +8974,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         </td>
                         <td className="small">
                           {String(member.cellPhone || "").trim() ? (
-                            <a href={`tel:${String(member.cellPhone).trim().replace(/\s+/g, "")}`}>
-                              {member.cellPhone}
+                            <a href={`tel:${toPhoneHref(member.cellPhone)}`}>
+                              {formatPhoneNumber(member.cellPhone)}
                             </a>
                           ) : (
                             "—"

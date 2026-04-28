@@ -26,6 +26,7 @@ import {
   listProfileStaffNotes,
   saveProfileStaffNote,
 } from "@/lib/profileStaffNotes";
+import { formatPhoneNumber } from "@/lib/phone";
 
 function formatDate(value) {
   if (!value) return "Unknown date";
@@ -110,6 +111,7 @@ export default function Profile() {
   const [loadError, setLoadError] = useState("");
   const [noteDraft, setNoteDraft] = useState("");
   const [editingNoteId, setEditingNoteId] = useState("");
+  const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteStatus, setNoteStatus] = useState("");
   const [confirmingDeleteNote, setConfirmingDeleteNote] = useState(false);
   const [confirmingDeleteDocumentId, setConfirmingDeleteDocumentId] = useState("");
@@ -353,12 +355,14 @@ export default function Profile() {
   }, [documents]);
 
   function startNoteEdit(note = null) {
+    setIsEditingNote(true);
     setEditingNoteId(note?.id || "");
     setNoteDraft(note?.note || "");
     setNoteStatus("");
   }
 
   function cancelNoteEdit() {
+    setIsEditingNote(false);
     setEditingNoteId("");
     setNoteDraft("");
     setNoteStatus("");
@@ -392,6 +396,7 @@ export default function Profile() {
 
         return current.map((note) => (note.id === saved.id ? saved : note));
       });
+      setIsEditingNote(false);
       setEditingNoteId("");
       setNoteDraft("");
       setNoteStatus("Saved.");
@@ -523,6 +528,7 @@ export default function Profile() {
       setNoteStatus("Deleting...");
       await deleteProfileStaffNote(editingNoteId);
       setNotes((current) => current.filter((note) => note.id !== editingNoteId));
+      setIsEditingNote(false);
       setEditingNoteId("");
       setNoteDraft("");
       setNoteStatus("Deleted.");
@@ -688,6 +694,7 @@ export default function Profile() {
                           setProfileFieldsSaveStatus("");
                         }
                       }}
+                      onBlur={() => setPhoneDraft((current) => formatPhoneNumber(current))}
                       placeholder="Cell or best number"
                       autoComplete="tel"
                     />
@@ -782,7 +789,9 @@ export default function Profile() {
                 {contactFieldsAvailable ? (
                   <>
                     <div className="small">Phone</div>
-                    <div style={{ fontWeight: 800 }}>{profile?.phone?.trim() || "—"}</div>
+                    <div style={{ fontWeight: 800 }}>
+                      {formatPhoneNumber(profile?.phone) || "—"}
+                    </div>
                   </>
                 ) : null}
                 {genderFieldsAvailable ? (
@@ -988,14 +997,14 @@ export default function Profile() {
                   <div className="small">Private participant notes visible only to staff.</div>
                 </div>
                 <div className="spacer" />
-                {!editingNoteId && !noteDraft ? (
+                {!isEditingNote ? (
                   <button className="btn" type="button" onClick={() => startNoteEdit()}>
                     Add Note
                   </button>
                 ) : null}
               </div>
 
-              {editingNoteId || noteDraft ? (
+              {isEditingNote ? (
                 <div style={{ marginBottom: 14 }}>
                   <textarea
                     className="input"
