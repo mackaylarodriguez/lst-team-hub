@@ -719,22 +719,23 @@ function PerTripFundraisingCell({ tripRows }) {
       {tripRows.map((tripRow) => {
         const has2000 = typeof tripRow.fundraising2000Complete === "boolean";
         const hasAll = typeof tripRow.fundraisingAllComplete === "boolean";
+        const milestoneCount = (has2000 ? 1 : 0) + (hasAll ? 1 : 0);
+        const completedMilestoneCount =
+          (tripRow.fundraising2000Complete ? 1 : 0) +
+          (tripRow.fundraisingAllComplete ? 1 : 0);
+        const fundraisingPercent =
+          milestoneCount > 0
+            ? Math.round((completedMilestoneCount / milestoneCount) * 100)
+            : null;
         return (
           <div key={`fundraising-${tripRow.tripId}`}>
             <div className="small" style={{ color: "var(--muted)", marginBottom: 3 }}>
               {tripRow.tripName}
             </div>
-            {!has2000 && !hasAll ? (
+            {fundraisingPercent === null ? (
               <span className="small" style={{ color: "var(--muted)" }}>No milestones</span>
             ) : (
-              <div style={{ display: "grid", gap: 6 }}>
-                {has2000 ? (
-                  <MetricBar label="$2k goal" value={tripRow.fundraising2000Complete ? 100 : 0} />
-                ) : null}
-                {hasAll ? (
-                  <MetricBar label="Fully raised" value={tripRow.fundraisingAllComplete ? 100 : 0} />
-                ) : null}
-              </div>
+              <MetricBar label="Fundraising" value={fundraisingPercent} />
             )}
           </div>
         );
