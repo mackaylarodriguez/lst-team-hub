@@ -81,6 +81,7 @@ export default function Admin() {
   const [confirmingDeleteTaskKey, setConfirmingDeleteTaskKey] = useState("");
   const staffTaskRowTimeoutsRef = useRef({});
   const staffTaskNoteSaveTimeoutsRef = useRef({});
+  const focusedTaskNoteKeyRef = useRef("");
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
   useEffect(() => {
@@ -141,6 +142,7 @@ export default function Admin() {
     void syncStaffTasks();
 
     function handleTaskUpdate() {
+      if (focusedTaskNoteKeyRef.current) return;
       void syncStaffTasks();
     }
 
@@ -179,6 +181,7 @@ export default function Admin() {
     void syncMiscTasks();
 
     function handleMiscTaskUpdate() {
+      if (focusedTaskNoteKeyRef.current) return;
       void syncMiscTasks();
     }
 
@@ -481,8 +484,14 @@ export default function Admin() {
     }, 700);
   }
 
+  function handleTaskNotesFocus(tripId, taskId) {
+    focusedTaskNoteKeyRef.current = getTaskKey(tripId, taskId);
+  }
+
   function flushTaskNotesSave(tripId, taskId, value) {
-    const hadPendingSave = clearPendingTaskNoteSave(getTaskKey(tripId, taskId));
+    const taskKey = getTaskKey(tripId, taskId);
+    focusedTaskNoteKeyRef.current = "";
+    const hadPendingSave = clearPendingTaskNoteSave(taskKey);
     if (hadPendingSave) {
       void updateTask(tripId, taskId, "notes", value);
     }
@@ -764,6 +773,9 @@ export default function Admin() {
         onCancelTitleEdit={handleCancelTitleEdit}
         onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
+        onTaskNotesChange={handleTaskNotesChange}
+        onTaskNotesFocus={handleTaskNotesFocus}
+        onTaskNotesBlur={flushTaskNotesSave}
         onDeleteTask={handleDeleteTask}
         onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
@@ -782,6 +794,9 @@ export default function Admin() {
         onCancelTitleEdit={handleCancelTitleEdit}
         onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
+        onTaskNotesChange={handleTaskNotesChange}
+        onTaskNotesFocus={handleTaskNotesFocus}
+        onTaskNotesBlur={flushTaskNotesSave}
         onDeleteTask={handleDeleteTask}
         onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
@@ -800,6 +815,9 @@ export default function Admin() {
         onCancelTitleEdit={handleCancelTitleEdit}
         onSaveTitle={handleSaveTitle}
         onUpdateTask={updateTask}
+        onTaskNotesChange={handleTaskNotesChange}
+        onTaskNotesFocus={handleTaskNotesFocus}
+        onTaskNotesBlur={flushTaskNotesSave}
         onDeleteTask={handleDeleteTask}
         onOpenTask={handleOpenTask}
         staffTaskRowStatus={staffTaskRowStatus}
@@ -821,6 +839,9 @@ function TaskSection({
   onCancelTitleEdit,
   onSaveTitle,
   onUpdateTask,
+  onTaskNotesChange,
+  onTaskNotesFocus,
+  onTaskNotesBlur,
   onDeleteTask,
   onOpenTask,
   staffTaskRowStatus,
@@ -977,13 +998,21 @@ function TaskSection({
                       className="input adminTaskNotesInput"
                       value={isEditingTitle ? draft?.notes || "" : task.notes || ""}
                       onChange={(e) => {
-                        if (!isEditingTitle) return;
-                        onEditingTaskDraftChange((current) => ({
-                          ...(current || {}),
-                          notes: e.target.value,
-                        }));
+                        if (isEditingTitle) {
+                          onEditingTaskDraftChange((current) => ({
+                            ...(current || {}),
+                            notes: e.target.value,
+                          }));
+                          return;
+                        }
+                        onTaskNotesChange(task.tripId, task.id, e.target.value);
                       }}
-                      readOnly={!isEditingTitle}
+                      onFocus={() => {
+                        if (!isEditingTitle) onTaskNotesFocus(task.tripId, task.id);
+                      }}
+                      onBlur={(e) => {
+                        if (!isEditingTitle) onTaskNotesBlur(task.tripId, task.id, e.target.value);
+                      }}
                     />
                   </td>
                   <td className="adminTaskActionsCell">
