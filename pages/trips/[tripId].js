@@ -12477,6 +12477,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         const document = documentSlots[documentType.key] || null;
                         const statusKey = `${participant.id}:${documentType.key}`;
                         const slotStatus = participantDocumentStatus[statusKey];
+                        const canUploadParticipantDocument =
+                          !participant.rosterOnly &&
+                          (canViewTeamDashboard ||
+                            (canUploadOwnParticipantDocuments &&
+                              String(participant.id) === String(currentParticipant?.id)));
 
                         return (
                           <div
@@ -12507,25 +12512,25 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                 <a className="btn btnPrimary" href={document.fileUrl} target="_blank" rel="noreferrer">
                                   Open
                                 </a>
-                              ) : (
+                              ) : !canUploadParticipantDocument ? (
                                 <button
                                   className="btn"
                                   type="button"
                                   disabled
                                   style={{ opacity: 0.6, cursor: "not-allowed" }}
                                 >
-                                  Coming soon
+                                  No file
                                 </button>
-                              )}
+                              ) : null}
 
-                              {canUploadOwnParticipantDocuments && String(participant.id) === String(currentParticipant?.id) ? (
+                              {canUploadParticipantDocument ? (
                                 <>
                                   <button
                                     className="btn"
                                     type="button"
                                     onClick={() => participantDocumentInputRefs.current[statusKey]?.click()}
                                   >
-                                    {document ? "Replace" : "Upload"}
+                                    {document ? "Replace" : canViewTeamDashboard ? "Upload for worker" : "Upload"}
                                   </button>
                                   <input
                                     ref={(element) => {
@@ -12535,10 +12540,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                     hidden
                                     onChange={(event) => {
                                       const file = event.target.files?.[0];
-                                      const uploadUserId =
-                                        session?.profileId || session?.id || participant.id;
                                       void handleUploadParticipantDocument(
-                                        uploadUserId,
+                                        participant.id,
                                         documentType.key,
                                         file
                                       );
