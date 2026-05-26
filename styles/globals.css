@@ -2263,9 +2263,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   width:100%;
 }
 .adminTasksTable col.adminTaskColProject{ width:10%; }
-.adminTasksTable col.adminTaskColSite{ width:12%; }
-.adminTasksTable col.adminTaskColTask{ width:21%; }
-.adminTasksTable col.adminTaskColDue{ width:16%; }
+.adminTasksTable col.adminTaskColSite{ width:14%; }
+.adminTasksTable col.adminTaskColTask{ width:25%; }
+.adminTasksTable col.adminTaskColDue{ width:10%; }
 .adminTasksTable col.adminTaskColProgress{ width:12%; }
 .adminTasksTable col.adminTaskColNotes{ width:19%; }
 .adminTasksTable col.adminTaskColActions{ width:10%; }
@@ -2295,9 +2295,12 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   max-width:0;
 }
 .adminTasksTable td.adminTaskSiteCell > div{
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+  overflow:visible;
+  text-overflow:clip;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  line-height:1.35;
 }
 .adminTasksTable td.adminTaskTaskCell{
   min-width:0;
@@ -2306,10 +2309,18 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .adminTasksTable td.adminTaskTaskCell .adminTaskJumpButton{
   display:block;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+  overflow:visible;
+  text-overflow:clip;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:break-word;
   max-width:100%;
+}
+.adminTasksTable td.adminTaskTaskCell .adminTaskTitleText{
+  display:block;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  line-height:1.35;
 }
 .adminTasksTable td.adminTaskTaskCell .input{
   width:100%;
