@@ -222,6 +222,7 @@ export default function Admin() {
             ...task,
             tripId: trip.id,
             tripName: trip.name,
+            tripSite: trip.location || "",
             dueDate: stored || computed || "",
           };
         })
@@ -862,6 +863,7 @@ function TaskSection({
         <table className="table adminTasksTable">
           <colgroup>
             <col className="adminTaskColProject" />
+            <col className="adminTaskColSite" />
             <col className="adminTaskColTask" />
             <col className="adminTaskColDue" />
             <col className="adminTaskColProgress" />
@@ -871,6 +873,7 @@ function TaskSection({
           <thead>
             <tr>
               <th>Project</th>
+              <th>Site</th>
               <th>Task</th>
               <th>Due Date</th>
               <th>Progress</th>
@@ -922,6 +925,9 @@ function TaskSection({
                     ) : (
                       <div>{task.tripName}</div>
                     )}
+                  </td>
+                  <td className="adminTaskSiteCell">
+                    <div>{task.isMiscTask ? "-" : task.tripSite || "-"}</div>
                   </td>
                   <td className="adminTaskTaskCell">
                     {isEditingTitle ? (

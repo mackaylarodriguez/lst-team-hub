@@ -2262,12 +2262,13 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   table-layout:fixed;
   width:100%;
 }
-.adminTasksTable col.adminTaskColProject{ width:11%; }
-.adminTasksTable col.adminTaskColTask{ width:24%; }
-.adminTasksTable col.adminTaskColDue{ width:19%; }
+.adminTasksTable col.adminTaskColProject{ width:10%; }
+.adminTasksTable col.adminTaskColSite{ width:12%; }
+.adminTasksTable col.adminTaskColTask{ width:21%; }
+.adminTasksTable col.adminTaskColDue{ width:16%; }
 .adminTasksTable col.adminTaskColProgress{ width:12%; }
-.adminTasksTable col.adminTaskColNotes{ width:22%; }
-.adminTasksTable col.adminTaskColActions{ width:12%; }
+.adminTasksTable col.adminTaskColNotes{ width:19%; }
+.adminTasksTable col.adminTaskColActions{ width:10%; }
 .adminTasksTable th.adminTaskActionsTh{
   width:12%;
   min-width:132px;
@@ -2288,6 +2289,15 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   width:100%;
   min-width:0;
   max-width:100%;
+}
+.adminTasksTable td.adminTaskSiteCell{
+  overflow:hidden;
+  max-width:0;
+}
+.adminTasksTable td.adminTaskSiteCell > div{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 .adminTasksTable td.adminTaskTaskCell{
   min-width:0;
