@@ -28,6 +28,7 @@ import {
 import { buildSiteLabelsOrdered, resolveEffectiveSiteHostName } from "@/lib/siteMaterials";
 import { listSiteBudgetNotes } from "@/lib/tripBudget";
 import { listTripTeamMembersForDuplicateCheck } from "@/lib/tripTeamMembers";
+import { saveStaffMiscTask } from "@/lib/staffTasks";
 import {
   DEFAULT_TRAINING_TIMELINE_TYPE,
   TRAINING_TIMELINE_OPTIONS,
@@ -39,6 +40,30 @@ function formatContactName(record) {
     .join(" ")
     .trim();
   return fullName || record?.contact?.email || "Unnamed contact";
+}
+
+function formatRecruitingTaskTargetName(record) {
+  return (
+    String(record?.teamName || record?.linkedTrip?.name || formatContactName(record) || "")
+      .trim() || "recruiting contact"
+  );
+}
+
+function buildRecruitingStaffTaskDraft(record) {
+  const targetName = formatRecruitingTaskTargetName(record);
+  const details = [
+    record?.contact?.email ? `Email: ${record.contact.email}` : "",
+    record?.contact?.phone ? `Phone: ${record.contact.phone}` : "",
+    record?.site ? `Site: ${record.site}` : "",
+    record?.projectDates ? `Project dates: ${record.projectDates}` : "",
+  ].filter(Boolean);
+
+  return {
+    recordId: record?.id || "",
+    taskName: `Contact ${targetName}`,
+    dueDate: String(record?.nextFollowUp || "").slice(0, 10),
+    notes: details.join("\n"),
+  };
 }
 
 function normalizeEmailValue(value) {
@@ -1715,6 +1740,8 @@ export default function RecruitingPage() {
   const [unlockingLockedTeamRecordId, setUnlockingLockedTeamRecordId] = useState("");
   const [contactActionModalOpen, setContactActionModalOpen] = useState(false);
   const [isSavingContactAction, setIsSavingContactAction] = useState(false);
+  const [staffTaskModalOpen, setStaffTaskModalOpen] = useState(false);
+  const [isSavingStaffTask, setIsSavingStaffTask] = useState(false);
   const [promoteModalOpen, setPromoteModalOpen] = useState(false);
   const [recordDetailsModalOpen, setRecordDetailsModalOpen] = useState(false);
   const [recordDetailsMode, setRecordDetailsMode] = useState("details");
@@ -1731,6 +1758,12 @@ export default function RecruitingPage() {
     actionType: "email",
     actionDate: new Date().toISOString().slice(0, 10),
     summary: "",
+  });
+  const [staffTaskDraft, setStaffTaskDraft] = useState({
+    recordId: "",
+    taskName: "",
+    dueDate: "",
+    notes: "",
   });
   const importInputRef = useRef(null);
   const historyCacheRef = useRef({});
@@ -3045,6 +3078,56 @@ export default function RecruitingPage() {
     setContactActionModalOpen(true);
   }
 
+  function openStaffTaskModal(record) {
+    if (!record?.id) return;
+    setStaffTaskDraft(buildRecruitingStaffTaskDraft(record));
+    setError("");
+    setStaffTaskModalOpen(true);
+  }
+
+  async function handleSaveRecruitingStaffTask() {
+    const record = records.find((entry) => entry.id === staffTaskDraft.recordId);
+    if (!record) return;
+    const taskName = String(staffTaskDraft.taskName || "").trim();
+    if (!taskName) {
+      setError("Enter a task name.");
+      return;
+    }
+    if (!session?.email) {
+      setError("Sign in before creating a staff task.");
+      return;
+    }
+
+    try {
+      setIsSavingStaffTask(true);
+      await saveStaffMiscTask({
+        staffEmail: session.email,
+        staffName: session.name || session.email || "Staff",
+        workArea: "Recruiting",
+        taskName,
+        dueDate: String(staffTaskDraft.dueDate || "").trim(),
+        progress: "Not started",
+        notes: String(staffTaskDraft.notes || "").trim(),
+      });
+      setStaffTaskModalOpen(false);
+      setStaffTaskDraft({
+        recordId: "",
+        taskName: "",
+        dueDate: "",
+        notes: "",
+      });
+      setError("");
+      setPageStatus("Staff task added.");
+      showToast(`Added task for ${formatRecruitingTaskTargetName(record)}.`, "success");
+    } catch (saveError) {
+      console.error("Unable to create recruiting staff task", saveError);
+      setError(saveError.message || "Unable to create staff task.");
+      showToast(saveError.message || "Unable to create staff task.", "error");
+    } finally {
+      setIsSavingStaffTask(false);
+    }
+  }
+
   async function handleSaveContactAction() {
     const record = records.find((entry) => entry.id === contactActionDraft.recordId);
     if (!record) return;
@@ -3195,6 +3278,7 @@ export default function RecruitingPage() {
                   <td style={{ width: RECRUITING_OUTREACH_COL_PCT.actions, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow recruitingFitActionRow">
                       <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
+                      <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>Task</button>
                     </div>
                   </td>
                 </tr>
@@ -3283,6 +3367,7 @@ export default function RecruitingPage() {
               </div>
               <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
                 <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
+                <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>Add Task</button>
               </div>
             </div>
           );
@@ -3395,6 +3480,9 @@ export default function RecruitingPage() {
                       <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
                         Edit
                       </button>
+                      <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>
+                        Task
+                      </button>
                       <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>
                         Lock Team
                       </button>
@@ -3486,6 +3574,9 @@ export default function RecruitingPage() {
               <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
                 <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
                   Edit
+                </button>
+                <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>
+                  Add Task
                 </button>
                 <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>
                   Lock Team
@@ -3601,6 +3692,9 @@ export default function RecruitingPage() {
                       <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>
                         View History
                       </button>
+                      <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>
+                        Task
+                      </button>
                       {record.convertedTeamId ? (
                         <button className="btn" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
                           Open Team
@@ -3692,6 +3786,9 @@ export default function RecruitingPage() {
               </button>
               <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>
                 View History
+              </button>
+              <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>
+                Add Task
               </button>
               {record.convertedTeamId ? (
                 <button className="btn" type="button" onClick={() => router.push(`/trips/${encodeURIComponent(record.convertedTeamId)}`)}>
@@ -5108,6 +5205,94 @@ export default function RecruitingPage() {
                 {isSavingContactAction ? "Saving..." : "Save Contact"}
               </button>
               <button className="btn" type="button" onClick={() => setContactActionModalOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {staffTaskModalOpen ? (
+        <div
+          className="appModalOverlay"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 50,
+          }}
+        >
+          <div className="card pad appModalCard" style={{ width: "min(560px, 100%)" }}>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div>
+                <div style={{ fontWeight: 900 }}>Add staff task</div>
+                <div className="small" style={{ marginTop: 2, color: "var(--muted)" }}>
+                  This will show in your My Tasks page.
+                </div>
+              </div>
+              <div className="spacer" />
+              <button className="btn" type="button" onClick={() => setStaffTaskModalOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Task</div>
+                <input
+                  className="input"
+                  value={staffTaskDraft.taskName}
+                  onChange={(event) =>
+                    setStaffTaskDraft((current) => ({
+                      ...current,
+                      taskName: event.target.value,
+                    }))
+                  }
+                  placeholder="Contact person or team"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Due date</div>
+                <input
+                  className="input"
+                  type="date"
+                  value={staffTaskDraft.dueDate}
+                  onChange={(event) =>
+                    setStaffTaskDraft((current) => ({
+                      ...current,
+                      dueDate: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Notes</div>
+                <textarea
+                  className="input"
+                  rows={4}
+                  value={staffTaskDraft.notes}
+                  onChange={(event) =>
+                    setStaffTaskDraft((current) => ({
+                      ...current,
+                      notes: event.target.value,
+                    }))
+                  }
+                  placeholder="Details to remember"
+                />
+              </div>
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+              <button
+                className="btn btnPrimary"
+                type="button"
+                onClick={() => void handleSaveRecruitingStaffTask()}
+                disabled={isSavingStaffTask}
+              >
+                {isSavingStaffTask ? "Saving..." : "Save Staff Task"}
+              </button>
+              <button className="btn" type="button" onClick={() => setStaffTaskModalOpen(false)}>
                 Cancel
               </button>
             </div>
