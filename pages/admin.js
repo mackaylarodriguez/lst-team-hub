@@ -55,6 +55,15 @@ function formatAdminDueDate(value) {
   });
 }
 
+function isRecruitingMiscTask(task) {
+  return task?.isMiscTask && String(task?.workArea || "").trim().toLowerCase() === "recruiting";
+}
+
+function getRecruitingTaskSearchText(task) {
+  const taskName = String(task?.taskName || task?.title || "").trim();
+  return taskName.replace(/^contact\s+/i, "").trim() || taskName || String(task?.notes || "").trim();
+}
+
 export default function Admin() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -577,6 +586,15 @@ export default function Admin() {
   }
 
   function handleOpenTask(task) {
+    if (isRecruitingMiscTask(task)) {
+      const search = getRecruitingTaskSearchText(task);
+      void router.push({
+        pathname: "/recruiting",
+        query: search ? { search } : undefined,
+      });
+      return;
+    }
+
     if (!task?.tripId || task.isMiscTask) return;
 
     void router.push({
@@ -942,7 +960,7 @@ function TaskSection({
                         }
                       />
                     ) : (
-                      task.isMiscTask ? (
+                      task.isMiscTask && !isRecruitingMiscTask(task) ? (
                         <span className="adminTaskTitleText">
                           {task.taskName || task.title || "-"}
                         </span>

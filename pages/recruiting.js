@@ -1913,6 +1913,21 @@ export default function RecruitingPage() {
     setContactActivityByRecordId({});
   }, [selectedYear]);
 
+  useEffect(() => {
+    if (!router.isReady) return;
+    const querySearch = Array.isArray(router.query.search)
+      ? router.query.search[0]
+      : router.query.search;
+    const search = String(querySearch || "").trim();
+    if (!search) return;
+
+    setFilterConfig((current) => ({
+      ...current,
+      searchQuery: search,
+    }));
+    setActiveFilterId("custom");
+  }, [router.isReady, router.query.search]);
+
   /** Filters (search, stage, saved filters, etc.) but not the active tab column — so tab badges stay accurate. */
   const baseFilteredRecords = useMemo(() => {
     return records.filter((record) => {
