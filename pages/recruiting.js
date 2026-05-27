@@ -3499,7 +3499,7 @@ export default function RecruitingPage() {
                         Task
                       </button>
                       <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>
-                        Lock Team
+                        Lock
                       </button>
                     </div>
                   </td>
@@ -3594,7 +3594,7 @@ export default function RecruitingPage() {
                   Add Task
                 </button>
                 <button className="btn btnPrimary" type="button" onClick={() => openFormTeamModal(record)}>
-                  Lock Team
+                  Lock
                 </button>
               </div>
             </div>
