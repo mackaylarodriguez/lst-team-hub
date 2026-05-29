@@ -134,11 +134,11 @@ const RECRUITING_CONVERTED_COL_PCT = {
   team: "8%",
   roster: "12%",
   projectDates: "7%",
-  site: "8%",
-  weeks: "4%",
-  mackayla: "24%",
-  leslee: "24%",
-  actions: "13%",
+  site: "7%",
+  weeks: "5%",
+  mackayla: "22%",
+  leslee: "22%",
+  actions: "17%",
 };
 
 function sortRecruitingBoardLabels(labels) {
@@ -3695,8 +3695,12 @@ export default function RecruitingPage() {
                       placeholder="Add Leslee notes"
                     />
                   </td>
-                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.actions, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
-                    <div className="row recruitingActionRow">
+                  <td
+                    className="recruitingConvertedActionsCell"
+                    style={{ width: RECRUITING_CONVERTED_COL_PCT.actions, verticalAlign: "top" }}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <div className="row recruitingActionRow recruitingFitActionRow recruitingConvertedActionRow">
                       <button
                         className="btn btnPrimary"
                         type="button"

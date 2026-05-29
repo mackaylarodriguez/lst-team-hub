@@ -1653,6 +1653,28 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   flex-wrap:wrap;
   justify-content:flex-start;
 }
+.recruitingBoardTable .recruitingConvertedActionsCell{
+  overflow:hidden;
+  max-width:0;
+}
+.recruitingBoardTable .recruitingConvertedActionRow{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:4px;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  align-items:stretch;
+}
+.recruitingBoardTable .recruitingConvertedActionRow .btn{
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  white-space:normal;
+  line-height:1.25;
+  text-align:center;
+  padding:5px 6px;
+}
 .recruitingActionRow .btn{
   padding:6px 10px;
   border-radius:9px;
@@ -2262,12 +2284,12 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   table-layout:fixed;
   width:100%;
 }
-.adminTasksTable col.adminTaskColProject{ width:9%; }
-.adminTasksTable col.adminTaskColSite{ width:12%; }
-.adminTasksTable col.adminTaskColTask{ width:22%; }
-.adminTasksTable col.adminTaskColDue{ width:9%; }
-.adminTasksTable col.adminTaskColProgress{ width:11%; }
-.adminTasksTable col.adminTaskColNotes{ width:32%; }
+.adminTasksTable col.adminTaskColProject{ width:10%; }
+.adminTasksTable col.adminTaskColSite{ width:14%; }
+.adminTasksTable col.adminTaskColTask{ width:25%; }
+.adminTasksTable col.adminTaskColDue{ width:10%; }
+.adminTasksTable col.adminTaskColProgress{ width:12%; }
+.adminTasksTable col.adminTaskColNotes{ width:25%; }
 .adminTasksTable col.adminTaskColActions{ width:5%; }
 .adminTasksTable th.adminTaskActionsTh{
   width:5%;
