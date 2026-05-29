@@ -1018,8 +1018,9 @@ function TaskSection({
                     </select>
                   </td>
                   <td className="adminTaskNotesCell">
-                    <input
+                    <textarea
                       className="input adminTaskNotesInput"
+                      rows={3}
                       value={isEditingTitle ? draft?.notes || "" : task.notes || ""}
                       onChange={(e) => {
                         if (isEditingTitle) {

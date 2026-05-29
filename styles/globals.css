@@ -2262,16 +2262,16 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   table-layout:fixed;
   width:100%;
 }
-.adminTasksTable col.adminTaskColProject{ width:10%; }
-.adminTasksTable col.adminTaskColSite{ width:14%; }
-.adminTasksTable col.adminTaskColTask{ width:25%; }
-.adminTasksTable col.adminTaskColDue{ width:10%; }
-.adminTasksTable col.adminTaskColProgress{ width:12%; }
-.adminTasksTable col.adminTaskColNotes{ width:19%; }
-.adminTasksTable col.adminTaskColActions{ width:10%; }
+.adminTasksTable col.adminTaskColProject{ width:9%; }
+.adminTasksTable col.adminTaskColSite{ width:12%; }
+.adminTasksTable col.adminTaskColTask{ width:22%; }
+.adminTasksTable col.adminTaskColDue{ width:9%; }
+.adminTasksTable col.adminTaskColProgress{ width:11%; }
+.adminTasksTable col.adminTaskColNotes{ width:32%; }
+.adminTasksTable col.adminTaskColActions{ width:5%; }
 .adminTasksTable th.adminTaskActionsTh{
-  width:12%;
-  min-width:132px;
+  width:5%;
+  min-width:96px;
 }
 .adminTasksTable td.adminTaskDueCell{
   white-space:normal;
@@ -2330,16 +2330,24 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .adminTasksTable td.adminTaskNotesCell{
   min-width:0;
   overflow:hidden;
+  padding-right:4px;
 }
 .adminTasksTable .adminTaskNotesInput{
   width:100%;
   max-width:100%;
   min-width:0;
+  min-height:56px;
   box-sizing:border-box;
+  display:block;
+  resize:vertical;
+  line-height:1.35;
+  white-space:pre-wrap;
 }
 .adminTasksTable td.adminTaskActionsCell{
-  min-width:132px;
+  min-width:96px;
+  width:96px;
   vertical-align:top;
+  padding-left:4px;
 }
 .adminTasksTable td.adminTaskActionsCell .staffTaskRowActions{
   justify-content:flex-end;
@@ -2351,6 +2359,10 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   padding:6px 8px;
   border-radius:10px;
   font-size:12px;
+}
+.adminTasksTable textarea.adminTaskNotesInput{
+  min-height:56px;
+  padding:6px 8px;
 }
 .adminTasksTable .btn{
   padding:6px 8px;
