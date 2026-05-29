@@ -88,7 +88,7 @@ function ignoreTripIdsForConvertedRecruitingRecord(record) {
 }
 
 function getWorkflowBoardLabel(record) {
-  if (record?.isConvertedToTeam) return "Lock Teams";
+  if (record?.isConvertedToTeam) return "Locked Teams";
   if (record?.isPotentialTeam) return "Potential Teams";
   return "Recruiting";
 }
@@ -106,7 +106,7 @@ function joinLabels(labels) {
   return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
 }
 
-const RECRUITING_BOARD_SORT = ["Recruiting", "Potential Teams", "Lock Teams"];
+const RECRUITING_BOARD_SORT = ["Recruiting", "Potential Teams", "Locked Teams"];
 
 /** Desktop board tables: percent widths (sum 100%). Team is 8% on every tab; notes columns are largest. */
 const RECRUITING_OUTREACH_COL_PCT = {
@@ -1433,7 +1433,7 @@ const BULK_ACTION_OPTIONS = [
 const RECRUITING_TABS = [
   { id: "outreach", label: "Recruiting" },
   { id: "potential", label: "Potential Teams" },
-  { id: "converted", label: "Lock Teams" },
+  { id: "converted", label: "Locked Teams" },
 ];
 
 const RECRUITING_TAB_META = {
@@ -2592,8 +2592,8 @@ export default function RecruitingPage() {
       setSelectedRecordId(result?.record?.id || selectedRecord.id);
       setPageStatus(
         result?.status === "already_converted"
-          ? "Trip already added. Moved to Lock Teams."
-          : "Trip added. Moved to Lock Teams."
+          ? "Trip already added. Moved to Locked Teams."
+          : "Trip added. Moved to Locked Teams."
       );
     } catch (error) {
       console.error("Unable to lock team", error);
@@ -3609,8 +3609,8 @@ export default function RecruitingPage() {
       return (
         <EmptyState
           icon="archived"
-          title="No lock teams yet"
-          description="Lock teams will show up here once they’ve been formed into real trips."
+          title="No locked teams yet"
+          description="Locked teams will show up here once they’ve been formed into real trips."
         />
       );
     }
@@ -3747,8 +3747,8 @@ export default function RecruitingPage() {
       return (
         <EmptyState
           icon="archived"
-          title="No lock teams yet"
-          description="Lock teams will show up here once they’ve been formed into real trips."
+          title="No locked teams yet"
+          description="Locked teams will show up here once they’ve been formed into real trips."
         />
       );
     }
@@ -4031,7 +4031,7 @@ export default function RecruitingPage() {
 
             {activeTab === "converted" ? (
               <>
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>Lock Teams</div>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Locked Teams</div>
                 <div className="small" style={{ marginBottom: 10 }}>
                   Recruiting records already turned into real teams.
                 </div>
