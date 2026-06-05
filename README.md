@@ -2,6 +2,24 @@
 
 LST Team Hub is a centralized web application designed to support team coordination, communication, and resource sharing for mission teams. The platform helps streamline organization, improve accessibility of information, and enhance collaboration across team members.
 
+## Demo
+
+[![Watch the LST Team Hub demo](https://cdn.loom.com/sessions/thumbnails/00f3d6ef36c446ea9326f3fc534437f9-with-play.gif)](https://www.loom.com/share/00f3d6ef36c446ea9326f3fc534437f9)
+
+**[Watch the demo video →](https://www.loom.com/share/00f3d6ef36c446ea9326f3fc534437f9)** · ~3 min walkthrough (Next.js + Supabase)
+
+## Screenshots
+
+| My Trips | Trip overview |
+| :---: | :---: |
+| ![My Trips](docs/screenshots/my-trips.png) | ![Trip overview](docs/screenshots/trip-overview.png) |
+
+| Staff tasks | Travel form |
+| :---: | :---: |
+| ![Staff tasks](docs/screenshots/staff-tasks.png) | ![Travel form](docs/screenshots/travel-form.png) |
+
+Add PNG or JPG files to [`docs/screenshots/`](docs/screenshots/) using the names above (or update the paths here).
+
 ---
 
 ## 🚀 Features
@@ -56,11 +74,6 @@ Try the live app at **[lst-team-hub.vercel.app/login](https://lst-team-hub.verce
 | **Login** | [https://lst-team-hub.vercel.app/login](https://lst-team-hub.vercel.app/login) |
 | **Email** | `demo@gmail.com` |
 | **Password** | `Demo1234` |
-
----
-
-## 📷 Screenshots
-
 
 ---
 
