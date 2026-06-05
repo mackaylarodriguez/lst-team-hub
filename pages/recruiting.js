@@ -30,6 +30,11 @@ import { listSiteBudgetNotes } from "@/lib/tripBudget";
 import { listTripTeamMembersForDuplicateCheck } from "@/lib/tripTeamMembers";
 import { saveStaffMiscTask } from "@/lib/staffTasks";
 import {
+  listRegisteredWorkersForPicker,
+  resolveRegisteredWorker,
+  searchRegisteredWorkers,
+} from "@/lib/workerLookup";
+import {
   DEFAULT_TRAINING_TIMELINE_TYPE,
   TRAINING_TIMELINE_OPTIONS,
 } from "@/lib/workerTaskTemplate";
@@ -187,11 +192,177 @@ function RecruitingFormCard({ title, subtitle, children }) {
   );
 }
 
+function RecruitingTeamMemberFields({
+  member,
+  index,
+  workers,
+  showMemberTripDates,
+  onMemberChange,
+  onMemberLink,
+  onMemberTryLink,
+  onRemoveMember,
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const searchWrapRef = useRef(null);
+
+  const suggestions = useMemo(
+    () => searchRegisteredWorkers(workers, searchQuery),
+    [workers, searchQuery]
+  );
+
+  const linkedWorker = useMemo(
+    () => resolveRegisteredWorker(workers, member),
+    [workers, member]
+  );
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (!searchWrapRef.current?.contains(event.target)) {
+        setSuggestionsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  function handleMemberFieldChange(field, value) {
+    onMemberChange(index, field, value);
+    if (field !== "profileId" && member?.profileId) {
+      onMemberChange(index, "profileId", "");
+    }
+  }
+
+  return (
+    <>
+      <div className="recruitingWorkerMemberSearch" ref={searchWrapRef}>
+        <div className="small" style={{ marginBottom: 4, color: "var(--muted)" }}>
+          Find registered worker
+        </div>
+        <input
+          className="input"
+          value={searchQuery}
+          onChange={(event) => {
+            setSearchQuery(event.target.value);
+            setSuggestionsOpen(true);
+          }}
+          onFocus={() => setSuggestionsOpen(true)}
+          placeholder="Search by name or email"
+        />
+        {suggestionsOpen && searchQuery.trim() && suggestions.length > 0 ? (
+          <div className="recruitingWorkerSuggestList" role="listbox">
+            {suggestions.map((worker) => (
+              <button
+                key={worker.id}
+                type="button"
+                className="recruitingWorkerSuggestItem"
+                onClick={() => {
+                  onMemberLink(index, worker);
+                  setSearchQuery("");
+                  setSuggestionsOpen(false);
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>{worker.name}</div>
+                {worker.email ? <div className="small">{worker.email}</div> : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {linkedWorker ? (
+        <div className="recruitingWorkerLinkedBadge small">
+          Linked to registered worker: {linkedWorker.name}
+          {linkedWorker.email ? ` (${linkedWorker.email})` : ""}
+        </div>
+      ) : null}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: 10,
+        }}
+      >
+        <input
+          className="input"
+          value={member.firstName}
+          onChange={(event) => handleMemberFieldChange("firstName", event.target.value)}
+          onBlur={() => onMemberTryLink(index)}
+          placeholder="First name"
+          autoComplete="given-name"
+        />
+        <input
+          className="input"
+          value={member.lastName}
+          onChange={(event) => handleMemberFieldChange("lastName", event.target.value)}
+          onBlur={() => onMemberTryLink(index)}
+          placeholder="Last name"
+          autoComplete="family-name"
+        />
+        <input
+          className="input"
+          type="email"
+          value={member.email}
+          onChange={(event) => handleMemberFieldChange("email", event.target.value)}
+          onBlur={() => onMemberTryLink(index)}
+          placeholder="Email (optional)"
+          autoComplete="email"
+        />
+        <input
+          className="input"
+          type="tel"
+          value={member.phone ?? ""}
+          onChange={(event) => handleMemberFieldChange("phone", event.target.value)}
+          placeholder="Phone (optional)"
+          autoComplete="tel"
+        />
+      </div>
+      {showMemberTripDates ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: 10,
+          }}
+        >
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Leave Date</div>
+            <input
+              className="input"
+              type="date"
+              value={member.startDate}
+              onChange={(event) => onMemberChange(index, "startDate", event.target.value)}
+            />
+          </div>
+          <div>
+            <div className="small" style={{ marginBottom: 6 }}>Return Date</div>
+            <input
+              className="input"
+              type="date"
+              value={member.endDate}
+              onChange={(event) => onMemberChange(index, "endDate", event.target.value)}
+            />
+          </div>
+        </div>
+      ) : null}
+      <div className="row">
+        <div className="spacer" />
+        <button className="btn" type="button" onClick={() => onRemoveMember(index)}>
+          Remove
+        </button>
+      </div>
+    </>
+  );
+}
+
 /** Same cards / labels as the Lock Team modal — used by Lock Team and Potential Teams edit. */
 function LockTeamFormCards({
   draft,
   onFieldChange,
   onMemberChange,
+  onMemberLink,
+  onMemberTryLink,
+  registeredWorkers,
   onAddMember,
   onRemoveMember,
   showMemberTripDates,
@@ -310,7 +481,7 @@ function LockTeamFormCards({
 
       <RecruitingFormCard
         title="Team name & members"
-        subtitle="Email and phone are optional. Use Different Trip Dates when someone’s leave/return differs from the project."
+        subtitle="Search for registered workers by name or email to link them instead of creating a duplicate profile. Email and phone are optional. Use Different Trip Dates when someone’s leave/return differs from the project."
       >
         <div>
           <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
@@ -345,78 +516,16 @@ function LockTeamFormCards({
               }}
             >
               <div style={{ display: "grid", gap: 10 }}>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                    gap: 10,
-                  }}
-                >
-                  <input
-                    className="input"
-                    value={member.firstName}
-                    onChange={(event) => onMemberChange(index, "firstName", event.target.value)}
-                    placeholder="First name"
-                    autoComplete="given-name"
-                  />
-                  <input
-                    className="input"
-                    value={member.lastName}
-                    onChange={(event) => onMemberChange(index, "lastName", event.target.value)}
-                    placeholder="Last name"
-                    autoComplete="family-name"
-                  />
-                  <input
-                    className="input"
-                    type="email"
-                    value={member.email}
-                    onChange={(event) => onMemberChange(index, "email", event.target.value)}
-                    placeholder="Email (optional)"
-                    autoComplete="email"
-                  />
-                  <input
-                    className="input"
-                    type="tel"
-                    value={member.phone ?? ""}
-                    onChange={(event) => onMemberChange(index, "phone", event.target.value)}
-                    placeholder="Phone (optional)"
-                    autoComplete="tel"
-                  />
-                </div>
-                {showMemberTripDates ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                      gap: 10,
-                    }}
-                  >
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Leave Date</div>
-                      <input
-                        className="input"
-                        type="date"
-                        value={member.startDate}
-                        onChange={(event) => onMemberChange(index, "startDate", event.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Return Date</div>
-                      <input
-                        className="input"
-                        type="date"
-                        value={member.endDate}
-                        onChange={(event) => onMemberChange(index, "endDate", event.target.value)}
-                      />
-                    </div>
-                  </div>
-                ) : null}
-                <div className="row">
-                  <div className="spacer" />
-                  <button className="btn" type="button" onClick={() => onRemoveMember(index)}>
-                    Remove
-                  </button>
-                </div>
+                <RecruitingTeamMemberFields
+                  member={member}
+                  index={index}
+                  workers={registeredWorkers}
+                  showMemberTripDates={showMemberTripDates}
+                  onMemberChange={onMemberChange}
+                  onMemberLink={onMemberLink}
+                  onMemberTryLink={onMemberTryLink}
+                  onRemoveMember={onRemoveMember}
+                />
               </div>
             </div>
           ))}
@@ -848,12 +957,31 @@ function createEmptyTripTeamMember() {
     lastName: "",
     email: "",
     phone: "",
+    profileId: "",
     gender: "",
     isMinor: false,
     minorAge: "",
     startDate: "",
     endDate: "",
   };
+}
+
+function linkTeamMemberToWorker(member, worker) {
+  if (!worker) return member;
+  return {
+    ...member,
+    profileId: worker.id || "",
+    firstName: String(member.firstName || "").trim() || worker.firstName || "",
+    lastName: String(member.lastName || "").trim() || worker.lastName || "",
+    email: normalizeEmailValue(member.email) || worker.email || "",
+    phone: String(member.phone || "").trim() || worker.phone || "",
+  };
+}
+
+function tryLinkTeamMemberRow(member, workers) {
+  const match = resolveRegisteredWorker(workers, member);
+  if (!match) return member;
+  return linkTeamMemberToWorker(member, match);
 }
 
 function splitPersonName(value) {
@@ -1699,6 +1827,7 @@ function DraggableTable({ children }) {
 export default function RecruitingPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
+  const [registeredWorkers, setRegisteredWorkers] = useState([]);
   const [years, setYears] = useState([]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [records, setRecords] = useState([]);
@@ -1842,6 +1971,26 @@ export default function RecruitingPage() {
       cancelled = true;
     };
   }, [router]);
+
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+
+    async function loadRegisteredWorkers() {
+      try {
+        const workers = await listRegisteredWorkersForPicker();
+        if (!cancelled) setRegisteredWorkers(workers);
+      } catch (workerLoadError) {
+        console.error("Unable to load registered workers for recruiting", workerLoadError);
+      }
+    }
+
+    void loadRegisteredWorkers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   useEffect(() => {
     if (!session) return;
@@ -2647,6 +2796,42 @@ export default function RecruitingPage() {
       ...current,
       teamMembers: current.teamMembers.map((member, memberIndex) =>
         memberIndex === index ? { ...member, [field]: value } : member
+      ),
+    }));
+  }
+
+  function linkTeamFormMember(index, worker) {
+    setTeamFormDraft((current) => ({
+      ...current,
+      teamMembers: current.teamMembers.map((member, memberIndex) =>
+        memberIndex === index ? linkTeamMemberToWorker(member, worker) : member
+      ),
+    }));
+  }
+
+  function tryLinkTeamFormMember(index) {
+    setTeamFormDraft((current) => ({
+      ...current,
+      teamMembers: current.teamMembers.map((member, memberIndex) =>
+        memberIndex === index ? tryLinkTeamMemberRow(member, registeredWorkers) : member
+      ),
+    }));
+  }
+
+  function linkPotentialTeamMember(index, worker) {
+    setPotentialTeamEditDraft((current) => ({
+      ...current,
+      teamMembers: current.teamMembers.map((member, memberIndex) =>
+        memberIndex === index ? linkTeamMemberToWorker(member, worker) : member
+      ),
+    }));
+  }
+
+  function tryLinkPotentialTeamMember(index) {
+    setPotentialTeamEditDraft((current) => ({
+      ...current,
+      teamMembers: current.teamMembers.map((member, memberIndex) =>
+        memberIndex === index ? tryLinkTeamMemberRow(member, registeredWorkers) : member
       ),
     }));
   }
@@ -4146,6 +4331,7 @@ export default function RecruitingPage() {
                         ) : null}
                         <LockTeamFormCards
                           draft={potentialTeamEditDraft}
+                          registeredWorkers={registeredWorkers}
                           onFieldChange={(field, value) =>
                             setPotentialTeamEditDraft((current) => {
                               const next = { ...current, [field]: value };
@@ -4163,6 +4349,8 @@ export default function RecruitingPage() {
                               ),
                             }))
                           }
+                          onMemberLink={linkPotentialTeamMember}
+                          onMemberTryLink={tryLinkPotentialTeamMember}
                           onAddMember={() =>
                             setPotentialTeamEditDraft((current) => ({
                               ...current,
@@ -5674,8 +5862,11 @@ export default function RecruitingPage() {
             ) : null}
             <LockTeamFormCards
               draft={teamFormDraft}
+              registeredWorkers={registeredWorkers}
               onFieldChange={updateTeamFormDraft}
               onMemberChange={updateTeamFormMember}
+              onMemberLink={linkTeamFormMember}
+              onMemberTryLink={tryLinkTeamFormMember}
               onAddMember={addTeamFormMemberRow}
               onRemoveMember={removeTeamFormMemberRow}
               showMemberTripDates={teamFormShowMemberTripDates}

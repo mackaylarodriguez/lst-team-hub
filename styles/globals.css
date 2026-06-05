@@ -1645,6 +1645,46 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   padding:6px 10px;
   font-size:12px;
 }
+.recruitingWorkerMemberSearch{
+  position:relative;
+}
+.recruitingWorkerSuggestList{
+  position:absolute;
+  left:0;
+  right:0;
+  top:calc(100% + 4px);
+  z-index:30;
+  display:grid;
+  gap:4px;
+  max-height:220px;
+  overflow:auto;
+  padding:6px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:#fff;
+  box-shadow:var(--shadow);
+}
+.recruitingWorkerSuggestItem{
+  display:block;
+  width:100%;
+  text-align:left;
+  border:1px solid rgba(47,73,147,.12);
+  border-radius:10px;
+  background:rgba(234,242,255,.45);
+  padding:8px 10px;
+  cursor:pointer;
+}
+.recruitingWorkerSuggestItem:hover{
+  background:rgba(67,164,213,.14);
+  border-color:rgba(67,164,213,.35);
+}
+.recruitingWorkerLinkedBadge{
+  padding:6px 10px;
+  border-radius:10px;
+  background:rgba(67,164,213,.12);
+  color:#0f6e91;
+  line-height:1.35;
+}
 .recruitingActionRow{
   gap:3px;
   flex-wrap:nowrap;
