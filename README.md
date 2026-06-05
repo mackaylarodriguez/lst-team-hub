@@ -18,8 +18,6 @@ LST Team Hub is a centralized web application designed to support team coordinat
 | :---: | :---: |
 | ![Staff tasks](docs/screenshots/staff-tasks.png) | ![Travel form](docs/screenshots/travel-form.png) |
 
-Add PNG or JPG files to [`docs/screenshots/`](docs/screenshots/) using the names above (or update the paths here).
-
 ---
 
 ## 🚀 Features
