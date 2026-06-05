@@ -1664,6 +1664,13 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   background:#fff;
   box-shadow:var(--shadow);
 }
+.recruitingWorkerSuggestListInline{
+  display:grid;
+  gap:6px;
+  margin-top:8px;
+  max-height:220px;
+  overflow:auto;
+}
 .recruitingWorkerSuggestItem{
   display:block;
   width:100%;

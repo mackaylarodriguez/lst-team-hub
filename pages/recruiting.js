@@ -192,10 +192,8 @@ function RecruitingFormCard({ title, subtitle, children }) {
   );
 }
 
-function RecruitingWorkerLookupSearch({ person, workers, onLink }) {
+function RecruitingWorkerLookupSearch({ person, workers, workersLoadError, onLink }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
-  const searchWrapRef = useRef(null);
 
   const suggestions = useMemo(
     () => searchRegisteredWorkers(workers, searchQuery),
@@ -207,51 +205,56 @@ function RecruitingWorkerLookupSearch({ person, workers, onLink }) {
     [workers, person]
   );
 
-  useEffect(() => {
-    function handlePointerDown(event) {
-      if (!searchWrapRef.current?.contains(event.target)) {
-        setSuggestionsOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, []);
+  const trimmedQuery = searchQuery.trim();
 
   return (
     <>
-      <div className="recruitingWorkerMemberSearch" ref={searchWrapRef}>
+      <div className="recruitingWorkerMemberSearch">
         <div className="small" style={{ marginBottom: 4, color: "var(--muted)" }}>
           Find registered worker
+          {workers.length > 0 ? ` (${workers.length} in directory)` : ""}
         </div>
         <input
           className="input"
           value={searchQuery}
-          onChange={(event) => {
-            setSearchQuery(event.target.value);
-            setSuggestionsOpen(true);
-          }}
-          onFocus={() => setSuggestionsOpen(true)}
+          onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Search by name or email"
         />
-        {suggestionsOpen && searchQuery.trim() && suggestions.length > 0 ? (
-          <div className="recruitingWorkerSuggestList" role="listbox">
-            {suggestions.map((worker) => (
-              <button
-                key={worker.id}
-                type="button"
-                className="recruitingWorkerSuggestItem"
-                onClick={() => {
-                  onLink(worker);
-                  setSearchQuery("");
-                  setSuggestionsOpen(false);
-                }}
-              >
-                <div style={{ fontWeight: 700 }}>{worker.name}</div>
-                {worker.email ? <div className="small">{worker.email}</div> : null}
-              </button>
-            ))}
+        {workersLoadError ? (
+          <div className="small" style={{ marginTop: 6, color: "var(--danger)" }}>
+            {workersLoadError}
           </div>
+        ) : null}
+        {trimmedQuery ? (
+          suggestions.length > 0 ? (
+            <div className="recruitingWorkerSuggestListInline" role="listbox">
+              {suggestions.map((worker) => (
+                <button
+                  key={worker.id || worker.email || worker.name}
+                  type="button"
+                  className="recruitingWorkerSuggestItem"
+                  onClick={() => {
+                    onLink(worker);
+                    setSearchQuery("");
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>{worker.name}</div>
+                  {worker.email ? <div className="small">{worker.email}</div> : null}
+                  {!worker.hasAccount && worker.email ? (
+                    <div className="small" style={{ color: "var(--muted)" }}>
+                      On a trip roster (no account yet)
+                    </div>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
+              {workers.length === 0
+                ? "No workers loaded yet. Refresh the page and try again."
+                : `No matches for "${trimmedQuery}".`}
+            </div>
+          )
         ) : null}
       </div>
       {linkedWorker ? (
@@ -268,6 +271,7 @@ function RecruitingTeamMemberFields({
   member,
   index,
   workers,
+  workersLoadError,
   showMemberTripDates,
   onMemberChange,
   onMemberLink,
@@ -286,6 +290,7 @@ function RecruitingTeamMemberFields({
       <RecruitingWorkerLookupSearch
         person={member}
         workers={workers}
+        workersLoadError={workersLoadError}
         onLink={(worker) => onMemberLink(index, worker)}
       />
       <div
@@ -375,6 +380,7 @@ function LockTeamFormCards({
   onMemberLink,
   onMemberTryLink,
   registeredWorkers,
+  workersLoadError,
   onAddMember,
   onRemoveMember,
   showMemberTripDates,
@@ -532,6 +538,7 @@ function LockTeamFormCards({
                   member={member}
                   index={index}
                   workers={registeredWorkers}
+                  workersLoadError={workersLoadError}
                   showMemberTripDates={showMemberTripDates}
                   onMemberChange={onMemberChange}
                   onMemberLink={onMemberLink}
@@ -1850,6 +1857,7 @@ export default function RecruitingPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
   const [registeredWorkers, setRegisteredWorkers] = useState([]);
+  const [workersLoadError, setWorkersLoadError] = useState("");
   const [years, setYears] = useState([]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [records, setRecords] = useState([]);
@@ -2001,9 +2009,14 @@ export default function RecruitingPage() {
     async function loadRegisteredWorkers() {
       try {
         const workers = await listRegisteredWorkersForPicker();
-        if (!cancelled) setRegisteredWorkers(workers);
+        if (cancelled) return;
+        setRegisteredWorkers(workers);
+        setWorkersLoadError("");
       } catch (workerLoadError) {
         console.error("Unable to load registered workers for recruiting", workerLoadError);
+        if (cancelled) return;
+        setRegisteredWorkers([]);
+        setWorkersLoadError(workerLoadError.message || "Unable to load workers.");
       }
     }
 
@@ -4378,6 +4391,7 @@ export default function RecruitingPage() {
                         <LockTeamFormCards
                           draft={potentialTeamEditDraft}
                           registeredWorkers={registeredWorkers}
+                          workersLoadError={workersLoadError}
                           onFieldChange={(field, value) =>
                             setPotentialTeamEditDraft((current) => {
                               const next = { ...current, [field]: value };
@@ -5744,6 +5758,7 @@ export default function RecruitingPage() {
                           <RecruitingWorkerLookupSearch
                             person={person}
                             workers={registeredWorkers}
+                            workersLoadError={workersLoadError}
                             onLink={(worker) => linkNewContactRosterRow(index, worker)}
                           />
                           <div
@@ -5951,6 +5966,7 @@ export default function RecruitingPage() {
             <LockTeamFormCards
               draft={teamFormDraft}
               registeredWorkers={registeredWorkers}
+              workersLoadError={workersLoadError}
               onFieldChange={updateTeamFormDraft}
               onMemberChange={updateTeamFormMember}
               onMemberLink={linkTeamFormMember}
