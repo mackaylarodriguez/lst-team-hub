@@ -2736,3 +2736,111 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   }
 }
 
+.adminActivityPage{
+  display:grid;
+  gap:16px;
+}
+.adminActivityControls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:16px;
+  align-items:flex-end;
+}
+.adminActivityControlGroup{
+  min-width:180px;
+  flex:1 1 180px;
+}
+.adminActivityPillRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.adminActivitySummaryGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+  gap:12px;
+}
+.adminActivitySummaryCard{
+  text-align:center;
+}
+.adminActivitySummaryValue{
+  font-size:1.75rem;
+  font-weight:900;
+  line-height:1.1;
+  margin-bottom:4px;
+}
+.adminActivitySection{
+  display:grid;
+  gap:12px;
+}
+.adminActivityStaffTable th,
+.adminActivityStaffTable td{
+  white-space:nowrap;
+}
+.adminActivityFeed{
+  display:grid;
+  gap:10px;
+}
+.adminActivityFeedRow{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px 14px;
+  background:rgba(255,255,255,.55);
+}
+.adminActivityFeedMeta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+  margin-bottom:6px;
+}
+.adminActivityBadge{
+  display:inline-flex;
+  align-items:center;
+  border-radius:999px;
+  padding:2px 8px;
+  font-size:.72rem;
+  font-weight:800;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+  background:rgba(0,0,0,.06);
+}
+.adminActivityBadge-staff_task{background:rgba(59,130,246,.14);}
+.adminActivityBadge-misc_task{background:rgba(14,165,233,.14);}
+.adminActivityBadge-recruiting{background:rgba(168,85,247,.14);}
+.adminActivityBadge-team_locked{background:rgba(239,68,68,.14);}
+.adminActivityBadge-team_created{background:rgba(34,197,94,.14);}
+.adminActivityBadge-trip_event{background:rgba(245,158,11,.14);}
+.adminActivityTimestamp{
+  font-size:.82rem;
+  color:var(--muted);
+}
+.adminActivityFeedTitle{
+  font-weight:800;
+}
+.adminActivityFeedActor{
+  font-size:.9rem;
+  color:var(--muted);
+  margin-top:2px;
+}
+.adminActivityFeedDetail{
+  margin-top:6px;
+  font-size:.92rem;
+  line-height:1.45;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.adminActivityFeedLinks{
+  margin-top:8px;
+  font-size:.9rem;
+}
+.adminActivityLoading{
+  display:flex;
+  justify-content:center;
+  padding:48px 0;
+}
+.adminActivityError{
+  color:#b42318;
+  font-weight:700;
+}
+

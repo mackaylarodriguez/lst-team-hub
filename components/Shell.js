@@ -83,6 +83,18 @@ function SidebarIcon({ name }) {
     );
   }
 
+  if (name === "activity") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 19.5V5" />
+        <path d="M4 19.5h16" />
+        <path d="M8 15.5V11" />
+        <path d="M12 15.5V8" />
+        <path d="M16 15.5v-3" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="8" />
@@ -223,6 +235,9 @@ export default function Shell({ children }) {
       : null,
     canManageTrips
       ? { href: "/sites", label: "Sites", active: path === "/sites", icon: "sites" }
+      : null,
+    isAdminUser
+      ? { href: "/admin-activity", label: "Admin Activity", active: path === "/admin-activity", icon: "activity" }
       : null,
     { href: "/profile", label: "Profile", active: path === "/profile", icon: "profile" },
   ].filter(Boolean);
