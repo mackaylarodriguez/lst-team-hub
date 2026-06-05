@@ -4114,7 +4114,7 @@ export default function RecruitingPage() {
             </button>
           </div>
           <button className="btn recruitingTemplateButton" type="button" onClick={handleDownloadTemplate}>
-            Download Template
+            Export
           </button>
           <div className="card recruitingActionCard">
             <button className="btn btnPrimary" type="button" onClick={openAddContactModal}>
