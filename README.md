@@ -6,7 +6,7 @@ LST Team Hub is a centralized web application designed to support team coordinat
 
 [![Watch the LST Team Hub demo](https://cdn.loom.com/sessions/thumbnails/00f3d6ef36c446ea9326f3fc534437f9-with-play.gif)](https://www.loom.com/share/00f3d6ef36c446ea9326f3fc534437f9)
 
-**[Watch the demo video →](https://www.loom.com/share/00f3d6ef36c446ea9326f3fc534437f9)** · ~3 min walkthrough (Next.js + Supabase)
+**[Watch the demo video](https://www.loom.com/share/00f3d6ef36c446ea9326f3fc534437f9)**
 
 ## Screenshots
 
