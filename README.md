@@ -47,6 +47,18 @@ The goal of LST Team Hub is to create an efficient and user-friendly system that
 
 ---
 
+## 🔑 Demo account
+
+Try the live app at **[lst-team-hub.vercel.app/login](https://lst-team-hub.vercel.app/login)** with this demo account:
+
+| | |
+|---|---|
+| **Login** | [https://lst-team-hub.vercel.app/login](https://lst-team-hub.vercel.app/login) |
+| **Email** | `demo@gmail.com` |
+| **Password** | `Demo1234` |
+
+---
+
 ## 📷 Screenshots
 
 
