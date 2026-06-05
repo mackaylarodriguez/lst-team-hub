@@ -192,16 +192,7 @@ function RecruitingFormCard({ title, subtitle, children }) {
   );
 }
 
-function RecruitingTeamMemberFields({
-  member,
-  index,
-  workers,
-  showMemberTripDates,
-  onMemberChange,
-  onMemberLink,
-  onMemberTryLink,
-  onRemoveMember,
-}) {
+function RecruitingWorkerLookupSearch({ person, workers, onLink }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const searchWrapRef = useRef(null);
@@ -212,8 +203,8 @@ function RecruitingTeamMemberFields({
   );
 
   const linkedWorker = useMemo(
-    () => resolveRegisteredWorker(workers, member),
-    [workers, member]
+    () => resolveRegisteredWorker(workers, person),
+    [workers, person]
   );
 
   useEffect(() => {
@@ -226,13 +217,6 @@ function RecruitingTeamMemberFields({
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
-
-  function handleMemberFieldChange(field, value) {
-    onMemberChange(index, field, value);
-    if (field !== "profileId" && member?.profileId) {
-      onMemberChange(index, "profileId", "");
-    }
-  }
 
   return (
     <>
@@ -258,7 +242,7 @@ function RecruitingTeamMemberFields({
                 type="button"
                 className="recruitingWorkerSuggestItem"
                 onClick={() => {
-                  onMemberLink(index, worker);
+                  onLink(worker);
                   setSearchQuery("");
                   setSuggestionsOpen(false);
                 }}
@@ -276,6 +260,34 @@ function RecruitingTeamMemberFields({
           {linkedWorker.email ? ` (${linkedWorker.email})` : ""}
         </div>
       ) : null}
+    </>
+  );
+}
+
+function RecruitingTeamMemberFields({
+  member,
+  index,
+  workers,
+  showMemberTripDates,
+  onMemberChange,
+  onMemberLink,
+  onMemberTryLink,
+  onRemoveMember,
+}) {
+  function handleMemberFieldChange(field, value) {
+    onMemberChange(index, field, value);
+    if (field !== "profileId" && member?.profileId) {
+      onMemberChange(index, "profileId", "");
+    }
+  }
+
+  return (
+    <>
+      <RecruitingWorkerLookupSearch
+        person={member}
+        workers={workers}
+        onLink={(worker) => onMemberLink(index, worker)}
+      />
       <div
         style={{
           display: "grid",
@@ -806,7 +818,16 @@ function buildTeamMembersText(people) {
 }
 
 function emptyRosterPerson() {
-  return { firstName: "", lastName: "", email: "", phone: "", gender: "", isMinor: false, minorAge: "" };
+  return {
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    profileId: "",
+    gender: "",
+    isMinor: false,
+    minorAge: "",
+  };
 }
 
 function rosterPersonFromParsedEntry(p) {
@@ -1615,6 +1636,7 @@ function buildMackaylaNotes(baseNotes, handoffSummary) {
 
 function createEmptyNewContactDraft() {
   return {
+    boardDestination: "outreach",
     teamName: "",
     rosterRows: [emptyRosterPerson()],
     assignedTo: PRIMARY_OWNER,
@@ -2509,15 +2531,20 @@ export default function RecruitingPage() {
   async function handleCreateContact() {
     const rows =
       newContactDraft.rosterRows?.length > 0 ? newContactDraft.rosterRows : [emptyRosterPerson()];
-    const primary = rows[0];
+    const enrichedRows = rows.map((row) => tryLinkTeamMemberRow(row, registeredWorkers));
+    const primary = enrichedRows[0];
     if (!String(primary.firstName || "").trim() || !String(primary.lastName || "").trim()) {
       setError("First and last name are required for the starred primary contact.");
       return;
     }
-    const teamMembers = buildTeamMembersFromRosterRows(rows, 0);
+    const teamMembers = buildTeamMembersFromRosterRows(enrichedRows, 0);
     if (notifyDuplicateTeamName(newContactDraft.teamName)) {
       return;
     }
+    const sendToPotential = newContactDraft.boardDestination === "potential";
+    const stage = sendToPotential
+      ? Math.max(Number(newContactDraft.stage) || 0, 2)
+      : Math.min(Number(newContactDraft.stage) || 0, 1);
     try {
       await saveRecruitingCycleContact(
         {
@@ -2530,7 +2557,7 @@ export default function RecruitingPage() {
           teamName: newContactDraft.teamName,
           teamMembers,
           assignedTo: newContactDraft.assignedTo || PRIMARY_OWNER,
-          stage: Number(newContactDraft.stage),
+          stage,
           site: newContactDraft.site,
           projectDates: newContactDraft.projectDates,
           weeks: newContactDraft.weeks,
@@ -2541,7 +2568,7 @@ export default function RecruitingPage() {
           nextFollowUp: "",
           mackaylaNotes: buildMackaylaNotes(newContactDraft.mackaylaNotesBody, ""),
           lesleeNotes: newContactDraft.lesleeNotes,
-          isPotentialTeam: false,
+          isPotentialTeam: sendToPotential,
         },
         { requireContactNames: true }
       );
@@ -2549,6 +2576,7 @@ export default function RecruitingPage() {
       setNewContactDraft(createEmptyNewContactDraft());
       setAddContactModalOpen(false);
       setError("");
+      handleChangeTab(sendToPotential ? "potential" : "outreach");
       await refreshCurrentYear();
     } catch (saveError) {
       console.error("Unable to create recruiting contact", saveError);
@@ -3213,6 +3241,24 @@ export default function RecruitingPage() {
     setNewContactDraft((current) => ({
       ...current,
       rosterRows: current.rosterRows.map((row, i) => (i === rowIndex ? { ...row, ...patch } : row)),
+    }));
+  }
+
+  function linkNewContactRosterRow(rowIndex, worker) {
+    setNewContactDraft((current) => ({
+      ...current,
+      rosterRows: current.rosterRows.map((row, i) =>
+        i === rowIndex ? linkTeamMemberToWorker(row, worker) : row
+      ),
+    }));
+  }
+
+  function tryLinkNewContactRosterRow(rowIndex) {
+    setNewContactDraft((current) => ({
+      ...current,
+      rosterRows: current.rosterRows.map((row, i) =>
+        i === rowIndex ? tryLinkTeamMemberRow(row, registeredWorkers) : row
+      ),
     }));
   }
 
@@ -5536,8 +5582,8 @@ export default function RecruitingPage() {
               </button>
             </div>
             <div className="small" style={{ marginBottom: 14, color: "var(--muted)" }}>
-              Same layout as Edit. First and last name are required on the starred primary row; everything else is optional. Log
-              contact history after you save.
+              Same layout as Edit. First and last name are required on the starred primary row; everything else is optional.
+              Search for registered workers on each roster row to link an existing profile. Log contact history after you save.
             </div>
             {error ? (
               <div className="card pad" style={{ marginBottom: 14, color: "var(--danger)" }}>
@@ -5547,7 +5593,7 @@ export default function RecruitingPage() {
             <div style={{ display: "grid", gap: 16 }}>
               <RecruitingFormCard
                 title="Site, stage & timing"
-                subtitle="Site, pipeline stage, owner, and timing — same fields as Edit."
+                subtitle="Choose which board this row belongs on, then fill site, stage, owner, and timing."
               >
                 <div
                   style={{
@@ -5556,6 +5602,22 @@ export default function RecruitingPage() {
                     gap: 10,
                   }}
                 >
+                  <div>
+                    <div className="small" style={{ marginBottom: 6 }}>Add to board</div>
+                    <select
+                      className="input"
+                      value={newContactDraft.boardDestination}
+                      onChange={(event) =>
+                        setNewContactDraft((current) => ({
+                          ...current,
+                          boardDestination: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="outreach">Recruiting</option>
+                      <option value="potential">Potential Teams</option>
+                    </select>
+                  </div>
                   <div>
                     <div className="small" style={{ marginBottom: 6 }}>Stage</div>
                     <select
@@ -5645,7 +5707,7 @@ export default function RecruitingPage() {
 
               <RecruitingFormCard
                 title="Team name & roster"
-                subtitle="Star (★) is the primary contact. Everyone is on one roster row with first, last, email, phone, gender."
+                subtitle="Star (★) is the primary contact. Search for registered workers to link existing profiles. Everyone is on one roster row with first, last, email, phone, gender."
               >
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Team name</div>
@@ -5675,8 +5737,15 @@ export default function RecruitingPage() {
                             borderRadius: 12,
                             border: "1px solid rgba(15, 23, 42, 0.1)",
                             background: "rgba(248, 250, 252, 0.85)",
+                            display: "grid",
+                            gap: 10,
                           }}
                         >
+                          <RecruitingWorkerLookupSearch
+                            person={person}
+                            workers={registeredWorkers}
+                            onLink={(worker) => linkNewContactRosterRow(index, worker)}
+                          />
                           <div
                             className="row"
                             style={{
@@ -5714,8 +5783,12 @@ export default function RecruitingPage() {
                               style={{ minWidth: 90, flex: "1 1 100px" }}
                               value={person.firstName}
                               onChange={(event) =>
-                                updateNewContactRosterRow(index, { firstName: event.target.value })
+                                updateNewContactRosterRow(index, {
+                                  firstName: event.target.value,
+                                  profileId: "",
+                                })
                               }
+                              onBlur={() => tryLinkNewContactRosterRow(index)}
                               placeholder="First"
                               autoComplete="given-name"
                             />
@@ -5724,8 +5797,12 @@ export default function RecruitingPage() {
                               style={{ minWidth: 90, flex: "1 1 100px" }}
                               value={person.lastName}
                               onChange={(event) =>
-                                updateNewContactRosterRow(index, { lastName: event.target.value })
+                                updateNewContactRosterRow(index, {
+                                  lastName: event.target.value,
+                                  profileId: "",
+                                })
                               }
+                              onBlur={() => tryLinkNewContactRosterRow(index)}
                               placeholder="Last"
                               autoComplete="family-name"
                             />
@@ -5735,8 +5812,12 @@ export default function RecruitingPage() {
                               style={{ minWidth: 160, flex: "2 1 180px" }}
                               value={person.email}
                               onChange={(event) =>
-                                updateNewContactRosterRow(index, { email: event.target.value })
+                                updateNewContactRosterRow(index, {
+                                  email: event.target.value,
+                                  profileId: "",
+                                })
                               }
+                              onBlur={() => tryLinkNewContactRosterRow(index)}
                               placeholder="Email"
                               autoComplete="email"
                             />
@@ -5816,6 +5897,13 @@ export default function RecruitingPage() {
                 </div>
               </RecruitingFormCard>
 
+              <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
+                This row will be saved to{" "}
+                <strong>
+                  {newContactDraft.boardDestination === "potential" ? "Potential Teams" : "Recruiting"}
+                </strong>
+                .
+              </div>
               <div className="row" style={{ gap: 8, flexWrap: "wrap", paddingTop: 4 }}>
                 <button className="btn btnPrimary" type="button" onClick={handleCreateContact}>
                   Save recruiting row
