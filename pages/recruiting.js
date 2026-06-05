@@ -1058,6 +1058,9 @@ function buildTeamMemberDrafts(record) {
       lastName: nameParts.lastName,
       email: person.email,
       phone: person.phone || "",
+      gender: person.gender || "",
+      isMinor: person.isMinor,
+      minorAge: person.minorAge,
     });
   });
 
@@ -1444,15 +1447,92 @@ function normalizeHeader(value) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+function cellImportValue(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "boolean") return "";
+  return String(value).trim();
+}
+
 function normalizeImportedGender(value) {
-  const normalized = String(value || "").trim();
-  const compact = normalized.toLowerCase();
+  const normalized = cellImportValue(value);
+  const compact = normalized.toLowerCase().replace(/[^a-z]/g, "");
   if (!compact) return "";
-  if (compact === "f" || compact === "female") return "Female";
-  if (compact === "m" || compact === "male") return "Male";
-  if (compact === "woman" || compact === "girl") return "Female";
-  if (compact === "man" || compact === "boy") return "Male";
+  if (compact === "f" || compact === "fem" || compact === "female" || compact === "woman" || compact === "girl") {
+    return "Female";
+  }
+  if (compact === "m" || compact === "mal" || compact === "male" || compact === "man" || compact === "boy") {
+    return "Male";
+  }
   return normalized;
+}
+
+function isNonGenderImportColumn(headerKey) {
+  const key = String(headerKey || "").toLowerCase();
+  if (!key) return true;
+  return (
+    key.includes("email") ||
+    key.includes("note") ||
+    key.includes("year") ||
+    key.includes("firstname") ||
+    key === "first" ||
+    key.includes("fname") ||
+    key.includes("givenname") ||
+    key.includes("lastname") ||
+    key === "last" ||
+    key.includes("lname") ||
+    key.includes("surname")
+  );
+}
+
+function summarizeImportPreviewRows(rows) {
+  const list = rows || [];
+  const candidateRows = list.filter(
+    (row) => String(row?.firstName || "").trim() || String(row?.lastName || "").trim() || String(row?.email || "").trim()
+  );
+  const importableRows = candidateRows.filter((row) => String(row?.email || "").trim());
+  const ignoredRows = candidateRows.length - importableRows.length;
+  return {
+    totalRows: list.length,
+    importableCount: importableRows.length,
+    ignoredCount: ignoredRows,
+  };
+}
+
+function resolveImportedGender(values) {
+  const fromNamedColumn = normalizeImportedGender(
+    cellImportValue(values.gender) ||
+      findImportedColumnValue(values, {
+        exactKeys: [
+          "gender",
+          "genders",
+          "gen",
+          "g",
+          "sex",
+          "mf",
+          "fm",
+          "morf",
+          "mof",
+          "fom",
+          "genderidentity",
+          "maleorfemale",
+          "malefemale",
+        ],
+        includesKeys: ["gender", "sex", "malefemale", "maleorfemale", "malefem", "femal", "mal"],
+      })
+  );
+  if (fromNamedColumn === "Female" || fromNamedColumn === "Male") {
+    return fromNamedColumn;
+  }
+
+  for (const [key, rawValue] of Object.entries(values || {})) {
+    if (isNonGenderImportColumn(key)) continue;
+    const normalized = normalizeImportedGender(rawValue);
+    if (normalized === "Female" || normalized === "Male") {
+      return normalized;
+    }
+  }
+
+  return fromNamedColumn;
 }
 
 function findImportedColumnValue(values, config) {
@@ -1498,6 +1578,7 @@ function parseImportRows(file) {
       header: 1,
       defval: "",
       blankrows: false,
+      raw: false,
     });
 
     if (!rows.length) return [];
@@ -1507,7 +1588,10 @@ function parseImportRows(file) {
 
     return dataRows.map((row) => {
       const values = Object.fromEntries(
-        headerRow.map((header, index) => [header, row[index]])
+        headerRow.map((header, index) => [
+          header || `col${index}`,
+          cellImportValue(row[index]),
+        ])
       );
       const recruitingYear = normalizeImportedRecruitingYear(
         findImportedColumnValue(values, {
@@ -1528,38 +1612,30 @@ function parseImportRows(file) {
           includesKeys: ["email", "mail"],
         })
       );
-      const importedGender = normalizeImportedGender(
-        values.gender ||
-        findImportedColumnValue(values, {
-          exactKeys: ["gender", "genders", "g", "sex", "mf", "morf", "genderidentity"],
-          includesKeys: ["gender", "sex", "mf", "malefemale"],
-        })
-      );
+      const importedGender = resolveImportedGender(values);
 
       return {
-        firstName: String(
+        firstName: cellImportValue(
           values.firstname ||
-          values.first ||
-          ""
-        ).trim(),
-        lastName: String(
+            values.first ||
+            findImportedColumnValue(values, {
+              exactKeys: ["firstname", "first", "fname", "givenname"],
+              includesKeys: ["firstname", "first", "fname", "given"],
+            })
+        ),
+        lastName: cellImportValue(
           values.lastname ||
-          values.last ||
-          ""
-        ).trim(),
+            values.last ||
+            findImportedColumnValue(values, {
+              exactKeys: ["lastname", "last", "lname", "surname", "familyname"],
+              includesKeys: ["lastname", "last", "lname", "surname", "family"],
+            })
+        ),
         email: importedEmail,
         gender: importedGender,
         recruitingYear,
-        mackaylaNotes: String(
-          values.mackaylanotes ||
-          values.mackaylanote ||
-          ""
-        ).trim(),
-        lesleeNotes: String(
-          values.lesleenotes ||
-          values.lesleenote ||
-          ""
-        ).trim(),
+        mackaylaNotes: cellImportValue(values.mackaylanotes || values.mackaylanote || ""),
+        lesleeNotes: cellImportValue(values.lesleenotes || values.lesleenote || ""),
       };
     });
   });
@@ -2238,6 +2314,10 @@ export default function RecruitingPage() {
       converted: convertedTeams.length,
     }),
     [convertedTeams, outreachQueue, pipelineRecords]
+  );
+  const importPreviewSummary = useMemo(
+    () => summarizeImportPreviewRows(importPreviewRows),
+    [importPreviewRows]
   );
   const bulkActionDescription = getBulkActionDescription(bulkAction);
   const showBulkDateField = bulkAction === "bulk email" || bulkAction === "bulk text";
@@ -5049,6 +5129,26 @@ export default function RecruitingPage() {
                 Close
               </button>
             </div>
+            <div className="small" style={{ marginBottom: 12, color: "var(--muted)", lineHeight: 1.45 }}>
+              Importing{" "}
+              <strong>{importPreviewSummary.importableCount}</strong>{" "}
+              contact{importPreviewSummary.importableCount === 1 ? "" : "s"}
+              {importPreviewSummary.totalRows !== importPreviewSummary.importableCount ? (
+                <>
+                  {" "}
+                  from <strong>{importPreviewSummary.totalRows}</strong> spreadsheet row
+                  {importPreviewSummary.totalRows === 1 ? "" : "s"}
+                </>
+              ) : null}
+              {importPreviewSummary.ignoredCount > 0 ? (
+                <>
+                  . <strong>{importPreviewSummary.ignoredCount}</strong> row
+                  {importPreviewSummary.ignoredCount === 1 ? "" : "s"} will be skipped because they are missing an email.
+                </>
+              ) : (
+                "."
+              )}
+            </div>
             <table className="table dataTableStriped">
               <thead>
                 <tr>
@@ -5091,7 +5191,8 @@ export default function RecruitingPage() {
             </div>
             <div className="row" style={{ marginTop: 12 }}>
               <button className="btn btnPrimary" type="button" onClick={handleConfirmImport}>
-                Save Imported Contacts
+                Save {importPreviewSummary.importableCount} Imported Contact
+                {importPreviewSummary.importableCount === 1 ? "" : "s"}
               </button>
             </div>
           </div>
