@@ -3,7 +3,6 @@
 LST Team Hub is a centralized web application designed to support team coordination, communication, and resource sharing for mission teams. The platform helps streamline organization, improve accessibility of information, and enhance collaboration across team members.
 
 ## Demo
-
 [![Watch the LST Team Hub demo](https://cdn.loom.com/sessions/thumbnails/00f3d6ef36c446ea9326f3fc534437f9-with-play.gif)](https://www.loom.com/share/00f3d6ef36c446ea9326f3fc534437f9)
 
 **[Watch the demo video](https://www.loom.com/share/00f3d6ef36c446ea9326f3fc534437f9)**
