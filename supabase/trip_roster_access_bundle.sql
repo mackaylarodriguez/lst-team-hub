@@ -1,7 +1,0 @@
--- This bundle was expanded and renamed for a single SQL Editor paste.
---
--- Use instead:  supabase/paste_trip_roster_rls_bundle.sql
---
--- That file includes helpers, profiles, trips, trip_team_members, trip_travel_safety
--- (+ acks), trip_activity, user_documents + worker-documents storage, travel_form_responses,
--- and trip_announcements (same policies as the separate *_rls.sql files in order).
