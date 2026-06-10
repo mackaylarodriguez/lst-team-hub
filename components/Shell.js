@@ -95,6 +95,16 @@ function SidebarIcon({ name }) {
     );
   }
 
+  if (name === "training") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 19.5V5.5L12 3l8 2.5V19.5" />
+        <path d="M12 11v8" />
+        <path d="M8.5 9.5 12 11l3.5-1.5" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="8" />
@@ -229,6 +239,9 @@ export default function Shell({ children }) {
       : null,
     isStaffUser
       ? { href: "/recruiting", label: "Recruiting", active: path === "/recruiting", icon: "recruiting" }
+      : null,
+    canManageTrips
+      ? { href: "/training", label: "Training", active: path === "/training", icon: "training" }
       : null,
     canManageTrips
       ? { href: "/budget", label: "Budget", active: path === "/budget", icon: "money" }
