@@ -1916,6 +1916,16 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   letter-spacing:-0.01em;
   color:color-mix(in srgb, var(--primary) 70%, #334155);
 }
+.tripTrainingSectionSubtitle{
+  margin:-4px 0 10px;
+  line-height:1.5;
+  color:var(--muted);
+}
+.tripTrainingRegisterLinks{
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid rgba(15, 23, 42, 0.06);
+}
 .tripTrainingTaskList{
   display:flex;
   flex-direction:column;

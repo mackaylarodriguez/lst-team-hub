@@ -9951,6 +9951,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   </div>
 
                   <h3 className="tripTrainingSectionHeading">Basic / Gateway / EndMeeting</h3>
+                  <p className="small tripTrainingSectionSubtitle">
+                    Please confirm the training dates you signed up for. Checking these off or
+                    choosing a date here does not register you for a session — use the
+                    registration links below (or in Training resources above).
+                  </p>
                   <div className="tripTrainingTaskList">
                     {supplementalTrainingModules.map((module) => {
                       const modKey = String(module.id);
@@ -10034,6 +10039,27 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         </div>
                       );
                     })}
+                  </div>
+                  <div className="tripTrainingRegisterLinks">
+                    <div className="small tripTrainingTaskMeta">Register for a session</div>
+                    <div className="tripChecklistTaskActions">
+                      <a
+                        href={basicTrainingUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="tripChecklistTaskLink"
+                      >
+                        Basic Training →
+                      </a>
+                      <a
+                        href={gatewayTrainingUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="tripChecklistTaskLink"
+                      >
+                        Gateway & EndMeetings →
+                      </a>
+                    </div>
                   </div>
                 </div>
               );
