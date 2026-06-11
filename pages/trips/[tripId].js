@@ -9892,23 +9892,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
 
           <CollapsibleSection defaultOpen>
           <div className="tripTrainingPanel">
-            <div className="cardSectionPill" style={{ marginBottom: 8 }}>Module completion</div>
-            <p className="small" style={{ marginBottom: 4, opacity: 0.88 }}>
-              Canvas and supplemental modules per participant.
-            </p>
-
             {visibleTrainingParticipants.map((participant) => {
               const trainingState = participant.trainingState || {};
 
               return (
                 <div key={participant.email} className="tripTrainingParticipantBlock">
-                  <div className="tripTrainingParticipantHeader">
-                    <div className="tripTrainingParticipantName">
-                      {canViewTeamDashboard ? participant.name : "My Training"}
-                    </div>
-                    <div className="spacer" />
-                    <span className="badge">{participant.percent}% complete</span>
-                  </div>
+                  {canViewTeamDashboard && visibleTrainingParticipants.length > 1 ? (
+                    <h3 className="tripTrainingSectionHeading">{participant.name}</h3>
+                  ) : null}
 
                   <h3 className="tripTrainingSectionHeading">Canvas modules</h3>
                   <div className="tripTrainingTaskList">
