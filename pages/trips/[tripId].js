@@ -9949,7 +9949,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   <p className="small tripTrainingSectionSubtitle">
                     Please confirm the training dates you signed up for. Checking these off or
                     choosing a date here does not register you for a session — use the
-                    registration links below (or in Training resources above).
+                    registration link in each row (or in Training resources above).
                   </p>
                   <div className="tripTrainingTaskList">
                     {supplementalTrainingModules.map((module) => {
@@ -9963,6 +9963,19 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         : rawStored;
                       const isComplete = !!trainingState[modKey];
                       const checkboxId = `training-${participant.email}-${modKey}`;
+                      const moduleTitle = String(module.title || "").trim();
+                      const registrationUrl =
+                        moduleTitle === "Basic Training"
+                          ? basicTrainingUrl
+                          : moduleTitle === "Gateway Training" || moduleTitle === "EndMeeting"
+                            ? gatewayTrainingUrl
+                            : null;
+                      const registrationLabel =
+                        moduleTitle === "Basic Training"
+                          ? "Register for Basic Training →"
+                          : moduleTitle === "Gateway Training" || moduleTitle === "EndMeeting"
+                            ? "Register for Gateway & EndMeetings →"
+                            : "Register here →";
                       return (
                         <div
                           key={`${participant.email}-${modKey}`}
@@ -10029,32 +10042,23 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                   />
                                 </div>
                               )}
+                              {registrationUrl ? (
+                                <div className="tripChecklistTaskActions">
+                                  <a
+                                    href={registrationUrl}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className="tripChecklistTaskLink"
+                                  >
+                                    {registrationLabel}
+                                  </a>
+                                </div>
+                              ) : null}
                             </div>
                           </div>
                         </div>
                       );
                     })}
-                  </div>
-                  <div className="tripTrainingRegisterLinks">
-                    <div className="small tripTrainingTaskMeta">Register for a session</div>
-                    <div className="tripChecklistTaskActions">
-                      <a
-                        href={basicTrainingUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="tripChecklistTaskLink"
-                      >
-                        Basic Training →
-                      </a>
-                      <a
-                        href={gatewayTrainingUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="tripChecklistTaskLink"
-                      >
-                        Gateway & EndMeetings →
-                      </a>
-                    </div>
                   </div>
                 </div>
               );
