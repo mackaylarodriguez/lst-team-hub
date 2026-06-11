@@ -9826,11 +9826,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
           <CollapsibleSection defaultOpen>
           <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Training resources</div>
-            <p className="small">
-              Central place for training links and module tracking.
-            </p>
-
-            <div style={{ height: 14 }} />
 
             <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
               Required training
