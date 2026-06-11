@@ -1913,56 +1913,65 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   border-radius:14px;
   text-decoration:none;
   color:inherit;
-  border:1px solid rgba(15, 23, 42, 0.1);
-  background:#fff;
-  box-shadow:0 1px 2px rgba(15, 23, 42, 0.04);
+  border:1.5px solid color-mix(in srgb, var(--training-accent) 24%, rgba(15, 23, 42, 0.1));
+  background:linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--training-accent) 11%, #fff) 0%,
+    color-mix(in srgb, var(--training-accent) 5%, #fff) 100%
+  );
+  box-shadow:0 2px 10px rgba(15, 23, 42, 0.06);
   cursor:pointer;
   transition:
-    transform .16s ease,
-    box-shadow .16s ease,
-    border-color .16s ease,
-    background-color .16s ease;
+    transform .18s ease,
+    box-shadow .18s ease,
+    border-color .18s ease,
+    background .18s ease;
 }
 .tripTrainingResourceBtn:hover{
-  transform:translateY(-2px);
-  border-color:color-mix(in srgb, var(--training-accent) 28%, rgba(15, 23, 42, 0.12));
-  background:rgba(255, 255, 255, 0.98);
-  box-shadow:0 8px 20px rgba(15, 23, 42, 0.08);
+  transform:translateY(-3px);
+  border-color:color-mix(in srgb, var(--training-accent) 42%, rgba(15, 23, 42, 0.12));
+  background:linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--training-accent) 16%, #fff) 0%,
+    color-mix(in srgb, var(--training-accent) 8%, #fff) 100%
+  );
+  box-shadow:0 10px 22px rgba(15, 23, 42, 0.1);
 }
 .tripTrainingResourceBtn:active{
-  transform:translateY(0);
-  box-shadow:0 2px 8px rgba(15, 23, 42, 0.06);
+  transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(15, 23, 42, 0.08);
 }
 .tripTrainingResourceBtn:focus-visible{
-  outline:2px solid color-mix(in srgb, var(--training-accent) 55%, var(--primary));
+  outline:2px solid color-mix(in srgb, var(--training-accent) 60%, var(--primary));
   outline-offset:2px;
 }
 .tripTrainingResourceBtnIcon{
   width:42px;
   height:42px;
   border-radius:12px;
-  background:color-mix(in srgb, var(--training-accent) 10%, #fff);
-  color:color-mix(in srgb, var(--training-accent) 78%, #0f172a);
-  border:1px solid color-mix(in srgb, var(--training-accent) 22%, rgba(15, 23, 42, 0.08));
+  background:var(--training-accent);
+  color:#fff;
   display:grid;
   place-items:center;
   font-weight:900;
   font-size:13px;
   flex-shrink:0;
-  transition:background-color .16s ease, border-color .16s ease;
+  box-shadow:0 2px 8px rgba(15, 23, 42, 0.12);
+  transition:transform .18s ease, box-shadow .18s ease;
 }
 .tripTrainingResourceBtn:hover .tripTrainingResourceBtnIcon{
-  background:color-mix(in srgb, var(--training-accent) 14%, #fff);
-  border-color:color-mix(in srgb, var(--training-accent) 32%, rgba(15, 23, 42, 0.1));
+  transform:scale(1.04);
+  box-shadow:0 4px 12px rgba(15, 23, 42, 0.14);
 }
 .tripTrainingResourceBtnTitle{
   font-weight:900;
   margin-bottom:4px;
-  color:var(--text);
+  color:color-mix(in srgb, var(--training-accent) 52%, #0f172a);
 }
 .tripTrainingResourceBtnCopy{
   margin:2px 0 0 0;
   padding:0;
+  opacity:.9;
   color:var(--muted);
 }
 .tripTrainingResourceBtnCopy li{
@@ -1974,13 +1983,12 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   gap:4px;
   margin-top:12px;
   font-size:12px;
-  font-weight:700;
-  color:var(--muted);
-  transition:gap .16s ease, color .16s ease;
+  font-weight:800;
+  color:color-mix(in srgb, var(--training-accent) 68%, #334155);
+  transition:gap .18s ease;
 }
 .tripTrainingResourceBtn:hover .tripTrainingResourceBtnCta{
-  gap:6px;
-  color:color-mix(in srgb, var(--training-accent) 70%, var(--primary));
+  gap:7px;
 }
 .tripTrainingOptionalGrid,
 .tripTrainingParticipantGrid,
