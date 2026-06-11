@@ -271,21 +271,43 @@ function AppEmptyState({
   description,
   actionLabel,
   onAction,
+  compact = false,
 }) {
   return (
     <div
       style={{
-        padding: "16px 18px",
+        padding: compact ? "12px 14px" : "16px 18px",
         borderRadius: 14,
         border: "1px dashed rgba(15, 23, 42, 0.16)",
         background: "rgba(248, 250, 252, 0.75)",
         display: "grid",
-        gap: 6,
+        gap: compact ? 4 : 6,
       }}
     >
-      <div style={{ fontWeight: 800, color: "var(--text)" }}>{title}</div>
+      <div
+        className={compact ? "small" : undefined}
+        style={
+          compact
+            ? {
+                fontWeight: 600,
+                fontSize: 13,
+                lineHeight: 1.45,
+                color: "var(--muted)",
+              }
+            : { fontWeight: 800, color: "var(--text)" }
+        }
+      >
+        {title}
+      </div>
       {description ? (
-        <div className="small" style={{ color: "var(--muted)", lineHeight: 1.5 }}>
+        <div
+          className="small"
+          style={{
+            color: "var(--muted)",
+            lineHeight: 1.45,
+            fontSize: compact ? 13 : undefined,
+          }}
+        >
           {description}
         </div>
       ) : null}
@@ -8338,6 +8360,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   </ul>
                 ) : (
                   <AppEmptyState
+                    compact
                     title="No upcoming meetings"
                     description="Add the next team meeting so workers can see when the team meets next."
                   />
@@ -8435,6 +8458,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   </ul>
                 ) : (
                   <AppEmptyState
+                    compact
                     title="No past meetings"
                     description="Past meetings and after-meeting notes will collect here once a meeting date has passed."
                   />
