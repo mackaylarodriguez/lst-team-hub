@@ -10095,48 +10095,39 @@ normalizeEmail(participant.email) === activeParticipantEmail
           </CollapsibleSection>
 
           <CollapsibleSection defaultOpen>
-          <div
-            className="row"
-            style={{
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              gap: 12,
-              marginBottom: 8,
-              flexWrap: "wrap",
-            }}
-          >
-            <div style={{ minWidth: 0, flex: "1 1 220px" }}>
-              <div className="cardSectionPill" style={{ marginBottom: 8 }}>Checklists</div>
-              <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
-                Worker tasks by section.
-              </div>
+          {canManageTrips && staffViewAllParticipants ? (
+            <div
+              className="row"
+              style={{
+                gap: 8,
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+                marginBottom: 8,
+              }}
+            >
+              <button
+                type="button"
+                className="btn"
+                style={{ flexShrink: 0 }}
+                onClick={() => setIsEditingWorkerDueDates((current) => !current)}
+              >
+                {isEditingWorkerDueDates ? "Done editing due dates" : "Edit due dates"}
+              </button>
+              <button
+                type="button"
+                className="btn btnPrimary"
+                style={{ flexShrink: 0 }}
+                onClick={() => {
+                  setIsAddingTask((current) => {
+                    if (current) setTaskStatusMessage("");
+                    return !current;
+                  });
+                }}
+              >
+                {isAddingTask ? "Cancel" : "Add task"}
+              </button>
             </div>
-            {canManageTrips && staffViewAllParticipants ? (
-              <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  className="btn"
-                  style={{ flexShrink: 0, alignSelf: "flex-start" }}
-                  onClick={() => setIsEditingWorkerDueDates((current) => !current)}
-                >
-                  {isEditingWorkerDueDates ? "Done editing due dates" : "Edit due dates"}
-                </button>
-                <button
-                  type="button"
-                  className="btn btnPrimary"
-                  style={{ flexShrink: 0, alignSelf: "flex-start" }}
-                  onClick={() => {
-                    setIsAddingTask((current) => {
-                      if (current) setTaskStatusMessage("");
-                      return !current;
-                    });
-                  }}
-                >
-                  {isAddingTask ? "Cancel" : "Add task"}
-                </button>
-              </div>
-            ) : null}
-          </div>
+          ) : null}
 
           {isAddingTask && canManageTrips && staffViewAllParticipants ? (
             <div
@@ -10212,14 +10203,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
 
               return (
                 <div key={participant.email} className="tripTrainingParticipantBlock">
-                  <div className="tripTrainingParticipantHeader">
-                    <div className="tripTrainingParticipantName">
-                      {canViewTeamDashboard ? participant.name : "My Tasks"}
-                    </div>
-                    <div className="spacer" />
-                    <span className="badge">{participant.percent}% complete</span>
-                  </div>
-
+                  {canViewTeamDashboard && visibleTaskParticipants.length > 1 ? (
+                    <h3 className="tripTrainingSectionHeading">{participant.name}</h3>
+                  ) : null}
                   {tripTasks.length > 0 ? (
                     groupedWorkerTasks.map(([section, sectionTasks]) => (
                       <div key={`${participant.email}-${section}`}>
