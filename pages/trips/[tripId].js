@@ -748,30 +748,28 @@ function TrainingResourceLink({ resource }) {
       href={resource.url}
       target="_blank"
       rel="noreferrer"
-      className="tripTrainingResourceRow"
+      className="tripTrainingResourceBtn"
       style={{ "--training-accent": resource.accent }}
     >
-      <span className="tripTrainingResourceRowIcon" aria-hidden="true">
-        {resource.icon}
-      </span>
-      <span className="tripTrainingResourceRowContent">
-        <span className="tripTrainingResourceRowHeader">
-          <span className="tripTrainingResourceRowTitle">{resource.title}</span>
-          <span className="tripTrainingResourceRowAction">
-            Open
+      <div className="row" style={{ alignItems: "flex-start" }}>
+        <div className="tripTrainingResourceBtnIcon">{resource.icon}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="tripTrainingResourceBtnTitle">{resource.title}</div>
+          {Array.isArray(resource.descriptionBullets) ? (
+            <ul className="small tripTrainingResourceBtnCopy">
+              {resource.descriptionBullets.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <div className="small tripTrainingResourceBtnCopy">{resource.description}</div>
+          )}
+          <span className="tripTrainingResourceBtnCta">
+            Open training
             <span aria-hidden="true">→</span>
           </span>
-        </span>
-        {Array.isArray(resource.descriptionBullets) ? (
-          <ul className="small tripTrainingResourceRowDesc">
-            {resource.descriptionBullets.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        ) : resource.description ? (
-          <span className="small tripTrainingResourceRowDesc">{resource.description}</span>
-        ) : null}
-      </span>
+        </div>
+      </div>
     </a>
   );
 }
@@ -9844,21 +9842,29 @@ normalizeEmail(participant.email) === activeParticipantEmail
           )}
 
           <CollapsibleSection defaultOpen>
-          <div className="tripTrainingPanel">
+          <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Training resources</div>
             <p className="small">
               Central place for training links and module tracking.
             </p>
 
-            <h3 className="tripTrainingSectionHeading">Required training</h3>
-            <div className="tripTrainingTaskList">
+            <div style={{ height: 14 }} />
+
+            <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
+              Required training
+            </div>
+            <div className="tripTrainingResourceGrid">
               {requiredTrainingResources.map((resource) => (
                 <TrainingResourceLink key={resource.id} resource={resource} />
               ))}
             </div>
 
-            <h3 className="tripTrainingSectionHeading">Optional</h3>
-            <div className="tripTrainingTaskList">
+            <div style={{ height: 18 }} />
+
+            <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
+              Optional
+            </div>
+            <div className="tripTrainingOptionalGrid">
               {optionalTrainingResources.map((resource) => (
                 <TrainingResourceLink key={resource.id} resource={resource} />
               ))}

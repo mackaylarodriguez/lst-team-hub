@@ -2166,6 +2166,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:grid;
   gap:16px;
 }
+.tripTrainingOptionalGrid{
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+}
 .tripSectionCard{
   overflow:hidden;
 }
