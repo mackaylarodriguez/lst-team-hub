@@ -1985,6 +1985,29 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-size:13px;
   padding:7px 10px;
 }
+.tripChecklistTaskActions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px 14px;
+}
+.tripChecklistTaskLink{
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  padding:0;
+  border:0;
+  background:none;
+  font:inherit;
+  font-size:12px;
+  font-weight:600;
+  line-height:1.45;
+  color:var(--primary);
+  text-decoration:none;
+  cursor:pointer;
+}
+.tripChecklistTaskLink:hover{
+  text-decoration:underline;
+}
 .tripTrainingParticipantBlock{
   margin-top:8px;
   margin-bottom:28px;

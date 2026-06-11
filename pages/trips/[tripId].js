@@ -10206,205 +10206,235 @@ normalizeEmail(participant.email) === activeParticipantEmail
             </div>
           ) : null}
 
-          <div
-            className="tripTaskParticipantGrid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: canViewTeamDashboard
-                ? "repeat(auto-fit, minmax(260px, 1fr))"
-                : "1fr",
-              gap: 16,
-            }}
-          >
+          <div className="tripTrainingPanel">
             {visibleTaskParticipants.map((participant, participantIndex) => {
               const taskState = participantTaskStates[normalizeEmail(participant.email)] || {};
 
               return (
-                <div key={participant.email} className="card pad">
-                  <div className="row" style={{ marginBottom: 10 }}>
-                    <div>
-                      <div style={{ fontWeight: 900 }}>
-                        {canViewTeamDashboard ? participant.name : "My Tasks"}
-                      </div>
+                <div key={participant.email} className="tripTrainingParticipantBlock">
+                  <div className="tripTrainingParticipantHeader">
+                    <div className="tripTrainingParticipantName">
+                      {canViewTeamDashboard ? participant.name : "My Tasks"}
                     </div>
                     <div className="spacer" />
                     <span className="badge">{participant.percent}% complete</span>
                   </div>
 
                   {tripTasks.length > 0 ? (
-                    <div style={{ display: "grid", gap: 14 }}>
-                      {groupedWorkerTasks.map(([section, sectionTasks]) => (
-                        <div key={`${participant.email}-${section}`}>
-                          <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
-                            {section}
-                          </div>
-                          <div style={{ display: "grid", gap: 0 }}>
-                            {sectionTasks.map((task) => {
-                              const done = isWorkerTaskCompletedInState(task, taskState);
-                              const canEditTaskDueInThisColumn =
-                                canViewTeamDashboard && participantIndex === 0;
-                              const isTravelFormTask = task.title === "Fill out Travel Form";
-                              const canFillTravelForm = isTravelFormTask && String(participant.id) === String(currentParticipant?.id);
-                              const workerTaskTemplate = findWorkerTaskTemplate(task);
-                              const isChecklistTask = task.id === "worker-task-checklist" || task.title === "Received and has reviewed Project Management Checklist";
-                              const isTicketsTask = task.id === "worker-task-tickets" || task.title === "Proofread my tickets";
-                              const isMaterialsPageTask = workerTaskTemplate?.id === "worker-task-materials-page";
-                              const isDocumentsTask = isWorkerPassportOrVisaUploadTask(task);
-                              const documentsTabUrl = trip?.id
-          ? `/trips/${encodeURIComponent(trip.id)}?tab=documents`
-          : null;
-                              const participantRefKey = participant.rosterOnly
-                                ? (String(participant.id || "").startsWith("roster-member-")
-                                    ? `roster:${String(participant.id).slice("roster-member-".length)}`
-                                    : "")
-                                : `user:${participant.id}`;
-                              const taskLink = isChecklistTask
-                                ? (preferredTripResourceOpenUrl(effectiveSiteInfoDoc) || workerTaskTemplate?.link)
-                                : isTicketsTask
-                                  ? null
-                                  : isDocumentsTask
-                                    ? documentsTabUrl
-                                    : workerTaskTemplate?.link;
-                              const taskDetails = task.description || workerTaskTemplate?.details;
+                    groupedWorkerTasks.map(([section, sectionTasks]) => (
+                      <div key={`${participant.email}-${section}`}>
+                        <h3 className="tripTrainingSectionHeading">{section}</h3>
+                        <div className="tripTrainingTaskList">
+                          {sectionTasks.map((task) => {
+                            const done = isWorkerTaskCompletedInState(task, taskState);
+                            const canEditTaskDueInThisColumn =
+                              canViewTeamDashboard && participantIndex === 0;
+                            const isTravelFormTask = task.title === "Fill out Travel Form";
+                            const canFillTravelForm =
+                              isTravelFormTask &&
+                              String(participant.id) === String(currentParticipant?.id);
+                            const workerTaskTemplate = findWorkerTaskTemplate(task);
+                            const isChecklistTask =
+                              task.id === "worker-task-checklist" ||
+                              task.title === "Received and has reviewed Project Management Checklist";
+                            const isTicketsTask =
+                              task.id === "worker-task-tickets" ||
+                              task.title === "Proofread my tickets";
+                            const isMaterialsPageTask =
+                              workerTaskTemplate?.id === "worker-task-materials-page";
+                            const isDocumentsTask = isWorkerPassportOrVisaUploadTask(task);
+                            const documentsTabUrl = trip?.id
+                              ? `/trips/${encodeURIComponent(trip.id)}?tab=documents`
+                              : null;
+                            const participantRefKey = participant.rosterOnly
+                              ? String(participant.id || "").startsWith("roster-member-")
+                                ? `roster:${String(participant.id).slice("roster-member-".length)}`
+                                : ""
+                              : `user:${participant.id}`;
+                            const taskLink = isChecklistTask
+                              ? preferredTripResourceOpenUrl(effectiveSiteInfoDoc) ||
+                                workerTaskTemplate?.link
+                              : isTicketsTask
+                                ? null
+                                : isDocumentsTask
+                                  ? documentsTabUrl
+                                  : workerTaskTemplate?.link;
+                            const taskDetails = task.description || workerTaskTemplate?.details;
+                            const checkboxId = `task-${participant.email}-${task.id}`.replace(
+                              /[^a-zA-Z0-9_-]/g,
+                              "-"
+                            );
 
-                              return (
-                                <div
-                                  key={`${participant.email}-${task.id}`}
-                                  id={
-                                    !canViewTeamDashboard &&
-                                    String(participant.id || "") === String(currentParticipant?.id || "")
-                                      ? buildWorkerTaskRowDomId(task.id)
-                                      : undefined
-                                  }
-                                  className="row"
-                                  style={{
-                                    padding: "8px 0",
-                                    borderBottom: "1px solid var(--border)",
-                                    alignItems: "flex-start",
-                                  }}
-                                >
+                            return (
+                              <div
+                                key={`${participant.email}-${task.id}`}
+                                id={
+                                  !canViewTeamDashboard &&
+                                  String(participant.id || "") ===
+                                    String(currentParticipant?.id || "")
+                                    ? buildWorkerTaskRowDomId(task.id)
+                                    : undefined
+                                }
+                                className="tripTrainingTaskRow"
+                              >
+                                <div className="tripTrainingTaskRowInner">
                                   <input
+                                    id={checkboxId}
                                     type="checkbox"
+                                    className="tripTrainingTaskCheckbox"
                                     checked={done}
                                     onChange={() => toggleTask(task.id, participant.email)}
-                                    style={{ marginTop: 2 }}
                                   />
-                                  <div style={{ flex: 1 }}>
-                                  <div
-                                      style={{
-                                        fontSize: 13,
-                                        fontWeight: 400,
-                                        lineHeight: 1.35,
-                                        marginBottom: 4,
-                                      }}
-                                    >
-                                      {getWorkerTaskDisplayTitle(task, trip?.location)}
-                                      {taskLink || isTicketsTask || isMaterialsPageTask ? (
-                                        <span style={{ marginLeft: 8 }}>
-                                          <AppDetailAction
-                                            href={
-                                              isTicketsTask || isDocumentsTask || isMaterialsPageTask
-                                                ? undefined
-                                                : taskLink
-                                            }
-                                            onClick={
-                                              isTicketsTask
-                                                ? () => setTab(tripDocumentsTabLabel)
-                                                : isMaterialsPageTask
-                                                  ? () => setTab("Materials")
-                                                  : isDocumentsTask
-                                                    ? () => setTab(participantDocumentsTabLabel)
-                                                    : undefined
-                                            }
-                                            compact
-                                          >
-                                            View details
-                                          </AppDetailAction>
-                                        </span>
-                                      ) : null}
-                                      {canFillTravelForm ? (
-                                        <button
-                                          type="button"
-                                          className="btn"
-                                          style={{ marginLeft: 10, padding: "4px 10px", fontSize: 12 }}
-                                          onClick={() => openTravelFormModal({ refKey: `user:${participant.id}`, email: participant.email || "" })}
-                                        >
-                                          Fill out
-                                        </button>
-                                      ) : isTravelFormTask && canViewTeamDashboard && participantRefKey ? (
-                                        <button
-                                          type="button"
-                                          className="btn"
-                                          style={{ marginLeft: 10, padding: "4px 10px", fontSize: 12 }}
-                                          onClick={() => openTravelFormModal({ refKey: participantRefKey, email: participant.email || "" })}
-                                        >
-                                          View / Edit
-                                        </button>
-                                      ) : null}
+                                  <div className="tripTrainingTaskRowContent">
+                                    <div className="tripTrainingTaskRowHeader">
+                                      <label className="tripTrainingTaskTitle" htmlFor={checkboxId}>
+                                        {getWorkerTaskDisplayTitle(task, trip?.location)}
+                                      </label>
+                                      <span
+                                        className={
+                                          "tripTrainingTaskStatus" + (done ? " isComplete" : "")
+                                        }
+                                      >
+                                        {done ? "Complete" : "Not started"}
+                                      </span>
                                     </div>
                                     {canViewTeamDashboard ? (
                                       isEditingWorkerDueDates ? (
                                         canEditTaskDueInThisColumn ? (
-                                          <div
-                                            className="row"
-                                            style={{
-                                              alignItems: "center",
-                                              gap: 8,
-                                              flexWrap: "wrap",
-                                              marginTop: 2,
-                                            }}
-                                          >
-                                            <input
-                                              className="input"
-                                              type="date"
-                                              style={{ width: 170 }}
-                                              value={toDateInputValue(task.due)}
-                                              onChange={(e) =>
-                                                void persistWorkerTaskDueDate(task.id, e.target.value)
-                                              }
-                                            />
-                                            <button
-                                              type="button"
-                                              className="btn"
-                                              style={{ padding: "2px 10px", fontSize: 12 }}
-                                              onClick={() => void persistWorkerTaskDueDate(task.id, "")}
+                                          <div className="tripTrainingTaskField">
+                                            <div
+                                              className="row"
+                                              style={{
+                                                alignItems: "center",
+                                                gap: 8,
+                                                flexWrap: "wrap",
+                                              }}
                                             >
-                                              Clear
-                                            </button>
+                                              <input
+                                                className="input"
+                                                type="date"
+                                                style={{ width: 170 }}
+                                                value={toDateInputValue(task.due)}
+                                                onChange={(e) =>
+                                                  void persistWorkerTaskDueDate(
+                                                    task.id,
+                                                    e.target.value
+                                                  )
+                                                }
+                                              />
+                                              <button
+                                                type="button"
+                                                className="btn"
+                                                style={{ padding: "2px 10px", fontSize: 12 }}
+                                                onClick={() =>
+                                                  void persistWorkerTaskDueDate(task.id, "")
+                                                }
+                                              >
+                                                Clear
+                                              </button>
+                                            </div>
                                           </div>
                                         ) : (
-                                          <div className="small" style={{ color: "var(--muted)", marginTop: 2 }}>
-                                            {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
+                                          <div className="small tripTrainingTaskMeta">
+                                            {task.due
+                                              ? `Due: ${formatShortDate(task.due)}`
+                                              : "Due: Not set"}
                                           </div>
                                         )
                                       ) : (
-                                        <div className="small" style={{ color: "var(--muted)", marginTop: 2 }}>
-                                          {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
+                                        <div className="small tripTrainingTaskMeta">
+                                          {task.due
+                                            ? `Due: ${formatShortDate(task.due)}`
+                                            : "Due: Not set"}
                                         </div>
                                       )
-                                    ) : (
-                                      <div className="small">
-                                        {task.due ? `Due: ${formatShortDate(task.due)}` : "Due: Not set"}
+                                    ) : task.due ? (
+                                      <div className="small tripTrainingTaskMeta">
+                                        {`Due: ${formatShortDate(task.due)}`}
                                       </div>
-                                    )}
+                                    ) : null}
                                     {taskDetails ? (
-                                      <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
-                                        {taskDetails}
+                                      <div className="small tripTrainingTaskMeta">{taskDetails}</div>
+                                    ) : null}
+                                    {taskLink ||
+                                    isTicketsTask ||
+                                    isMaterialsPageTask ||
+                                    canFillTravelForm ||
+                                    (isTravelFormTask &&
+                                      canViewTeamDashboard &&
+                                      participantRefKey) ? (
+                                      <div className="tripChecklistTaskActions">
+                                        {taskLink || isTicketsTask || isMaterialsPageTask ? (
+                                          isTicketsTask || isDocumentsTask || isMaterialsPageTask ? (
+                                            <button
+                                              type="button"
+                                              className="tripChecklistTaskLink"
+                                              onClick={
+                                                isTicketsTask
+                                                  ? () => setTab(tripDocumentsTabLabel)
+                                                  : isMaterialsPageTask
+                                                    ? () => setTab("Materials")
+                                                    : () => setTab(participantDocumentsTabLabel)
+                                              }
+                                            >
+                                              View details →
+                                            </button>
+                                          ) : (
+                                            <a
+                                              href={taskLink}
+                                              target="_blank"
+                                              rel="noreferrer noopener"
+                                              className="tripChecklistTaskLink"
+                                            >
+                                              View details →
+                                            </a>
+                                          )
+                                        ) : null}
+                                        {canFillTravelForm ? (
+                                          <button
+                                            type="button"
+                                            className="tripChecklistTaskLink"
+                                            onClick={() =>
+                                              openTravelFormModal({
+                                                refKey: `user:${participant.id}`,
+                                                email: participant.email || "",
+                                              })
+                                            }
+                                          >
+                                            Fill out travel form →
+                                          </button>
+                                        ) : isTravelFormTask &&
+                                          canViewTeamDashboard &&
+                                          participantRefKey ? (
+                                          <button
+                                            type="button"
+                                            className="tripChecklistTaskLink"
+                                            onClick={() =>
+                                              openTravelFormModal({
+                                                refKey: participantRefKey,
+                                                email: participant.email || "",
+                                              })
+                                            }
+                                          >
+                                            View / edit travel form →
+                                          </button>
+                                        ) : null}
                                       </div>
                                     ) : null}
                                   </div>
-                                  <span className={"badge " + (done ? "badgeSuccess" : "badgeDanger")}>
-                                    {done ? "Complete" : "Not started"}
-                                  </span>
                                 </div>
-                              );
-                            })}
-                          </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))
                   ) : (
-                    <div className="small">No tasks for this trip yet.</div>
+                    <AppEmptyState
+                      compact
+                      title="No tasks yet"
+                      description="Tasks for this trip will appear here once they are added."
+                    />
                   )}
                 </div>
               );
