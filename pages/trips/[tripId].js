@@ -1492,7 +1492,8 @@ export default function TripPage() {
     });
   }, [tripSetupStatus]);
 
-  const trainingAccessUrl = "https://lst365.sharepoint.com/:b:/g/IQD0aBKBPtQsQ6oh55gqMG4IAe3aFtSVxmywEXEBasP_5jY?e=SZ9m0j";
+  const trainingAccessUrl =
+    "https://lst365.sharepoint.com/:w:/g/IQAgtqt1ku4YT7cr5lj-_hO-ATU5X5ep2OOZAJFUnQDhtpE?e=z8Slfm";
   const basicTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=134&";
   const gatewayTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=136&";
 
@@ -1502,7 +1503,7 @@ export default function TripPage() {
       group: "required",
       title: "On-Demand Training",
       description:
-        "This is video-based training that can be done at times convenient for you on Canvas.",
+        "Video-based training you can complete on your own schedule via Google Classroom.",
       url: trainingAccessUrl,
       icon: "OD",
       accent: "#2f4993",
