@@ -1906,6 +1906,175 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:16px;
 }
+.tripTrainingPanel{
+  margin-bottom:4px;
+}
+.tripTrainingSectionHeading{
+  margin:18px 0 10px;
+  font-size:1.05rem;
+  font-weight:900;
+  letter-spacing:-0.01em;
+  color:color-mix(in srgb, var(--primary) 70%, #334155);
+}
+.tripTrainingTaskList{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.tripTrainingTaskRow{
+  background:var(--card);
+  border:1px solid rgba(15, 23, 42, 0.08);
+  border-radius:12px;
+  padding:12px 14px;
+  box-shadow:0 1px 3px rgba(15, 23, 42, 0.04);
+}
+.tripTrainingTaskRowInner{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  width:100%;
+}
+.tripTrainingTaskCheckbox{
+  margin-top:3px;
+  flex-shrink:0;
+  width:16px;
+  height:16px;
+  accent-color:var(--primary);
+}
+.tripTrainingTaskRowContent{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.tripTrainingTaskRowHeader{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.tripTrainingTaskTitle{
+  font-size:14px;
+  font-weight:600;
+  line-height:1.35;
+  color:var(--text);
+  cursor:pointer;
+}
+.tripTrainingTaskStatus{
+  flex-shrink:0;
+  font-size:12px;
+  font-weight:600;
+  color:var(--muted);
+  white-space:nowrap;
+}
+.tripTrainingTaskStatus.isComplete{
+  color:color-mix(in srgb, var(--success) 72%, #0f766e);
+}
+.tripTrainingTaskMeta{
+  color:var(--muted);
+  line-height:1.4;
+}
+.tripTrainingTaskField{
+  max-width:100%;
+}
+.tripTrainingTaskField .input,
+.tripTrainingTaskField select{
+  width:100%;
+  max-width:360px;
+  font-size:13px;
+  padding:7px 10px;
+}
+.tripTrainingParticipantBlock{
+  margin-top:8px;
+  margin-bottom:28px;
+}
+.tripTrainingParticipantBlock:last-child{
+  margin-bottom:0;
+}
+.tripTrainingParticipantHeader{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:2px;
+  padding-bottom:10px;
+  border-bottom:1px solid rgba(15, 23, 42, 0.06);
+}
+.tripTrainingParticipantName{
+  font-weight:900;
+  font-size:15px;
+}
+.tripTrainingResourceRow{
+  --training-accent:var(--primary);
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid rgba(15, 23, 42, 0.08);
+  background:var(--card);
+  text-decoration:none;
+  color:inherit;
+  box-shadow:0 1px 3px rgba(15, 23, 42, 0.04);
+  transition:border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.tripTrainingResourceRow:hover{
+  border-color:color-mix(in srgb, var(--training-accent) 28%, rgba(15, 23, 42, 0.1));
+  box-shadow:0 4px 14px rgba(15, 23, 42, 0.07);
+  transform:translateY(-1px);
+  text-decoration:none;
+}
+.tripTrainingResourceRow:focus-visible{
+  outline:2px solid color-mix(in srgb, var(--training-accent) 55%, var(--primary));
+  outline-offset:2px;
+}
+.tripTrainingResourceRowIcon{
+  width:36px;
+  height:36px;
+  border-radius:10px;
+  background:color-mix(in srgb, var(--training-accent) 88%, #fff);
+  color:#fff;
+  display:grid;
+  place-items:center;
+  font-weight:800;
+  font-size:11px;
+  flex-shrink:0;
+}
+.tripTrainingResourceRowContent{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.tripTrainingResourceRowHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.tripTrainingResourceRowTitle{
+  font-weight:700;
+  font-size:14px;
+  color:var(--text);
+}
+.tripTrainingResourceRowAction{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:12px;
+  font-weight:700;
+  color:color-mix(in srgb, var(--training-accent) 65%, var(--primary));
+  white-space:nowrap;
+}
+.tripTrainingResourceRowDesc{
+  margin:0;
+  color:var(--muted);
+  line-height:1.45;
+}
+.tripTrainingResourceRowDesc li{
+  margin-left:16px;
+}
 .tripTrainingResourceBtn{
   --training-accent:var(--primary);
   display:block;

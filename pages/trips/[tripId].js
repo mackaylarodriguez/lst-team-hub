@@ -726,28 +726,30 @@ function TrainingResourceLink({ resource }) {
       href={resource.url}
       target="_blank"
       rel="noreferrer"
-      className="tripTrainingResourceBtn"
+      className="tripTrainingResourceRow"
       style={{ "--training-accent": resource.accent }}
     >
-      <div className="row" style={{ alignItems: "flex-start" }}>
-        <div className="tripTrainingResourceBtnIcon">{resource.icon}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="tripTrainingResourceBtnTitle">{resource.title}</div>
-          {Array.isArray(resource.descriptionBullets) ? (
-            <ul className="small tripTrainingResourceBtnCopy">
-              {resource.descriptionBullets.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          ) : (
-            <div className="small tripTrainingResourceBtnCopy">{resource.description}</div>
-          )}
-          <span className="tripTrainingResourceBtnCta">
-            Open training
+      <span className="tripTrainingResourceRowIcon" aria-hidden="true">
+        {resource.icon}
+      </span>
+      <span className="tripTrainingResourceRowContent">
+        <span className="tripTrainingResourceRowHeader">
+          <span className="tripTrainingResourceRowTitle">{resource.title}</span>
+          <span className="tripTrainingResourceRowAction">
+            Open
             <span aria-hidden="true">→</span>
           </span>
-        </div>
-      </div>
+        </span>
+        {Array.isArray(resource.descriptionBullets) ? (
+          <ul className="small tripTrainingResourceRowDesc">
+            {resource.descriptionBullets.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : resource.description ? (
+          <span className="small tripTrainingResourceRowDesc">{resource.description}</span>
+        ) : null}
+      </span>
     </a>
   );
 }
@@ -1201,10 +1203,6 @@ export default function TripPage() {
   const [taskStatusMessage, setTaskStatusMessage] = useState("");
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [isEditingWorkerDueDates, setIsEditingWorkerDueDates] = useState(false);
-  /** Inline editor key for training-module dates (`participant::module`). */
-  const [editingTrainingDateKey, setEditingTrainingDateKey] = useState("");
-  /** Local value while editing training-module date (saved only on explicit Save). */
-  const [trainingDateDraft, setTrainingDateDraft] = useState("");
 
   const [overviewNotes, setOverviewNotes] = useState([]);
   const [editingOverviewNoteId, setEditingOverviewNoteId] = useState("");
@@ -9822,44 +9820,21 @@ normalizeEmail(participant.email) === activeParticipantEmail
           )}
 
           <CollapsibleSection defaultOpen>
-          <div className="card pad">
+          <div className="tripTrainingPanel">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Training resources</div>
             <p className="small">
               Central place for training links and module tracking.
             </p>
 
-            <div style={{ height: 14 }} />
-
-            <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
-              Required training
-            </div>
-            <div
-              className="tripTrainingResourceGrid"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                gap: 16,
-              }}
-            >
+            <h3 className="tripTrainingSectionHeading">Required training</h3>
+            <div className="tripTrainingTaskList">
               {requiredTrainingResources.map((resource) => (
                 <TrainingResourceLink key={resource.id} resource={resource} />
               ))}
             </div>
 
-            <div style={{ height: 18 }} />
-
-            <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
-              Optional
-            </div>
-
-            <div
-              className="tripTrainingOptionalGrid"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: 16,
-              }}
-            >
+            <h3 className="tripTrainingSectionHeading">Optional</h3>
+            <div className="tripTrainingTaskList">
               {optionalTrainingResources.map((resource) => (
                 <TrainingResourceLink key={resource.id} resource={resource} />
               ))}
@@ -9868,52 +9843,31 @@ normalizeEmail(participant.email) === activeParticipantEmail
           </CollapsibleSection>
 
           <CollapsibleSection defaultOpen>
-          <div className="cardSectionPill" style={{ marginBottom: 8 }}>Module completion</div>
-          <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
-            Canvas and supplemental modules per participant.
-          </div>
-          <div
-            className="tripTrainingParticipantGrid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: canViewTeamDashboard
-                ? "repeat(auto-fit, minmax(min(100%, 340px), 1fr))"
-                : "1fr",
-              gap: 16,
-            }}
-          >
+          <div className="tripTrainingPanel">
+            <div className="cardSectionPill" style={{ marginBottom: 8 }}>Module completion</div>
+            <p className="small" style={{ marginBottom: 4, opacity: 0.88 }}>
+              Canvas and supplemental modules per participant.
+            </p>
+
             {visibleTrainingParticipants.map((participant) => {
               const trainingState = participant.trainingState || {};
-              const trainingParticipantKey =
-                normalizeEmail(participant.email || "") || String(participant.id || "");
 
               return (
-                <div key={participant.email} className="card pad">
-                  <div className="row" style={{ marginBottom: 10 }}>
-                    <div>
-                      <div style={{ fontWeight: 900 }}>
-                        {canViewTeamDashboard ? participant.name : "My Training"}
-                      </div>
+                <div key={participant.email} className="tripTrainingParticipantBlock">
+                  <div className="tripTrainingParticipantHeader">
+                    <div className="tripTrainingParticipantName">
+                      {canViewTeamDashboard ? participant.name : "My Training"}
                     </div>
                     <div className="spacer" />
                     <span className="badge">{participant.percent}% complete</span>
                   </div>
 
-                  <div style={{ marginBottom: 12 }}>
-                    <div className="small" style={{ fontWeight: 900, fontSize: 13, marginBottom: 8 }}>
-                      Canvas Modules
-                    </div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 8,
-                        padding: "10px 12px",
-                        borderRadius: 14,
-                        border: "1px solid rgba(15, 23, 42, 0.08)",
-                        background: "rgba(255,255,255,.78)",
-                      }}
-                    >
-                      {canvasTrainingModules.map((module) => (
+                  <h3 className="tripTrainingSectionHeading">Canvas modules</h3>
+                  <div className="tripTrainingTaskList">
+                    {canvasTrainingModules.map((module) => {
+                      const isComplete = !!trainingState[module.id];
+                      const checkboxId = `training-${participant.email}-${module.id}`;
+                      return (
                         <div
                           key={`${participant.email}-${module.id}`}
                           id={
@@ -9922,85 +9876,55 @@ normalizeEmail(participant.email) === activeParticipantEmail
                               ? buildTrainingModuleRowDomId(module.id)
                               : undefined
                           }
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "18px minmax(0, 1fr)",
-                            gap: 10,
-                            alignItems: "start",
-                            paddingBottom: 8,
-                            borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
-                          }}
+                          className="tripTrainingTaskRow"
                         >
-                          <input
-                            type="checkbox"
-                            checked={!!trainingState[module.id]}
-                            onChange={() => toggleTraining(module.id, participant.email)}
-                            style={{ marginTop: 2 }}
-                          />
-                          <div>
-                            <div
-                              className="row"
-                              style={{ alignItems: "center", justifyContent: "space-between", gap: 8 }}
-                            >
-                              <div
-                                style={{
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                  lineHeight: 1.35,
-                                }}
-                              >
-                                {module.title}
+                          <div className="tripTrainingTaskRowInner">
+                            <input
+                              id={checkboxId}
+                              type="checkbox"
+                              className="tripTrainingTaskCheckbox"
+                              checked={isComplete}
+                              onChange={() => toggleTraining(module.id, participant.email)}
+                            />
+                            <div className="tripTrainingTaskRowContent">
+                              <div className="tripTrainingTaskRowHeader">
+                                <label className="tripTrainingTaskTitle" htmlFor={checkboxId}>
+                                  {module.title}
+                                </label>
+                                <span
+                                  className={
+                                    "tripTrainingTaskStatus" + (isComplete ? " isComplete" : "")
+                                  }
+                                >
+                                  {isComplete ? "Completed" : "Not started"}
+                                </span>
                               </div>
-                              <span
-                                className={
-                                  "badge " +
-                                  (!!trainingState[module.id] ? "badgeSuccess" : "badgeDanger")
-                                }
-                              >
-                                {!!trainingState[module.id] ? "Completed" : "Not started"}
-                              </span>
+                              {module.deadlineDate ? (
+                                <div className="small tripTrainingTaskMeta">
+                                  {`Due: ${formatShortDate(module.deadlineDate)}`}
+                                </div>
+                              ) : null}
                             </div>
-                            {module.deadlineDate ? (
-                              <div className="small" style={{ marginTop: 4 }}>
-                                {`Due: ${formatShortDate(module.deadlineDate)}`}
-                              </div>
-                            ) : null}
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
 
-                  <div style={{ marginTop: 12 }}>
-                    <div className="small" style={{ fontWeight: 900, fontSize: 13, marginBottom: 8 }}>
-                      Basic / Gateway / EndMeeting
-                    </div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 8,
-                        padding: "10px 12px",
-                        borderRadius: 14,
-                        border: "1px solid rgba(15, 23, 42, 0.08)",
-                        background: "rgba(255,255,255,.78)",
-                      }}
-                    >
-                      {supplementalTrainingModules.map((module) => {
-                        const modKey = String(module.id);
-                        const sessionOptions = getTrainingSessionOptionsForModuleTitle(module.title);
-                        const dateKey = `${modKey}Date`;
-                        const rawStored = trainingState[dateKey] || "";
-                        const trainingDateEditKey = `${trainingParticipantKey}::${modKey}`;
-                        const isEditingTrainingDate = editingTrainingDateKey === trainingDateEditKey;
-                        const formattedTrainingDate = toDateInputValue(rawStored);
-                        const selectValue = sessionOptions
-                          ? resolveTrainingSessionSelectValue(rawStored, sessionOptions)
-                          : rawStored;
-                        const selectedSessionLabel =
-                          sessionOptions && selectValue
-                            ? sessionOptions.find((o) => o.value === selectValue)?.label || ""
-                            : "";
-                        return (
+                  <h3 className="tripTrainingSectionHeading">Basic / Gateway / EndMeeting</h3>
+                  <div className="tripTrainingTaskList">
+                    {supplementalTrainingModules.map((module) => {
+                      const modKey = String(module.id);
+                      const sessionOptions = getTrainingSessionOptionsForModuleTitle(module.title);
+                      const dateKey = `${modKey}Date`;
+                      const rawStored = trainingState[dateKey] || "";
+                      const formattedTrainingDate = toDateInputValue(rawStored);
+                      const selectValue = sessionOptions
+                        ? resolveTrainingSessionSelectValue(rawStored, sessionOptions)
+                        : rawStored;
+                      const isComplete = !!trainingState[modKey];
+                      const checkboxId = `training-${participant.email}-${modKey}`;
+                      return (
                         <div
                           key={`${participant.email}-${modKey}`}
                           id={
@@ -10009,65 +9933,42 @@ normalizeEmail(participant.email) === activeParticipantEmail
                               ? buildTrainingModuleRowDomId(modKey)
                               : undefined
                           }
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "18px minmax(0, 1fr)",
-                            gap: 10,
-                            alignItems: "start",
-                            paddingBottom: 8,
-                            borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
-                          }}
+                          className="tripTrainingTaskRow"
                         >
-                          <input
-                            type="checkbox"
-                            checked={!!trainingState[modKey]}
-                            onChange={() => toggleTraining(modKey, participant.email)}
-                            style={{ marginTop: 2 }}
-                          />
-                          <div>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                lineHeight: 1.35,
-                                marginBottom: 6,
-                              }}
-                            >
-                              {module.title}
-                            </div>
-                            {module.deadlineDate ? (
-                              <div className="small" style={{ marginBottom: 6 }}>
-                                {`Due: ${formatShortDate(module.deadlineDate)}`}
+                          <div className="tripTrainingTaskRowInner">
+                            <input
+                              id={checkboxId}
+                              type="checkbox"
+                              className="tripTrainingTaskCheckbox"
+                              checked={isComplete}
+                              onChange={() => toggleTraining(modKey, participant.email)}
+                            />
+                            <div className="tripTrainingTaskRowContent">
+                              <div className="tripTrainingTaskRowHeader">
+                                <label className="tripTrainingTaskTitle" htmlFor={checkboxId}>
+                                  {module.title}
+                                </label>
+                                <span
+                                  className={
+                                    "tripTrainingTaskStatus" + (isComplete ? " isComplete" : "")
+                                  }
+                                >
+                                  {isComplete ? "Completed" : "Not started"}
+                                </span>
                               </div>
-                            ) : null}
-                            <div
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 8,
-                                alignItems: "stretch",
-                                width: "100%",
-                                minWidth: 0,
-                              }}
-                            >
+                              {module.deadlineDate ? (
+                                <div className="small tripTrainingTaskMeta">
+                                  {`Due: ${formatShortDate(module.deadlineDate)}`}
+                                </div>
+                              ) : null}
                               {sessionOptions ? (
-                                <>
+                                <div className="tripTrainingTaskField">
                                   <select
                                     className="input"
                                     value={selectValue}
-                                    title={
-                                      selectedSessionLabel || "Choose a scheduled session date and time"
-                                    }
                                     onChange={(e) =>
                                       updateTrainingDate(modKey, e.target.value, participant.email)
                                     }
-                                    style={{
-                                      padding: "8px 10px",
-                                      fontSize: 13,
-                                      width: "100%",
-                                      maxWidth: "100%",
-                                      boxSizing: "border-box",
-                                    }}
                                   >
                                     <option value="">Select session…</option>
                                     {sessionOptions.map((opt) => (
@@ -10076,109 +9977,24 @@ normalizeEmail(participant.email) === activeParticipantEmail
                                       </option>
                                     ))}
                                   </select>
-                                  {selectedSessionLabel ? (
-                                    <div
-                                      className="small"
-                                      style={{
-                                        lineHeight: 1.45,
-                                        wordBreak: "break-word",
-                                        padding: "6px 10px",
-                                        borderRadius: 10,
-                                        border: "1px solid rgba(15, 23, 42, 0.08)",
-                                        background: "rgba(248, 250, 252, 0.9)",
-                                      }}
-                                    >
-                                      <span style={{ fontWeight: 700, color: "var(--muted)" }}>
-                                        Session:
-                                      </span>{" "}
-                                      {selectedSessionLabel}
-                                    </div>
-                                  ) : null}
-                                </>
+                                </div>
                               ) : (
-                                <div style={{ display: "grid", gap: 6 }}>
-                                  {isEditingTrainingDate ? (
-                                    <>
-                                      <AppDueDateTripleSelect
-                                        compact
-                                        nativeDatePickerOnly
-                                        value={trainingDateDraft}
-                                        onChange={setTrainingDateDraft}
-                                      />
-                                      <div
-                                        className="row"
-                                        style={{ gap: 6, justifyContent: "flex-start", flexWrap: "wrap" }}
-                                      >
-                                        <button
-                                          type="button"
-                                          className="btn btnPrimary"
-                                          style={{ padding: "4px 10px", fontSize: 12 }}
-                                          onClick={() => {
-                                            updateTrainingDate(modKey, trainingDateDraft, participant.email);
-                                            setEditingTrainingDateKey("");
-                                            setTrainingDateDraft("");
-                                          }}
-                                        >
-                                          Save
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="btn"
-                                          style={{ padding: "4px 10px", fontSize: 12 }}
-                                          onClick={() => {
-                                            setEditingTrainingDateKey("");
-                                            setTrainingDateDraft("");
-                                          }}
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <div
-                                      className="row"
-                                      style={{
-                                        alignItems: "center",
-                                        gap: 8,
-                                        flexWrap: "wrap",
-                                      }}
-                                    >
-                                      <span className="small" style={{ color: "var(--muted)" }}>
-                                        {formattedTrainingDate
-                                          ? `Date: ${formatShortDate(formattedTrainingDate)}`
-                                          : "Date: Not set"}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        className="btn"
-                                        style={{ padding: "2px 10px", fontSize: 12 }}
-                                        onClick={() => {
-                                          setEditingTrainingDateKey(trainingDateEditKey);
-                                          setTrainingDateDraft(formattedTrainingDate);
-                                        }}
-                                      >
-                                        Edit
-                                      </button>
-                                    </div>
-                                  )}
+                                <div className="tripTrainingTaskField">
+                                  <AppDueDateTripleSelect
+                                    compact
+                                    nativeDatePickerOnly
+                                    value={formattedTrainingDate}
+                                    onChange={(value) =>
+                                      updateTrainingDate(modKey, value, participant.email)
+                                    }
+                                  />
                                 </div>
                               )}
-                              <div className="row" style={{ justifyContent: "flex-end" }}>
-                                <span
-                                  className={
-                                    "badge " +
-                                    (!!trainingState[modKey] ? "badgeSuccess" : "badgeDanger")
-                                  }
-                                >
-                                  {!!trainingState[modKey] ? "Completed" : "Not started"}
-                                </span>
-                              </div>
                             </div>
                           </div>
                         </div>
-                        );
-                      })}
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
