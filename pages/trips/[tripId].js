@@ -9823,24 +9823,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
 
       {tab === "Training" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {canManageTrips && (
-            <CollapsibleSection defaultOpen>
-            <div className="card pad">
-              <div className="cardSectionPill" style={{ marginBottom: 8 }}>Team training progress</div>
-              <div className="row" style={{ marginBottom: 10 }}>
-                <div className="spacer" />
-                <span className="badge">{trainingPct}% complete</span>
-              </div>
-              <div className="progress">
-                <div style={{ width: `${trainingPct}%` }} />
-              </div>
-              <div className="small" style={{ marginTop: 8 }}>
-                Overall completion across all participant training checklists.
-              </div>
-            </div>
-            </CollapsibleSection>
-          )}
-
           <CollapsibleSection defaultOpen>
           <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Training resources</div>
@@ -9869,6 +9851,42 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 <TrainingResourceLink key={resource.id} resource={resource} />
               ))}
             </div>
+          </div>
+          </CollapsibleSection>
+
+          <CollapsibleSection defaultOpen>
+          <div className="card pad tripSectionCard tripTaskProgressCard">
+            <div className="tripTaskProgressTop">
+              <div className="cardSectionPill">Training progress</div>
+              <span className="badge">{overviewTrainingPct}% complete</span>
+            </div>
+            <div className="progress tripTaskProgressBar">
+              <div style={{ width: `${overviewTrainingPct}%` }} />
+            </div>
+            <div className="small tripTaskProgressMeta">
+              {canViewTeamDashboard
+                ? "Overall completion across all participant training checklists."
+                : `${currentTrainingProgress?.completed || 0} of ${currentTrainingProgress?.total || 0} modules complete.`}
+            </div>
+
+            {canViewTeamDashboard ? (
+              <div className="tripTaskProgressParticipants">
+                {visibleTrainingParticipants.map((participant) => (
+                  <div
+                    key={`${participant.email}-training-summary`}
+                    className="tripTaskProgressParticipantRow"
+                  >
+                    <span className="tripTaskProgressParticipantName">{participant.name}</span>
+                    <div className="progress tripTaskProgressBarSmall">
+                      <div style={{ width: `${participant.percent}%` }} />
+                    </div>
+                    <span className="small tripTaskProgressParticipantStat">
+                      {participant.percent}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
           </CollapsibleSection>
 
