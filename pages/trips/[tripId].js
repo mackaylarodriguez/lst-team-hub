@@ -1526,7 +1526,7 @@ export default function TripPage() {
         "Video-based training you can complete on your own schedule via Google Classroom.",
       url: trainingAccessUrl,
       icon: "OD",
-      accent: "#3d5286",
+      accent: "#2563eb",
     },
     {
       id: "basic",
@@ -1540,7 +1540,7 @@ export default function TripPage() {
       ],
       url: basicTrainingUrl,
       icon: "BT",
-      accent: "#4a7399",
+      accent: "#16a34a",
     },
     {
       id: "gateway-endmeetings",
@@ -1554,7 +1554,7 @@ export default function TripPage() {
       ],
       url: gatewayTrainingUrl,
       icon: "GT",
-      accent: "#a67c4a",
+      accent: "#ea580c",
     },
     {
       id: "optional",
@@ -1564,7 +1564,7 @@ export default function TripPage() {
         "Optional workshops offered through the year, mainly for experienced Workers.",
       url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=135&",
       icon: "AT",
-      accent: "#5f6494",
+      accent: "#9333ea",
     },
     {
       id: "lst-connect",
@@ -1574,7 +1574,7 @@ export default function TripPage() {
         "Join LST Connect to practice with an online Reader before leaving. Register as a Worker.",
       url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=133&",
       icon: "LC",
-      accent: "#4a756f",
+      accent: "#ca8a04",
     },
   ];
   const requiredTrainingResources = trainingResources.filter(
