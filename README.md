@@ -3,9 +3,14 @@
 LST Team Hub is a centralized web application designed to support team coordination, communication, and resource sharing for mission teams. The platform helps streamline organization, improve accessibility of information, and enhance collaboration across team members.
 
 ## Demo
-[![Watch the LST Team Hub demo](https://cdn.loom.com/sessions/thumbnails/00f3d6ef36c446ea9326f3fc534437f9-with-play.gif)](https://www.loom.com/share/00f3d6ef36c446ea9326f3fc534437f9)
 
 **[Watch the demo video](https://www.loom.com/share/00f3d6ef36c446ea9326f3fc534437f9)**
+
+| | |
+|---|---|
+| **Login** | [https://lst-team-hub.vercel.app/login](https://lst-team-hub.vercel.app/login) |
+| **Email** | `demo@gmail.com` |
+| **Password** | `Demo1234` |
 
 ## Screenshots
 
@@ -59,18 +64,6 @@ The goal of LST Team Hub is to create an efficient and user-friendly system that
 - Improve UI/UX design  
 - Integrate real-time communication features  
 - Expand mobile responsiveness  
-
----
-
-## 🔑 Demo account
-
-Try the live app at **[lst-team-hub.vercel.app/login](https://lst-team-hub.vercel.app/login)** with this demo account:
-
-| | |
-|---|---|
-| **Login** | [https://lst-team-hub.vercel.app/login](https://lst-team-hub.vercel.app/login) |
-| **Email** | `demo@gmail.com` |
-| **Password** | `Demo1234` |
 
 ---
 
