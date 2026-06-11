@@ -1906,6 +1906,89 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:16px;
 }
+.tripTrainingResourceBtn{
+  --training-accent:var(--primary);
+  display:block;
+  padding:14px 16px;
+  border-radius:14px;
+  text-decoration:none;
+  color:inherit;
+  border:2px solid color-mix(in srgb, var(--training-accent) 38%, #fff);
+  background:linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--training-accent) 16%, #fff) 0%,
+    color-mix(in srgb, var(--training-accent) 7%, #fff) 100%
+  );
+  box-shadow:0 4px 14px color-mix(in srgb, var(--training-accent) 14%, rgba(15,23,42,.08));
+  cursor:pointer;
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease,
+    border-color .18s ease,
+    background .18s ease;
+}
+.tripTrainingResourceBtn:hover{
+  transform:translateY(-4px);
+  border-color:var(--training-accent);
+  background:linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--training-accent) 24%, #fff) 0%,
+    color-mix(in srgb, var(--training-accent) 12%, #fff) 100%
+  );
+  box-shadow:0 16px 32px color-mix(in srgb, var(--training-accent) 24%, rgba(15,23,42,.14));
+}
+.tripTrainingResourceBtn:active{
+  transform:translateY(-1px);
+}
+.tripTrainingResourceBtn:focus-visible{
+  outline:2px solid var(--training-accent);
+  outline-offset:2px;
+}
+.tripTrainingResourceBtnIcon{
+  width:42px;
+  height:42px;
+  border-radius:12px;
+  background:var(--training-accent);
+  color:#fff;
+  display:grid;
+  place-items:center;
+  font-weight:900;
+  font-size:13px;
+  flex-shrink:0;
+  box-shadow:0 6px 14px color-mix(in srgb, var(--training-accent) 35%, transparent);
+  transition:transform .18s ease, box-shadow .18s ease;
+}
+.tripTrainingResourceBtn:hover .tripTrainingResourceBtnIcon{
+  transform:scale(1.08);
+  box-shadow:0 10px 20px color-mix(in srgb, var(--training-accent) 42%, transparent);
+}
+.tripTrainingResourceBtnTitle{
+  font-weight:900;
+  margin-bottom:4px;
+  color:color-mix(in srgb, var(--training-accent) 72%, #0f172a);
+}
+.tripTrainingResourceBtnCopy{
+  margin:2px 0 0 0;
+  padding:0;
+  opacity:.92;
+}
+.tripTrainingResourceBtnCopy li{
+  margin-left:16px;
+}
+.tripTrainingResourceBtnCta{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  margin-top:12px;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.02em;
+  color:var(--training-accent);
+  transition:gap .18s ease, transform .18s ease;
+}
+.tripTrainingResourceBtn:hover .tripTrainingResourceBtnCta{
+  gap:8px;
+}
 .tripTrainingOptionalGrid,
 .tripTrainingParticipantGrid,
 .tripTaskSummaryGrid,

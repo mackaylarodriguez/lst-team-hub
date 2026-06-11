@@ -720,6 +720,38 @@ function categoryForTripResourceDoc(doc) {
   return DOCUMENT_CATEGORY_OPTIONS.includes(c) ? c : "Other";
 }
 
+function TrainingResourceLink({ resource }) {
+  return (
+    <a
+      href={resource.url}
+      target="_blank"
+      rel="noreferrer"
+      className="tripTrainingResourceBtn"
+      style={{ "--training-accent": resource.accent }}
+    >
+      <div className="row" style={{ alignItems: "flex-start" }}>
+        <div className="tripTrainingResourceBtnIcon">{resource.icon}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="tripTrainingResourceBtnTitle">{resource.title}</div>
+          {Array.isArray(resource.descriptionBullets) ? (
+            <ul className="small tripTrainingResourceBtnCopy">
+              {resource.descriptionBullets.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <div className="small tripTrainingResourceBtnCopy">{resource.description}</div>
+          )}
+          <span className="tripTrainingResourceBtnCta">
+            Open training
+            <span aria-hidden="true">→</span>
+          </span>
+        </div>
+      </div>
+    </a>
+  );
+}
+
 function OptionalTripWideDocumentCard({
   d,
   editingDocId,
@@ -9809,54 +9841,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
               }}
             >
               {requiredTrainingResources.map((resource) => (
-                <a
-                  key={resource.id}
-                  href={resource.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="card pad"
-                  style={{
-                    display: "block",
-                    color: "inherit",
-                    boxShadow: "none",
-                    textDecoration: "none",
-                    borderColor: "rgba(15, 23, 42, 0.08)",
-                  }}
-                >
-                  <div className="row" style={{ alignItems: "flex-start" }}>
-                    <div
-                      style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 12,
-                        background: resource.accent,
-                        color: "#fff",
-                        display: "grid",
-                        placeItems: "center",
-                        fontWeight: 900,
-                        fontSize: 13,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {resource.icon}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 900, marginBottom: 4 }}>{resource.title}</div>
-                      {Array.isArray(resource.descriptionBullets) ? (
-                        <ul
-                          className="small"
-                          style={{ margin: "2px 0 0 16px", padding: 0, display: "grid", gap: 2 }}
-                        >
-                          {resource.descriptionBullets.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div className="small">{resource.description}</div>
-                      )}
-                    </div>
-                  </div>
-                </a>
+                <TrainingResourceLink key={resource.id} resource={resource} />
               ))}
             </div>
 
@@ -9875,54 +9860,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
               }}
             >
               {optionalTrainingResources.map((resource) => (
-                <a
-                  key={resource.id}
-                  href={resource.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="card pad"
-                  style={{
-                    display: "block",
-                    color: "inherit",
-                    boxShadow: "none",
-                    textDecoration: "none",
-                    borderColor: "rgba(15, 23, 42, 0.08)",
-                  }}
-                >
-                  <div className="row" style={{ alignItems: "flex-start" }}>
-                    <div
-                      style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 12,
-                        background: resource.accent,
-                        color: "#fff",
-                        display: "grid",
-                        placeItems: "center",
-                        fontWeight: 900,
-                        fontSize: 13,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {resource.icon}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 900, marginBottom: 4 }}>{resource.title}</div>
-                      {Array.isArray(resource.descriptionBullets) ? (
-                        <ul
-                          className="small"
-                          style={{ margin: "2px 0 0 16px", padding: 0, display: "grid", gap: 2 }}
-                        >
-                          {resource.descriptionBullets.map((item) => (
-                            <li key={item}>{item}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div className="small">{resource.description}</div>
-                      )}
-                    </div>
-                  </div>
-                </a>
+                <TrainingResourceLink key={resource.id} resource={resource} />
               ))}
             </div>
           </div>
