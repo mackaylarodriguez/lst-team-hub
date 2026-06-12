@@ -10484,10 +10484,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
                     <div className="cardSectionPill" style={{ marginBottom: 2 }}>
                       Team logistics
                     </div>
-                    <p className="tripTeamLogisticsIntro">
-                      Assign roles and confirm where materials should ship. Staff adds tracking and notes
-                      below.
-                    </p>
 
                     <h3 className="tripTeamLogisticsSectionHeading">To be completed by team</h3>
                     <div className="tripTeamLogisticsGrid">
@@ -12767,15 +12763,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           ["REAL ID (yes/no)", form?.hasRealId || "—"],
                         ],
                       },
-                      {
-                        title: "Acknowledgments",
-                        fields: [
-                          ["Base ticket", form?.baseTicketAck || "—"],
-                          ["Team travel", form?.teamTravelAck || "—"],
-                          ["EndMeeting", form?.endMeetingAck || "—"],
-                          ["Insurance", form?.travelInsuranceAck || "—"],
-                        ],
-                      },
                     ]
                   : [
                       {
@@ -12784,7 +12771,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           ["Team", form?.teamName || trip?.name || "—"],
                           ["Email", form?.email || p?.email || "—"],
                           [
-                            "Legal name",
+                            "Passport name",
                             [form?.firstNamePassport, form?.middleNamePassport, form?.lastNamePassport]
                               .filter(Boolean)
                               .join(" ") || "—",
@@ -12796,26 +12783,27 @@ normalizeEmail(participant.email) === activeParticipantEmail
                               .join("/") || "—",
                           ],
                           ["Gender", form?.gender || "—"],
+                          ["Citizenship", form?.citizenship || "—"],
+                        ],
+                      },
+                      {
+                        title: "Passport & travel",
+                        fields: [
+                          ["Passport #", form?.passportNumber || "—"],
+                          ["Expiration", form?.passportExpirationDate || "—"],
+                          ["Issuing country", form?.passportIssuingCountry || "—"],
+                          ["Gateway city", form?.gatewayCity || "—"],
+                          ["Departure", form?.departureDate ? formatSingleDate(form.departureDate) : "—"],
+                          ["Return", form?.returnDate ? formatSingleDate(form.returnDate) : "—"],
                         ],
                       },
                       {
                         title: "Project & travel",
                         fields: [
                           ["Project site", form?.siteProject || "—"],
-                          ["Gateway city", form?.gatewayCity || "—"],
-                          ["Departure", form?.departureDate ? formatSingleDate(form.departureDate) : "—"],
-                          ["Return", form?.returnDate ? formatSingleDate(form.returnDate) : "—"],
                           ["Frequent flyer / Pre-check", form?.frequentFlyerPrecheck || "—"],
                           ["Minor", form?.isMinor || "—"],
-                        ],
-                      },
-                      {
-                        title: "Acknowledgments",
-                        fields: [
-                          ["Base ticket", form?.baseTicketAck || "—"],
-                          ["Team travel", form?.teamTravelAck || "—"],
-                          ["EndMeeting", form?.endMeetingAck || "—"],
-                          ["Insurance", form?.travelInsuranceAck || "—"],
+                          ["Passport valid 6+ months", form?.passportValidSixMonths || "—"],
                         ],
                       },
                     ];
