@@ -1,4 +1,5 @@
 import { useTripPage } from "../TripPageContext";
+import TripParticipantCollapsible from "../TripParticipantCollapsible";
 import {
   CollapsibleSection,
   AppStatusMessage,
@@ -425,13 +426,31 @@ export default function TripTrainingTab() {
               </CollapsibleSection>
     
               <CollapsibleSection defaultOpen>
-              <div className="tripTrainingPanel">
-                {visibleTrainingParticipants.map((participant) => {
+              <div
+                className={
+                  canViewTeamDashboard && visibleTrainingParticipants.length > 1
+                    ? "tripTrainingPanel tripTrainingPanelStaffCollapsible"
+                    : "tripTrainingPanel"
+                }
+              >
+                {visibleTrainingParticipants.map((participant, participantIndex) => {
                   const trainingState = participant.trainingState || {};
-    
+                  const staffMultiParticipant =
+                    canViewTeamDashboard && visibleTrainingParticipants.length > 1;
+
                   return (
-                    <div key={participant.email} className="tripTrainingParticipantBlock">
-                      {canViewTeamDashboard && visibleTrainingParticipants.length > 1 ? (
+                    <TripParticipantCollapsible
+                      key={participant.email}
+                      enabled={staffMultiParticipant}
+                      participant={participant}
+                      tripId={trip?.id}
+                      kind="training"
+                      defaultOpen={participantIndex === 0}
+                    >
+                    <div className="tripTrainingParticipantBlock">
+                      {!staffMultiParticipant &&
+                      canViewTeamDashboard &&
+                      visibleTrainingParticipants.length > 1 ? (
                         <h3 className="tripTrainingSectionHeading">{participant.name}</h3>
                       ) : null}
     
@@ -600,6 +619,7 @@ export default function TripTrainingTab() {
                         })}
                       </div>
                     </div>
+                    </TripParticipantCollapsible>
                   );
                 })}
               </div>

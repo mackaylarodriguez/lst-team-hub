@@ -1,4 +1,5 @@
 import { useTripPage } from "../TripPageContext";
+import TripParticipantCollapsible from "../TripParticipantCollapsible";
 import {
   CollapsibleSection,
   AppStatusMessage,
@@ -501,13 +502,31 @@ export default function TripTasksTab() {
                 </div>
               ) : null}
     
-              <div className="tripTrainingPanel">
+              <div
+                className={
+                  canViewTeamDashboard && visibleTaskParticipants.length > 1
+                    ? "tripTrainingPanel tripTrainingPanelStaffCollapsible"
+                    : "tripTrainingPanel"
+                }
+              >
                 {visibleTaskParticipants.map((participant, participantIndex) => {
                   const taskState = participantTaskStates[normalizeEmail(participant.email)] || {};
-    
+                  const staffMultiParticipant =
+                    canViewTeamDashboard && visibleTaskParticipants.length > 1;
+
                   return (
-                    <div key={participant.email} className="tripTrainingParticipantBlock">
-                      {canViewTeamDashboard && visibleTaskParticipants.length > 1 ? (
+                    <TripParticipantCollapsible
+                      key={participant.email}
+                      enabled={staffMultiParticipant}
+                      participant={participant}
+                      tripId={trip?.id}
+                      kind="tasks"
+                      defaultOpen={participantIndex === 0}
+                    >
+                    <div className="tripTrainingParticipantBlock">
+                      {!staffMultiParticipant &&
+                      canViewTeamDashboard &&
+                      visibleTaskParticipants.length > 1 ? (
                         <h3 className="tripTrainingSectionHeading">{participant.name}</h3>
                       ) : null}
                       {tripTasks.length > 0 ? (
@@ -727,6 +746,7 @@ export default function TripTasksTab() {
                         />
                       )}
                     </div>
+                    </TripParticipantCollapsible>
                   );
                 })}
               </div>

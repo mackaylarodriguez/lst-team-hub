@@ -1991,6 +1991,17 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .tripTrainingPanel{
   margin-bottom:4px;
 }
+.tripTrainingPanelStaffCollapsible{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.tripParticipantCollapsible{
+  margin:0;
+}
+.tripParticipantCollapsible .tripTrainingSectionHeading:first-of-type{
+  margin-top:4px;
+}
 .tripTrainingSectionHeading{
   margin:18px 0 10px;
   font-size:1.05rem;
