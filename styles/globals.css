@@ -2100,6 +2100,109 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .tripChecklistTaskLink:hover{
   text-decoration:underline;
 }
+.tripTeamLogisticsPanel{
+  display:grid;
+  gap:14px;
+  border-radius:14px;
+  border:1px solid rgba(15, 23, 42, 0.08);
+  background:var(--card);
+  box-shadow:0 1px 3px rgba(15, 23, 42, 0.04);
+}
+.tripTeamLogisticsIntro{
+  margin:0;
+  font-size:13px;
+  line-height:1.45;
+  color:var(--muted);
+}
+.tripTeamLogisticsSectionHeading{
+  margin:0 0 8px;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:0.05em;
+  text-transform:uppercase;
+  color:color-mix(in srgb, var(--primary) 68%, #334155);
+}
+.tripTeamLogisticsGrid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:12px;
+  align-items:start;
+}
+.tripTeamLogisticsCard{
+  display:grid;
+  gap:12px;
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid rgba(15, 23, 42, 0.08);
+  background:#fff;
+  box-shadow:0 1px 2px rgba(15, 23, 42, 0.03);
+}
+.tripTeamLogisticsCardTeam{
+  border-color:rgba(50, 84, 163, 0.12);
+  background:linear-gradient(180deg, rgba(255,255,255,1), rgba(247,250,255,0.92));
+}
+.tripTeamLogisticsCardStaff{
+  border-color:rgba(15, 23, 42, 0.1);
+  background:linear-gradient(180deg, rgba(248,250,252,0.98), rgba(241,245,249,0.92));
+}
+.tripTeamLogisticsCardStaff.isReadonly{
+  background:rgba(226, 232, 240, 0.42);
+  border-color:rgba(15, 23, 42, 0.12);
+}
+.tripTeamLogisticsFieldLabel{
+  font-size:12px;
+  font-weight:700;
+  line-height:1.35;
+  color:var(--text);
+  margin-bottom:6px;
+}
+.tripTeamLogisticsFieldHint{
+  margin:0 0 8px;
+  font-size:12px;
+  line-height:1.45;
+  color:var(--muted);
+}
+.tripTeamLogisticsFieldControl{
+  font-size:13px;
+  line-height:1.45;
+}
+.tripTeamLogisticsReadonly{
+  padding:10px 12px;
+  border-radius:10px;
+  background:rgba(203, 213, 225, 0.35);
+  border:1px solid rgba(15, 23, 42, 0.1);
+  color:var(--text);
+  font-size:13px;
+  line-height:1.45;
+  min-height:44px;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.tripTeamLogisticsReadonly.isEmpty{
+  color:var(--muted);
+  font-style:italic;
+}
+.tripTeamLogisticsReadonlyMono{
+  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  word-break:break-all;
+}
+.tripTeamLogisticsDivider{
+  height:1px;
+  margin:2px 0;
+  background:linear-gradient(
+    90deg,
+    transparent,
+    rgba(15, 23, 42, 0.12) 12%,
+    rgba(15, 23, 42, 0.12) 88%,
+    transparent
+  );
+}
+.tripTeamLogisticsStatusLine{
+  margin:0;
+  font-size:12px;
+  line-height:1.45;
+  color:var(--muted);
+}
 .tripTrainingParticipantBlock{
   margin-top:8px;
   margin-bottom:28px;
@@ -3107,6 +3210,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   min-width:0;
 }
 @media(max-width:900px){
+  .tripTeamLogisticsGrid,
   .materialsLogisticsTopGrid,
   .materialsLogisticsBottomGrid{
     grid-template-columns:1fr !important;
