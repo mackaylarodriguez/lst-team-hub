@@ -73,6 +73,21 @@ for (const file of consumerFiles()) {
   }
 }
 
+// Hook return values referenced in tab JSX must be destructured (or imported).
+for (const file of listTabFiles()) {
+  const src = read(file);
+  const imports = extractImports(src);
+  const destructured = parseAllDestructureKeys(src, "useTripPage");
+  const body = src.split("} = useTripPage();")[1] || "";
+  for (const key of hookReturn) {
+    if (imports.has(key) || destructured.has(key)) continue;
+    if (!new RegExp(`\\b${key}\\b`).test(body)) continue;
+    if (/Url$/.test(key) || /^(basic|gateway|canvas|training|optional|required|supplemental)/.test(key)) {
+      errors.push(`${rel(file)}: uses "${key}" from hook but does not destructure it`);
+    }
+  }
+}
+
 // TripTabPanels must call useTripPage()
 const tabPanels = read(PATHS.tabPanels);
 if (!tabPanels.includes("useTripPage()")) {

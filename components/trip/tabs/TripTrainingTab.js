@@ -18,8 +18,10 @@ import {
 
 export default function TripTrainingTab() {
     const {
+    basicTrainingUrl,
     canViewTeamDashboard,
     canvasTrainingModules,
+    gatewayTrainingUrl,
     currentParticipant,
     currentTrainingProgress,
     formatShortDate,
