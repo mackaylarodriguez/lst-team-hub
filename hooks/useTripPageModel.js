@@ -12,6 +12,7 @@ import {
   deleteTrip,
   getTripForCurrentUser,
   listTripParticipants,
+  loadWorkerProfilesByEmails,
   removeTripAssignment,
   saveTripGroupLeaderTravelContact,
   saveTripParticipantDocumentTypes,
@@ -301,6 +302,7 @@ export function useTripPageModel() {
 
   const [trip, setTrip] = useState(null);
   const [tripLoadComplete, setTripLoadComplete] = useState(false);
+  const [hubProfilesByEmail, setHubProfilesByEmail] = useState(() => new Map());
   const [editableStaffTasks, setEditableStaffTasks] = useState([]);
   const [editingStaffTaskId, setEditingStaffTaskId] = useState(null);
   /** Keeps staff-task list refetch from stealing focus from the date picker while a row is open for edit. */
@@ -1121,6 +1123,18 @@ export function useTripPageModel() {
 
       setTrip((current) => (current ? { ...current, participants, teamMembers, tasks } : current));
       setTrainingModules(modules);
+
+      const rosterEmails = [
+        ...(participants || []).map((p) => p?.email),
+        ...(teamMembers || []).map((m) => m?.email),
+      ];
+      try {
+        const profileMap = await loadWorkerProfilesByEmails(rosterEmails);
+        if (!cancelled) setHubProfilesByEmail(profileMap);
+      } catch (profileError) {
+        console.error("Unable to load worker profiles for trip roster", profileError);
+        if (!cancelled) setHubProfilesByEmail(new Map());
+      }
 
       const participantsById = new Map();
       participants.forEach((participant) => {
@@ -5214,6 +5228,7 @@ function parseDateSafe(dateStr) {
     (trip.teamMembers || []).forEach((member, index) => {
       const email = member.email || "";
       const key = normalizeEmail(email) || `roster-${member.id || member.name || index}`;
+      const hubProfile = hubProfilesByEmail.get(key);
 
       membersByKey.set(key, {
         key,
@@ -5230,7 +5245,8 @@ function parseDateSafe(dateStr) {
         fundraisingUrl: "",
         startDate: member.startDate || trip.startDate || "",
         endDate: member.endDate || trip.endDate || "",
-        connected: false,
+        connected: !!hubProfile?.id,
+        profileId: hubProfile?.id || "",
       });
     });
 
@@ -5241,6 +5257,8 @@ function parseDateSafe(dateStr) {
       const rosterMatch = (trip.teamMembers || []).find(
         (m) => normalizeEmail(m.email) === key
       );
+      const hubProfile = hubProfilesByEmail.get(key);
+      const profileId = participant.id || existing?.profileId || hubProfile?.id || "";
 
       membersByKey.set(key, {
         key,
@@ -5261,9 +5279,9 @@ function parseDateSafe(dateStr) {
         fundraisingUrl: participant.fundraisingUrl || existing?.fundraisingUrl || "",
         startDate: existing?.startDate || trip.startDate || "",
         endDate: existing?.endDate || trip.endDate || "",
-        connected: true,
+        connected: !!profileId,
         assignmentId: participant.assignmentId || existing?.assignmentId || "",
-        profileId: participant.id || existing?.profileId || "",
+        profileId,
       });
     });
 
@@ -5274,7 +5292,7 @@ function parseDateSafe(dateStr) {
 
       return left.name.localeCompare(right.name);
     });
-  }, [trip]);
+  }, [trip, hubProfilesByEmail]);
 
   /** Materials tab: one line per roster row — first name and saved T-shirt size. */
   const materialsRosterTshirtLines = useMemo(() => {
