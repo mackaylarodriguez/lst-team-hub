@@ -12120,11 +12120,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 </div>
               ) : null}
             </div>
-            <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-              {canViewTeamDashboard
-                ? "Per-participant uploads and review."
-                : "Your uploads for this trip."}
-            </div>
+            {canViewTeamDashboard ? (
+              <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
+                Per-participant uploads and review.
+              </div>
+            ) : null}
             {canViewTeamDashboard ? (
               <AppStatusMessage
                 message={participantDocumentTypeStatus}
@@ -12137,11 +12137,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 }
                 compact
               />
-            ) : (
-              <div className="small" style={{ marginBottom: 10 }}>
-                Upload your documents here. Staff can review them from your profile later too.
-              </div>
-            )}
+            ) : null}
 
             <AppStatusMessage message={participantDocumentsError} tone="danger" />
 
@@ -12329,11 +12325,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
           <CollapsibleSection defaultOpen>
           <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Travel form responses</div>
-            <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-              {tripIsMassachusettsDomestic
-                ? "Government ID, travel preferences, and acknowledgments for this domestic project."
-                : "Passport, emergency contacts, and travel preferences."}
-            </div>
             <div
               className="row mobileSectionHeader"
               style={{
@@ -12346,24 +12337,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
             >
               <div className="small" style={{ flex: "1 1 280px", minWidth: 0, marginRight: "auto" }}>
                 {canViewTeamDashboard
-                  ? "Team travel form responses. Rows auto-generate as workers fill out the form from the Tasks tab."
-                  : "Your travel form response. Fill out or update from the Tasks tab (Fill out Travel Form) or edit below."}
+                  ? "Team responses — auto-populated as workers submit from Tasks."
+                  : "Fill out from Tasks or edit below."}
               </div>
               <div className="row mobileSectionHeaderActions" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {!staffViewAllParticipants && currentParticipant ? (
-                  <button
-                    type="button"
-                    className="btn btnPrimary"
-                    onClick={() =>
-                      openTravelFormModal({
-                        refKey: `user:${currentParticipant.id}`,
-                        email: currentParticipant.email || "",
-                      })
-                    }
-                  >
-                    Edit my response
-                  </button>
-                ) : null}
                 {canViewTeamDashboard ? (
                   <>
                 <button
@@ -12779,7 +12756,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         ],
                       },
                       {
-                        title: "Project & preferences",
+                        title: "Project & travel",
                         fields: [
                           ["Project site", form?.siteProject || "—"],
                           ["Gateway city", form?.gatewayCity || "—"],
@@ -12789,8 +12766,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           ["Minor", form?.isMinor || "—"],
                           ["REAL ID (yes/no)", form?.hasRealId || "—"],
                         ],
-                        wideValue: form?.specialTravelPreferences || "—",
-                        wideLabel: "Special travel preferences",
                       },
                       {
                         title: "Acknowledgments",
@@ -12809,7 +12784,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           ["Team", form?.teamName || trip?.name || "—"],
                           ["Email", form?.email || p?.email || "—"],
                           [
-                            "Passport name",
+                            "Legal name",
                             [form?.firstNamePassport, form?.middleNamePassport, form?.lastNamePassport]
                               .filter(Boolean)
                               .join(" ") || "—",
@@ -12821,30 +12796,18 @@ normalizeEmail(participant.email) === activeParticipantEmail
                               .join("/") || "—",
                           ],
                           ["Gender", form?.gender || "—"],
-                          ["Citizenship", form?.citizenship || "—"],
                         ],
                       },
                       {
-                        title: "Passport & travel",
+                        title: "Project & travel",
                         fields: [
-                          ["Passport #", form?.passportNumber || "—"],
-                          ["Expiration", form?.passportExpirationDate || "—"],
-                          ["Issuing country", form?.passportIssuingCountry || "—"],
+                          ["Project site", form?.siteProject || "—"],
                           ["Gateway city", form?.gatewayCity || "—"],
                           ["Departure", form?.departureDate ? formatSingleDate(form.departureDate) : "—"],
                           ["Return", form?.returnDate ? formatSingleDate(form.returnDate) : "—"],
-                        ],
-                      },
-                      {
-                        title: "Project & preferences",
-                        fields: [
-                          ["Project site", form?.siteProject || "—"],
                           ["Frequent flyer / Pre-check", form?.frequentFlyerPrecheck || "—"],
                           ["Minor", form?.isMinor || "—"],
-                          ["Passport valid 6+ months", form?.passportValidSixMonths || "—"],
                         ],
-                        wideValue: form?.specialTravelPreferences || "—",
-                        wideLabel: "Special travel preferences",
                       },
                       {
                         title: "Acknowledgments",
@@ -12893,7 +12856,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       </span>
                       <button
                         type="button"
-                        className="btn"
+                        className={canViewTeamDashboard ? "btn" : "btn btnPrimary"}
                         onClick={() => openTravelFormModal({ refKey: p.refKey, email: p.email || "" })}
                       >
                         {canViewTeamDashboard ? "View / Edit" : "Edit"}
