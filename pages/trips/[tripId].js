@@ -7845,27 +7845,25 @@ normalizeEmail(participant.email) === activeParticipantEmail
         onCancel={() => setTripBudgetCheckDeleteId("")}
       />
       <div className="tripDetailPage">
-        <nav className="breadcrumb" aria-label="Breadcrumb" style={{ marginBottom: 12 }}>
+        <nav className="breadcrumb" aria-label="Breadcrumb" style={{ marginBottom: 6 }}>
           <Link href="/trips">Trips</Link>
           <span className="small" style={{ color: "var(--muted)", margin: "0 6px" }}>/</span>
           <span className="small" style={{ color: "var(--text)" }}>{trip.name}</span>
         </nav>
-        <div className="tripDetailHero card pad">
+        <div className="tripDetailHero card pad tripDetailHeroCompact">
           <div className="row tripPageHeader tripDetailHeroTop">
             <div className="tripPageHeaderTitle">
-              <div className="appSectionBadge" style={{ marginBottom: 8 }}>Trip Detail</div>
-              <h1 className="h1" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 10 }}>
-                <AppIcon name="spark" className="pageEyebrowIcon" />
-                <span>{trip.name}</span>
-              </h1>
-              <div className="small">{trip.location} • {trip.dates}</div>
+              <h1 className="tripDetailHeroTitle">{trip.name}</h1>
+              <div className="small tripDetailHeroMeta">
+                {trip.location} • {trip.dates}
+              </div>
             </div>
             <div className="spacer" />
             {canManageTrips && (
               <div className="row tripPageHeaderActions" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {canManageTrips ? (
                   <button
-                    className="btn btnDanger"
+                    className="btn btnDanger tripDetailHeroActionBtn"
                     type="button"
                     onClick={openDeleteTripConfirm}
                   >
@@ -7873,10 +7871,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
                   </button>
                 ) : null}
                 <select
-                  className="input tripPagePreviewSelect"
+                  className="input tripPagePreviewSelect tripDetailHeroPreviewSelect"
                   value={previewParticipantId}
                   onChange={(event) => setPreviewParticipantId(event.target.value)}
-                  style={{ minWidth: 260 }}
                 >
                   <option value="">Staff view (full)</option>
                   <option value={LEADER_PREVIEW_PARTICIPANT_ID}>Leader view (preview)</option>
@@ -7900,16 +7897,21 @@ normalizeEmail(participant.email) === activeParticipantEmail
             )}
           </div>
 
-          <div className="tripDetailProgressRow">
-            <div className="tripDetailProgressBlock">
-              <div className="small tripDetailProgressLabel">Trip completion</div>
-              <div className="progress"><div style={{ width: `${pct}%` }} /></div>
-              <div className="small tripDetailProgressNote">{pct}% complete</div>
+          <div className="tripDetailProgressRow tripDetailProgressRowCompact">
+            <div className="tripDetailProgressBlock tripDetailProgressBlockCompact">
+              <div className="tripDetailProgressInline">
+                <span className="tripDetailProgressLabel">Trip completion</span>
+                <span className="tripDetailProgressPct">{pct}%</span>
+              </div>
+              <div className="progress tripDetailProgressBar">
+                <div style={{ width: `${pct}%` }} />
+              </div>
             </div>
-            <div className="tripDetailMiniCard">
-              <div className="small tripDetailMiniLabel">Next countdown</div>
+            <div className="tripDetailMiniCard tripDetailMiniCardCompact">
               <div className="tripDetailMiniValue">{countdownSummary.label}</div>
-              <div className="small">{countdownSummary.detail}</div>
+              {countdownSummary.detail ? (
+                <div className="small tripDetailMiniDetail">{countdownSummary.detail}</div>
+              ) : null}
             </div>
           </div>
         </div>

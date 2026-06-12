@@ -590,6 +590,77 @@ a.btn{
     linear-gradient(180deg, rgba(255,255,255,.98), rgba(237,244,252,.94));
   box-shadow:0 22px 44px rgba(15,23,42,.08);
 }
+.tripDetailHeroCompact{
+  padding:12px 14px !important;
+  box-shadow:0 8px 18px rgba(15,23,42,.06);
+}
+.tripDetailHeroCompact::after{
+  width:4px;
+}
+.tripDetailHeroTitle{
+  margin:0 0 2px;
+  font-size:22px;
+  font-weight:900;
+  letter-spacing:-.03em;
+  line-height:1.15;
+}
+.tripDetailHeroMeta{
+  line-height:1.35;
+  color:var(--muted);
+}
+.tripDetailHeroActionBtn{
+  min-height:36px;
+  padding:6px 10px;
+  font-size:13px;
+}
+.tripDetailHeroPreviewSelect{
+  min-width:220px;
+  max-width:240px;
+  min-height:36px;
+  padding:6px 10px;
+  font-size:13px;
+}
+.tripDetailProgressRowCompact{
+  margin-top:10px;
+  gap:10px;
+  grid-template-columns:minmax(0, 1.6fr) minmax(150px, .8fr);
+}
+.tripDetailProgressBlockCompact{
+  padding:8px 12px;
+  border-radius:12px;
+}
+.tripDetailProgressInline{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:6px;
+}
+.tripDetailProgressPct{
+  font-size:12px;
+  font-weight:800;
+  color:var(--primary);
+  white-space:nowrap;
+}
+.tripDetailProgressBar{
+  height:8px;
+  margin:0;
+}
+.tripDetailMiniCardCompact{
+  padding:8px 12px;
+  border-radius:12px;
+  gap:2px;
+  align-content:center;
+}
+.tripDetailMiniCardCompact .tripDetailMiniValue{
+  font-size:16px;
+  line-height:1.2;
+}
+.tripDetailMiniDetail{
+  color:var(--muted);
+  line-height:1.35;
+  font-size:12px;
+}
 .tripDetailHero::after{
   content:"";
   position:absolute;
@@ -631,9 +702,10 @@ a.btn{
   background:rgba(255,255,255,.78);
 }
 .tripDetailProgressLabel{
-  margin-bottom:8px;
-  font-weight:900;
-  letter-spacing:.08em;
+  margin-bottom:0;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.06em;
   text-transform:uppercase;
   color:var(--primary);
 }
@@ -2371,8 +2443,17 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   .tripPagePreviewSelect{
     max-width:none;
   }
-  .tripDetailProgressRow{
+  .tripDetailProgressRow,
+  .tripDetailProgressRowCompact{
     grid-template-columns:1fr;
+  }
+  .tripDetailHeroTitle{
+    font-size:20px;
+  }
+  .tripDetailHeroPreviewSelect{
+    min-width:0;
+    max-width:none;
+    width:100%;
   }
   .table{
     display:block;
