@@ -1075,6 +1075,7 @@ export {
   pickPreferredDocByRequiredKey,
   dedupeRequiredSlotResources,
   pickMainHousingDocFromViewerList,
+  fetchTripHousingState,
   defaultMaterialsPackingChecklist,
   parseMaterialsPackingChecklist,
   WORKER_PREVIEW_PARTICIPANT_ID,
