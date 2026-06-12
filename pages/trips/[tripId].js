@@ -10478,78 +10478,24 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 const recVal = String(matTeamDraft.teamRecorder || "").trim();
                 const acctInList = !acctVal || logisticsNameOpts.includes(acctVal);
                 const recInList = !recVal || logisticsNameOpts.includes(recVal);
-                const logisticsSubheader = {
-                  fontSize: 12,
-                  fontWeight: 600,
-                  letterSpacing: "0.02em",
-                  color: "var(--text)",
-                  marginBottom: 6,
-                  lineHeight: 1.35,
-                };
-                const logisticsBody = {
-                  fontSize: 12,
-                  lineHeight: 1.45,
-                  color: "var(--text)",
-                };
-                const logisticsMuted = {
-                  fontSize: 12,
-                  lineHeight: 1.45,
-                  color: "var(--muted)",
-                };
-                const logisticsReadoutBox = {
-                  ...logisticsBody,
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  background: "rgba(255, 255, 255, 0.75)",
-                  minHeight: 44,
-                };
-                const logisticsControl = { fontSize: 12, lineHeight: 1.45 };
+                const staffCardsReadOnly = teamMemberOnly;
                 return (
-                  <div
-                    className="card pad"
-                    style={{
-                      display: "grid",
-                      gap: 16,
-                      borderRadius: 14,
-                      border: "1px solid rgba(15, 23, 42, 0.1)",
-                      background:
-                        "linear-gradient(155deg, rgba(241, 245, 249, 0.92) 0%, rgba(255, 255, 255, 0.97) 42%, rgba(224, 231, 255, 0.2) 100%)",
-                      boxShadow: "0 10px 36px rgba(15, 23, 42, 0.07), 0 1px 0 rgba(255, 255, 255, 0.8) inset",
-                    }}
-                  >
+                  <div className="card pad tripTeamLogisticsPanel">
                     <div className="cardSectionPill" style={{ marginBottom: 2 }}>
                       Team logistics
                     </div>
-                    <p style={{ ...logisticsBody, margin: 0, opacity: 0.9 }}>
-                      Assign roles from workers on this trip, confirm the ship-to address, then review shipping
-                      and coordinator notes. Workers and leaders edit the left block; staff can edit everything.
+                    <p className="tripTeamLogisticsIntro">
+                      Assign roles and confirm where materials should ship. Staff adds tracking and notes
+                      below.
                     </p>
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-                        gap: 16,
-                        alignItems: "start",
-                      }}
-                      className="materialsLogisticsTopGrid"
-                    >
-                      <div
-                        style={{
-                          display: "grid",
-                          gap: 12,
-                          padding: 14,
-                          borderRadius: 12,
-                          border: "1px solid rgba(15, 23, 42, 0.08)",
-                          background:
-                            "linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(248, 250, 252, 0.55))",
-                        }}
-                      >
+                    <h3 className="tripTeamLogisticsSectionHeading">To be completed by team</h3>
+                    <div className="tripTeamLogisticsGrid">
+                      <div className="tripTeamLogisticsCard tripTeamLogisticsCardTeam">
                         <div>
-                          <div style={logisticsSubheader}>Team accountant</div>
+                          <div className="tripTeamLogisticsFieldLabel">Team accountant</div>
                           <select
-                            className="input"
-                            style={logisticsControl}
+                            className="input tripTeamLogisticsFieldControl"
                             value={acctInList ? acctVal : "__other__"}
                             onChange={(e) => {
                               const v = e.target.value;
@@ -10571,17 +10517,15 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           </select>
                         </div>
                         <div>
-                          <div style={logisticsSubheader}>Team recorder</div>
+                          <div className="tripTeamLogisticsFieldLabel">Team recorder</div>
                           <select
-                            className="input"
-                            style={logisticsControl}
+                            className="input tripTeamLogisticsFieldControl"
                             value={recInList ? recVal : "__other_rec__"}
                             onChange={(e) => {
                               const v = e.target.value;
                               setMatTeamDraft((prev) => ({
                                 ...prev,
-                                teamRecorder:
-                                  v === "__other_rec__" ? recVal : v,
+                                teamRecorder: v === "__other_rec__" ? recVal : v,
                               }));
                             }}
                           >
@@ -10597,22 +10541,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           </select>
                         </div>
                       </div>
-                      <div
-                        style={{
-                          display: "grid",
-                          gap: 12,
-                          padding: 14,
-                          borderRadius: 12,
-                          border: "1px solid rgba(22, 163, 74, 0.14)",
-                          background:
-                            "linear-gradient(180deg, rgba(220, 252, 231, 0.35), rgba(255, 255, 255, 0.65))",
-                        }}
-                      >
+
+                      <div className="tripTeamLogisticsCard tripTeamLogisticsCardTeam">
                         <div>
-                          <div style={logisticsSubheader}>Shipping address</div>
+                          <div className="tripTeamLogisticsFieldLabel">Shipping address</div>
                           <textarea
-                            className="input"
-                            style={logisticsControl}
+                            className="input tripTeamLogisticsFieldControl"
                             rows={3}
                             value={matTeamDraft.materialsShipAddress || ""}
                             onChange={(e) =>
@@ -10622,14 +10556,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           />
                         </div>
                         <div>
-                          <div style={logisticsSubheader}>Note (if different from application)</div>
-                          <p style={{ ...logisticsMuted, margin: "0 0 8px" }}>
-                            Use this if the ship-to address or other details differ from what is on your LST
-                            application.
+                          <div className="tripTeamLogisticsFieldLabel">
+                            Note (if different from application)
+                          </div>
+                          <p className="tripTeamLogisticsFieldHint">
+                            Use this if the ship-to address or other details differ from your LST application.
                           </p>
                           <textarea
-                            className="input"
-                            style={logisticsControl}
+                            className="input tripTeamLogisticsFieldControl"
                             rows={2}
                             value={matTeamDraft.materialsShipAddressNote || ""}
                             onChange={(e) =>
@@ -10644,52 +10578,41 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       </div>
                     </div>
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-                        gap: 14,
-                        alignItems: "stretch",
-                      }}
-                      className="materialsLogisticsBottomGrid"
-                    >
+                    <div className="tripTeamLogisticsDivider" aria-hidden="true" />
+
+                    <h3 className="tripTeamLogisticsSectionHeading">To be completed by staff</h3>
+                    <div className="tripTeamLogisticsGrid">
                       <div
-                        style={{
-                          display: "grid",
-                          gap: 12,
-                          padding: 14,
-                          borderRadius: 12,
-                          border: "1px solid rgba(37, 99, 235, 0.18)",
-                          background:
-                            "linear-gradient(165deg, rgba(219, 234, 254, 0.45), rgba(255, 255, 255, 0.7))",
-                        }}
+                        className={
+                          "tripTeamLogisticsCard tripTeamLogisticsCardStaff" +
+                          (staffCardsReadOnly ? " isReadonly" : "")
+                        }
                       >
-                        <div style={logisticsSubheader}>Shipping</div>
-                        <div style={{ ...logisticsMuted, marginBottom: 0 }}>
+                        <div className="tripTeamLogisticsFieldLabel">Shipping</div>
+                        <p className="tripTeamLogisticsStatusLine">
                           Status:{" "}
-                          <strong style={{ ...logisticsBody, fontWeight: 600 }}>{materialsShippingState}</strong>
-                        </div>
+                          <strong style={{ color: "var(--text)", fontWeight: 700 }}>
+                            {materialsShippingState}
+                          </strong>
+                        </p>
                         <div>
-                          <div style={logisticsSubheader}>Shipping / tracking #</div>
-                          {teamMemberOnly ? (
+                          <div className="tripTeamLogisticsFieldLabel">Shipping / tracking #</div>
+                          {staffCardsReadOnly ? (
                             <div
-                              style={{
-                                ...logisticsReadoutBox,
-                                fontFamily: "ui-monospace, monospace",
-                                wordBreak: "break-all",
-                                border: "1px solid rgba(37, 99, 235, 0.2)",
-                              }}
+                              className={
+                                "tripTeamLogisticsReadonly tripTeamLogisticsReadonlyMono" +
+                                (String(matTeamDraft.materialsTrackingNumber || "").trim()
+                                  ? ""
+                                  : " isEmpty")
+                              }
                             >
-                              {String(matTeamDraft.materialsTrackingNumber || "").trim() || (
-                                <span style={{ ...logisticsMuted, fontFamily: "inherit" }}>
-                                  Staff will add tracking when the package ships.
-                                </span>
-                              )}
+                              {String(matTeamDraft.materialsTrackingNumber || "").trim() ||
+                                "Staff will add tracking when the package ships."}
                             </div>
                           ) : (
                             <input
-                              className="input"
-                              style={{ ...logisticsControl, fontFamily: "ui-monospace, monospace" }}
+                              className="input tripTeamLogisticsFieldControl"
+                              style={{ fontFamily: "ui-monospace, monospace" }}
                               value={matTeamDraft.materialsTrackingNumber || ""}
                               onChange={(e) =>
                                 setMatTeamDraft((prev) => ({
@@ -10702,40 +10625,32 @@ normalizeEmail(participant.email) === activeParticipantEmail
                           )}
                         </div>
                       </div>
+
                       <div
-                        style={{
-                          display: "grid",
-                          gap: 12,
-                          padding: 14,
-                          borderRadius: 12,
-                          border: "1px solid rgba(124, 58, 237, 0.2)",
-                          background:
-                            "linear-gradient(165deg, rgba(237, 233, 254, 0.55), rgba(255, 255, 255, 0.72))",
-                        }}
+                        className={
+                          "tripTeamLogisticsCard tripTeamLogisticsCardStaff" +
+                          (staffCardsReadOnly ? " isReadonly" : "")
+                        }
                       >
-                        <div style={logisticsSubheader}>Notes from staff</div>
-                        <p style={{ ...logisticsMuted, margin: 0 }}>
+                        <div className="tripTeamLogisticsFieldLabel">Notes from staff</div>
+                        <p className="tripTeamLogisticsFieldHint">
                           Coordinators post updates here; everyone on this tab can read them.
                         </p>
-                        {teamMemberOnly ? (
+                        {staffCardsReadOnly ? (
                           <div
-                            style={{
-                              ...logisticsReadoutBox,
-                              whiteSpace: "pre-wrap",
-                              border: "1px solid rgba(124, 58, 237, 0.15)",
-                              minHeight: 80,
-                              flex: 1,
-                            }}
+                            className={
+                              "tripTeamLogisticsReadonly" +
+                              (String(matTeamDraft.materialsNotesForTeam || "").trim() ? "" : " isEmpty")
+                            }
+                            style={{ minHeight: 80 }}
                           >
-                            {String(matTeamDraft.materialsNotesForTeam || "").trim() || (
-                              <span style={logisticsMuted}>No notes yet.</span>
-                            )}
+                            {String(matTeamDraft.materialsNotesForTeam || "").trim() || "No notes yet."}
                           </div>
                         ) : (
                           <textarea
-                            className="input"
+                            className="input tripTeamLogisticsFieldControl"
                             rows={5}
-                            style={{ ...logisticsControl, minHeight: 100 }}
+                            style={{ minHeight: 100 }}
                             value={matTeamDraft.materialsNotesForTeam || ""}
                             onChange={(e) =>
                               setMatTeamDraft((prev) => ({
