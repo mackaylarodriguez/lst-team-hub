@@ -12,14 +12,14 @@ import TripStaffTasksTab from "./tabs/TripStaffTasksTab";
 import { useTripPage } from "./TripPageContext";
 
 export default function TripTabPanels() {
-  const {
-    tab,
-    tripTabTravelSafety,
-    canViewMaterialsTab,
-    tripDocumentsTabLabel,
-    participantDocumentsTabLabel,
+    const {
     canManageTrips,
+    canViewMaterialsTab,
     isLeader,
+    participantDocumentsTabLabel,
+    tab,
+    tripDocumentsTabLabel,
+    tripTabTravelSafety,
   } = useTripPage();
 
   return (

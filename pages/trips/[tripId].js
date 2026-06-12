@@ -155,7 +155,7 @@ import {
   summarizeWorkbookItemsForShipping,
 } from "@/lib/workbookInventory";
 import { resolveSiteLogisticsUrl } from "@/lib/siteInfoLinks";
-import { TripPageContext } from "@/components/trip/TripPageContext";
+import { TripPageProvider } from "@/components/trip/TripPageProvider";
 import TripTabPanels from "@/components/trip/TripTabPanels";
 import { useTripPageModel } from "@/hooks/useTripPageModel";
 import * as TripPageShared from "@/components/trip/tripPageShared";
@@ -242,6 +242,7 @@ export default function TripPage() {
     completionPct,
     confirmingParticipantDocumentDeleteId,
     countForDeadlines,
+    countdownSummary,
     currentParticipant,
     currentParticipantFundraisingGoalAmount,
     currentParticipantProgress,
@@ -576,7 +577,7 @@ export default function TripPage() {
   } = tripPage;
 
   return (
-    <TripPageContext.Provider value={tripPage}>
+    <TripPageProvider value={tripPage}>
     <Shell>
       <ConfirmModal
         open={isConfirmingTripDelete}
@@ -1118,6 +1119,6 @@ export default function TripPage() {
 
       </div>
     </Shell>
-    </TripPageContext.Provider>
+    </TripPageProvider>
   );
 }

@@ -1,19 +1,35 @@
 #!/usr/bin/env node
+/**
+ * LEGACY: Re-splits a monolithic pages/trips/[tripId].js into tab files + hook.
+ * After running, you MUST run:
+ *   npm run sync:trip-page-return
+ *   npm run sync:trip-tabs
+ *   npm run validate:trip-page
+ *
+ * Does NOT overwrite TripPageContext.js, TripPageProvider.js, or tripPageStaticApi.js.
+ */
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { extractHookBindings } from "./lib/trip-page-tools.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 const tripPagePath = path.join(root, "pages/trips/[tripId].js");
+
+if (!fs.existsSync(tripPagePath)) {
+  console.error("Missing pages/trips/[tripId].js — cannot split.");
+  process.exit(1);
+}
+
 const lines = fs.readFileSync(tripPagePath, "utf8").split("\n");
 
-const SHARED_START = 159; // function CollapsibleSection
-const SHARED_END = 1180; // line before export default function TripPage
-const HOOK_START = 1183; // const router
-const HOOK_END = 7819; // before return (
-const JSX_START = 7823; // <Shell>
-const JSX_END = 13650; // </Shell>
+const SHARED_START = 159;
+const SHARED_END = 1180;
+const HOOK_START = 1183;
+const HOOK_END = 7819;
+const JSX_START = 7823;
+const JSX_END = 13650;
 
 const tabs = [
   { name: "TripOverviewTab", start: 8072, end: 8695, condition: 'tab === "Overview"' },
@@ -41,35 +57,10 @@ function stripTabWrapper(block) {
 }
 
 const hookBody = slice(HOOK_START, HOOK_END);
-
-const bindingNames = new Set();
-for (const line of hookBody.split("\n")) {
-  if (!line.startsWith("  ") || line.startsWith("    ")) continue;
-  let m = line.match(/^  const \[(\w+)/);
-  if (m) {
-    bindingNames.add(m[1]);
-    continue;
-  }
-  m = line.match(/^  const (\w+)\s*=/);
-  if (m) {
-    bindingNames.add(m[1]);
-    continue;
-  }
-  m = line.match(/^  let (\w+)\s*=/);
-  if (m) {
-    bindingNames.add(m[1]);
-    continue;
-  }
-  m = line.match(/^  function (\w+)/);
-  if (m) {
-    bindingNames.add(m[1]);
-  }
-}
-
+const bindingNames = extractHookBindings(`export function useTripPageModel() {\n${hookBody}\n}`);
 const returnKeys = [...bindingNames].sort();
-console.log(`Found ${returnKeys.length} hook bindings`);
+console.log(`Found ${returnKeys.length} hook bindings (incl. setters + async handlers)`);
 
-// Shared UI/helpers — only the block from original file + minimal imports
 const sharedImports = `import Link from "next/link";
 import AppIcon from "@/components/AppIcon";
 import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
@@ -83,25 +74,6 @@ fs.writeFileSync(
   `${sharedImports}\n${sharedBody}\n`
 );
 
-// Context
-fs.writeFileSync(
-  path.join(root, "components/trip/TripPageContext.js"),
-  `import { createContext, useContext } from "react";
-
-export const TripPageContext = createContext(null);
-
-export function useTripPage() {
-  const ctx = useContext(TripPageContext);
-  if (!ctx) {
-    throw new Error("useTripPage must be used within TripPageContext.Provider");
-  }
-  return ctx;
-}
-`
-);
-
-// Tab components — destructure all bindings so JSX stays unchanged
-const destructureBlock = returnKeys.map((k) => `    ${k},`).join("\n");
 const tabsDir = path.join(root, "components/trip/tabs");
 fs.mkdirSync(tabsDir, { recursive: true });
 
@@ -110,20 +82,9 @@ for (const tab of tabs) {
   fs.writeFileSync(
     path.join(tabsDir, `${tab.name}.js`),
     `import { useTripPage } from "../TripPageContext";
-import {
-  CollapsibleSection,
-  AppStatusMessage,
-  AppEmptyState,
-  AppMetricCard,
-  AppDetailAction,
-  TrainingResourceLink,
-  OptionalTripWideDocumentCard,
-} from "../tripPageShared";
 
 export default function ${tab.name}() {
-  const {
-${destructureBlock}
-  } = useTripPage();
+  const p = useTripPage();
 
   return (
 ${jsx
@@ -136,7 +97,6 @@ ${jsx
   );
 }
 
-// TripTabPanels
 const panelImports = tabs.map((t) => `import ${t.name} from "./tabs/${t.name}";`).join("\n");
 const panelConditions = tabs
   .map((t) => `      {${t.condition} ? <${t.name} /> : null}`)
@@ -145,8 +105,19 @@ const panelConditions = tabs
 fs.writeFileSync(
   path.join(root, "components/trip/TripTabPanels.js"),
   `${panelImports}
+import { useTripPage } from "./TripPageContext";
 
 export default function TripTabPanels() {
+  const {
+    tab,
+    tripTabTravelSafety,
+    canViewMaterialsTab,
+    tripDocumentsTabLabel,
+    participantDocumentsTabLabel,
+    canManageTrips,
+    isLeader,
+  } = useTripPage();
+
   return (
     <>
 ${panelConditions}
@@ -156,7 +127,6 @@ ${panelConditions}
 `
 );
 
-// useTripPage hook — copy original imports (lines 1-157) + hook body
 const pageImports = slice(1, 157);
 const hookFile = `${pageImports}
 import * as TripPageShared from "@/components/trip/tripPageShared";
@@ -219,7 +189,6 @@ ${returnKeys.map((k) => `    ${k},`).join("\n")}
 
 fs.writeFileSync(path.join(root, "hooks/useTripPageModel.js"), hookFile);
 
-// Slim page shell
 let pageJsx = slice(JSX_START, JSX_END);
 const tabBlockStart = pageJsx.indexOf('{tab === "Overview"');
 const tabBlockEnd = pageJsx.indexOf("{travelFormModalOpen &&");
@@ -230,10 +199,9 @@ if (tabBlockStart === -1 || tabBlockEnd === -1) {
 
 const beforeTabs = pageJsx.slice(0, tabBlockStart);
 const afterTabs = pageJsx.slice(tabBlockEnd);
-const destructureAll = returnKeys.map((k) => `    ${k},`).join("\n");
 
 const slimPage = `${pageImports}
-import { TripPageContext } from "@/components/trip/TripPageContext";
+import { TripPageProvider } from "@/components/trip/TripPageProvider";
 import TripTabPanels from "@/components/trip/TripTabPanels";
 import { useTripPageModel } from "@/hooks/useTripPageModel";
 import * as TripPageShared from "@/components/trip/tripPageShared";
@@ -247,19 +215,24 @@ const {
 
 export default function TripPage() {
   const tripPage = useTripPageModel();
-  const {
-${destructureAll}
-  } = tripPage;
+  const { pagePhase } = tripPage;
+
+  if (pagePhase === "router-loading" || pagePhase === "trip-loading" || pagePhase === "trip-not-found") {
+    // loading states handled in shell — see current [tripId].js
+  }
+
+  const p = tripPage;
 
   return (
-    <TripPageContext.Provider value={tripPage}>
+    <TripPageProvider value={tripPage}>
 ${beforeTabs.trimEnd()}
         <TripTabPanels />
 ${afterTabs.trimStart()}
-    </TripPageContext.Provider>
+    </TripPageProvider>
   );
 }
 `;
 
 fs.writeFileSync(path.join(root, "pages/trips/[tripId].new.js"), slimPage);
 console.log("Wrote pages/trips/[tripId].new.js — review then swap");
+console.log("Then run: npm run sync:trip-page-return && npm run sync:trip-tabs && npm run validate:trip-page");

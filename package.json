@@ -4,10 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run validate:trip-page && next build",
     "start": "next start",
     "lint": "next lint",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "validate:trip-page": "node scripts/validate-trip-page.mjs",
+    "sync:trip-tabs": "node scripts/sync-trip-tabs.mjs",
+    "sync:trip-page-return": "node scripts/sync-trip-page-return.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.0",
