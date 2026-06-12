@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { TripPageContext } from "./TripPageContext";
-import { tripPageStaticApi } from "./tripPageStaticApi";
+import * as tripPageStaticApi from "./tripPageStaticApi";
 
 /**
  * Merges hook state/handlers with static helpers so every consumer of useTripPage()

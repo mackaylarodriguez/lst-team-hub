@@ -284,7 +284,7 @@ export default function TripStaffTasksTab() {
                           <th>Task</th>
                           <th style={{ textAlign: "center" }}>Assigned</th>
                           <th style={{ textAlign: "center" }}>Progress</th>
-                          <th>Due Date</th>
+                          <th className="staffTaskDueDateCell">Due Date</th>
                           <th>Notes</th>
                           <th aria-label="Actions" />
                         </tr>
@@ -391,7 +391,7 @@ export default function TripStaffTasksTab() {
                                     </select>
                                   </td>
     
-                                  <td>
+                                  <td className="staffTaskDueDateCell">
                                     {isEditingTitle ? (
                                       <AppDueDateTripleSelect
                                         ref={staffDueTripleRef}
@@ -475,10 +475,6 @@ export default function TripStaffTasksTab() {
                         );
                       })}
                     </table>
-    
-                    <div className="small" style={{ marginTop: 12 }}>
-                      Staff-only checklist for trip management tasks.
-                    </div>
                   </div>
                 </CollapsibleSection>
               </div>

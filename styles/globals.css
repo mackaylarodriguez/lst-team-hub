@@ -2846,6 +2846,14 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .staffTaskAssignedCell{
   text-align:center;
 }
+.staffTaskDueDateCell{
+  text-align:center;
+}
+.staffTasksTripPanel .staffTaskDueDateCell input[type="date"]{
+  display:block;
+  margin-left:auto;
+  margin-right:auto;
+}
 .staffTaskAssignedBadge{
   max-width:92px;
   justify-content:center;

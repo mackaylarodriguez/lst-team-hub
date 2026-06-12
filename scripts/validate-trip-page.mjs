@@ -100,15 +100,24 @@ if (!tripPage.includes("TripPageProvider")) {
   errors.push("pages/trips/[tripId].js: must wrap content in TripPageProvider");
 }
 
+const providerSrc = read(`${PATHS.root}/components/trip/TripPageProvider.js`);
+if (!providerSrc.includes("import * as tripPageStaticApi")) {
+  errors.push(
+    "TripPageProvider.js: must use `import * as tripPageStaticApi` so static helpers merge into context"
+  );
+}
+
 for (const file of listTabFiles()) {
   const src = read(file);
   const imports = extractImports(src);
   const body = src.split("export default function")[1] || src;
   for (const m of body.matchAll(/<([A-Z][A-Za-z0-9_]*)/g)) {
     const comp = m[1];
-    if (comp === "Fragment") continue;
     if (imports.has(comp)) continue;
     errors.push(`${rel(file)}: uses <${comp}> without importing it`);
+  }
+  if (/<\/?Fragment\b/.test(body) && !imports.has("Fragment")) {
+    errors.push(`${rel(file)}: uses <Fragment> without importing it from "react"`);
   }
 }
 
