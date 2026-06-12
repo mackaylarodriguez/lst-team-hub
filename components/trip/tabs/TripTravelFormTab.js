@@ -1,4 +1,9 @@
 import { useTripPage } from "../TripPageContext";
+import { showToast } from "@/components/Toast";
+import {
+  fillTravelFormExportTemplate,
+  TRAVEL_FORM_TEMPLATE_PATH,
+} from "@/lib/travelFormExport";
 import {
   CollapsibleSection,
   AppStatusMessage,
@@ -358,6 +363,9 @@ export default function TripTravelFormTab() {
     workerTabList,
     workerTripTaskCategoryOptions,
     wrapAnnouncementSelection,
+    handleSaveGroupLeaderTravelContactOnly,
+    setGroupLeaderContactSaveStatus,
+    setGroupLeaderTravelDraft,
   } = useTripPage();
 
   return (
@@ -546,7 +554,6 @@ export default function TripTravelFormTab() {
                         const res = await fetch(TRAVEL_FORM_TEMPLATE_PATH);
                         if (!res.ok) {
                           const msg = "Travel agency template not found. Add travel-form-export.xlsx to public/templates/.";
-                          setSubmitError(msg);
                           showToast(msg, "error");
                           return;
                         }
@@ -559,7 +566,6 @@ export default function TripTravelFormTab() {
                         });
                         if (error) {
                           const msg = String(error);
-                          setSubmitError(msg);
                           showToast(msg, "error");
                           return;
                         }
@@ -579,7 +585,6 @@ export default function TripTravelFormTab() {
                         showToast(`Exported ${safeTripName}-travel-agency-${dateStr}.xlsx`);
                       } catch (e) {
                         const msg = e?.message || "Export failed.";
-                        setSubmitError(msg);
                         showToast(msg, "error");
                       }
                     }}

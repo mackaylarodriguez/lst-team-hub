@@ -1,5 +1,17 @@
 import { useTripPage } from "../TripPageContext";
 import TripParticipantCollapsible from "../TripParticipantCollapsible";
+import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
+import {
+  normalizeEmail,
+  buildWorkerTaskRowDomId,
+  preferredTripResourceOpenUrl,
+} from "../tripPageShared";
+import {
+  findWorkerTaskTemplate,
+  getWorkerTaskDisplayTitle,
+  isWorkerPassportOrVisaUploadTask,
+} from "@/lib/workerTaskTemplate";
+import { isWorkerTaskCompletedInState } from "@/lib/tasks";
 import {
   CollapsibleSection,
   AppStatusMessage,
@@ -359,6 +371,13 @@ export default function TripTasksTab() {
     workerTabList,
     workerTripTaskCategoryOptions,
     wrapAnnouncementSelection,
+    handleCreateTask,
+    persistWorkerTaskDueDate,
+    setIsAddingTask,
+    setIsEditingWorkerDueDates,
+    setTab,
+    setTaskDraft,
+    setTaskStatusMessage,
   } = useTripPage();
 
   return (

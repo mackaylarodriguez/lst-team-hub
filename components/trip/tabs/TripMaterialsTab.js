@@ -1,5 +1,9 @@
 import { useTripPage } from "../TripPageContext";
 import {
+  parseMaterialsPackingChecklist,
+  preferredTripResourceOpenUrl,
+} from "../tripPageShared";
+import {
   CollapsibleSection,
   AppStatusMessage,
   AppEmptyState,
@@ -359,6 +363,18 @@ export default function TripMaterialsTab() {
     workerTabList,
     workerTripTaskCategoryOptions,
     wrapAnnouncementSelection,
+    handleMaterialsGlanceSave,
+    handleSaveStaffTeamVisibleMaterials,
+    handleSaveTeamLogisticsForTeamMember,
+    handleToggleMaterialsPackingItem,
+    setBudgetCheckAmount,
+    setBudgetCheckEditingId,
+    setBudgetCheckModalOpen,
+    setBudgetCheckNote,
+    setIsEditingMaterialsGlance,
+    setMaterialsDraft,
+    setTeamLogisticsDraft,
+    setTripBudgetCheckDeleteId,
   } = useTripPage();
 
   return (

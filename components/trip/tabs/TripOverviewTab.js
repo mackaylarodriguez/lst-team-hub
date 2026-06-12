@@ -1,4 +1,6 @@
 import { useTripPage } from "../TripPageContext";
+import { deleteTripMeeting } from "@/lib/tripMeetings";
+import { toDatetimeLocalValue } from "../tripPageShared";
 import {
   CollapsibleSection,
   AppStatusMessage,
@@ -358,6 +360,16 @@ export default function TripOverviewTab() {
     workerTabList,
     workerTripTaskCategoryOptions,
     wrapAnnouncementSelection,
+    handleDeleteOverviewNote,
+    handleSaveOverviewNote,
+    handleSaveTripMeeting,
+    setEditingMeetingId,
+    setMeetingAddFormOpen,
+    setMeetingDraft,
+    setMeetingStatus,
+    setOverviewNoteDraft,
+    setTab,
+    setTripMeetings,
   } = useTripPage();
 
   return (

@@ -9,8 +9,19 @@ import TripDocumentsTab from "./tabs/TripDocumentsTab";
 import TripParticipantDocumentsTab from "./tabs/TripParticipantDocumentsTab";
 import TripTravelFormTab from "./tabs/TripTravelFormTab";
 import TripStaffTasksTab from "./tabs/TripStaffTasksTab";
+import { useTripPage } from "./TripPageContext";
 
 export default function TripTabPanels() {
+  const {
+    tab,
+    tripTabTravelSafety,
+    canViewMaterialsTab,
+    tripDocumentsTabLabel,
+    participantDocumentsTabLabel,
+    canManageTrips,
+    isLeader,
+  } = useTripPage();
+
   return (
     <>
       {tab === "Overview" ? <TripOverviewTab /> : null}

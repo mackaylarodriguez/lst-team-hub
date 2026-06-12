@@ -1,4 +1,14 @@
 import { useTripPage } from "../TripPageContext";
+import ExpandableCollapsibleSection from "@/components/CollapsibleSection";
+import {
+  DOCUMENT_CATEGORY_OPTIONS,
+  getSmartsheetBudgetTutorialCards,
+} from "@/lib/tripDocumentSlots";
+import {
+  listEffectiveTutorials,
+  preferredTripResourceOpenUrl,
+  tripDocumentTileRootClassName,
+} from "../tripPageShared";
 import {
   CollapsibleSection,
   AppStatusMessage,
@@ -358,6 +368,17 @@ export default function TripDocumentsTab() {
     workerTabList,
     workerTripTaskCategoryOptions,
     wrapAnnouncementSelection,
+    handleDeleteRequiredSlotResource,
+    handleReplaceDocumentFile,
+    handleSaveDoc,
+    handleSaveHousingTripDocs,
+    handleSavePendingPdf,
+    restoreDismissedDefaultTripDocuments,
+    runTripDocsUndoAction,
+    setDocDraft,
+    setHousingTripDocsDraft,
+    setHousingTripDocsSaveStatus,
+    setPendingPdfDraft,
   } = useTripPage();
 
   return (

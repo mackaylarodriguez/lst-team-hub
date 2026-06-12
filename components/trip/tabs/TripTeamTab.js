@@ -1,4 +1,12 @@
 import { useTripPage } from "../TripPageContext";
+import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
+import RosterTshirtSizeSelect from "@/components/RosterTshirtSizeSelect";
+import { formatPhoneNumber, toPhoneHref } from "@/lib/phone";
+import {
+  TEAM_MEMBER_ROLE_OPTIONS,
+  normalizeLegacyTeamRole,
+  getWorkerConnectionStatus,
+} from "../tripPageShared";
 import {
   CollapsibleSection,
   AppStatusMessage,
@@ -358,6 +366,11 @@ export default function TripTeamTab() {
     workerTabList,
     workerTripTaskCategoryOptions,
     wrapAnnouncementSelection,
+    handleAddWorkerToTrip,
+    handleInlineRosterTshirtChange,
+    handleSaveRoster,
+    setNewWorkerDraft,
+    setRosterDraft,
   } = useTripPage();
 
   return (

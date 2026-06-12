@@ -358,6 +358,11 @@ export default function TripParticipantDocumentsTab() {
     workerTabList,
     workerTripTaskCategoryOptions,
     wrapAnnouncementSelection,
+    handleAddParticipantDocumentType,
+    handleDeleteParticipantDocument,
+    handleUploadParticipantDocument,
+    setConfirmingParticipantDocumentDeleteId,
+    setCustomParticipantDocumentLabel,
   } = useTripPage();
 
   return (

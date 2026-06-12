@@ -1,5 +1,11 @@
 import { useTripPage } from "../TripPageContext";
 import TripParticipantCollapsible from "../TripParticipantCollapsible";
+import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
+import { buildTrainingModuleRowDomId } from "../tripPageShared";
+import {
+  getTrainingSessionOptionsForModuleTitle,
+  resolveTrainingSessionSelectValue,
+} from "@/lib/trainingSessionOptions";
 import {
   CollapsibleSection,
   AppStatusMessage,

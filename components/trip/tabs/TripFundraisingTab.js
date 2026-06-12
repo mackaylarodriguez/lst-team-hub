@@ -358,6 +358,14 @@ export default function TripFundraisingTab() {
     workerTabList,
     workerTripTaskCategoryOptions,
     wrapAnnouncementSelection,
+    handleSaveFundraising,
+    handleSaveTeamFundraising,
+    setEditingParticipantFundraisingId,
+    setFundraisingDrafts,
+    setFundraisingStatus,
+    setIsEditingTeamFundraising,
+    setTeamFundraisingDraft,
+    setTeamFundraisingStatus,
   } = useTripPage();
 
   return (

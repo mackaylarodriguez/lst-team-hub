@@ -1,4 +1,5 @@
 import { useTripPage } from "../TripPageContext";
+import TripTravelSafetySection from "@/components/TripTravelSafetySection";
 import {
   CollapsibleSection,
   AppStatusMessage,

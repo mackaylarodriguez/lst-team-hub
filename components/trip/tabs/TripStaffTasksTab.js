@@ -1,4 +1,8 @@
 import { useTripPage } from "../TripPageContext";
+import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
+import { buildStaffTaskRowDomId } from "../tripPageShared";
+import { findStaffTaskTemplate } from "@/lib/staffTaskTemplate";
+import { computeStaffTaskDueDate } from "@/lib/staffTasks";
 import {
   CollapsibleSection,
   AppStatusMessage,
@@ -358,6 +362,14 @@ export default function TripStaffTasksTab() {
     workerTabList,
     workerTripTaskCategoryOptions,
     wrapAnnouncementSelection,
+    handleAddStaffTask,
+    handleSaveStaffTaskRow,
+    saveStaffTasks,
+    setIsAddingStaffTask,
+    setNewStaffTaskDraft,
+    setStaffTaskDueDateDraft,
+    setStaffTaskStatus,
+    setStaffTaskTitleDraft,
   } = useTripPage();
 
   return (
