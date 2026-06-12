@@ -10437,9 +10437,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
             })}
           </div>
 
-          <div className="small" style={{ marginTop: 12 }}>
-            Task progress is loaded from Supabase for each assigned user.
-          </div>
           </CollapsibleSection>
         </div>
       )}
