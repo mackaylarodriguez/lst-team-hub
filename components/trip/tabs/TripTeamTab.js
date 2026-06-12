@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useTripPage } from "../TripPageContext";
 import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
 import RosterTshirtSizeSelect from "@/components/RosterTshirtSizeSelect";

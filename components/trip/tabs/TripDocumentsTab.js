@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useTripPage } from "../TripPageContext";
 import ExpandableCollapsibleSection from "@/components/CollapsibleSection";
 import {

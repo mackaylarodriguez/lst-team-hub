@@ -7,6 +7,7 @@ import {
   PATHS,
   read,
   consumerFiles,
+  listTabFiles,
   extractImports,
   parseAllDestructureKeys,
   findUsedContextKeys,
@@ -22,6 +23,21 @@ const { hookReturn, staticKeys, hookBindings, available } = getAllAvailableKeys(
 
 const errors = [];
 const warnings = [];
+
+const usedInConsumers = new Set();
+for (const file of consumerFiles()) {
+  const src = read(file);
+  const imports = extractImports(src);
+  const used = findUsedContextKeys(src, available, imports, file);
+  for (const key of used) usedInConsumers.add(key);
+}
+for (const binding of hookBindings) {
+  if (isPrivateBinding(binding)) continue;
+  if (staticKeys.has(binding)) continue;
+  if (hookReturn.has(binding)) continue;
+  if (!usedInConsumers.has(binding)) continue;
+  errors.push(`useTripPageModel return is missing "${binding}" (used in trip UI)`);
+}
 
 // Hook bindings used by consumers should be exported (return object), unless static-only.
 for (const file of consumerFiles()) {
@@ -67,6 +83,18 @@ if (!tabPanels.includes("useTripPage()")) {
 const tripPage = read(PATHS.tripPage);
 if (!tripPage.includes("TripPageProvider")) {
   errors.push("pages/trips/[tripId].js: must wrap content in TripPageProvider");
+}
+
+for (const file of listTabFiles()) {
+  const src = read(file);
+  const imports = extractImports(src);
+  const body = src.split("export default function")[1] || src;
+  for (const m of body.matchAll(/<([A-Z][A-Za-z0-9_]*)/g)) {
+    const comp = m[1];
+    if (comp === "Fragment") continue;
+    if (imports.has(comp)) continue;
+    errors.push(`${rel(file)}: uses <${comp}> without importing it`);
+  }
 }
 
 // Warn about hook bindings that look public but are not returned (optional hygiene)

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useTripPage } from "../TripPageContext";
 import { deleteTripMeeting } from "@/lib/tripMeetings";
 import { toDatetimeLocalValue } from "../tripPageShared";
@@ -49,6 +50,7 @@ export default function TripOverviewTab() {
     overviewTrainingPct,
     overviewUpcomingTasks,
     participantDocumentsTabLabel,
+    pastMeetings,
     recentActivity,
     recentActivityError,
     referenceReceivedProgress,
@@ -68,6 +70,7 @@ export default function TripOverviewTab() {
     trip,
     tripDocumentsTabLabel,
     tripMeetingsLoadError,
+    upcomingMeetings,
     workerOverviewFundraisingUrl,
   } = useTripPage();
 

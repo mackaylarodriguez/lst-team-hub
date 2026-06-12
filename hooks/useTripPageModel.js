@@ -7063,6 +7063,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
     overviewTrainingLabel,
     overviewTrainingPct,
     overviewUpcomingTasks,
+    upcomingMeetings,
+    pastMeetings,
     participantDisplayForTrainingEmail,
     participantDocumentInputRefs,
     participantDocumentStatus,

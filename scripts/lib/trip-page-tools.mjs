@@ -242,7 +242,15 @@ export function extractHookBindings(source) {
   const body = source.slice(source.indexOf("export function useTripPageModel"));
   for (const line of body.split("\n")) {
     if (!line.startsWith("  ") || line.startsWith("    ")) continue;
-    let m = line.match(/^  const \[(\w+), (set\w+)\]/);
+    let m = line.match(/^  const \{([^}]+)\}\s*=/);
+    if (m) {
+      for (const part of m[1].split(",")) {
+        const name = part.trim().split(":")[0].trim();
+        if (name) bindings.add(name);
+      }
+      continue;
+    }
+    m = line.match(/^  const \[(\w+), (set\w+)\]/);
     if (m) {
       bindings.add(m[1]);
       bindings.add(m[2]);
