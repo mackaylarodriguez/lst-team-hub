@@ -7853,9 +7853,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
         <div className="tripDetailHero card pad tripDetailHeroCompact">
           <div className="row tripPageHeader tripDetailHeroTop">
             <div className="tripPageHeaderTitle">
-              <h1 className="tripDetailHeroTitle">{trip.name}</h1>
-              <div className="small tripDetailHeroMeta">
-                {trip.location} • {trip.dates}
+              <div className="tripDetailHeroHeading">
+                <h1 className="tripDetailHeroTitle">{trip.name}</h1>
+                <span className="tripDetailHeroMeta">
+                  {trip.location} • {trip.dates}
+                </span>
               </div>
             </div>
             <div className="spacer" />
@@ -8072,13 +8074,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
           <CollapsibleSection defaultOpen>
           <div className="cardSectionPill" style={{ marginBottom: 8 }}>
             Progress at a glance
-          </div>
-          <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
-            {staffViewAllParticipants
-              ? "Task, training, fundraising, and reference completion."
-              : canViewTeamDashboard
-                ? "Task, training, and fundraising completion."
-                : "Task, training, and fundraising. A note appears here after LST receives your reference."}
           </div>
           <div
             className="tripOverviewStatsGrid"

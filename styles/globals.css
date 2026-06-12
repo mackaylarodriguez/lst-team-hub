@@ -598,15 +598,25 @@ a.btn{
   width:4px;
 }
 .tripDetailHeroTitle{
-  margin:0 0 2px;
+  margin:0;
   font-size:22px;
   font-weight:900;
   letter-spacing:-.03em;
   line-height:1.15;
 }
+.tripDetailHeroHeading{
+  display:flex;
+  align-items:baseline;
+  flex-wrap:wrap;
+  gap:6px 12px;
+  min-width:0;
+}
 .tripDetailHeroMeta{
-  line-height:1.35;
+  font-size:15px;
+  font-weight:600;
+  line-height:1.25;
   color:var(--muted);
+  min-width:0;
 }
 .tripDetailHeroActionBtn{
   min-height:36px;
@@ -2449,6 +2459,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   }
   .tripDetailHeroTitle{
     font-size:20px;
+  }
+  .tripDetailHeroMeta{
+    font-size:14px;
   }
   .tripDetailHeroPreviewSelect{
     min-width:0;
