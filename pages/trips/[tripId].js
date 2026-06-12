@@ -12321,6 +12321,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
           <CollapsibleSection defaultOpen>
           <div className="card pad">
             <div className="cardSectionPill" style={{ marginBottom: 8 }}>Travel form responses</div>
+            {canViewTeamDashboard ? (
             <div
               className="row mobileSectionHeader"
               style={{
@@ -12332,13 +12333,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
               }}
             >
               <div className="small" style={{ flex: "1 1 280px", minWidth: 0, marginRight: "auto" }}>
-                {canViewTeamDashboard
-                  ? "Team responses — auto-populated as workers submit from Tasks."
-                  : "Fill out from Tasks or edit below."}
+                Team responses — auto-populated as workers submit from Tasks.
               </div>
               <div className="row mobileSectionHeaderActions" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {canViewTeamDashboard ? (
-                  <>
+                <>
                 <button
                   type="button"
                   className="btn"
@@ -12544,10 +12542,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
                 >
                   Export for travel agency (Excel)
                 </button>
-                  </>
-                ) : null}
+                </>
               </div>
             </div>
+            ) : null}
             {canViewTeamDashboard ? (
               <div
                 style={{
@@ -12808,6 +12806,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
                       },
                     ];
 
+                const submissionStatusText = !hasSubmission
+                  ? "No travel form response submitted yet."
+                  : hasPassportGap && ma
+                    ? "Response submitted, but ID name or REAL ID answer is incomplete."
+                    : hasPassportGap
+                      ? ""
+                      : "Response submitted and ready for review.";
+
                 return (
                   <div
                     key={p.refKey || p.id}
@@ -12823,15 +12829,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
                         <div style={{ fontWeight: 900, color: "var(--text)" }}>
                           {canViewTeamDashboard ? p.name || p.email || "Participant" : "My response"}
                         </div>
-                        <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
-                          {hasSubmission
-                            ? hasPassportGap
-                              ? ma
-                                ? "Response submitted, but ID name or REAL ID answer is incomplete."
-                                : "Response submitted, but passport details are incomplete."
-                              : "Response submitted and ready for review."
-                            : "No travel form response submitted yet."}
-                        </div>
+                        {submissionStatusText ? (
+                          <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                            {submissionStatusText}
+                          </div>
+                        ) : null}
                       </div>
                       <span className={`badge ${hasSubmission ? (hasPassportGap ? "badgeWarn" : "badgeSuccess") : "badgeWarn"}`}>
                         {hasSubmission
