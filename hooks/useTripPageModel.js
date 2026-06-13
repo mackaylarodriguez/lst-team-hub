@@ -27,6 +27,7 @@ import {
 } from "@/lib/tripTeamMembers";
 import { pruneTripTicketsForNonTravelingLeaders } from "@/lib/tripTickets";
 import {
+  filterActiveUniqueTrainingModules,
   getTrainingModuleDeadline,
   listTrainingModules,
   listTrainingProgress,
@@ -629,9 +630,14 @@ export function useTripPageModel() {
     (resource) => resource.group === "optional"
   );
 
+  const uniqueTrainingModules = useMemo(
+    () => filterActiveUniqueTrainingModules(trainingModules),
+    [trainingModules]
+  );
+
   const canvasTrainingModules = useMemo(
     () =>
-      trainingModules
+      uniqueTrainingModules
         .filter((module) => module.category === "classroom" || module.category === "canvas")
         .map((module) => ({
           ...module,
@@ -641,11 +647,11 @@ export function useTripPageModel() {
             trainingTimelineType: trip?.trainingTimelineType,
           }),
         })),
-    [trainingModules, trip?.endDate, trip?.startDate, trip?.trainingTimelineType]
+    [uniqueTrainingModules, trip?.endDate, trip?.startDate, trip?.trainingTimelineType]
   );
   const supplementalTrainingModules = useMemo(
     () =>
-      trainingModules
+      uniqueTrainingModules
         .filter((module) => module.category === "supplemental")
         .map((module) => ({
           ...module,
@@ -655,16 +661,16 @@ export function useTripPageModel() {
             trainingTimelineType: trip?.trainingTimelineType,
           }),
         })),
-    [trainingModules, trip?.endDate, trip?.startDate, trip?.trainingTimelineType]
+    [uniqueTrainingModules, trip?.endDate, trip?.startDate, trip?.trainingTimelineType]
   );
   const datedTrainingModuleIds = useMemo(
     () =>
-      trainingModules
+      uniqueTrainingModules
         .filter((module) => module.requiresDate)
         .map((module) => module.id),
-    [trainingModules]
+    [uniqueTrainingModules]
   );
-  const allTrainingModules = trainingModules;
+  const allTrainingModules = uniqueTrainingModules;
 
   useEffect(() => {
     if (!router.isReady) return;
