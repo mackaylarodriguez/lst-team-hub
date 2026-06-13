@@ -9,16 +9,12 @@ import {
   AppStatusMessage,
   AppEmptyState,
   AppMetricCard,
-  AppDetailAction,
-  TrainingResourceLink,
-  OptionalTripWideDocumentCard,
 } from "../tripPageShared";
 
 export default function TripTravelFormTab() {
     const {
     canManageTrips,
     canViewTeamDashboard,
-    completedCount,
     currentParticipant,
     formatSingleDate,
     getTravelFormByRefKey,
@@ -28,7 +24,6 @@ export default function TripTravelFormTab() {
     openTravelFormModal,
     setGroupLeaderContactSaveStatus,
     setGroupLeaderTravelDraft,
-    tab,
     travelFormResponses,
     travelFormsSummary,
     trip,
@@ -36,27 +31,32 @@ export default function TripTravelFormTab() {
     visibleTravelFormParticipants,
   } = useTripPage();
 
+  const {
+    totalParticipants: travelFormsExpected,
+    missingCount: travelFormsMissing,
+    passportGaps: travelFormsPassportGaps,
+  } = travelFormsSummary;
+  const travelFormsSubmitted = travelFormsSummary["completed" + "Count"];
+
   return (
     <div style={{ display: "grid", gap: 16 }}>
               <CollapsibleSection defaultOpen>
               <div className="card pad">
-                <div className="cardSectionPill" style={{ marginBottom: 8 }}>Travel form responses</div>
-                {canViewTeamDashboard ? (
                 <div
                   className="row mobileSectionHeader"
                   style={{
-                    marginBottom: 12,
-                    alignItems: "flex-start",
+                    marginBottom: canViewTeamDashboard ? 8 : 0,
+                    alignItems: "center",
                     gap: 12,
                     flexWrap: "wrap",
-                    justifyContent: "flex-end",
+                    justifyContent: "space-between",
                   }}
                 >
-                  <div className="small" style={{ flex: "1 1 280px", minWidth: 0, marginRight: "auto" }}>
-                    Team responses — auto-populated as workers submit from Tasks.
+                  <div className="cardSectionPill" style={{ marginBottom: 0 }}>
+                    Travel form responses
                   </div>
+                  {canViewTeamDashboard ? (
                   <div className="row mobileSectionHeaderActions" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    <>
                     <button
                       type="button"
                       className="btn"
@@ -259,68 +259,53 @@ export default function TripTravelFormTab() {
                     >
                       Export for travel agency (Excel)
                     </button>
-                    </>
                   </div>
+                  ) : null}
                 </div>
-                ) : null}
                 {canViewTeamDashboard ? (
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                      gap: 12,
-                      marginBottom: 16,
+                      gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                      gap: 10,
+                      marginBottom: 10,
                     }}
                   >
                     <AppMetricCard
                       label="Expected Responses"
-                      value={travelFormsSummary.totalParticipants}
-                      detail="Team members represented in travel form review."
+                      value={travelFormsExpected}
                       tone="info"
                     />
                     <AppMetricCard
                       label="Submitted"
-                      value={travelFormsSummary.completedCount}
-                      detail="Responses with at least core travel fields filled in."
-                      tone={travelFormsSummary.completedCount > 0 ? "success" : "neutral"}
+                      value={travelFormsSubmitted}
+                      tone={travelFormsSubmitted > 0 ? "success" : "neutral"}
                     />
                     <AppMetricCard
                       label="Still Missing"
-                      value={travelFormsSummary.missingCount}
-                      detail="Participants who still need to submit their travel details."
-                      tone={travelFormsSummary.missingCount > 0 ? "warning" : "success"}
+                      value={travelFormsMissing}
+                      tone={travelFormsMissing > 0 ? "warning" : "success"}
                     />
                     <AppMetricCard
                       label={tripIsMassachusettsDomestic ? "ID / REAL ID gaps" : "Passport Gaps"}
-                      value={travelFormsSummary.passportGaps}
-                      detail={
-                        tripIsMassachusettsDomestic
-                          ? "Submitted responses still missing ID name (first/last) or REAL ID yes/no."
-                          : "Submitted responses still missing passport number or expiration date."
-                      }
-                      tone={travelFormsSummary.passportGaps > 0 ? "warning" : "success"}
+                      value={travelFormsPassportGaps}
+                      tone={travelFormsPassportGaps > 0 ? "warning" : "success"}
                     />
                   </div>
                 ) : null}
-    
+
                 {canManageTrips ? (
                   <div
                     style={{
-                      marginBottom: 16,
-                      padding: 14,
+                      marginBottom: 10,
+                      padding: "10px 12px",
                       borderRadius: 12,
                       border: "1px solid var(--border)",
                       background: "var(--surfaceMuted, rgba(15, 23, 42, 0.04))",
                     }}
                   >
                     <div className="small" style={{ fontWeight: 700, marginBottom: 8 }}>
-                      Staff only — group leader contact
-                    </div>
-                    <div className="small" style={{ marginBottom: 12, opacity: 0.88, lineHeight: 1.45 }}>
-                      Trip-wide leader for travel coordination. Workers do not see this block. Values are saved to the
-                      trip and filled into <strong>Export for travel agency (Excel)</strong> when the spreadsheet has
-                      Group leader name / cell / email labels in the rows above the passenger list (value in the next
-                      column to the right).
+                      Group leader contact
                     </div>
                     <div
                       style={{
@@ -391,13 +376,13 @@ export default function TripTravelFormTab() {
                         />
                       </div>
                     ) : null}
-                    <div className="row" style={{ marginTop: 12, flexWrap: "wrap", gap: 8 }}>
+                    <div className="row" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
                       <button
                         className="btn btnPrimary"
                         type="button"
                         onClick={() => void handleSaveGroupLeaderTravelContactOnly()}
                       >
-                        Save group leader contact
+                        Save
                       </button>
                     </div>
                   </div>
@@ -624,7 +609,7 @@ export default function TripTravelFormTab() {
                 {canViewTeamDashboard && visibleTravelFormParticipants.length === 0 && (
                   <AppEmptyState
                     title="No participants yet"
-                    description="Add team members in the Team tab roster to see and export their travel form responses here."
+                    description="Add team members in the Team roster to see and export their travel form responses here."
                   />
                 )}
                 {!canViewTeamDashboard && !currentParticipant && (
