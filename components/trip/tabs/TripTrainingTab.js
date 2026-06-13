@@ -131,7 +131,7 @@ export default function TripTrainingTab() {
                         <h3 className="tripTrainingSectionHeading">{participant.name}</h3>
                       ) : null}
     
-                      <h3 className="tripTrainingSectionHeading">Canvas modules</h3>
+                      <h3 className="tripTrainingSectionHeading">Classroom modules</h3>
                       <div className="tripTrainingTaskList">
                         {canvasTrainingModules.map((module) => {
                           const isComplete = !!trainingState[module.id];
@@ -220,7 +220,7 @@ export default function TripTrainingTab() {
                                   ? buildTrainingModuleRowDomId(modKey)
                                   : undefined
                               }
-                              className="tripTrainingTaskRow"
+                              className="tripTrainingTaskRow tripTrainingTaskRowCompact"
                             >
                               <div className="tripTrainingTaskRowInner">
                                 <input
@@ -235,6 +235,11 @@ export default function TripTrainingTab() {
                                     <label className="tripTrainingTaskTitle" htmlFor={checkboxId}>
                                       {module.title}
                                     </label>
+                                    {module.deadlineDate ? (
+                                      <span className="small tripTrainingTaskMeta tripTrainingTaskMetaInline">
+                                        {`Due: ${formatShortDate(module.deadlineDate)}`}
+                                      </span>
+                                    ) : null}
                                     <span
                                       className={
                                         "tripTrainingTaskStatus" + (isComplete ? " isComplete" : "")
@@ -243,52 +248,49 @@ export default function TripTrainingTab() {
                                       {isComplete ? "Completed" : "Not started"}
                                     </span>
                                   </div>
-                                  {module.deadlineDate ? (
-                                    <div className="small tripTrainingTaskMeta">
-                                      {`Due: ${formatShortDate(module.deadlineDate)}`}
-                                    </div>
-                                  ) : null}
-                                  {sessionOptions ? (
-                                    <div className="tripTrainingTaskField">
-                                      <select
-                                        className="input"
-                                        value={selectValue}
-                                        onChange={(e) =>
-                                          updateTrainingDate(modKey, e.target.value, participant.email)
-                                        }
-                                      >
-                                        <option value="">Select session…</option>
-                                        {sessionOptions.map((opt) => (
-                                          <option key={opt.value} value={opt.value}>
-                                            {opt.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                  ) : (
-                                    <div className="tripTrainingTaskField">
-                                      <AppDueDateTripleSelect
-                                        compact
-                                        nativeDatePickerOnly
-                                        value={formattedTrainingDate}
-                                        onChange={(value) =>
-                                          updateTrainingDate(modKey, value, participant.email)
-                                        }
-                                      />
-                                    </div>
-                                  )}
-                                  {registrationUrl ? (
-                                    <div className="tripChecklistTaskActions">
-                                      <a
-                                        href={registrationUrl}
-                                        target="_blank"
-                                        rel="noreferrer noopener"
-                                        className="tripChecklistTaskLink"
-                                      >
-                                        {registrationLabel}
-                                      </a>
-                                    </div>
-                                  ) : null}
+                                  <div className="tripTrainingTaskRowFooter">
+                                    {sessionOptions ? (
+                                      <div className="tripTrainingTaskField">
+                                        <select
+                                          className="input"
+                                          value={selectValue}
+                                          onChange={(e) =>
+                                            updateTrainingDate(modKey, e.target.value, participant.email)
+                                          }
+                                        >
+                                          <option value="">Select session…</option>
+                                          {sessionOptions.map((opt) => (
+                                            <option key={opt.value} value={opt.value}>
+                                              {opt.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                    ) : (
+                                      <div className="tripTrainingTaskField">
+                                        <AppDueDateTripleSelect
+                                          compact
+                                          nativeDatePickerOnly
+                                          value={formattedTrainingDate}
+                                          onChange={(value) =>
+                                            updateTrainingDate(modKey, value, participant.email)
+                                          }
+                                        />
+                                      </div>
+                                    )}
+                                    {registrationUrl ? (
+                                      <div className="tripChecklistTaskActions">
+                                        <a
+                                          href={registrationUrl}
+                                          target="_blank"
+                                          rel="noreferrer noopener"
+                                          className="tripChecklistTaskLink"
+                                        >
+                                          {registrationLabel}
+                                        </a>
+                                      </div>
+                                    ) : null}
+                                  </div>
                                 </div>
                               </div>
                             </div>

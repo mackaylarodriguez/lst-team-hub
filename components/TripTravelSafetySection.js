@@ -13,6 +13,17 @@ function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+/** Remote (non-traveling) leaders are excluded from travel & safety acknowledgment counts. */
+function shouldIncludeInTravelSafetyAckCount(email, teamMembers = []) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return true;
+  const rosterMember = teamMembers.find((member) => normalizeEmail(member.email) === normalizedEmail);
+  if (!rosterMember) return true;
+  const role = String(rosterMember.teamRole || "").trim().toLowerCase();
+  if (role === "leader" && rosterMember.travelsWithTeam === false) return false;
+  return true;
+}
+
 function daysBetween(isoDate) {
   if (!isoDate) return null;
   const d = new Date(`${String(isoDate).slice(0, 10)}T12:00:00`);
@@ -137,8 +148,19 @@ export default function TripTravelSafetySection({
     return (teamMembers || []).some((m) => normalizeEmail(m.email) === em);
   }, [teamMembers, session?.email]);
 
+  const isExcludedFromTravelSafetyAck = useMemo(
+    () => !shouldIncludeInTravelSafetyAckCount(session?.email, teamMembers),
+    [session?.email, teamMembers]
+  );
+
   /** Assigned participant or anyone on this trip's roster (covers workers not yet in trip_assignments). */
-  const canAcknowledgeAsTripMember = isParticipant || isOnTripRosterByEmail;
+  const canAcknowledgeAsTripMember =
+    (isParticipant || isOnTripRosterByEmail) && !isExcludedFromTravelSafetyAck;
+
+  const participantsRequiringAck = useMemo(
+    () => participants.filter((p) => shouldIncludeInTravelSafetyAckCount(p.email, teamMembers)),
+    [participants, teamMembers]
+  );
 
   const myAck = useMemo(
     () =>
@@ -156,7 +178,7 @@ export default function TripTravelSafetySection({
     const byId = new Map(acks.map((a) => [String(a.userId), a]));
     const acked = [];
     const missing = [];
-    for (const p of participants) {
+    for (const p of participantsRequiringAck) {
       const row = byId.get(String(p.id));
       if (row && Number(row.acknowledgedVersion) === Number(contentVersion)) {
         acked.push(p);
@@ -165,7 +187,7 @@ export default function TripTravelSafetySection({
       }
     }
     return { acknowledgedParticipants: acked, notAcknowledgedParticipants: missing };
-  }, [participants, acks, contentVersion]);
+  }, [participantsRequiringAck, acks, contentVersion]);
 
   async function handleSave() {
     if (!tripId || !canEdit) return;
@@ -409,7 +431,7 @@ export default function TripTravelSafetySection({
                 <div style={{ marginTop: 8 }}>
                   <div style={{ fontWeight: 800, marginBottom: 6 }}>Acknowledgment status</div>
                   <div className="small" style={{ marginBottom: 8 }}>
-                    {acknowledgedParticipants.length} / {participants.length} team members acknowledged (version{" "}
+                    {acknowledgedParticipants.length} / {participantsRequiringAck.length} team members acknowledged (version{" "}
                     {contentVersion}).
                   </div>
                   <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>

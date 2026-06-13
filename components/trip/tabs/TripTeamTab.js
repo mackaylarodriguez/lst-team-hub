@@ -282,21 +282,23 @@ export default function TripTeamTab() {
                             updateRosterDraftMember(index, "tshirtSize", event.target.value)
                           }
                         />
-                        <div style={{ gridColumn: "1 / -1" }}>
-                          <div className="small" style={{ marginBottom: 6 }}>Project leave date</div>
-                          <AppDueDateTripleSelect
-                            compact
-                            value={member.startDate || ""}
-                            onChange={(ymd) => updateRosterDraftMember(index, "startDate", ymd)}
-                          />
-                        </div>
-                        <div style={{ gridColumn: "1 / -1" }}>
-                          <div className="small" style={{ marginBottom: 6 }}>Project return date</div>
-                          <AppDueDateTripleSelect
-                            compact
-                            value={member.endDate || ""}
-                            onChange={(ymd) => updateRosterDraftMember(index, "endDate", ymd)}
-                          />
+                        <div className="tripRosterDatesRow">
+                          <div className="tripRosterDateField">
+                            <div className="small tripRosterDateLabel">Project leave date</div>
+                            <AppDueDateTripleSelect
+                              compact
+                              value={member.startDate || ""}
+                              onChange={(ymd) => updateRosterDraftMember(index, "startDate", ymd)}
+                            />
+                          </div>
+                          <div className="tripRosterDateField">
+                            <div className="small tripRosterDateLabel">Project return date</div>
+                            <AppDueDateTripleSelect
+                              compact
+                              value={member.endDate || ""}
+                              onChange={(ymd) => updateRosterDraftMember(index, "endDate", ymd)}
+                            />
+                          </div>
                         </div>
                         <button className="btn" type="button" onClick={() => handleRemoveRosterMember(index)}>
                           Remove

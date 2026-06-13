@@ -1983,6 +1983,23 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
   gap:10px;
 }
+.tripRosterDatesRow{
+  grid-column:1 / -1;
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px 16px;
+  align-items:flex-end;
+}
+.tripRosterDateField{
+  display:grid;
+  gap:4px;
+  min-width:0;
+  flex:1 1 220px;
+}
+.tripRosterDateLabel{
+  margin-bottom:0;
+  color:var(--muted);
+}
 .tripTrainingResourceGrid{
   display:grid;
   grid-template-columns:repeat(3, minmax(0, 1fr));
@@ -2087,6 +2104,44 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   max-width:360px;
   font-size:13px;
   padding:7px 10px;
+}
+.tripTrainingTaskRowCompact{
+  padding:10px 12px;
+}
+.tripTrainingTaskRowCompact .tripTrainingTaskRowContent{
+  gap:6px;
+}
+.tripTrainingTaskRowCompact .tripTrainingTaskRowHeader{
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px 12px;
+}
+.tripTrainingTaskRowCompact .tripTrainingTaskTitle{
+  flex:1 1 140px;
+  min-width:0;
+}
+.tripTrainingTaskMetaInline{
+  flex:0 0 auto;
+  white-space:nowrap;
+}
+.tripTrainingTaskRowCompact .tripTrainingTaskRowFooter{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px 14px;
+}
+.tripTrainingTaskRowCompact .tripTrainingTaskField{
+  flex:1 1 220px;
+  min-width:0;
+  max-width:100%;
+}
+.tripTrainingTaskRowCompact .tripTrainingTaskField .input,
+.tripTrainingTaskRowCompact .tripTrainingTaskField select{
+  max-width:none;
+}
+.tripTrainingTaskRowCompact .tripChecklistTaskActions{
+  flex:0 0 auto;
+  margin:0;
 }
 .tripChecklistTaskActions{
   display:flex;

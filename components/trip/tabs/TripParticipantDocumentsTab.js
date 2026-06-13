@@ -21,6 +21,7 @@ export default function TripParticipantDocumentsTab() {
     formatNoteTimestamp,
     handleAddParticipantDocumentType,
     handleDeleteParticipantDocument,
+    handleRemoveParticipantDocumentType,
     handleUploadParticipantDocument,
     participantDocumentInputRefs,
     participantDocumentStatus,
@@ -67,8 +68,51 @@ export default function TripParticipantDocumentsTab() {
                 </div>
                 {canViewTeamDashboard ? (
                   <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-                    Per-participant uploads and review.
+                    Per-participant uploads and review. Remove an upload type below if it is not
+                    required (for example, no visa).
                   </div>
+                ) : null}
+                {canViewTeamDashboard && tripUserDocumentTypes.length > 0 ? (
+                  <div style={{ marginBottom: 12 }}>
+                    <div className="small" style={{ fontWeight: 700, marginBottom: 6 }}>
+                      Upload requirements
+                    </div>
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                      {tripUserDocumentTypes.map((uploadType) => (
+                        <div
+                          key={uploadType.key}
+                          className="row"
+                          style={{
+                            gap: 8,
+                            alignItems: "center",
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(15, 23, 42, 0.1)",
+                            background: "rgba(255,255,255,.82)",
+                          }}
+                        >
+                          <span className="small" style={{ fontWeight: 600 }}>
+                            {uploadType.label}
+                          </span>
+                          <button
+                            className="btn"
+                            type="button"
+                            style={{ padding: "2px 8px", fontSize: 12 }}
+                            onClick={() => void handleRemoveParticipantDocumentType(uploadType.key)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {canViewTeamDashboard && tripUserDocumentTypes.length === 0 ? (
+                  <AppEmptyState
+                    title="No upload types configured"
+                    description="Add a custom upload item above if document uploads are still needed."
+                    compact
+                  />
                 ) : null}
                 {canViewTeamDashboard ? (
                   <AppStatusMessage
@@ -86,6 +130,7 @@ export default function TripParticipantDocumentsTab() {
     
                 <AppStatusMessage message={participantDocumentsError} tone="danger" />
     
+                {tripUserDocumentTypes.length > 0 ? (
                 <div
                   style={{
                     display: "grid",
@@ -260,6 +305,7 @@ export default function TripParticipantDocumentsTab() {
                     );
                   })}
                 </div>
+                ) : null}
               </div>
               </CollapsibleSection>
             </div>

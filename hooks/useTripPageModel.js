@@ -91,9 +91,12 @@ import {
 import { saveTripFundraisingSettings } from "@/lib/tripFundraising";
 import { listTripActivity, logTripActivity } from "@/lib/tripActivity";
 import {
+  buildParticipantDocumentTypesPayload,
   getTripUserDocumentTypes,
   getUserDocumentTypeLabel,
+  isBuiltInUserDocumentTypeKey,
   normalizeCustomUserDocumentTypes,
+  parseTripParticipantDocumentConfig,
 } from "@/lib/userDocumentTypes";
 import {
   deleteUserDocument,
@@ -628,7 +631,7 @@ export function useTripPageModel() {
   const canvasTrainingModules = useMemo(
     () =>
       trainingModules
-        .filter((module) => module.category === "canvas")
+        .filter((module) => module.category === "classroom" || module.category === "canvas")
         .map((module) => ({
           ...module,
           deadlineDate: getTrainingModuleDeadline(module.title, {
@@ -642,7 +645,7 @@ export function useTripPageModel() {
   const supplementalTrainingModules = useMemo(
     () =>
       trainingModules
-        .filter((module) => module.category !== "canvas")
+        .filter((module) => module.category === "supplemental")
         .map((module) => ({
           ...module,
           deadlineDate: getTrainingModuleDeadline(module.title, {
@@ -3077,22 +3080,26 @@ export function useTripPageModel() {
   async function handleAddParticipantDocumentType() {
     if (!trip?.id) return;
 
-    const nextTypes = normalizeCustomUserDocumentTypes([
-      ...(trip.participantDocumentTypes || []),
+    const { excludedKeys, customTypes } = parseTripParticipantDocumentConfig(
+      trip.participantDocumentTypes || []
+    );
+    const nextCustom = normalizeCustomUserDocumentTypes([
+      ...customTypes,
       {
         label: customParticipantDocumentLabel,
       },
     ]);
 
-    if ((trip.participantDocumentTypes || []).length === nextTypes.length) {
+    if (customTypes.length === nextCustom.length) {
       setParticipantDocumentTypeStatus("Enter a new upload item name.");
       return;
     }
 
     try {
       setParticipantDocumentTypeStatus("Saving...");
-      const updatedTrip = await saveTripParticipantDocumentTypes(trip.id, nextTypes);
-      const addedType = nextTypes[nextTypes.length - 1] || null;
+      const payload = buildParticipantDocumentTypesPayload(nextCustom, excludedKeys);
+      const updatedTrip = await saveTripParticipantDocumentTypes(trip.id, payload);
+      const addedType = nextCustom[nextCustom.length - 1] || null;
       let createdTask = null;
 
       if (addedType?.label) {
@@ -3123,6 +3130,45 @@ export function useTripPageModel() {
     } catch (error) {
       console.error("Unable to save participant document types", error);
       setParticipantDocumentTypeStatus(error.message || "Unable to save upload item.");
+    }
+  }
+
+  async function handleRemoveParticipantDocumentType(documentTypeKey) {
+    if (!trip?.id || !documentTypeKey) return;
+
+    const key = String(documentTypeKey || "").trim().toLowerCase();
+    const { excludedKeys, customTypes } = parseTripParticipantDocumentConfig(
+      trip.participantDocumentTypes || []
+    );
+
+    if (isBuiltInUserDocumentTypeKey(key)) {
+      if (excludedKeys.has(key)) return;
+      excludedKeys.add(key);
+    } else if (!customTypes.some((item) => item.key === key)) {
+      return;
+    }
+
+    const nextCustom = customTypes.filter((item) => item.key !== key);
+    const payload = buildParticipantDocumentTypesPayload(nextCustom, excludedKeys);
+
+    try {
+      setParticipantDocumentTypeStatus("Saving...");
+      const updatedTrip = await saveTripParticipantDocumentTypes(trip.id, payload);
+      setTrip((current) =>
+        current
+          ? {
+              ...current,
+              participantDocumentTypes: updatedTrip.participantDocumentTypes || [],
+            }
+          : current
+      );
+      const removedLabel = getUserDocumentTypeLabel(key, trip.participantDocumentTypes, {
+        domesticMassachusetts: isUsMassachusettsMissionSite(trip?.location),
+      });
+      setParticipantDocumentTypeStatus(`Removed ${removedLabel} from this trip.`);
+    } catch (error) {
+      console.error("Unable to remove participant document type", error);
+      setParticipantDocumentTypeStatus(error.message || "Unable to remove upload item.");
     }
   }
 
@@ -7214,6 +7260,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     wrapAnnouncementSelection,
     // Handlers, setters, and helpers used by tab panels / page shell (not in auto-generated export list)
     handleAddParticipantDocumentType,
+    handleRemoveParticipantDocumentType,
     handleAddStaffTask,
     handleAddWorkerToTrip,
     handleConfirmDeleteTrip,
