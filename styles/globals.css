@@ -2898,6 +2898,24 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .staffTaskRow .statusSelect{
   min-width:118px;
 }
+.staffTasksTripPanel table.staffTasksTripTable .staffTaskAssignedCell,
+.staffTasksTripPanel table.staffTasksTripTable .staffTaskProgressCell,
+.staffTasksTripPanel table.staffTasksTripTable .staffTaskDueDateCell{
+  text-align:center;
+}
+.staffTasksTripPanel table.staffTasksTripTable .staffTaskProgressCell{
+  padding-right:10px;
+}
+.staffTasksTripPanel table.staffTasksTripTable .staffTaskProgressCell .statusSelect{
+  display:block;
+  max-width:100%;
+  margin:0 auto;
+}
+.staffTasksTripPanel table.staffTasksTripTable .staffTaskDueDateCell{
+  padding-left:12px;
+  padding-right:12px;
+  white-space:nowrap;
+}
 .staffTaskAssignedCell{
   text-align:center;
 }

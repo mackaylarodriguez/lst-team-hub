@@ -272,18 +272,18 @@ export default function TripStaffTasksTab() {
     
                     <table className="table dataTableStriped staffTasksTripTable">
                       <colgroup>
-                        <col style={{ width: "26%" }} />
+                        <col style={{ width: "25%" }} />
                         <col style={{ width: "8%" }} />
-                        <col style={{ width: "11%" }} />
-                        <col style={{ width: "10%" }} />
-                        <col style={{ width: "37%" }} />
+                        <col style={{ width: "12%" }} />
+                        <col style={{ width: "12%" }} />
+                        <col style={{ width: "35%" }} />
                         <col style={{ width: "8%" }} />
                       </colgroup>
                       <thead>
                         <tr>
                           <th>Task</th>
-                          <th style={{ textAlign: "center" }}>Assigned</th>
-                          <th style={{ textAlign: "center" }}>Progress</th>
+                          <th className="staffTaskAssignedCell">Assigned</th>
+                          <th className="staffTaskProgressCell">Progress</th>
                           <th className="staffTaskDueDateCell">Due Date</th>
                           <th>Notes</th>
                           <th aria-label="Actions" />
@@ -374,7 +374,7 @@ export default function TripStaffTasksTab() {
                                     )}
                                   </td>
     
-                                  <td style={{ textAlign: "center" }}>
+                                  <td className="staffTaskProgressCell">
                                     <select
                                       className={`input statusSelect ${getProgressInputClass(
                                         t.progress || "Not started"
