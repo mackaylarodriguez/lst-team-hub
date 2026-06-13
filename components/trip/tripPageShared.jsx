@@ -180,34 +180,46 @@ function AppMetricCard({
   value,
   detail,
   tone = "neutral",
+  compact = false,
 }) {
   const palette = APP_STATUS_TONES[tone] || APP_STATUS_TONES.neutral;
   return (
     <div
       style={{
-        padding: "14px 16px",
-        borderRadius: 16,
-        minHeight: 112,
+        padding: compact ? "8px 12px" : "14px 16px",
+        borderRadius: compact ? 12 : 16,
+        minHeight: compact ? undefined : 112,
+        width: compact ? "fit-content" : undefined,
+        minWidth: compact ? 112 : undefined,
         background: "#fff",
         border: palette.border,
-        boxShadow: "0 12px 28px rgba(15, 23, 42, 0.06)",
+        boxShadow: compact ? "0 6px 16px rgba(15, 23, 42, 0.05)" : "0 12px 28px rgba(15, 23, 42, 0.06)",
         display: "grid",
-        gap: 8,
+        gap: compact ? 4 : 8,
         alignContent: "start",
+        justifyItems: compact ? "center" : undefined,
       }}
     >
       <div
         style={{
-          fontSize: 10,
+          fontSize: compact ? 9 : 10,
           fontWeight: 800,
           textTransform: "uppercase",
           letterSpacing: "0.12em",
           color: palette.color,
+          lineHeight: 1.3,
         }}
       >
         {label}
       </div>
-      <div style={{ fontSize: 28, lineHeight: 1, fontWeight: 900, color: "var(--text)" }}>
+      <div
+        style={{
+          fontSize: compact ? 22 : 28,
+          lineHeight: 1,
+          fontWeight: 900,
+          color: "var(--text)",
+        }}
+      >
         {value}
       </div>
       {detail ? (

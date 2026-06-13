@@ -265,29 +265,33 @@ export default function TripTravelFormTab() {
                 {canViewTeamDashboard ? (
                   <div
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                      gap: 10,
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
                       marginBottom: 10,
-                      textAlign: "center",
+                      justifyContent: "center",
                     }}
                   >
                     <AppMetricCard
+                      compact
                       label="Expected Responses"
                       value={travelFormsExpected}
                       tone="info"
                     />
                     <AppMetricCard
+                      compact
                       label="Submitted"
                       value={travelFormsSubmitted}
                       tone={travelFormsSubmitted > 0 ? "success" : "neutral"}
                     />
                     <AppMetricCard
+                      compact
                       label="Still Missing"
                       value={travelFormsMissing}
                       tone={travelFormsMissing > 0 ? "warning" : "success"}
                     />
                     <AppMetricCard
+                      compact
                       label={tripIsMassachusettsDomestic ? "ID / REAL ID gaps" : "Passport Gaps"}
                       value={travelFormsPassportGaps}
                       tone={travelFormsPassportGaps > 0 ? "warning" : "success"}
