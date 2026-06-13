@@ -11,7 +11,7 @@ export default function TrainingOverviewPrototypeTable() {
           <tr>
             <th>Worker</th>
             <th>Role</th>
-            <th>Modules</th>
+            <th>Sections</th>
             <th>Completion</th>
             <th>Status</th>
           </tr>
@@ -27,7 +27,7 @@ export default function TrainingOverviewPrototypeTable() {
                 </td>
                 <td>{worker.role}</td>
                 <td>
-                  {worker.modulesComplete} / {worker.modulesTotal}
+                  {worker.modulesComplete} / {worker.modulesTotal} sections
                 </td>
                 <td>
                   <div className="row" style={{ gap: 8, alignItems: "center" }}>

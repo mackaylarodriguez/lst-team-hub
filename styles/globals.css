@@ -3580,11 +3580,27 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeTripTabs{
   margin-bottom:4px;
 }
-.trainingPrototypeCanvasGrid{
+.trainingPrototypeModuleShell{
   display:grid;
-  grid-template-columns:minmax(200px,240px) minmax(0,1fr);
-  gap:16px;
-  align-items:start;
+  gap:14px;
+}
+.trainingPrototypeModuleHeadingRow{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  padding:0 2px;
+}
+.trainingPrototypeModuleHeading{
+  margin:0;
+  font-size:22px;
+  line-height:1.2;
+  font-weight:900;
+  color:var(--primary);
+}
+.trainingPrototypeCanvasGrid{
+  display:block;
 }
 .trainingPrototypeModuleNav{
   display:grid;
@@ -3758,12 +3774,40 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeOverviewTable td{
   vertical-align:middle;
 }
+.trainingPrototypeStaffTabBar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.trainingPrototypeStaffTab{
+  appearance:none;
+  border:1px solid var(--border);
+  background:var(--card);
+  color:var(--text);
+  border-radius:999px;
+  padding:8px 14px;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+}
+.trainingPrototypeStaffTabActive{
+  background:var(--primarySoft);
+  border-color:rgba(47,73,147,.28);
+  color:var(--primary);
+}
+.trainingPrototypeGradeCell{
+  display:inline-flex;
+  min-width:2.5rem;
+  justify-content:center;
+  font-weight:900;
+  font-size:15px;
+}
 .trainingPrototypeOverviewBar{
   min-width:120px;
   flex:1;
 }
 @media (max-width:760px){
-  .trainingPrototypeCanvasGrid{
-    grid-template-columns:1fr !important;
+  .trainingPrototypeOverviewBar{
+    min-width:88px;
   }
 }

@@ -1,23 +1,18 @@
 import { useMemo, useState } from "react";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import TrainingPrototypeBanner from "./TrainingPrototypeBanner";
-import TrainingWrittenModuleView from "./TrainingWrittenModuleView";
-import TrainingVideoModuleView from "./TrainingVideoModuleView";
+import TrainingSectionFullView from "./TrainingSectionFullView";
 import TrainingQuizModuleView from "./TrainingQuizModuleView";
 import {
-  TRAINING_CENTER_PROTOTYPE_MODULES,
+  TRAINING_CENTER_PROTOTYPE_MODULE,
   TRAINING_CENTER_PROTOTYPE_SECTIONS,
   TRAINING_CENTER_PROTOTYPE_VIDEO,
-  TRAINING_CENTER_PROTOTYPE_WRITTEN,
   PROTOTYPE_STATUS_META,
-  computePrototypeProgress,
+  computePrototypeSectionProgress,
+  getNextPrototypeSectionId,
+  getPrototypeModuleStatus,
+  getPrototypeSectionById,
 } from "@/lib/trainingCenterPrototypeMock";
-
-function buildInitialStatuses() {
-  return Object.fromEntries(
-    TRAINING_CENTER_PROTOTYPE_MODULES.map((module) => [module.id, module.initialStatus])
-  );
-}
 
 function PrototypeEditButton() {
   return (
@@ -36,38 +31,67 @@ function PrototypeEditButton() {
 
 export default function TripTrainingPrototypePanel() {
   const [view, setView] = useState("center");
-  const [statusByModuleId, setStatusByModuleId] = useState(buildInitialStatuses);
+  const [activeSectionId, setActiveSectionId] = useState("");
+  const [completedSectionIds, setCompletedSectionIds] = useState({});
   const [sectionQuizSubmitted, setSectionQuizSubmitted] = useState(false);
 
-  const progress = useMemo(() => computePrototypeProgress(statusByModuleId), [statusByModuleId]);
+  const progress = useMemo(
+    () => computePrototypeSectionProgress(completedSectionIds),
+    [completedSectionIds]
+  );
+  const moduleStatus = useMemo(
+    () => getPrototypeModuleStatus(completedSectionIds),
+    [completedSectionIds]
+  );
+  const moduleStatusMeta = PROTOTYPE_STATUS_META[moduleStatus] || PROTOTYPE_STATUS_META.not_started;
 
-  function setModuleStatus(moduleId, status) {
-    setStatusByModuleId((current) => ({ ...current, [moduleId]: status }));
+  function markSectionComplete(sectionId) {
+    if (!sectionId) return;
+    setCompletedSectionIds((current) => ({ ...current, [sectionId]: true }));
   }
 
-  function renderStatusBadge(moduleId) {
-    const status = statusByModuleId[moduleId] || "not_started";
-    const meta = PROTOTYPE_STATUS_META[status] || PROTOTYPE_STATUS_META.not_started;
-    return <span className={`badge ${meta.badge}`}>{meta.label}</span>;
+  function openFullSession(sectionId) {
+    setActiveSectionId(sectionId);
+    setView("section");
   }
 
-  if (view === "written") {
-    return (
-      <TrainingWrittenModuleView
-        onBack={() => setView("center")}
-        onContinue={() => {
-          setModuleStatus("proto-written", "completed");
-          setView("center");
-        }}
-      />
+  function handleSectionContinue(sectionId) {
+    markSectionComplete(sectionId);
+    const nextSectionId = getNextPrototypeSectionId(sectionId);
+    if (!nextSectionId) {
+      setView("center");
+      setActiveSectionId("");
+      return;
+    }
+    if (getPrototypeSectionById(nextSectionId)?.isQuiz) {
+      setView("quiz");
+      setActiveSectionId(nextSectionId);
+      return;
+    }
+    setActiveSectionId(nextSectionId);
+  }
+
+  const activeSection = getPrototypeSectionById(activeSectionId);
+  const sectionTotal = TRAINING_CENTER_PROTOTYPE_SECTIONS.length;
+
+  if (view === "section" && activeSection && !activeSection.isQuiz) {
+    const sectionIndex = TRAINING_CENTER_PROTOTYPE_SECTIONS.findIndex(
+      (section) => section.id === activeSection.id
     );
-  }
+    const nextSection = getPrototypeSectionById(getNextPrototypeSectionId(activeSection.id));
+    const continueLabel = nextSection?.isQuiz ? "Continue to quiz" : "Continue";
 
-  if (view === "video") {
     return (
-      <TrainingVideoModuleView
-        onBack={() => setView("center")}
-        onMarkComplete={() => setModuleStatus("proto-video", "completed")}
+      <TrainingSectionFullView
+        section={activeSection}
+        sectionIndex={sectionIndex}
+        sectionTotal={sectionTotal}
+        onBack={() => {
+          setView("center");
+          setActiveSectionId("");
+        }}
+        onContinue={() => handleSectionContinue(activeSection.id)}
+        continueLabel={continueLabel}
       />
     );
   }
@@ -75,10 +99,15 @@ export default function TripTrainingPrototypePanel() {
   if (view === "quiz") {
     return (
       <TrainingQuizModuleView
-        onBack={() => setView("center")}
+        onBack={() => {
+          setView("center");
+          setActiveSectionId("");
+        }}
         onSubmitSuccess={() => {
           setSectionQuizSubmitted(true);
-          setModuleStatus("proto-multi", "completed");
+          markSectionComplete("s5");
+          setView("center");
+          setActiveSectionId("");
         }}
       />
     );
@@ -96,7 +125,7 @@ export default function TripTrainingPrototypePanel() {
             </div>
             <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>Canvas-style course preview</div>
             <div className="small trainingPrototypeMuted">
-              Three collapsible modules with written content, video, and a multi-section quiz flow — staff demo only.
+              One module with five sections, full-session flow, embedded video, and a quiz — staff demo only.
             </div>
           </div>
           <div style={{ minWidth: 200 }}>
@@ -109,127 +138,85 @@ export default function TripTrainingPrototypePanel() {
               <div style={{ width: `${progress.percent}%` }} />
             </div>
             <div className="small trainingPrototypeMuted" style={{ marginTop: 6 }}>
-              {progress.completed} of {progress.total} modules completed (local state)
+              {progress.completed} of {progress.total} sections completed (local state)
             </div>
           </div>
         </div>
       </div>
 
-      <div className="trainingPreviewCanvasGrid trainingPrototypeCanvasGrid">
-        <div className="card pad trainingPreviewCanvasNav">
-          <div className="small" style={{ fontWeight: 900, marginBottom: 10, color: "var(--muted)" }}>
-            MODULES
+      <div className="trainingPrototypeModuleShell">
+        <div className="trainingPrototypeModuleHeadingRow">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h2 className="trainingPrototypeModuleHeading">{TRAINING_CENTER_PROTOTYPE_MODULE.title}</h2>
+            <p className="small trainingPrototypeMuted" style={{ margin: "6px 0 0" }}>
+              {TRAINING_CENTER_PROTOTYPE_MODULE.subtitle}
+            </p>
           </div>
-          <nav className="trainingPrototypeModuleNav">
-            {TRAINING_CENTER_PROTOTYPE_MODULES.map((module, index) => (
-              <div
-                key={module.id}
-                className={`trainingPrototypeModuleNavItem${index === 0 ? " isActive" : ""}`}
-              >
-                <span>{module.title}</span>
-                {renderStatusBadge(module.id)}
-              </div>
-            ))}
-          </nav>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span className={`badge ${moduleStatusMeta.badge}`}>{moduleStatusMeta.label}</span>
+            <PrototypeEditButton />
+          </div>
         </div>
 
-        <div className="trainingPrototypeModuleStack">
-          <CollapsibleSection
-            title={TRAINING_CENTER_PROTOTYPE_MODULES[0].title}
-            subtitle={TRAINING_CENTER_PROTOTYPE_MODULES[0].subtitle}
-            defaultOpen
-            badge={renderStatusBadge("proto-written")}
-            rightSlot={<PrototypeEditButton />}
-          >
-            <div className="trainingPrototypeModuleBody">
-              <p className="trainingPrototypeMuted small" style={{ marginTop: 0 }}>
-                Sample written lesson — staff can imagine editing this block later.
-              </p>
-              <div className="trainingPrototypeWrittenPreview">
-                <h3>{TRAINING_CENTER_PROTOTYPE_WRITTEN.sections[0].heading}</h3>
-                <p>{TRAINING_CENTER_PROTOTYPE_WRITTEN.sections[0].body}</p>
-              </div>
-              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                <button type="button" className="btn btnPrimary" onClick={() => setView("written")}>
-                  Open full lesson
-                </button>
-              </div>
-            </div>
-          </CollapsibleSection>
+        <div className="trainingPrototypeSectionStack">
+          {TRAINING_CENTER_PROTOTYPE_SECTIONS.map((section, index) => {
+            const sectionComplete = !!completedSectionIds[section.id];
+            const sectionStatus = sectionComplete
+              ? PROTOTYPE_STATUS_META.completed
+              : index === 0 || completedSectionIds[TRAINING_CENTER_PROTOTYPE_SECTIONS[index - 1]?.id]
+                ? PROTOTYPE_STATUS_META.in_progress
+                : PROTOTYPE_STATUS_META.not_started;
 
-          <CollapsibleSection
-            title={TRAINING_CENTER_PROTOTYPE_MODULES[1].title}
-            subtitle={TRAINING_CENTER_PROTOTYPE_MODULES[1].subtitle}
-            defaultOpen={false}
-            badge={renderStatusBadge("proto-video")}
-            rightSlot={<PrototypeEditButton />}
-          >
-            <div className="trainingPrototypeModuleBody">
-              <p className="small trainingPrototypeMuted">{TRAINING_CENTER_PROTOTYPE_VIDEO.description}</p>
-              <div className="trainingPrototypeVideoWrap trainingPrototypeVideoWrapCompact">
-                <iframe
-                  title="Prototype embedded video preview"
-                  src={TRAINING_CENTER_PROTOTYPE_VIDEO.embedUrl}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-              <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                <button type="button" className="btn btnPrimary" onClick={() => setView("video")}>
-                  Open video page
-                </button>
-              </div>
-            </div>
-          </CollapsibleSection>
+            return (
+              <CollapsibleSection
+                key={section.id}
+                title={section.title}
+                subtitle={section.isQuiz ? "3 questions · demo only" : `Part ${index + 1} of ${sectionTotal}`}
+                defaultOpen={index === 0}
+                badge={<span className={`badge ${sectionStatus.badge}`}>{sectionStatus.label}</span>}
+              >
+                <div className="trainingPrototypeSectionInner">
+                  <p>{section.body}</p>
 
-          <CollapsibleSection
-            title={TRAINING_CENTER_PROTOTYPE_MODULES[2].title}
-            subtitle={TRAINING_CENTER_PROTOTYPE_MODULES[2].subtitle}
-            defaultOpen={false}
-            badge={renderStatusBadge("proto-multi")}
-            rightSlot={<PrototypeEditButton />}
-          >
-            <div className="trainingPrototypeModuleBody">
-              <p className="small trainingPrototypeMuted" style={{ marginTop: 0 }}>
-                Five collapsible sections — the last section includes a quiz preview.
-              </p>
-              <div className="trainingPrototypeSectionStack">
-                {TRAINING_CENTER_PROTOTYPE_SECTIONS.map((section, index) => (
-                  <CollapsibleSection
-                    key={section.id}
-                    title={section.title}
-                    subtitle={section.isQuiz ? "3 questions · demo only" : `Part ${index + 1} of 5`}
-                    defaultOpen={index === 0}
-                  >
-                    <div className="trainingPrototypeSectionInner">
-                      <p>{section.body}</p>
-                      {section.showVideoPlaceholder ? (
-                        <div className="trainingPrototypeVideoPlaceholder">
-                          Video placeholder — embed would appear here
-                        </div>
-                      ) : null}
-                      {section.isQuiz ? (
-                        <div className="trainingPrototypeQuizPreview">
-                          {sectionQuizSubmitted ? (
-                            <div className="trainingPrototypeSuccessBox" role="status">
-                              Quiz submitted in demo mode. Open the full quiz page for the complete flow.
-                            </div>
-                          ) : (
-                            <p className="small trainingPrototypeMuted">
-                              Multiple-choice questions appear on the dedicated quiz page.
-                            </p>
-                          )}
-                          <button type="button" className="btn btnPrimary" onClick={() => setView("quiz")}>
-                            Open quiz (Prototype)
-                          </button>
-                        </div>
-                      ) : null}
+                  {section.showVideo ? (
+                    <div className="trainingPrototypeVideoWrap trainingPrototypeVideoWrapCompact">
+                      <iframe
+                        title="Prototype embedded video preview"
+                        src={TRAINING_CENTER_PROTOTYPE_VIDEO.embedUrl}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
                     </div>
-                  </CollapsibleSection>
-                ))}
-              </div>
-            </div>
-          </CollapsibleSection>
+                  ) : null}
+
+                  {section.isQuiz ? (
+                    <div className="trainingPrototypeQuizPreview">
+                      {sectionQuizSubmitted ? (
+                        <div className="trainingPrototypeSuccessBox" role="status">
+                          Quiz submitted in demo mode.
+                        </div>
+                      ) : (
+                        <p className="small trainingPrototypeMuted">
+                          Multiple-choice questions appear on the dedicated quiz page.
+                        </p>
+                      )}
+                      <button type="button" className="btn btnPrimary" onClick={() => setView("quiz")}>
+                        Open full quiz (Prototype)
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btnPrimary"
+                      onClick={() => openFullSession(section.id)}
+                    >
+                      Open full session
+                    </button>
+                  )}
+                </div>
+              </CollapsibleSection>
+            );
+          })}
         </div>
       </div>
     </div>

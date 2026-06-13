@@ -1,22 +1,22 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
-import Link from "next/link";
-import TrainingLayoutCanvas from "@/components/training/TrainingLayoutCanvas";
-import TrainingLayoutSimple from "@/components/training/TrainingLayoutSimple";
+import TrainingPrototypeBanner from "@/components/training/prototype/TrainingPrototypeBanner";
+import TrainingOverviewPrototypeTable from "@/components/training/prototype/TrainingOverviewPrototypeTable";
+import TrainingGradebookPrototypeTable from "@/components/training/prototype/TrainingGradebookPrototypeTable";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 
-const LAYOUT_OPTIONS = [
-  { id: "canvas", label: "Canvas-style" },
-  { id: "simple", label: "Simple & friendly" },
+const STAFF_TRAINING_TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "gradebook", label: "Gradebook" },
 ];
 
-export default function TrainingPreviewPage() {
+export default function TrainingStaffPrototypePage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
-  const [layout, setLayout] = useState("canvas");
+  const [activePanel, setActivePanel] = useState("overview");
 
   useEffect(() => {
     let cancelled = false;
@@ -42,46 +42,48 @@ export default function TrainingPreviewPage() {
   return (
     <Shell>
       <h1 className="h1" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <AppIcon name="tasks" className="pageEyebrowIcon" />
-        <span>Training</span>
+        <AppIcon name="training" className="pageEyebrowIcon" />
+        <span>Training (Prototype)</span>
       </h1>
-      <p className="p" style={{ marginBottom: 8 }}>
-        Staff-only layout preview. Compare two module designs — no live data or saves yet.
+
+      <TrainingPrototypeBanner />
+
+      <p className="p" style={{ marginBottom: 16 }}>
+        Staff-only demo for monitoring section progress and quiz grades. All data is hardcoded — nothing
+        connects to live training records.
       </p>
-      <div
-        className="small"
-        style={{
-          marginBottom: 16,
-          padding: "10px 12px",
-          borderRadius: 12,
-          background: "rgba(249, 157, 42, 0.12)",
-          border: "1px solid rgba(249, 157, 42, 0.25)",
-          maxWidth: 640,
-        }}
-      >
-        Mockup for review: pick a layout to show your team. Workers do not see this page yet.
-      </div>
 
-      <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
-        <Link href="/training/overview-prototype" className="btn">
-          Training Overview (Prototype)
-        </Link>
-      </div>
-
-      <div className="tabs" style={{ marginBottom: 18 }}>
-        {LAYOUT_OPTIONS.map((option) => (
+      <div className="trainingPrototypeStaffTabBar" style={{ marginBottom: 18 }}>
+        {STAFF_TRAINING_TABS.map((panel) => (
           <button
-            key={option.id}
+            key={panel.id}
             type="button"
-            className={"tab " + (layout === option.id ? "tabActive" : "")}
-            onClick={() => setLayout(option.id)}
+            className={
+              "trainingPrototypeStaffTab" +
+              (activePanel === panel.id ? " trainingPrototypeStaffTabActive" : "")
+            }
+            onClick={() => setActivePanel(panel.id)}
           >
-            {option.label}
+            {panel.label}
           </button>
         ))}
       </div>
 
-      {layout === "canvas" ? <TrainingLayoutCanvas /> : <TrainingLayoutSimple />}
+      {activePanel === "overview" ? (
+        <>
+          <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
+            Section completion across mock workers on a sample trip module.
+          </p>
+          <TrainingOverviewPrototypeTable />
+        </>
+      ) : (
+        <>
+          <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
+            Quiz results from the Team Readiness module — sample scores for layout review only.
+          </p>
+          <TrainingGradebookPrototypeTable />
+        </>
+      )}
     </Shell>
   );
 }
