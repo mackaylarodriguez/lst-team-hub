@@ -107,6 +107,7 @@ import {
   DEFAULT_TRAINING_TIMELINE_TYPE,
   TRAINING_TIMELINE_OPTIONS,
   findWorkerTaskTemplate,
+  findWorkerDocumentUploadTask,
   getWorkerTaskDisplayTitle,
   isWorkerPassportOrVisaUploadTask,
 } from "@/lib/workerTaskTemplate";
@@ -145,7 +146,7 @@ import {
   updateBudgetCheckRequest,
 } from "@/lib/budgetCheckRequests";
 import { budgetCheckSubmitToast } from "@/lib/budgetCheckSubmitFeedback";
-import { getTripTeamLogisticsForViewer, saveTripTeamLogisticsByTeam } from "@/lib/tripTeamLogistics";
+import { getTripTeamLogisticsForViewer, isTeamMaterialsLogisticsComplete, saveTripTeamLogisticsByTeam } from "@/lib/tripTeamLogistics";
 import {
   buildSiteLabelsOrdered,
   findSiteBudgetNoteForOption,
@@ -836,6 +837,17 @@ export function useTripPageModel() {
   }, [trip?.id]);
 
   useEffect(() => {
+    if (!trip?.id || !(trip.tasks || []).length || !(participantDocuments || []).length) return;
+
+    void (async () => {
+      for (const doc of participantDocuments) {
+        if (!doc.userId || !doc.documentType) continue;
+        await syncWorkerDocumentUploadTaskAfterUpload(doc.userId, doc.documentType);
+      }
+    })();
+  }, [trip?.id, trip?.tasks, participantDocuments]);
+
+  useEffect(() => {
     if (!trip?.id) return;
     let cancelled = false;
     async function loadMeetings() {
@@ -967,6 +979,9 @@ export function useTripPageModel() {
                 materialsPackingChecklist: defaultMaterialsPackingChecklist(),
               }
         );
+        if (row) {
+          void syncMaterialsPageWorkerTasksFromLogistics(row);
+        }
       } catch (e) {
         if (cancelled || loadGenAtStart !== materialsBudgetLoadGenRef.current) return;
         setTripBudgetLoadError(e.message || "Unable to load housing budget.");
@@ -992,6 +1007,7 @@ export function useTripPageModel() {
         const row = await getTripTeamLogisticsForViewer(trip.id);
         if (cancelled) return;
         setTeamLogisticsDraft(row);
+        void syncMaterialsPageWorkerTasksFromLogistics(row);
       } catch (e) {
         if (!cancelled) {
           setTeamLogisticsLoadError(e.message || "Unable to load team logistics.");
@@ -2585,6 +2601,112 @@ export function useTripPageModel() {
     })();
   }
 
+  async function syncMaterialsPageWorkerTasksFromLogistics(logisticsRow) {
+    if (!trip?.id || !isTeamMaterialsLogisticsComplete(logisticsRow)) return;
+
+    const materialsTask = (trip.tasks || []).find(
+      (item) => findWorkerTaskTemplate(item)?.id === "worker-task-materials-page"
+    );
+    if (!materialsTask) return;
+
+    const emails = [];
+    const seen = new Set();
+    for (const participant of trip.participants || []) {
+      const emailKey = normalizeEmail(participant.email);
+      if (!emailKey || seen.has(emailKey)) continue;
+      if (!shouldIncludeInTripWorkerPipeline(trip, participant.email)) continue;
+      seen.add(emailKey);
+      emails.push(participant.email);
+    }
+    for (const member of trip.teamMembers || []) {
+      const emailKey = normalizeEmail(member.email);
+      if (!emailKey || seen.has(emailKey)) continue;
+      if (!shouldIncludeInTripWorkerPipeline(trip, member.email)) continue;
+      seen.add(emailKey);
+      emails.push(member.email);
+    }
+
+    for (const ownerEmail of emails) {
+      const emailKey = normalizeEmail(ownerEmail);
+      if (!emailKey) continue;
+
+      const taskState = participantTaskStates[emailKey] || {};
+      if (isWorkerTaskCompletedInState(materialsTask, taskState)) continue;
+
+      const userId = await resolveTrainingSubjectUserId(ownerEmail);
+      if (!userId) continue;
+
+      setParticipantTaskStates((prev) => ({
+        ...prev,
+        [emailKey]: { ...(prev[emailKey] || {}), [materialsTask.id]: true },
+      }));
+
+      try {
+        await saveUserTaskProgress({
+          tripId: trip.id,
+          userId,
+          taskName: materialsTask.id,
+          completed: true,
+          dueDate: materialsTask.due || null,
+        });
+      } catch (error) {
+        console.error("Unable to auto-complete materials page task", error);
+      }
+    }
+  }
+
+  function resolveParticipantEmailForDocumentTaskSync(userId) {
+    const id = String(userId || "");
+    if (!id) return "";
+    const participant = (trip?.participants || []).find((p) => String(p.id) === id);
+    if (participant?.email) return participant.email;
+    if (id.startsWith("roster-member-")) {
+      const rosterId = id.slice("roster-member-".length);
+      const member = (trip?.teamMembers || []).find((m) => String(m.id) === rosterId);
+      if (member?.email) return member.email;
+    }
+    return "";
+  }
+
+  async function syncWorkerDocumentUploadTaskAfterUpload(userId, documentTypeKey) {
+    if (!trip?.id || !userId || !documentTypeKey) return;
+
+    const task = findWorkerDocumentUploadTask(documentTypeKey, trip.tasks, {
+      participantDocumentTypes: trip.participantDocumentTypes,
+      domesticMassachusetts: isUsMassachusettsMissionSite(trip?.location),
+    });
+    if (!task) return;
+
+    const ownerEmail = resolveParticipantEmailForDocumentTaskSync(userId);
+    if (!ownerEmail) return;
+
+    const emailKey = normalizeEmail(ownerEmail);
+    if (!emailKey) return;
+
+    const taskState = participantTaskStates[emailKey] || {};
+    if (isWorkerTaskCompletedInState(task, taskState)) return;
+
+    const progressUserId = await resolveTrainingSubjectUserId(ownerEmail);
+    if (!progressUserId) return;
+
+    setParticipantTaskStates((prev) => ({
+      ...prev,
+      [emailKey]: { ...(prev[emailKey] || {}), [task.id]: true },
+    }));
+
+    try {
+      await saveUserTaskProgress({
+        tripId: trip.id,
+        userId: progressUserId,
+        taskName: task.id,
+        completed: true,
+        dueDate: task.due || null,
+      });
+    } catch (error) {
+      console.error("Unable to auto-complete document upload task", error);
+    }
+  }
+
   function openTravelFormModal(target) {
     if (!target?.refKey || !trip?.id) return;
     const refKey = normalizeTravelFormRefKey(target.refKey);
@@ -3067,6 +3189,7 @@ export function useTripPageModel() {
         ).toLowerCase()}`,
       });
       pushRecentActivity(activityEntry);
+      await syncWorkerDocumentUploadTaskAfterUpload(userId, documentType);
     } catch (error) {
       console.error("Unable to upload participant document", error);
       setParticipantDocumentsError(error.message || "Unable to upload document.");
@@ -3077,22 +3200,23 @@ export function useTripPageModel() {
     }
   }
 
-  async function handleAddParticipantDocumentType() {
-    if (!trip?.id) return;
+  async function handleAddParticipantDocumentType(labelOverride) {
+    if (!trip?.id) return false;
 
+    const label = String(labelOverride ?? customParticipantDocumentLabel ?? "").trim();
     const { excludedKeys, customTypes } = parseTripParticipantDocumentConfig(
       trip.participantDocumentTypes || []
     );
     const nextCustom = normalizeCustomUserDocumentTypes([
       ...customTypes,
       {
-        label: customParticipantDocumentLabel,
+        label,
       },
     ]);
 
     if (customTypes.length === nextCustom.length) {
       setParticipantDocumentTypeStatus("Enter a new upload item name.");
-      return;
+      return false;
     }
 
     try {
@@ -3127,9 +3251,11 @@ export function useTripPageModel() {
           ? `Saved. Task created with due date ${formatShortDate(createdTask.due)}.`
           : "Saved."
       );
+      return true;
     } catch (error) {
       console.error("Unable to save participant document types", error);
       setParticipantDocumentTypeStatus(error.message || "Unable to save upload item.");
+      return false;
     }
   }
 
@@ -6611,6 +6737,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
       }
       setTeamLogisticsSaveStatus("Saved.");
       showToast("Team logistics saved.", "success");
+      if (next) {
+        void syncMaterialsPageWorkerTasksFromLogistics(next);
+      }
       return true;
     } catch (e) {
       const msg = e.message || "Error saving.";
@@ -6629,6 +6758,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
       setTeamLogisticsDraft(row);
       setTeamLogisticsSaveStatus("Saved.");
       showToast("Team logistics saved.", "success");
+      void syncMaterialsPageWorkerTasksFromLogistics(row);
     } catch (e) {
       const msg = e.message || "Save failed.";
       setTeamLogisticsSaveStatus(msg);
@@ -6679,6 +6809,9 @@ normalizeEmail(participant.email) === activeParticipantEmail
       }
       setMaterialsSaveStatus("Saved.");
       showToast("Materials saved.", "success");
+      if (next) {
+        void syncMaterialsPageWorkerTasksFromLogistics(next);
+      }
       return true;
     } catch (e) {
       const msg = e.message || "Error saving.";
@@ -7301,6 +7434,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     setBudgetCheckNote,
     setConfirmingParticipantDocumentDeleteId,
     setCustomParticipantDocumentLabel,
+    setParticipantDocumentTypeStatus,
     setDocDraft,
     setEditingMeetingId,
     setEditingParticipantFundraisingId,
