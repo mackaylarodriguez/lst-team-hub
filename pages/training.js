@@ -1,5 +1,6 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
+import Link from "next/link";
 import TrainingLayoutCanvas from "@/components/training/TrainingLayoutCanvas";
 import TrainingLayoutSimple from "@/components/training/TrainingLayoutSimple";
 import { useRouter } from "next/router";
@@ -59,6 +60,12 @@ export default function TrainingPreviewPage() {
         }}
       >
         Mockup for review: pick a layout to show your team. Workers do not see this page yet.
+      </div>
+
+      <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+        <Link href="/training/overview-prototype" className="btn">
+          Training Overview (Prototype)
+        </Link>
       </div>
 
       <div className="tabs" style={{ marginBottom: 18 }}>

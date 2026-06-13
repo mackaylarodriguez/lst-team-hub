@@ -3523,3 +3523,247 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   }
 }
 
+/* Training Center prototype (staff demo only — no production data) */
+.trainingPrototypeBanner{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  padding:10px 12px;
+  border-radius:12px;
+  background:rgba(249,157,42,.12);
+  border:1px solid rgba(249,157,42,.28);
+}
+.trainingPrototypeBannerTag{
+  display:inline-flex;
+  align-items:center;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  background:rgba(249,157,42,.22);
+  color:#9a3412;
+}
+.trainingPrototypeBannerText{
+  font-size:13px;
+  line-height:1.45;
+  color:var(--text);
+}
+.trainingPrototypeMuted{
+  opacity:.86;
+  color:var(--muted);
+}
+.trainingPrototypeTripTabBar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:4px;
+}
+.trainingPrototypeTripTab{
+  appearance:none;
+  border:1px solid var(--border);
+  background:var(--card);
+  color:var(--text);
+  border-radius:999px;
+  padding:8px 14px;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+}
+.trainingPrototypeTripTabActive{
+  background:var(--primarySoft);
+  border-color:rgba(47,73,147,.28);
+  color:var(--primary);
+}
+.trainingPrototypeTripTabs{
+  margin-bottom:4px;
+}
+.trainingPrototypeCanvasGrid{
+  display:grid;
+  grid-template-columns:minmax(200px,240px) minmax(0,1fr);
+  gap:16px;
+  align-items:start;
+}
+.trainingPrototypeModuleNav{
+  display:grid;
+  gap:8px;
+}
+.trainingPrototypeModuleNavItem{
+  display:grid;
+  gap:6px;
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid rgba(15,23,42,.06);
+  background:rgba(255,255,255,.82);
+  font-size:13px;
+  font-weight:600;
+}
+.trainingPrototypeModuleNavItem.isActive{
+  border-color:rgba(47,73,147,.22);
+  background:var(--primarySoft);
+}
+.trainingPrototypeModuleStack{
+  display:grid;
+  gap:12px;
+  min-width:0;
+}
+.trainingPrototypeModuleBody{
+  display:grid;
+  gap:12px;
+}
+.trainingPrototypeEditBtn{
+  font-size:12px;
+  padding:4px 10px;
+  min-height:30px;
+}
+.trainingPrototypeWrittenPreview,
+.trainingPrototypeWrittenBody{
+  display:grid;
+  gap:14px;
+}
+.trainingPrototypeWrittenPreview h3,
+.trainingPrototypeWrittenSection h3{
+  margin:0 0 6px;
+  font-size:15px;
+}
+.trainingPrototypeWrittenPreview p,
+.trainingPrototypeWrittenSection p{
+  margin:0;
+  line-height:1.55;
+  font-size:14px;
+}
+.trainingPrototypeSectionStack{
+  display:grid;
+  gap:10px;
+}
+.trainingPrototypeSectionInner{
+  display:grid;
+  gap:10px;
+}
+.trainingPrototypeSectionInner p{
+  margin:0;
+  line-height:1.55;
+  font-size:14px;
+}
+.trainingPrototypeVideoWrap{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  border-radius:12px;
+  overflow:hidden;
+  border:1px solid rgba(15,23,42,.08);
+  background:#000;
+}
+.trainingPrototypeVideoWrap iframe{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  border:0;
+}
+.trainingPrototypeVideoWrapCompact{
+  max-width:560px;
+}
+.trainingPrototypeVideoPlaceholder{
+  padding:28px 16px;
+  border-radius:12px;
+  border:1px dashed rgba(15,23,42,.18);
+  background:rgba(248,250,252,.9);
+  text-align:center;
+  font-size:13px;
+  color:var(--muted);
+}
+.trainingPrototypeQuizPreview{
+  display:grid;
+  gap:10px;
+}
+.trainingPrototypePage{
+  display:grid;
+  gap:12px;
+}
+.trainingPrototypePageCard{
+  display:grid;
+  gap:16px;
+}
+.trainingPrototypePageHeader{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.trainingPrototypePagePill{
+  margin-bottom:8px;
+}
+.trainingPrototypePageTitle{
+  margin:0 0 6px;
+  font-size:22px;
+  font-weight:900;
+}
+.trainingPrototypePageActions{
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.trainingPrototypeSuccessBox{
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid rgba(34,197,94,.28);
+  background:rgba(34,197,94,.1);
+  color:#166534;
+  font-size:14px;
+  line-height:1.5;
+}
+.trainingPrototypeQuizForm{
+  display:grid;
+  gap:16px;
+}
+.trainingPrototypeQuizQuestion{
+  margin:0;
+  padding:0;
+  border:0;
+  display:grid;
+  gap:10px;
+}
+.trainingPrototypeQuizQuestion legend{
+  font-weight:800;
+  font-size:14px;
+  margin-bottom:4px;
+}
+.trainingPrototypeQuizOptions{
+  display:grid;
+  gap:8px;
+}
+.trainingPrototypeQuizOption{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid rgba(15,23,42,.08);
+  background:rgba(255,255,255,.85);
+  font-size:14px;
+  line-height:1.45;
+  cursor:pointer;
+}
+.trainingPrototypeQuizOption input{
+  margin-top:3px;
+}
+.trainingPrototypeOverviewCard{
+  overflow:auto;
+}
+.trainingPrototypeOverviewTable th,
+.trainingPrototypeOverviewTable td{
+  vertical-align:middle;
+}
+.trainingPrototypeOverviewBar{
+  min-width:120px;
+  flex:1;
+}
+@media (max-width:760px){
+  .trainingPrototypeCanvasGrid{
+    grid-template-columns:1fr !important;
+  }
+}

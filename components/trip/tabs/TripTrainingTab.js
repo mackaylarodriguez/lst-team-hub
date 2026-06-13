@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useTripPage } from "../TripPageContext";
 import TripParticipantCollapsible from "../TripParticipantCollapsible";
 import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
+import TripTrainingPrototypePanel from "@/components/training/prototype/TripTrainingPrototypePanel";
 import { buildTrainingModuleRowDomId } from "../tripPageShared";
 import {
   getTrainingSessionOptionsForModuleTitle,
@@ -19,6 +21,7 @@ import {
 export default function TripTrainingTab() {
     const {
     basicTrainingUrl,
+    canManageTrips,
     canViewTeamDashboard,
     canvasTrainingModules,
     gatewayTrainingUrl,
@@ -38,8 +41,10 @@ export default function TripTrainingTab() {
     visibleTrainingParticipants,
   } = useTripPage();
 
-  return (
-    <div style={{ display: "grid", gap: 16 }}>
+  const [trainingPanelMode, setTrainingPanelMode] = useState("current");
+
+  const currentTrainingContent = (
+    <>
               <CollapsibleSection defaultOpen>
               <div className="card pad">
                 <div className="cardSectionPill" style={{ marginBottom: 8 }}>Training resources</div>
@@ -304,6 +309,41 @@ export default function TripTrainingTab() {
               </div>
     
               </CollapsibleSection>
+    </>
+  );
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      {canManageTrips ? (
+        <div className="trainingPrototypeTripTabBar">
+          <button
+            type="button"
+            className={
+              "trainingPrototypeTripTab" +
+              (trainingPanelMode === "current" ? " trainingPrototypeTripTabActive" : "")
+            }
+            onClick={() => setTrainingPanelMode("current")}
+          >
+            Current Training
+          </button>
+          <button
+            type="button"
+            className={
+              "trainingPrototypeTripTab" +
+              (trainingPanelMode === "prototype" ? " trainingPrototypeTripTabActive" : "")
+            }
+            onClick={() => setTrainingPanelMode("prototype")}
+          >
+            Prototype Training
+          </button>
+        </div>
+      ) : null}
+
+      {canManageTrips && trainingPanelMode === "prototype" ? (
+        <TripTrainingPrototypePanel />
+      ) : (
+        currentTrainingContent
+      )}
             </div>
   );
 }
