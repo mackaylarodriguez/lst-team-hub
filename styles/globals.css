@@ -3811,3 +3811,46 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
     min-width:88px;
   }
 }
+.trainingPrototypeDueDate{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:6px 10px;
+  padding:6px 10px;
+  border-radius:10px;
+  background:rgba(47,73,147,.08);
+  border:1px solid rgba(47,73,147,.14);
+  width:fit-content;
+  max-width:100%;
+}
+.trainingPrototypeDueDateCompact{
+  padding:4px 8px;
+  font-size:12px;
+}
+.trainingPrototypeDueDateLabel{
+  font-weight:800;
+  font-size:13px;
+  color:var(--primary);
+}
+.trainingPrototypeDueDateCompact .trainingPrototypeDueDateLabel{
+  font-size:12px;
+}
+.trainingPrototypeDueRule{
+  font-size:12px;
+  color:var(--muted);
+}
+.trainingPrototypeDeadlineRulesList{
+  display:grid;
+  gap:10px;
+}
+.trainingPrototypeDeadlineRulesRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid rgba(15,23,42,.06);
+  background:rgba(248,250,252,.7);
+}

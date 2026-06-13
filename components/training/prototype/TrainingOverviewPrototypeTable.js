@@ -1,6 +1,7 @@
 import {
   PROTOTYPE_STATUS_META,
   TRAINING_OVERVIEW_PROTOTYPE_WORKERS,
+  formatPrototypeDueDate,
 } from "@/lib/trainingCenterPrototypeMock";
 
 export default function TrainingOverviewPrototypeTable() {
@@ -13,6 +14,7 @@ export default function TrainingOverviewPrototypeTable() {
             <th>Role</th>
             <th>Sections</th>
             <th>Completion</th>
+            <th>Next due</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -36,6 +38,16 @@ export default function TrainingOverviewPrototypeTable() {
                     </div>
                     <span className="small">{worker.percent}%</span>
                   </div>
+                </td>
+                <td>
+                  {worker.nextDueDate ? (
+                    <>
+                      <div style={{ fontWeight: 700 }}>{formatPrototypeDueDate(worker.nextDueDate)}</div>
+                      <div className="small trainingPrototypeMuted">{worker.nextDueLabel}</div>
+                    </>
+                  ) : (
+                    <span className="small trainingPrototypeMuted">{worker.nextDueLabel || "—"}</span>
+                  )}
                 </td>
                 <td>
                   <span className={`badge ${meta.badge}`}>{meta.label}</span>

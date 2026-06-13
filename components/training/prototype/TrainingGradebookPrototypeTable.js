@@ -3,6 +3,7 @@ import {
   TRAINING_GRADEBOOK_PROTOTYPE_ROWS,
   TRAINING_GRADEBOOK_STATUS_META,
 } from "@/lib/trainingCenterPrototypeMock";
+import TrainingPrototypeDueDate from "./TrainingPrototypeDueDate";
 
 function formatSubmittedDate(value) {
   if (!value) return "—";
@@ -21,6 +22,12 @@ export default function TrainingGradebookPrototypeTable() {
         <div style={{ fontWeight: 900, fontSize: 17 }}>{TRAINING_GRADEBOOK_PROTOTYPE_QUIZ.title}</div>
         <div className="small trainingPrototypeMuted" style={{ marginTop: 4 }}>
           {TRAINING_GRADEBOOK_PROTOTYPE_QUIZ.questionCount} questions · mock grades only
+        </div>
+        <div style={{ marginTop: 8 }}>
+          <TrainingPrototypeDueDate
+            dueDate={TRAINING_GRADEBOOK_PROTOTYPE_QUIZ.dueDate}
+            rule={TRAINING_GRADEBOOK_PROTOTYPE_QUIZ.dueDateRule}
+          />
         </div>
       </div>
 

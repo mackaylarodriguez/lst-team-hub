@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import TrainingPrototypeBanner from "./TrainingPrototypeBanner";
+import TrainingPrototypeDueDate from "./TrainingPrototypeDueDate";
 import TrainingSectionFullView from "./TrainingSectionFullView";
 import TrainingQuizModuleView from "./TrainingQuizModuleView";
 import {
@@ -9,6 +10,7 @@ import {
   TRAINING_CENTER_PROTOTYPE_VIDEO,
   PROTOTYPE_STATUS_META,
   computePrototypeSectionProgress,
+  formatPrototypeDueDate,
   getNextPrototypeSectionId,
   getPrototypeModuleStatus,
   getPrototypeSectionById,
@@ -151,6 +153,12 @@ export default function TripTrainingPrototypePanel() {
             <p className="small trainingPrototypeMuted" style={{ margin: "6px 0 0" }}>
               {TRAINING_CENTER_PROTOTYPE_MODULE.subtitle}
             </p>
+            <div style={{ marginTop: 8 }}>
+              <TrainingPrototypeDueDate
+                dueDate={TRAINING_CENTER_PROTOTYPE_MODULE.dueDate}
+                rule={TRAINING_CENTER_PROTOTYPE_MODULE.dueDateRule}
+              />
+            </div>
           </div>
           <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <span className={`badge ${moduleStatusMeta.badge}`}>{moduleStatusMeta.label}</span>
@@ -171,11 +179,20 @@ export default function TripTrainingPrototypePanel() {
               <CollapsibleSection
                 key={section.id}
                 title={section.title}
-                subtitle={section.isQuiz ? "3 questions · demo only" : `Part ${index + 1} of ${sectionTotal}`}
+                subtitle={
+                  section.isQuiz
+                    ? `3 questions · Due ${formatPrototypeDueDate(section.dueDate)}`
+                    : `Part ${index + 1} of ${sectionTotal}`
+                }
                 defaultOpen={index === 0}
                 badge={<span className={`badge ${sectionStatus.badge}`}>{sectionStatus.label}</span>}
               >
                 <div className="trainingPrototypeSectionInner">
+                  <TrainingPrototypeDueDate
+                    compact
+                    dueDate={section.dueDate}
+                    rule={section.dueDateRule}
+                  />
                   <p>{section.body}</p>
 
                   {section.showVideo ? (

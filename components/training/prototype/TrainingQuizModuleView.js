@@ -1,6 +1,10 @@
 import { useState } from "react";
 import TrainingPrototypeBanner from "./TrainingPrototypeBanner";
-import { TRAINING_CENTER_PROTOTYPE_QUIZ } from "@/lib/trainingCenterPrototypeMock";
+import TrainingPrototypeDueDate from "./TrainingPrototypeDueDate";
+import {
+  TRAINING_CENTER_PROTOTYPE_QUIZ,
+  TRAINING_GRADEBOOK_PROTOTYPE_QUIZ,
+} from "@/lib/trainingCenterPrototypeMock";
 
 export default function TrainingQuizModuleView({ onBack, onSubmitSuccess }) {
   const [answers, setAnswers] = useState({});
@@ -20,7 +24,13 @@ export default function TrainingQuizModuleView({ onBack, onSubmitSuccess }) {
           <div>
             <div className="cardSectionPill trainingPrototypePagePill">Module quiz</div>
             <h2 className="trainingPrototypePageTitle">Knowledge check (Prototype)</h2>
-            <p className="small trainingPrototypeMuted">
+            <div style={{ marginTop: 6 }}>
+              <TrainingPrototypeDueDate
+                dueDate={TRAINING_GRADEBOOK_PROTOTYPE_QUIZ.dueDate}
+                rule={TRAINING_GRADEBOOK_PROTOTYPE_QUIZ.dueDateRule}
+              />
+            </div>
+            <p className="small trainingPrototypeMuted" style={{ marginTop: 8 }}>
               Three sample questions. Submit shows a success message — no grading or persistence.
             </p>
           </div>

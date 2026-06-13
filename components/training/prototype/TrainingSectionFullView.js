@@ -1,5 +1,6 @@
 import { useState } from "react";
 import TrainingPrototypeBanner from "./TrainingPrototypeBanner";
+import TrainingPrototypeDueDate from "./TrainingPrototypeDueDate";
 import { TRAINING_CENTER_PROTOTYPE_VIDEO } from "@/lib/trainingCenterPrototypeMock";
 
 export default function TrainingSectionFullView({
@@ -23,7 +24,14 @@ export default function TrainingSectionFullView({
               Full session · Section {sectionIndex + 1} of {sectionTotal}
             </div>
             <h2 className="trainingPrototypePageTitle">{section?.title}</h2>
-            <p className="small trainingPrototypeMuted">
+            <div style={{ marginTop: 6 }}>
+              <TrainingPrototypeDueDate
+                compact
+                dueDate={section?.dueDate}
+                rule={section?.dueDateRule}
+              />
+            </div>
+            <p className="small trainingPrototypeMuted" style={{ marginTop: 8 }}>
               Prototype full-screen lesson view. Continue moves to the next section in order.
             </p>
           </div>
