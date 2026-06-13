@@ -269,6 +269,7 @@ export default function TripTravelFormTab() {
                       gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
                       gap: 10,
                       marginBottom: 10,
+                      textAlign: "center",
                     }}
                   >
                     <AppMetricCard
@@ -524,10 +525,20 @@ export default function TripTravelFormTab() {
                           borderRadius: 18,
                           border: "1px solid rgba(15, 23, 42, 0.08)",
                           background: "linear-gradient(180deg, rgba(255,255,255,0.97), rgba(248,250,252,0.92))",
+                          textAlign: "center",
                         }}
                       >
-                        <div className="row mobileCardTopRow" style={{ alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
-                          <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          className="mobileCardTopRow"
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 10,
+                            marginBottom: 14,
+                          }}
+                        >
+                          <div style={{ minWidth: 0, width: "100%" }}>
                             <div style={{ fontWeight: 900, color: "var(--text)" }}>
                               {canViewTeamDashboard ? p.name || p.email || "Participant" : "My response"}
                             </div>
@@ -537,24 +548,26 @@ export default function TripTravelFormTab() {
                               </div>
                             ) : null}
                           </div>
-                          <span className={`badge ${hasSubmission ? (hasPassportGap ? "badgeWarn" : "badgeSuccess") : "badgeWarn"}`}>
-                            {hasSubmission
-                              ? hasPassportGap
-                                ? ma
-                                  ? "Needs ID info"
-                                  : "Needs passport info"
-                                : "Submitted"
-                              : "Missing"}
-                          </span>
-                          <button
-                            type="button"
-                            className={canViewTeamDashboard ? "btn" : "btn btnPrimary"}
-                            onClick={() => openTravelFormModal({ refKey: p.refKey, email: p.email || "" })}
-                          >
-                            {canViewTeamDashboard ? "View / Edit" : "Edit"}
-                          </button>
+                          <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                            <span className={`badge ${hasSubmission ? (hasPassportGap ? "badgeWarn" : "badgeSuccess") : "badgeWarn"}`}>
+                              {hasSubmission
+                                ? hasPassportGap
+                                  ? ma
+                                    ? "Needs ID info"
+                                    : "Needs passport info"
+                                  : "Submitted"
+                                : "Missing"}
+                            </span>
+                            <button
+                              type="button"
+                              className={canViewTeamDashboard ? "btn" : "btn btnPrimary"}
+                              onClick={() => openTravelFormModal({ refKey: p.refKey, email: p.email || "" })}
+                            >
+                              {canViewTeamDashboard ? "View / Edit" : "Edit"}
+                            </button>
+                          </div>
                         </div>
-    
+
                         <div style={{ display: "grid", gap: 12 }}>
                           {infoSections.map((section) => (
                             <div
@@ -566,6 +579,7 @@ export default function TripTravelFormTab() {
                                 padding: "12px 14px",
                                 display: "grid",
                                 gap: 10,
+                                textAlign: "center",
                               }}
                             >
                               <div className="small" style={{ fontWeight: 900, color: "var(--foreground)" }}>
