@@ -3584,6 +3584,34 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:grid;
   gap:14px;
 }
+.trainingPrototypeModuleList{
+  display:grid;
+  gap:28px;
+}
+.trainingPrototypeModuleToggle{
+  flex:1;
+  min-width:0;
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:0;
+  border:0;
+  background:transparent;
+  text-align:left;
+  cursor:pointer;
+  font:inherit;
+  color:inherit;
+}
+.trainingPrototypeModuleChevron{
+  font-size:12px;
+  margin-top:8px;
+  flex-shrink:0;
+  color:var(--primary);
+}
+.trainingPrototypeModuleHeadingContent{
+  min-width:0;
+  flex:1;
+}
 .trainingPrototypeModuleHeadingRow{
   display:flex;
   align-items:flex-start;
@@ -3591,6 +3619,38 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   gap:12px;
   flex-wrap:wrap;
   padding:0 2px;
+}
+.trainingPrototypeSectionFooter{
+  display:flex;
+  justify-content:flex-start;
+  margin-top:4px;
+}
+.trainingPrototypeFullSessionBtn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:34px;
+  height:34px;
+  padding:0;
+  border-radius:10px;
+  border:1px solid rgba(47,73,147,.22);
+  background:rgba(47,73,147,.08);
+  color:var(--primary);
+  cursor:pointer;
+  transition:background .15s ease, border-color .15s ease;
+}
+.trainingPrototypeFullSessionBtn:hover{
+  background:rgba(47,73,147,.14);
+  border-color:rgba(47,73,147,.32);
+}
+.trainingPrototypeFullSessionBtn svg{
+  width:18px;
+  height:18px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
 }
 .trainingPrototypeModuleHeading{
   margin:0;
