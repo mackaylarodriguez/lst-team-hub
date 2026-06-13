@@ -27,10 +27,10 @@ import {
 } from "@/lib/tripTeamMembers";
 import { pruneTripTicketsForNonTravelingLeaders } from "@/lib/tripTickets";
 import {
-  filterActiveUniqueTrainingModules,
   getTrainingModuleDeadline,
   listTrainingModules,
   listTrainingProgress,
+  presentTrainingModules,
   resolveProfileIdByEmailForTraining,
   saveTrainingProgress,
 } from "@/lib/training";
@@ -631,7 +631,7 @@ export function useTripPageModel() {
   );
 
   const uniqueTrainingModules = useMemo(
-    () => filterActiveUniqueTrainingModules(trainingModules),
+    () => presentTrainingModules(trainingModules),
     [trainingModules]
   );
 
