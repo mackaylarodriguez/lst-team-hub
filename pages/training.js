@@ -1,7 +1,6 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import TrainingPrototypeBanner from "@/components/training/prototype/TrainingPrototypeBanner";
-import TrainingPrototypeDeadlineRulesCard from "@/components/training/prototype/TrainingPrototypeDeadlineRulesCard";
 import TrainingOverviewPrototypeTable from "@/components/training/prototype/TrainingOverviewPrototypeTable";
 import TrainingGradebookPrototypeTable from "@/components/training/prototype/TrainingGradebookPrototypeTable";
 import { useRouter } from "next/router";
@@ -72,7 +71,6 @@ export default function TrainingStaffPrototypePage() {
 
       {activePanel === "overview" ? (
         <>
-          <TrainingPrototypeDeadlineRulesCard />
           <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
             Section completion across mock workers on a sample trip module.
           </p>
