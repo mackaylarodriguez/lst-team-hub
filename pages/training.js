@@ -49,8 +49,8 @@ export default function TrainingStaffPrototypePage() {
       <TrainingPrototypeBanner />
 
       <p className="p" style={{ marginBottom: 16 }}>
-        Staff-only demo for monitoring section progress and quiz grades. All data is hardcoded — nothing
-        connects to live training records.
+        Staff-only demo for monitoring training completion across workers and trips. All data is hardcoded —
+        nothing connects to live training records.
       </p>
 
       <div className="trainingPrototypeStaffTabBar" style={{ marginBottom: 18 }}>
@@ -72,14 +72,14 @@ export default function TrainingStaffPrototypePage() {
       {activePanel === "overview" ? (
         <>
           <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
-            Section completion across mock workers on a sample trip module.
+            Section completion summary across mock workers and trips.
           </p>
           <TrainingOverviewPrototypeTable />
         </>
       ) : (
         <>
           <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
-            Quiz results from the Team Readiness module — sample scores for layout review only.
+            Pass / no-pass module completion at a glance — green check for complete, red X for incomplete.
           </p>
           <TrainingGradebookPrototypeTable />
         </>

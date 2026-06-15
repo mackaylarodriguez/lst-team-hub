@@ -4004,6 +4004,34 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-weight:900;
   font-size:15px;
 }
+.trainingPrototypeGradebookTable th.trainingPrototypeGradebookModuleCol,
+.trainingPrototypeGradebookTable td.trainingPrototypeGradebookMarkCell{
+  text-align:center;
+  white-space:nowrap;
+}
+.trainingPrototypeGradebookModuleCol{
+  font-size:12px;
+  min-width:4.5rem;
+}
+.trainingPrototypePassFailMark{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:1.65rem;
+  height:1.65rem;
+  border-radius:999px;
+  font-size:13px;
+  font-weight:900;
+  line-height:1;
+  color:#b91c1c;
+  background:rgba(239,68,68,.12);
+  border:1px solid rgba(239,68,68,.24);
+}
+.trainingPrototypePassFailMarkComplete{
+  color:#15803d;
+  background:rgba(34,197,94,.12);
+  border-color:rgba(34,197,94,.24);
+}
 .trainingPrototypeOverviewBar{
   min-width:120px;
   flex:1;

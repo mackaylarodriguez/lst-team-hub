@@ -1,7 +1,6 @@
 import {
-  PROTOTYPE_STATUS_META,
   TRAINING_OVERVIEW_PROTOTYPE_WORKERS,
-  formatPrototypeDueDate,
+  TRAINING_PROTOTYPE_SECTIONS_TOTAL,
 } from "@/lib/trainingCenterPrototypeMock";
 
 export default function TrainingOverviewPrototypeTable() {
@@ -11,50 +10,27 @@ export default function TrainingOverviewPrototypeTable() {
         <thead>
           <tr>
             <th>Worker</th>
+            <th>Trip</th>
             <th>Role</th>
             <th>Sections</th>
-            <th>Completion</th>
-            <th>Next due</th>
-            <th>Status</th>
           </tr>
         </thead>
         <tbody>
-          {TRAINING_OVERVIEW_PROTOTYPE_WORKERS.map((worker) => {
-            const meta = PROTOTYPE_STATUS_META[worker.status] || PROTOTYPE_STATUS_META.not_started;
-            return (
-              <tr key={worker.id}>
-                <td>
-                  <div style={{ fontWeight: 700 }}>{worker.name}</div>
-                  <div className="small trainingPrototypeMuted">Mock demo row</div>
-                </td>
-                <td>{worker.role}</td>
-                <td>
-                  {worker.modulesComplete} / {worker.modulesTotal} sections
-                </td>
-                <td>
-                  <div className="row" style={{ gap: 8, alignItems: "center" }}>
-                    <div className="progress trainingPrototypeOverviewBar">
-                      <div style={{ width: `${worker.percent}%` }} />
-                    </div>
-                    <span className="small">{worker.percent}%</span>
-                  </div>
-                </td>
-                <td>
-                  {worker.nextDueDate ? (
-                    <>
-                      <div style={{ fontWeight: 700 }}>{formatPrototypeDueDate(worker.nextDueDate)}</div>
-                      <div className="small trainingPrototypeMuted">{worker.nextDueLabel}</div>
-                    </>
-                  ) : (
-                    <span className="small trainingPrototypeMuted">{worker.nextDueLabel || "—"}</span>
-                  )}
-                </td>
-                <td>
-                  <span className={`badge ${meta.badge}`}>{meta.label}</span>
-                </td>
-              </tr>
-            );
-          })}
+          {TRAINING_OVERVIEW_PROTOTYPE_WORKERS.map((worker) => (
+            <tr key={worker.id}>
+              <td>
+                <div style={{ fontWeight: 700 }}>{worker.name}</div>
+              </td>
+              <td>
+                <div style={{ fontWeight: 700 }}>{worker.tripName}</div>
+                <div className="small trainingPrototypeMuted">{worker.siteLocation}</div>
+              </td>
+              <td>{worker.role}</td>
+              <td>
+                {worker.sectionsComplete} / {TRAINING_PROTOTYPE_SECTIONS_TOTAL}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
