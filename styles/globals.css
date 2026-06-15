@@ -3622,7 +3622,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .trainingPrototypeSectionFooter{
   display:flex;
-  justify-content:flex-start;
+  justify-content:flex-end;
   margin-top:2px;
 }
 .trainingPrototypeFullSessionBtn{
@@ -3726,6 +3726,70 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeSectionRule{
   margin:0;
   font-size:12px;
+}
+.trainingPrototypeFullscreen{
+  position:fixed;
+  inset:0;
+  z-index:5000;
+  display:grid;
+  grid-template-rows:auto minmax(0, 1fr) auto;
+  background:var(--bg, #f5f1ea);
+  color:var(--text);
+}
+.trainingPrototypeFullscreenTop{
+  display:grid;
+  gap:10px;
+  padding:14px 18px 12px;
+  border-bottom:1px solid rgba(15,23,42,.08);
+  background:rgba(255,255,255,.92);
+}
+.trainingPrototypeFullscreenClose{
+  width:fit-content;
+  min-height:32px;
+  padding:6px 12px;
+  font-size:13px;
+}
+.trainingPrototypeFullscreenHeading{
+  min-width:0;
+}
+.trainingPrototypeFullscreenEyebrow{
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin-bottom:4px;
+}
+.trainingPrototypeFullscreenTitle{
+  margin:0;
+  font-size:clamp(1.25rem, 2.4vw, 1.75rem);
+  line-height:1.25;
+  font-weight:900;
+  color:var(--primary);
+}
+.trainingPrototypeFullscreenBody{
+  overflow-y:auto;
+  padding:18px 20px 24px;
+}
+.trainingPrototypeFullscreenBody .trainingPrototypeWrittenBody{
+  max-width:760px;
+  margin:0 auto;
+}
+.trainingPrototypeFullscreenBody .trainingPrototypeVideoWrap{
+  max-width:960px;
+  margin:0 auto;
+}
+.trainingPrototypeFullscreenFooter{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  padding:12px 18px 16px;
+  border-top:1px solid rgba(15,23,42,.08);
+  background:rgba(255,255,255,.96);
+}
+.trainingPrototypeFullscreenFooter .spacer{
+  flex:1;
 }
 .collapsibleSectionSlim{
   border:1px solid rgba(15,23,42,.07);

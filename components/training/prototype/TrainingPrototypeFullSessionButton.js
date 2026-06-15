@@ -1,6 +1,6 @@
 export default function TrainingPrototypeFullSessionButton({
   onClick,
-  label = "Open full session",
+  label = "Open fullscreen",
 }) {
   return (
     <button
@@ -11,9 +11,10 @@ export default function TrainingPrototypeFullSessionButton({
       aria-label={label}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M14 5h5v5" />
-        <path d="M10 14 19 5" />
-        <path d="M19 14v5H5V5h5" />
+        <path d="M8 3H3v5" />
+        <path d="M16 3h5v5" />
+        <path d="M21 16v5h-5" />
+        <path d="M3 16v5h5" />
       </svg>
     </button>
   );

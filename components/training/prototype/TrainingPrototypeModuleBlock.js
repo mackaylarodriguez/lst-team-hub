@@ -1,6 +1,5 @@
 import { useState } from "react";
 import CollapsibleSection from "@/components/CollapsibleSection";
-import TrainingPrototypeDueDate from "./TrainingPrototypeDueDate";
 import TrainingPrototypeFullSessionButton from "./TrainingPrototypeFullSessionButton";
 import {
   TRAINING_CENTER_PROTOTYPE_VIDEO,
@@ -54,9 +53,6 @@ export default function TrainingPrototypeModuleBlock({
             <p className="small trainingPrototypeMuted" style={{ margin: "6px 0 0" }}>
               {module.subtitle}
             </p>
-            <div style={{ marginTop: 8 }}>
-              <TrainingPrototypeDueDate dueDate={module.dueDate} rule={module.dueDateRule} />
-            </div>
           </div>
         </button>
         <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -89,11 +85,6 @@ export default function TrainingPrototypeModuleBlock({
                 badge={<span className={`badge ${sectionStatus.badge}`}>{sectionStatus.label}</span>}
               >
                 <div className="trainingPrototypeSectionInner">
-                  {section.dueDateRule ? (
-                    <p className="small trainingPrototypeMuted trainingPrototypeSectionRule">
-                      {section.dueDateRule}
-                    </p>
-                  ) : null}
                   <p>{section.body}</p>
 
                   {section.showVideo ? (
@@ -120,7 +111,7 @@ export default function TrainingPrototypeModuleBlock({
                       )}
                       <div className="trainingPrototypeSectionFooter">
                         <TrainingPrototypeFullSessionButton
-                          label="Open full quiz"
+                          label="Open fullscreen quiz"
                           onClick={() => onOpenQuiz(module.id)}
                         />
                       </div>
