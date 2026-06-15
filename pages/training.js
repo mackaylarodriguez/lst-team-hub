@@ -1,6 +1,7 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import TrainingPrototypeBanner from "@/components/training/prototype/TrainingPrototypeBanner";
+import TrainingPrototypeStaffSearchBar from "@/components/training/prototype/TrainingPrototypeStaffSearchBar";
 import TrainingOverviewPrototypeTable from "@/components/training/prototype/TrainingOverviewPrototypeTable";
 import TrainingGradebookPrototypeTable from "@/components/training/prototype/TrainingGradebookPrototypeTable";
 import { useRouter } from "next/router";
@@ -68,6 +69,8 @@ export default function TrainingStaffPrototypePage() {
           </button>
         ))}
       </div>
+
+      <TrainingPrototypeStaffSearchBar />
 
       {activePanel === "overview" ? (
         <>

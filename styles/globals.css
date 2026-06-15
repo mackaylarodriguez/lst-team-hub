@@ -3997,6 +3997,22 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   border-color:rgba(47,73,147,.28);
   color:var(--primary);
 }
+.trainingPrototypeStaffSearchWrap{
+  margin-bottom:16px;
+  max-width:420px;
+}
+.trainingPrototypeStaffSearchLabel{
+  display:block;
+  font-size:13px;
+  font-weight:700;
+  margin-bottom:6px;
+}
+.trainingPrototypeStaffSearchInput{
+  width:100%;
+}
+.trainingPrototypeStaffSearchHint{
+  margin:6px 0 0;
+}
 .trainingPrototypeGradeCell{
   display:inline-flex;
   min-width:2.5rem;
