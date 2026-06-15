@@ -3623,14 +3623,14 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeSectionFooter{
   display:flex;
   justify-content:flex-start;
-  margin-top:4px;
+  margin-top:2px;
 }
 .trainingPrototypeFullSessionBtn{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  width:34px;
-  height:34px;
+  width:30px;
+  height:30px;
   padding:0;
   border-radius:10px;
   border:1px solid rgba(47,73,147,.22);
@@ -3644,8 +3644,8 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   border-color:rgba(47,73,147,.32);
 }
 .trainingPrototypeFullSessionBtn svg{
-  width:18px;
-  height:18px;
+  width:16px;
+  height:16px;
   fill:none;
   stroke:currentColor;
   stroke-width:1.8;
@@ -3712,16 +3712,94 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .trainingPrototypeSectionStack{
   display:grid;
-  gap:10px;
+  gap:6px;
 }
 .trainingPrototypeSectionInner{
   display:grid;
-  gap:10px;
+  gap:8px;
 }
 .trainingPrototypeSectionInner p{
   margin:0;
-  line-height:1.55;
+  line-height:1.5;
+  font-size:13px;
+}
+.trainingPrototypeSectionRule{
+  margin:0;
+  font-size:12px;
+}
+.collapsibleSectionSlim{
+  border:1px solid rgba(15,23,42,.07);
+  border-radius:10px;
+  background:#fff;
+  overflow:hidden;
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+.collapsibleSectionSlimHeader{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 10px;
+  background:transparent;
+  border-bottom:1px solid transparent;
+}
+.collapsibleSectionSlim:has(.collapsibleSectionSlimPanel) .collapsibleSectionSlimHeader{
+  border-bottom-color:rgba(15,23,42,.06);
+}
+.collapsibleSectionSlimToggle{
+  flex:1;
+  min-width:0;
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  border:0;
+  background:transparent;
+  padding:0;
+  cursor:pointer;
+  font:inherit;
+  text-align:left;
+  color:inherit;
+}
+.collapsibleSectionSlimChevron{
+  font-size:10px;
+  margin-top:5px;
+  flex-shrink:0;
+  color:var(--muted);
+  line-height:1;
+}
+.collapsibleSectionSlimTitleWrap{
+  flex:1;
+  min-width:0;
+}
+.collapsibleSectionSlimTitle{
+  display:block;
+  font-weight:700;
   font-size:14px;
+  line-height:1.35;
+}
+.collapsibleSectionSlimSubtitle{
+  display:block;
+  margin-top:1px;
+  font-size:11px;
+  line-height:1.35;
+  opacity:.78;
+  color:var(--muted);
+}
+.collapsibleSectionSlimBadge{
+  flex-shrink:0;
+}
+.collapsibleSectionSlimBadge .badge{
+  font-size:10px;
+  padding:2px 7px;
+  line-height:1.3;
+}
+.collapsibleSectionSlimPanel{
+  padding:8px 10px 10px;
+}
+.trainingPrototypeSectionStack .trainingPrototypeDueDateCompact{
+  padding:3px 7px;
+}
+.trainingPrototypeSectionStack .trainingPrototypeDueDateCompact .trainingPrototypeDueDateLabel{
+  font-size:11px;
 }
 .trainingPrototypeVideoWrap{
   position:relative;
@@ -3753,7 +3831,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .trainingPrototypeQuizPreview{
   display:grid;
-  gap:10px;
+  gap:8px;
 }
 .trainingPrototypePage{
   display:grid;
@@ -3784,13 +3862,13 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   align-items:center;
 }
 .trainingPrototypeSuccessBox{
-  padding:12px 14px;
-  border-radius:12px;
+  padding:8px 10px;
+  border-radius:10px;
   border:1px solid rgba(34,197,94,.28);
   background:rgba(34,197,94,.1);
   color:#166534;
-  font-size:14px;
-  line-height:1.5;
+  font-size:13px;
+  line-height:1.45;
 }
 .trainingPrototypeQuizForm{
   display:grid;

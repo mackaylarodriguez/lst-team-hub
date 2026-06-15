@@ -34,7 +34,6 @@ export default function TrainingPrototypeModuleBlock({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const sections = module.sections || [];
-  const sectionTotal = sections.length;
   const moduleStatus = getPrototypeModuleStatus(completedSectionIds, module);
   const moduleStatusMeta = PROTOTYPE_STATUS_META[moduleStatus] || PROTOTYPE_STATUS_META.not_started;
 
@@ -79,21 +78,22 @@ export default function TrainingPrototypeModuleBlock({
             return (
               <CollapsibleSection
                 key={section.id}
+                variant="slim"
                 title={section.title}
                 subtitle={
                   section.isQuiz
                     ? `3 questions · Due ${formatPrototypeDueDate(section.dueDate)}`
-                    : `Part ${index + 1} of ${sectionTotal}`
+                    : `Due ${formatPrototypeDueDate(section.dueDate)}`
                 }
                 defaultOpen={index === 0 && defaultOpen}
                 badge={<span className={`badge ${sectionStatus.badge}`}>{sectionStatus.label}</span>}
               >
                 <div className="trainingPrototypeSectionInner">
-                  <TrainingPrototypeDueDate
-                    compact
-                    dueDate={section.dueDate}
-                    rule={section.dueDateRule}
-                  />
+                  {section.dueDateRule ? (
+                    <p className="small trainingPrototypeMuted trainingPrototypeSectionRule">
+                      {section.dueDateRule}
+                    </p>
+                  ) : null}
                   <p>{section.body}</p>
 
                   {section.showVideo ? (

@@ -12,6 +12,7 @@ import { useEffect, useId, useState } from "react";
  * @param {import("react").ReactNode} props.children
  * @param {string} [props.className]
  * @param {object} [props.style]
+ * @param {"default" | "slim"} [props.variant]
  */
 export default function CollapsibleSection({
   title,
@@ -23,7 +24,9 @@ export default function CollapsibleSection({
   children,
   className = "",
   style,
+  variant = "default",
 }) {
+  const isSlim = variant === "slim";
   const [open, setOpen] = useState(() => {
     if (typeof window === "undefined") return defaultOpen;
     if (persistOpenKey) {
@@ -42,63 +45,102 @@ export default function CollapsibleSection({
   const panelId = `${id}-panel`;
   const buttonId = `${id}-button`;
 
+  const rootClassName = [className, isSlim ? "collapsibleSection collapsibleSectionSlim" : ""]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div
-      className={className}
-      style={{
-        border: "1px solid rgba(47, 73, 147, 0.14)",
-        borderRadius: 12,
-        background: "#fff",
-        overflow: "hidden",
-        ...style,
-      }}
+      className={rootClassName || undefined}
+      style={
+        isSlim
+          ? style
+          : {
+              border: "1px solid rgba(47, 73, 147, 0.14)",
+              borderRadius: 12,
+              background: "#fff",
+              overflow: "hidden",
+              ...style,
+            }
+      }
     >
       <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "10px 12px",
-          background: "rgba(245, 241, 234, 0.45)",
-        }}
+        className={isSlim ? "collapsibleSectionSlimHeader" : undefined}
+        style={
+          isSlim
+            ? undefined
+            : {
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 12px",
+                background: "rgba(245, 241, 234, 0.45)",
+              }
+        }
       >
         <button
           id={buttonId}
           type="button"
-          className="btn"
+          className={isSlim ? "collapsibleSectionSlimToggle" : "btn"}
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-controls={panelId}
-          style={{
-            flex: 1,
-            textAlign: "left",
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 10,
-            border: "none",
-            background: "transparent",
-            padding: 0,
-            cursor: "pointer",
-            font: "inherit",
-          }}
+          style={
+            isSlim
+              ? undefined
+              : {
+                  flex: 1,
+                  textAlign: "left",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  border: "none",
+                  background: "transparent",
+                  padding: 0,
+                  cursor: "pointer",
+                  font: "inherit",
+                }
+          }
         >
-          <span aria-hidden style={{ fontSize: 12, marginTop: 3, flexShrink: 0 }}>
+          <span
+            className={isSlim ? "collapsibleSectionSlimChevron" : undefined}
+            aria-hidden
+            style={isSlim ? undefined : { fontSize: 12, marginTop: 3, flexShrink: 0 }}
+          >
             {open ? "\u25BC" : "\u25B6"}
           </span>
-          <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ fontWeight: 800, display: "block" }}>{title}</span>
+          <span className={isSlim ? "collapsibleSectionSlimTitleWrap" : undefined} style={isSlim ? undefined : { flex: 1, minWidth: 0 }}>
+            <span
+              className={isSlim ? "collapsibleSectionSlimTitle" : undefined}
+              style={isSlim ? undefined : { fontWeight: 800, display: "block" }}
+            >
+              {title}
+            </span>
             {subtitle ? (
-              <span className="small" style={{ display: "block", marginTop: 2, opacity: 0.85 }}>
+              <span
+                className={isSlim ? "collapsibleSectionSlimSubtitle small" : "small"}
+                style={isSlim ? undefined : { display: "block", marginTop: 2, opacity: 0.85 }}
+              >
                 {subtitle}
               </span>
             ) : null}
           </span>
-          {badge ? <span style={{ flexShrink: 0 }}>{badge}</span> : null}
+          {badge ? (
+            <span className={isSlim ? "collapsibleSectionSlimBadge" : undefined} style={isSlim ? undefined : { flexShrink: 0 }}>
+              {badge}
+            </span>
+          ) : null}
         </button>
         {rightSlot ? <div style={{ flexShrink: 0 }}>{rightSlot}</div> : null}
       </div>
       {open ? (
-        <div id={panelId} role="region" aria-labelledby={buttonId} style={{ padding: "12px 14px 14px" }}>
+        <div
+          id={panelId}
+          role="region"
+          aria-labelledby={buttonId}
+          className={isSlim ? "collapsibleSectionSlimPanel" : undefined}
+          style={isSlim ? undefined : { padding: "12px 14px 14px" }}
+        >
           {children}
         </div>
       ) : null}
