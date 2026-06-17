@@ -379,7 +379,7 @@ export default function Shell({ children }) {
         {showInstallHint ? (
           <div className="installHintBanner">
             <div>
-              <div className="installHintTitle">Install LST Team Hub</div>
+              <div className="installHintTitle">Install LST International Projects Hub</div>
               <div className="small">{installHintText}</div>
             </div>
             <button

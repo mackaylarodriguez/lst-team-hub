@@ -1,6 +1,6 @@
 {
   "name": "LST International Projects Hub",
-  "short_name": "LST Team Hub",
+  "short_name": "LST Projects Hub",
   "description": "Trips, workers, fundraising, recruiting, and training in one place.",
   "start_url": "/trips",
   "display": "standalone",

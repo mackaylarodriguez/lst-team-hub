@@ -22,12 +22,12 @@ export default function App({ Component, pageProps }) {
   return (
     <>
       <Head>
-        <title>LST Team Hub</title>
+        <title>LST International Projects Hub</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#3254a3" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="LST Team Hub" />
+        <meta name="apple-mobile-web-app-title" content="LST Projects Hub" />
         <meta
           name="description"
           content="LST International Projects Hub for trips, workers, fundraising, recruiting, and training."
