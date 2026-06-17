@@ -41,6 +41,7 @@ import {
   listBudgetCheckRequests,
   markBudgetCheckRequestProcessed,
   submitBudgetCheckRequest,
+  updateBudgetCheckDonnaNotes,
   updateBudgetCheckRequest,
 } from "@/lib/budgetCheckRequests";
 import { budgetCheckSubmitToast } from "@/lib/budgetCheckSubmitFeedback";
@@ -111,6 +112,30 @@ function formatBudgetCheckTimestamp(iso) {
   } catch {
     return String(iso);
   }
+}
+
+function resolveBudgetCheckSite(row, tripSiteById) {
+  const saved = String(row?.siteSnapshot || "").trim();
+  if (saved) return saved;
+  const fromTrip = String(tripSiteById?.[String(row?.tripId)] || "").trim();
+  return fromTrip || "—";
+}
+
+function budgetCheckTableHead(showActions = true) {
+  return (
+    <tr>
+      <th>Requested</th>
+      <th>Requested by</th>
+      <th>Trip</th>
+      <th>Site</th>
+      <th>Accountant</th>
+      <th>Check amount</th>
+      <th>Notes</th>
+      <th>Completed on</th>
+      <th style={{ minWidth: 180 }}>Donna notes</th>
+      {showActions ? <th style={{ minWidth: 140 }}>Actions</th> : null}
+    </tr>
+  );
 }
 
 function computeTotalLstCost(totalTicketCost, amountWorkerPaid) {
@@ -336,6 +361,8 @@ export default function BudgetPage() {
   const [budgetCheckEditNote, setBudgetCheckEditNote] = useState("");
   const [budgetCheckEditSaving, setBudgetCheckEditSaving] = useState(false);
   const [budgetCheckDeleteId, setBudgetCheckDeleteId] = useState("");
+  const [budgetCheckDonnaNotesDraft, setBudgetCheckDonnaNotesDraft] = useState({});
+  const [budgetCheckDonnaNotesSavingId, setBudgetCheckDonnaNotesSavingId] = useState("");
 
   const canManage = isManagerRole(session?.permissionRole || session?.role);
 
@@ -494,6 +521,13 @@ export default function BudgetPage() {
     () => (budgetCheckRows || []).filter((r) => r.status === "processed"),
     [budgetCheckRows]
   );
+  const budgetCheckTripSiteById = useMemo(() => {
+    const map = {};
+    for (const trip of trips || []) {
+      map[String(trip.id)] = String(trip.location || "").trim();
+    }
+    return map;
+  }, [trips]);
 
   useEffect(() => {
     let cancelled = false;
@@ -952,6 +986,40 @@ export default function BudgetPage() {
     setBudgetCheckEditAmount("");
     setBudgetCheckEditNote("");
     setBudgetCheckEditSaving(false);
+  }
+
+  function budgetCheckDonnaNotesValue(row) {
+    if (Object.prototype.hasOwnProperty.call(budgetCheckDonnaNotesDraft, row.id)) {
+      return budgetCheckDonnaNotesDraft[row.id];
+    }
+    return row.donnaNotes || "";
+  }
+
+  function updateBudgetCheckDonnaNotesDraft(id, value) {
+    setBudgetCheckDonnaNotesDraft((current) => ({ ...current, [id]: value }));
+  }
+
+  async function handleSaveBudgetCheckDonnaNotes(row) {
+    const nextValue = String(budgetCheckDonnaNotesValue(row) || "").trim();
+    const savedValue = String(row.donnaNotes || "").trim();
+    if (nextValue === savedValue) return;
+
+    try {
+      setBudgetCheckDonnaNotesSavingId(row.id);
+      await updateBudgetCheckDonnaNotes({ id: row.id, donnaNotes: nextValue });
+      const refreshed = await listBudgetCheckRequests();
+      setBudgetCheckRows(refreshed);
+      setBudgetCheckDonnaNotesDraft((current) => {
+        const next = { ...current };
+        delete next[row.id];
+        return next;
+      });
+      showToast("Donna notes saved.", "success");
+    } catch (e) {
+      showToast(e.message || "Could not save Donna notes.", "error");
+    } finally {
+      setBudgetCheckDonnaNotesSavingId("");
+    }
   }
 
   async function handleSaveBudgetCheckEdit() {
@@ -2484,40 +2552,36 @@ export default function BudgetPage() {
               </p>
             ) : (
               <div className="budgetTableScroller" style={{ marginBottom: 28 }}>
-                <table className="table dataTableStriped" style={{ minWidth: 920, fontSize: 12 }}>
-                  <thead>
-                    <tr>
-                      <th>Requested</th>
-                      <th>Trip</th>
-                      <th>Team</th>
-                      <th>Accountant</th>
-                      <th>Budget on file</th>
-                      <th>Check amount</th>
-                      <th>Requested by</th>
-                      <th>Note</th>
-                      <th style={{ minWidth: 140 }}>Actions</th>
-                    </tr>
-                  </thead>
+                <table className="table dataTableStriped" style={{ minWidth: 1180, fontSize: 12 }}>
+                  <thead>{budgetCheckTableHead(true)}</thead>
                   <tbody>
                     {budgetCheckPendingRows.map((r) => (
                       <tr key={r.id}>
                         <td>{formatBudgetCheckTimestamp(r.createdAt)}</td>
+                        <td className="small">{r.requestedByName || r.requestedByEmail || "—"}</td>
                         <td>
                           <Link href={`/trips/${r.tripId}`}>{r.tripNameSnapshot || r.tripId}</Link>
                         </td>
-                        <td>{r.teamNameSnapshot || "—"}</td>
+                        <td>{resolveBudgetCheckSite(r, budgetCheckTripSiteById)}</td>
                         <td>{r.teamAccountantSnapshot || "—"}</td>
-                        <td style={{ fontVariantNumeric: "tabular-nums" }}>
-                          {formatUsdDisplay(r.budgetAmountSnapshot)}
-                        </td>
                         <td style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
                           {formatUsdDisplay(r.amountRequested)}
                         </td>
-                        <td className="small">
-                          {r.requestedByName || r.requestedByEmail || "—"}
-                        </td>
                         <td className="small" style={{ maxWidth: 220, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                           {r.note || "—"}
+                        </td>
+                        <td>—</td>
+                        <td style={{ verticalAlign: "top", minWidth: 180 }}>
+                          <textarea
+                            className="input"
+                            rows={2}
+                            value={budgetCheckDonnaNotesValue(r)}
+                            onChange={(event) => updateBudgetCheckDonnaNotesDraft(r.id, event.target.value)}
+                            onBlur={() => void handleSaveBudgetCheckDonnaNotes(r)}
+                            placeholder="Donna notes"
+                            disabled={budgetCheckDonnaNotesSavingId === r.id}
+                            style={{ fontSize: 12, width: "100%", resize: "vertical" }}
+                          />
                         </td>
                         <td style={{ verticalAlign: "top" }}>
                           <div
@@ -2564,34 +2628,36 @@ export default function BudgetPage() {
               </p>
             ) : (
               <div className="budgetTableScroller">
-                <table className="table dataTableStriped" style={{ minWidth: 1040, fontSize: 12 }}>
-                  <thead>
-                    <tr>
-                      <th>Requested</th>
-                      <th>Processed</th>
-                      <th>Trip</th>
-                      <th>Check amount</th>
-                      <th>Requested by</th>
-                      <th>Processed by</th>
-                      <th>Note</th>
-                      <th style={{ minWidth: 88 }}>Actions</th>
-                    </tr>
-                  </thead>
+                <table className="table dataTableStriped" style={{ minWidth: 1180, fontSize: 12 }}>
+                  <thead>{budgetCheckTableHead(true)}</thead>
                   <tbody>
                     {budgetCheckProcessedRows.map((r) => (
                       <tr key={r.id}>
                         <td>{formatBudgetCheckTimestamp(r.createdAt)}</td>
-                        <td>{formatBudgetCheckTimestamp(r.processedAt)}</td>
+                        <td className="small">{r.requestedByName || r.requestedByEmail || "—"}</td>
                         <td>
                           <Link href={`/trips/${r.tripId}`}>{r.tripNameSnapshot || r.tripId}</Link>
                         </td>
+                        <td>{resolveBudgetCheckSite(r, budgetCheckTripSiteById)}</td>
+                        <td>{r.teamAccountantSnapshot || "—"}</td>
                         <td style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
                           {formatUsdDisplay(r.amountRequested)}
                         </td>
-                        <td className="small">{r.requestedByName || r.requestedByEmail || "—"}</td>
-                        <td className="small">{r.processedByName || r.processedByEmail || "—"}</td>
-                        <td className="small" style={{ maxWidth: 280, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                        <td className="small" style={{ maxWidth: 220, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                           {r.note || "—"}
+                        </td>
+                        <td>{formatBudgetCheckTimestamp(r.processedAt)}</td>
+                        <td style={{ verticalAlign: "top", minWidth: 180 }}>
+                          <textarea
+                            className="input"
+                            rows={2}
+                            value={budgetCheckDonnaNotesValue(r)}
+                            onChange={(event) => updateBudgetCheckDonnaNotesDraft(r.id, event.target.value)}
+                            onBlur={() => void handleSaveBudgetCheckDonnaNotes(r)}
+                            placeholder="Donna notes"
+                            disabled={budgetCheckDonnaNotesSavingId === r.id}
+                            style={{ fontSize: 12, width: "100%", resize: "vertical" }}
+                          />
                         </td>
                         <td style={{ verticalAlign: "top" }}>
                           <button

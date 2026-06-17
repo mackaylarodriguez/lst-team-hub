@@ -12,7 +12,7 @@
  * - BUDGET_CHECK_DUE_DAYS — days until misc-task due date (default 14 = two weeks).
  * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL — send notification email via Resend (both required for email).
  *
- * PATCH body: { id, action } — actions: mark_processed | update (amount, note; pending only) | delete.
+ * PATCH body: { id, action } — actions: mark_processed | update (amount, note; pending only) | update_donna_notes | delete.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -278,6 +278,17 @@ function buildBudgetCheckMiscTaskNotes({
     .join("\n");
 }
 
+function getBudgetChecksUrl(req) {
+  const configured = normalizeText(process.env.NEXT_PUBLIC_APP_URL);
+  if (configured) {
+    return `${configured.replace(/\/$/, "")}/budget?tab=checks`;
+  }
+  const host = normalizeText(req.headers.host);
+  if (!host) return "";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  return `${protocol}://${host}/budget?tab=checks`;
+}
+
 export default async function handler(req, res) {
   if (req.method === "POST") {
     const auth = await authenticateStaffOrAdmin(req);
@@ -299,7 +310,7 @@ export default async function handler(req, res) {
 
     const { data: trip, error: tripErr } = await admin
       .from("trips")
-      .select("id, trip_name")
+      .select("id, trip_name, location")
       .eq("id", tripId)
       .maybeSingle();
 
@@ -314,6 +325,7 @@ export default async function handler(req, res) {
       .maybeSingle();
 
     const tripName = normalizeText(trip.trip_name);
+    const siteSnap = normalizeText(trip.location);
     const teamNameSnap = normalizeText(budget?.team_name);
     const accountantSnap = await loadTeamAccountantForTrip(admin, tripId, budget);
     const budgetAmtSnap =
@@ -365,6 +377,7 @@ export default async function handler(req, res) {
       trip_id: tripId,
       trip_name_snapshot: tripName || null,
       team_name_snapshot: teamNameSnap || null,
+      site_snapshot: siteSnap || null,
       team_accountant_snapshot: accountantSnap || null,
       budget_amount_snapshot: budgetAmtSnap || null,
       amount_requested: amountRequested,
@@ -418,15 +431,18 @@ export default async function handler(req, res) {
       normalizeEmail(process.env.BUDGET_CHECK_NOTIFY_EMAIL) ||
       assignee.email ||
       normalizeEmail(profile.email);
+    const requesterLabel = getProfileDisplayName(profile) || profile.email || "Staff";
     const subject = buildBudgetCheckStaffEmailSubject({
       tripName: tripName || tripId,
       amountRequested,
     });
     const html = buildBudgetCheckStaffEmailHtml({
+      requesterLabel,
       tripName: tripName || tripId,
       accountant: accountantSnap,
       amountRequested,
       note,
+      checksUrl: getBudgetChecksUrl(req),
     });
 
     const emailResult = await sendNotifyEmail({ to: notifyTo, subject, html });
@@ -538,6 +554,26 @@ export default async function handler(req, res) {
         .eq("id", tripStaffTaskId);
       if (tripSyncErr) {
         console.error("[budget-check-request] trip staff task sync on update", tripSyncErr);
+      }
+
+      return res.status(200).json({ ok: true, request: updated });
+    }
+
+    if (action === "update_donna_notes") {
+      const donnaNotes = normalizeText(req.body?.donnaNotes);
+
+      const { data: updated, error: updErr } = await admin
+        .from("budget_check_requests")
+        .update({
+          donna_notes: donnaNotes || null,
+        })
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (updErr) {
+        console.error("[budget-check-request] patch donna notes", updErr);
+        return res.status(500).json({ error: updErr.message || "Could not save Donna notes." });
       }
 
       return res.status(200).json({ ok: true, request: updated });
