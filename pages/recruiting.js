@@ -13,6 +13,7 @@ import {
   deleteRecruitingCycleContact,
   getRecruitingStageLabel,
   listRecruitingCycleContacts,
+  logRecruitingCycleContactAction,
   revertRecruitingLockedTeam,
   saveRecruitingCycleContact,
 } from "@/lib/recruitingCycles";
@@ -94,8 +95,9 @@ function getWorkflowBoardLabel(record) {
 }
 
 /** Tab id for `activeTab` — aligned with pipelineRecords / convertedTeams splits. */
-function recruitingBoardTabForRecord(record) {
+function recruitingBoardTabForRecord(record, currentTab = "") {
   if (record?.isConvertedToTeam) return "converted";
+  if (currentTab === "outreach") return "outreach";
   return "potential";
 }
 
@@ -109,7 +111,6 @@ const RECRUITING_BOARD_SORT = ["Potential Teams", "Locked Teams"];
 
 const CURRENT_RECRUITING_YEAR = new Date().getFullYear();
 
-/** Desktop board tables: percent widths (sum 100%). Team is 8% on every tab; notes columns are largest. */
 const RECRUITING_POTENTIAL_COL_PCT = {
   team: "8%",
   roster: "12%",
@@ -131,6 +132,105 @@ const RECRUITING_CONVERTED_COL_PCT = {
   leslee: "22%",
   actions: "17%",
 };
+
+/** Outreach list: one row per person — contact, trip snippet, last touch, actions. */
+const RECRUITING_OUTREACH_LIST_COL_PCT = {
+  contact: "30%",
+  project: "22%",
+  lastOutreach: "24%",
+  actions: "24%",
+};
+
+const OUTREACH_SORT_OPTIONS = [
+  { id: "stale", label: "Stale first" },
+  { id: "recent", label: "Recent first" },
+  { id: "name", label: "Name A–Z" },
+];
+
+function formatOutreachContactMethod(method) {
+  const normalized = String(method || "").trim().toLowerCase();
+  if (normalized === "email" || normalized === "bulk email") return "Emailed";
+  if (normalized === "call") return "Called";
+  if (normalized === "text" || normalized === "bulk text") return "Texted";
+  return String(method || "").trim();
+}
+
+function formatOutreachPersonName(person) {
+  return [person?.firstName, person?.lastName].filter(Boolean).join(" ").trim() || "Unnamed";
+}
+
+function outreachPersonSortName(row) {
+  return formatOutreachPersonName(row.person).toLowerCase();
+}
+
+function outreachLastContactTimestamp(record) {
+  const value = record?.lastContactedAt;
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.getTime();
+}
+
+function formatOutreachStaleLabel(record) {
+  const timestamp = outreachLastContactTimestamp(record);
+  if (timestamp === null) return "Never contacted";
+  const then = new Date(timestamp);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  then.setHours(0, 0, 0, 0);
+  const diffDays = Math.floor((today - then) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return `${diffDays} days ago`;
+}
+
+function sortOutreachPersonRows(rows, sortId) {
+  const sorted = [...rows];
+  if (sortId === "name") {
+    sorted.sort((a, b) => outreachPersonSortName(a).localeCompare(outreachPersonSortName(b)));
+    return sorted;
+  }
+  if (sortId === "recent") {
+    sorted.sort((a, b) => {
+      const ta = outreachLastContactTimestamp(a.record);
+      const tb = outreachLastContactTimestamp(b.record);
+      if (ta === null && tb === null) return outreachPersonSortName(a).localeCompare(outreachPersonSortName(b));
+      if (ta === null) return 1;
+      if (tb === null) return -1;
+      return tb - ta;
+    });
+    return sorted;
+  }
+  sorted.sort((a, b) => {
+    const ta = outreachLastContactTimestamp(a.record);
+    const tb = outreachLastContactTimestamp(b.record);
+    if (ta === null && tb === null) return outreachPersonSortName(a).localeCompare(outreachPersonSortName(b));
+    if (ta === null) return -1;
+    if (tb === null) return 1;
+    return ta - tb;
+  });
+  return sorted;
+}
+
+function buildOutreachPersonRows(records) {
+  const rows = [];
+  for (const record of records) {
+    const people = recruitingRosterRowsFromRecord(record);
+    people.forEach((person, personIndex) => {
+      const name = formatOutreachPersonName(person);
+      const email = String(person.email || "").trim();
+      if (personIndex > 0 && !name && name === "Unnamed" && !email) return;
+      if (personIndex > 0 && !email && name === "Unnamed") return;
+      rows.push({
+        id: `${record.id}-${personIndex}`,
+        recordId: record.id,
+        personIndex,
+        person,
+        record,
+      });
+    });
+  }
+  return rows;
+}
 
 function sortRecruitingBoardLabels(labels) {
   return [...labels].sort(
@@ -1401,11 +1501,16 @@ const DEFAULT_FILTER_CONFIG = {
 const TABLE_FONT_SIZES = ["small", "medium", "large"];
 
 const RECRUITING_TABS = [
+  { id: "outreach", label: "Outreach" },
   { id: "potential", label: "Potential Teams" },
   { id: "converted", label: "Locked Teams" },
 ];
 
 const RECRUITING_TAB_META = {
+  outreach: {
+    description: "One row per person — who to reach out to next.",
+    toneClass: "recruitingBoardTab recruitingBoardTabOutreach",
+  },
   potential: {
     description: "Qualified teams moving toward formation.",
     toneClass: "recruitingBoardTab recruitingBoardTabPotential",
@@ -1665,7 +1770,9 @@ export default function RecruitingPage() {
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   /** Default matches trip Staff Tasks body (13px); use floating +/- for medium/large. */
   const [tableFontSize, setTableFontSize] = useState("small");
-  const [activeTab, setActiveTab] = useState("potential");
+  const [activeTab, setActiveTab] = useState("outreach");
+  const [outreachSort, setOutreachSort] = useState("stale");
+  const [loggingOutreachRecordId, setLoggingOutreachRecordId] = useState("");
   const [selectedRecordId, setSelectedRecordId] = useState("");
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [newContactDraft, setNewContactDraft] = useState(() => createEmptyNewContactDraft());
@@ -1726,7 +1833,7 @@ export default function RecruitingPage() {
   }
 
   useEffect(() => {
-    const useLockStyleEdit = activeTab === "potential";
+    const useLockStyleEdit = activeTab === "potential" || activeTab === "outreach";
     if (!recordDetailsModalOpen || !useLockStyleEdit) {
       potentialEditSnapshotKey.current = "";
       return;
@@ -1837,6 +1944,10 @@ export default function RecruitingPage() {
   /** Filters (search, stage, saved filters, etc.) but not the active tab column — so tab badges stay accurate. */
   const baseFilteredRecords = useMemo(() => {
     return records.filter((record) => {
+      if (activeFilterId === "never_contacted" && record.lastContactedAt) {
+        return false;
+      }
+
       if (activeFilterId === "needs_attention" && !recordNeedsAttention(record)) {
         return false;
       }
@@ -1930,8 +2041,24 @@ export default function RecruitingPage() {
   );
   const recordsForActiveTab = useMemo(() => {
     if (activeTab === "converted") return convertedTeams;
+    if (activeTab === "outreach") return pipelineRecords;
     return pipelineRecords;
   }, [activeTab, convertedTeams, pipelineRecords]);
+
+  const outreachPersonRows = useMemo(
+    () => buildOutreachPersonRows(pipelineRecords),
+    [pipelineRecords]
+  );
+
+  const sortedOutreachPersonRows = useMemo(
+    () => sortOutreachPersonRows(outreachPersonRows, outreachSort),
+    [outreachPersonRows, outreachSort]
+  );
+
+  const outreachNeverContactedCount = useMemo(
+    () => outreachPersonRows.filter((row) => !row.record.lastContactedAt).length,
+    [outreachPersonRows]
+  );
 
   const stats = useMemo(() => {
     const total = records.length;
@@ -1944,10 +2071,11 @@ export default function RecruitingPage() {
   }, [records]);
   const boardCounts = useMemo(
     () => ({
+      outreach: outreachPersonRows.length,
       potential: pipelineRecords.length,
       converted: convertedTeams.length,
     }),
-    [convertedTeams, pipelineRecords]
+    [convertedTeams, outreachPersonRows, pipelineRecords]
   );
 
   const selectedRecord = useMemo(
@@ -1961,14 +2089,14 @@ export default function RecruitingPage() {
     if (searchTrim && baseFilteredRecords.length > 0) {
       if (recordsForActiveTab.length === 0) {
         const next = baseFilteredRecords[0];
-        setActiveTab(recruitingBoardTabForRecord(next));
+        setActiveTab(recruitingBoardTabForRecord(next, activeTab));
         setSelectedRecordId(next.id);
         return;
       }
 
       if (!baseFilteredRecords.some((record) => record.id === selectedRecordId)) {
         const next = baseFilteredRecords[0];
-        setActiveTab(recruitingBoardTabForRecord(next));
+        setActiveTab(recruitingBoardTabForRecord(next, activeTab));
         setSelectedRecordId(next.id);
         return;
       }
@@ -1976,7 +2104,7 @@ export default function RecruitingPage() {
       if (!recordsForActiveTab.some((record) => record.id === selectedRecordId)) {
         const next =
           baseFilteredRecords.find((record) => record.id === selectedRecordId) || baseFilteredRecords[0];
-        setActiveTab(recruitingBoardTabForRecord(next));
+        setActiveTab(recruitingBoardTabForRecord(next, activeTab));
         setSelectedRecordId(next.id);
         return;
       }
@@ -1996,7 +2124,7 @@ export default function RecruitingPage() {
         setSelectedRecordId(recordsForActiveTab[0].id);
       }
     }
-  }, [baseFilteredRecords, filterConfig.searchQuery, recordsForActiveTab, selectedRecordId]);
+  }, [activeTab, baseFilteredRecords, filterConfig.searchQuery, recordsForActiveTab, selectedRecordId]);
 
   const sitePickerLabels = useMemo(() => buildSiteLabelsOrdered(siteBudgetNotes), [siteBudgetNotes]);
 
@@ -2727,10 +2855,260 @@ export default function RecruitingPage() {
     }
   }
 
+  async function handleLogOutreachContact(record, actionType) {
+    if (!record?.id || !session) return;
+    try {
+      setLoggingOutreachRecordId(record.id);
+      await logRecruitingCycleContactAction({
+        record,
+        actionType,
+        actionDate: new Date().toISOString(),
+        staffMember: session?.name || session?.email || "Staff",
+        summary: "",
+        stage: ["email", "call", "text"].includes(actionType)
+          ? Math.max(record.stage, 1)
+          : undefined,
+      });
+      setError("");
+      setPageStatus("Contact logged.");
+      showToast(`${formatOutreachContactMethod(actionType)} logged.`, "success");
+      await refreshCurrentYear();
+    } catch (logError) {
+      console.error("Unable to log outreach contact", logError);
+      setError(logError.message || "Unable to log contact.");
+      showToast(logError.message || "Unable to log contact.", "error");
+    } finally {
+      setLoggingOutreachRecordId("");
+    }
+  }
+
   function openAddContactModal() {
     setNewContactDraft(createEmptyNewContactDraft());
     setError("");
     setAddContactModalOpen(true);
+  }
+
+  function renderOutreachTable(rowsToRender) {
+    if (rowsToRender.length === 0) {
+      return (
+        <EmptyState
+          icon="recruiting"
+          title="No people in this view"
+          description="Add contacts or clear filters to see who to reach out to next."
+        />
+      );
+    }
+
+    return (
+      <div className="recruitingBoardTableHost">
+        <DraggableTable>
+          <table
+            className={`table recruitingCompactTable recruitingBoardSlimTable recruitingBoardTable recruitingOutreachListTable recruitingFont-${tableFontSize}`}
+          >
+            <thead>
+              <tr>
+                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.contact }}>Contact</th>
+                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project }}>Trip details</th>
+                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.lastOutreach }}>Last outreach</th>
+                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.actions }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rowsToRender.map((row, rowIndex) => {
+                const { person, record } = row;
+                const draft = buildTeamFormDraft(record);
+                const siteLabel = chartDashText(record.site || draft.location);
+                const datesLabel = chartDashText(recruitingBoardProjectDatesLabel(record));
+                const methodLabel = formatOutreachContactMethod(record.lastContactMethod);
+                const hasContact = Boolean(record.lastContactedAt);
+                const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
+                const isLogging = loggingOutreachRecordId === record.id;
+                const duplicateInfo = person.email
+                  ? getDuplicateInfoForEmail(person.email, { excludeRecordId: record.id })
+                  : null;
+
+                return (
+                  <tr
+                    key={row.id}
+                    className={rowClass}
+                    onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
+                  >
+                    <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.contact, verticalAlign: "top" }}>
+                      <div className="recruitingOutreachContactCell">
+                        <div className="recruitingOutreachContactName">
+                          {row.personIndex === 0 ? (
+                            <span className="recruitingRosterPrimaryMark" title="Primary contact">★ </span>
+                          ) : null}
+                          {formatOutreachPersonName(person)}
+                        </div>
+                        {person.email ? (
+                          <div className="recruitingOutreachContactMeta">{person.email}</div>
+                        ) : null}
+                        {person.gender ? (
+                          <div className="recruitingOutreachContactMeta">{person.gender}</div>
+                        ) : null}
+                        {renderDuplicateNotice(duplicateInfo, { compact: true })}
+                      </div>
+                    </td>
+                    <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project, verticalAlign: "top" }}>
+                      <div className="recruitingOutreachProjectCell">
+                        <div className="recruitingOutreachProjectSite">{siteLabel}</div>
+                        <div className="recruitingOutreachProjectDates">{datesLabel}</div>
+                      </div>
+                    </td>
+                    <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.lastOutreach, verticalAlign: "top" }}>
+                      <div className="recruitingOutreachLastCell">
+                        {hasContact ? (
+                          <>
+                            <div className="recruitingOutreachLastMethod">{methodLabel || "Contacted"}</div>
+                            <div className="recruitingOutreachContactMeta">
+                              {formatCompactDateTime(record.lastContactedAt)}
+                            </div>
+                            <div className="recruitingOutreachStaleLabel">{formatOutreachStaleLabel(record)}</div>
+                          </>
+                        ) : (
+                          <span className="badge badgeDanger">Never contacted</span>
+                        )}
+                      </div>
+                    </td>
+                    <td
+                      style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.actions, verticalAlign: "top" }}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="row recruitingActionRow recruitingFitActionRow recruitingOutreachActionRow">
+                        <button
+                          className="btn"
+                          type="button"
+                          disabled={isLogging}
+                          onClick={() => void handleLogOutreachContact(record, "email")}
+                        >
+                          Email
+                        </button>
+                        <button
+                          className="btn"
+                          type="button"
+                          disabled={isLogging}
+                          onClick={() => void handleLogOutreachContact(record, "text")}
+                        >
+                          Text
+                        </button>
+                        <button
+                          className="btn"
+                          type="button"
+                          disabled={isLogging}
+                          onClick={() => void handleLogOutreachContact(record, "call")}
+                        >
+                          Call
+                        </button>
+                        <button
+                          className="btn btnPrimary"
+                          type="button"
+                          onClick={() => void openRecordDetails(record.id)}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </DraggableTable>
+      </div>
+    );
+  }
+
+  function renderOutreachCards(rowsToRender) {
+    if (rowsToRender.length === 0) {
+      return (
+        <EmptyState
+          icon="recruiting"
+          title="No people in this view"
+          description="Add contacts or clear filters to see who to reach out to next."
+        />
+      );
+    }
+
+    return (
+      <div className="recruitingMobileCards">
+        {rowsToRender.map((row) => {
+          const { person, record } = row;
+          const draft = buildTeamFormDraft(record);
+          const siteLabel = chartDashText(record.site || draft.location);
+          const datesLabel = chartDashText(recruitingBoardProjectDatesLabel(record));
+          const methodLabel = formatOutreachContactMethod(record.lastContactMethod);
+          const hasContact = Boolean(record.lastContactedAt);
+          const isLogging = loggingOutreachRecordId === record.id;
+          const duplicateInfo = person.email
+            ? getDuplicateInfoForEmail(person.email, { excludeRecordId: record.id })
+            : null;
+
+          return (
+            <div
+              key={row.id}
+              className="card pad recruitingMobileCard recruitingOutreachMobileCard"
+              onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
+            >
+              <div className="recruitingOutreachContactName">
+                {row.personIndex === 0 ? (
+                  <span className="recruitingRosterPrimaryMark" title="Primary contact">★ </span>
+                ) : null}
+                {formatOutreachPersonName(person)}
+              </div>
+              {person.email ? <div className="small">{person.email}</div> : null}
+              {person.gender ? <div className="small">{person.gender}</div> : null}
+              {renderDuplicateNotice(duplicateInfo, { compact: true })}
+              <div className="recruitingOutreachProjectCell" style={{ marginTop: 10 }}>
+                <div className="recruitingOutreachProjectSite">{siteLabel}</div>
+                <div className="recruitingOutreachProjectDates">{datesLabel}</div>
+              </div>
+              <div className="recruitingOutreachLastCell" style={{ marginTop: 10 }}>
+                {hasContact ? (
+                  <>
+                    <div className="recruitingOutreachLastMethod">
+                      {methodLabel || "Contacted"} · {formatCompactDateTime(record.lastContactedAt)}
+                    </div>
+                    <div className="small">{formatOutreachStaleLabel(record)}</div>
+                  </>
+                ) : (
+                  <span className="badge badgeDanger">Never contacted</span>
+                )}
+              </div>
+              <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={isLogging}
+                  onClick={() => void handleLogOutreachContact(record, "email")}
+                >
+                  Email
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={isLogging}
+                  onClick={() => void handleLogOutreachContact(record, "text")}
+                >
+                  Text
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={isLogging}
+                  onClick={() => void handleLogOutreachContact(record, "call")}
+                >
+                  Call
+                </button>
+                <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id)}>
+                  Edit
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   }
 
   function renderPotentialTable(recordsToRender) {
@@ -3174,7 +3552,7 @@ export default function RecruitingPage() {
             <AppIcon name="recruiting" className="pageEyebrowIcon" />
             <span>Recruiting</span>
           </h1>
-          <div className="small">Potential teams and locked trip teams.</div>
+          <div className="small">Outreach list, potential teams, and locked trip teams.</div>
         </div>
         <div className="recruitingToolbar appPolishToolbar">
           <div className="recruitingSearchCluster">
@@ -3250,6 +3628,16 @@ export default function RecruitingPage() {
           </div>
           <div className="row" style={{ marginTop: 10, gap: 8, flexWrap: "wrap" }}>
             <button
+              className={`btn ${activeFilterId === "never_contacted" ? "btnPrimary" : ""}`}
+              type="button"
+              onClick={() => {
+                setActiveFilterId("never_contacted");
+                setFilterConfig(DEFAULT_FILTER_CONFIG);
+              }}
+            >
+              Never contacted
+            </button>
+            <button
               className={`btn ${activeFilterId === "needs_attention" ? "btnPrimary" : ""}`}
               type="button"
               onClick={() => {
@@ -3300,6 +3688,31 @@ export default function RecruitingPage() {
                 </button>
               ))}
             </div>
+
+            {activeTab === "outreach" ? (
+              <>
+                <div className="recruitingOutreachToolbar row" style={{ marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
+                  <div className="small" style={{ color: "var(--muted)", alignSelf: "center" }}>
+                    {outreachNeverContactedCount} never contacted · {sortedOutreachPersonRows.length} people shown
+                  </div>
+                  <div className="spacer" />
+                  <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                    {OUTREACH_SORT_OPTIONS.map((option) => (
+                      <button
+                        key={option.id}
+                        className={`btn ${outreachSort === option.id ? "btnPrimary" : ""}`}
+                        type="button"
+                        onClick={() => setOutreachSort(option.id)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="recruitingDesktopOnly">{renderOutreachTable(sortedOutreachPersonRows)}</div>
+                <div className="recruitingMobileOnly">{renderOutreachCards(sortedOutreachPersonRows)}</div>
+              </>
+            ) : null}
 
             {activeTab === "potential" ? (
               <>
@@ -3379,7 +3792,7 @@ export default function RecruitingPage() {
                     {isSavingNotes ? "Saving changes..." : pageStatus}
                   </div>
                 ) : null}
-                {activeTab === "potential" && !selectedRecord.isConvertedToTeam ? (
+                {(activeTab === "potential" || activeTab === "outreach") && !selectedRecord.isConvertedToTeam ? (
                       <>
                         <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
                           Same fields as <strong>Lock Team</strong>. Saving updates this recruiting row only (does not

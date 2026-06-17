@@ -1225,7 +1225,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .recruitingBoardTabs{
   display:grid;
-  grid-template-columns:repeat(2, minmax(0, 1fr));
+  grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:10px;
 }
 .recruitingBoardTab{
@@ -1277,6 +1277,50 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   border-color:rgba(255,255,255,.18);
   color:#fff;
   background:rgba(255,255,255,.14);
+}
+.recruitingOutreachContactCell{
+  display:grid;
+  gap:4px;
+}
+.recruitingOutreachContactName{
+  font-weight:800;
+  line-height:1.35;
+}
+.recruitingOutreachContactMeta{
+  font-size:12px;
+  line-height:1.4;
+  color:var(--muted);
+}
+.recruitingOutreachProjectCell{
+  display:grid;
+  gap:4px;
+}
+.recruitingOutreachProjectSite{
+  font-weight:700;
+  line-height:1.35;
+}
+.recruitingOutreachProjectDates{
+  font-size:12px;
+  line-height:1.4;
+  color:var(--muted);
+}
+.recruitingOutreachLastCell{
+  display:grid;
+  gap:4px;
+}
+.recruitingOutreachLastMethod{
+  font-weight:700;
+}
+.recruitingOutreachStaleLabel{
+  font-size:12px;
+  color:var(--muted);
+}
+.recruitingOutreachActionRow{
+  flex-wrap:wrap;
+}
+.recruitingOutreachListTable .recruitingOutreachActionRow .btn{
+  font-size:12px;
+  padding:6px 10px;
 }
 .recruitingTemplateButton{
   white-space:nowrap;
