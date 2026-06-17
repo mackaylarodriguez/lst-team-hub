@@ -9,7 +9,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { parseNotifyEmailList, sendResendEmail } from "@/lib/resendMail";
-import { resolveProjectLengthForLock } from "@/lib/teamLockProjectLength";
+import { resolveProjectLengthForLock, firstNonBlankValue } from "@/lib/teamLockProjectLength";
 import {
   buildTeamLockStaffEmailHtml,
   buildTeamLockStaffEmailSubject,
@@ -89,6 +89,54 @@ function getTripUrl(req, tripId) {
   return `${protocol}://${host}/trips/${tripId}`;
 }
 
+async function loadProjectLengthSources(admin, tripId) {
+  const sources = {
+    tripProjectLength: "",
+    recruitingWeeks: "",
+    recruitingProjectDates: "",
+    pendingProjectLength: "",
+  };
+
+  if (!tripId) return sources;
+
+  const { data: tripRow, error: tripErr } = await admin
+    .from("trips")
+    .select("project_length_summary")
+    .eq("id", tripId)
+    .maybeSingle();
+
+  if (tripErr) {
+    console.warn("[team-lock-notify] trips project_length_summary", tripErr);
+  } else {
+    sources.tripProjectLength = normalizeText(tripRow?.project_length_summary);
+  }
+
+  const { data: recruitingRow, error: recruitingErr } = await admin
+    .from("recruiting_cycle_contacts")
+    .select("weeks, project_dates, pending_lock_team_setup")
+    .eq("converted_team_id", tripId)
+    .maybeSingle();
+
+  if (recruitingErr) {
+    console.warn("[team-lock-notify] recruiting_cycle_contacts", recruitingErr);
+    return sources;
+  }
+
+  if (!recruitingRow) return sources;
+
+  if (recruitingRow.weeks !== null && recruitingRow.weeks !== undefined) {
+    sources.recruitingWeeks = String(recruitingRow.weeks).trim();
+  }
+  sources.recruitingProjectDates = normalizeText(recruitingRow.project_dates);
+
+  const pending = recruitingRow.pending_lock_team_setup;
+  if (pending && typeof pending === "object") {
+    sources.pendingProjectLength = normalizeText(pending.projectLengthSummary);
+  }
+
+  return sources;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -117,24 +165,33 @@ export default async function handler(req, res) {
   }
 
   let tripProjectLength = "";
-  if (tripId) {
-    try {
-      const admin = getSupabaseAdminClient();
-      const { data: tripRow } = await admin
-        .from("trips")
-        .select("project_length_summary")
-        .eq("id", tripId)
-        .maybeSingle();
-      tripProjectLength = normalizeText(tripRow?.project_length_summary);
-    } catch (tripLoadError) {
-      console.warn("[team-lock-notify] could not load trip project length", tripLoadError);
-    }
+  let recruitingWeeks = "";
+  let recruitingProjectDates = "";
+  let pendingProjectLength = "";
+
+  try {
+    const admin = getSupabaseAdminClient();
+    const sources = await loadProjectLengthSources(admin, tripId);
+    tripProjectLength = sources.tripProjectLength;
+    recruitingWeeks = sources.recruitingWeeks;
+    recruitingProjectDates = sources.recruitingProjectDates;
+    pendingProjectLength = sources.pendingProjectLength;
+  } catch (loadError) {
+    console.warn("[team-lock-notify] could not load project length sources", loadError);
   }
 
   const projectLengthSummary = resolveProjectLengthForLock({
-    projectLengthSummary: normalizeText(body.projectLengthSummary) || tripProjectLength,
-    weeks: body.weeks,
-    projectDates: body.projectDates,
+    projectLengthSummary: firstNonBlankValue(
+      body.projectLengthSummary,
+      pendingProjectLength,
+      tripProjectLength
+    ),
+    weeks: firstNonBlankValue(body.weeks, body.recruitingWeeks, recruitingWeeks),
+    projectDates: firstNonBlankValue(
+      body.projectDates,
+      body.recruitingProjectDates,
+      recruitingProjectDates
+    ),
   });
 
   const payload = {
@@ -143,8 +200,12 @@ export default async function handler(req, res) {
     host: normalizeText(body.host),
     teamDeveloper: normalizeText(body.teamDeveloper),
     projectLengthSummary,
-    weeks: normalizeText(body.weeks),
-    projectDates: normalizeText(body.projectDates),
+    weeks: firstNonBlankValue(body.weeks, body.recruitingWeeks, recruitingWeeks),
+    projectDates: firstNonBlankValue(
+      body.projectDates,
+      body.recruitingProjectDates,
+      recruitingProjectDates
+    ),
     startDate: normalizeText(body.startDate),
     endDate: normalizeText(body.endDate),
     teamMembers: Array.isArray(body.teamMembers) ? body.teamMembers : [],

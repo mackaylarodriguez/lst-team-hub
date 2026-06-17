@@ -2890,7 +2890,10 @@ export default function RecruitingPage() {
               projectLengthSummary:
                 result.trip?.projectLengthSummary || teamFormDraft.projectLengthSummary,
               weeks: teamFormDraft.recruitingWeeks || selectedRecord?.weeks,
+              recruitingWeeks: teamFormDraft.recruitingWeeks || selectedRecord?.weeks,
               projectDates:
+                teamFormDraft.recruitingProjectDates || selectedRecord?.projectDates,
+              recruitingProjectDates:
                 teamFormDraft.recruitingProjectDates || selectedRecord?.projectDates,
               startDate: teamFormDraft.startDate,
               endDate: teamFormDraft.endDate,
