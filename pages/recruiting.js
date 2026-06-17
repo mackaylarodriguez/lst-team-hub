@@ -4,6 +4,7 @@ import EmptyState from "@/components/EmptyState";
 import { showToast } from "@/components/Toast";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
+import * as XLSX from "xlsx";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole, isStaffRole } from "@/lib/roles";
 import {
@@ -12,6 +13,7 @@ import {
   convertRecruitingCycleRecordToTrip,
   deleteRecruitingCycleContact,
   getRecruitingStageLabel,
+  importRecruitingContacts,
   listRecruitingCycleContacts,
   logRecruitingCycleContactAction,
   revertRecruitingLockedTeam,
@@ -133,12 +135,14 @@ const RECRUITING_CONVERTED_COL_PCT = {
   actions: "17%",
 };
 
-/** Outreach list: one row per person — contact, trip snippet, last touch, actions. */
+/** Recruiting list: one row per person. */
 const RECRUITING_OUTREACH_LIST_COL_PCT = {
-  contact: "30%",
-  project: "22%",
-  lastOutreach: "24%",
-  actions: "24%",
+  contact: "16%",
+  project: "12%",
+  mackayla: "22%",
+  leslee: "22%",
+  lastContact: "14%",
+  actions: "14%",
 };
 
 const OUTREACH_SORT_OPTIONS = [
@@ -230,6 +234,43 @@ function buildOutreachPersonRows(records) {
     });
   }
   return rows;
+}
+
+function normalizeImportHeader(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+async function parseRecruitingImportRows(file) {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+  if (!grid.length) return [];
+
+  const headerRow = (grid[0] || []).map(normalizeImportHeader);
+  const indexFor = (...labels) =>
+    headerRow.findIndex((cell) => labels.some((label) => cell.includes(label)));
+
+  const firstNameIndex = indexFor("firstname", "first");
+  const lastNameIndex = indexFor("lastname", "last");
+  const emailIndex = indexFor("email");
+  const genderIndex = indexFor("gender", "sex");
+  const yearIndex = indexFor("year", "recruitingyear");
+  const mackaylaIndex = indexFor("mackayla");
+  const lesleeIndex = indexFor("leslee");
+
+  return grid.slice(1).map((row) => ({
+    firstName: firstNameIndex >= 0 ? String(row[firstNameIndex] || "").trim() : "",
+    lastName: lastNameIndex >= 0 ? String(row[lastNameIndex] || "").trim() : "",
+    email: emailIndex >= 0 ? String(row[emailIndex] || "").trim() : "",
+    gender: genderIndex >= 0 ? String(row[genderIndex] || "").trim() : "",
+    recruitingYear: yearIndex >= 0 ? String(row[yearIndex] || "").trim() : "",
+    mackaylaNotes: mackaylaIndex >= 0 ? String(row[mackaylaIndex] || "").trim() : "",
+    lesleeNotes: lesleeIndex >= 0 ? String(row[lesleeIndex] || "").trim() : "",
+  }));
 }
 
 function sortRecruitingBoardLabels(labels) {
@@ -1501,7 +1542,7 @@ const DEFAULT_FILTER_CONFIG = {
 const TABLE_FONT_SIZES = ["small", "medium", "large"];
 
 const RECRUITING_TABS = [
-  { id: "outreach", label: "Outreach" },
+  { id: "outreach", label: "Recruiting list" },
   { id: "potential", label: "Potential Teams" },
   { id: "converted", label: "Locked Teams" },
 ];
@@ -1789,6 +1830,7 @@ export default function RecruitingPage() {
   const [potentialTeamEditDraft, setPotentialTeamEditDraft] = useState(() => buildTeamFormDraft(null));
   const [potentialEditShowMemberTripDates, setPotentialEditShowMemberTripDates] = useState(false);
   const potentialEditSnapshotKey = useRef("");
+  const importInputRef = useRef(null);
   const [staffTaskDraft, setStaffTaskDraft] = useState({
     recordId: "",
     taskName: "",
@@ -2882,6 +2924,33 @@ export default function RecruitingPage() {
     }
   }
 
+  async function handleImportFileChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const rows = await parseRecruitingImportRows(file);
+      const result = await importRecruitingContacts({
+        recruitingYear: CURRENT_RECRUITING_YEAR,
+        rows,
+        destination: "potential",
+        staffMember: session?.name || session?.email || "Staff",
+      });
+      setError("");
+      setPageStatus(
+        `Imported ${result.createdCount} contacts · Skipped ${result.duplicateCount} duplicates · Ignored ${result.ignoredCount} invalid rows`
+      );
+      showToast(`Imported ${result.createdCount} contacts.`, "success");
+      await refreshCurrentYear();
+    } catch (importError) {
+      console.error("Unable to import recruiting contacts", importError);
+      setError(importError.message || "Unable to import contacts.");
+      showToast(importError.message || "Unable to import contacts.", "error");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
   function openAddContactModal() {
     setNewContactDraft(createEmptyNewContactDraft());
     setError("");
@@ -2909,7 +2978,9 @@ export default function RecruitingPage() {
               <tr>
                 <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.contact }}>Contact</th>
                 <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project }}>Trip details</th>
-                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.lastOutreach }}>Last outreach</th>
+                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.mackayla }}>Mackayla notes</th>
+                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.leslee }}>Leslee notes</th>
+                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.lastContact }}>Last contact</th>
                 <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.actions }}>Actions</th>
               </tr>
             </thead>
@@ -2956,7 +3027,33 @@ export default function RecruitingPage() {
                         <div className="recruitingOutreachProjectDates">{datesLabel}</div>
                       </div>
                     </td>
-                    <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.lastOutreach, verticalAlign: "top" }}>
+                    <td
+                      style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.mackayla, verticalAlign: "top" }}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <textarea
+                        className="input recruitingInlineNoteInput"
+                        rows={4}
+                        value={stripHandoffSummary(record.mackaylaNotes)}
+                        onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
+                        onBlur={() => void handleSaveRecord(record.id)}
+                        placeholder="Add Mackayla notes"
+                      />
+                    </td>
+                    <td
+                      style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.leslee, verticalAlign: "top" }}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <textarea
+                        className="input recruitingInlineNoteInput"
+                        rows={4}
+                        value={record.lesleeNotes || ""}
+                        onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
+                        onBlur={() => void handleSaveRecord(record.id)}
+                        placeholder="Add Leslee notes"
+                      />
+                    </td>
+                    <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.lastContact, verticalAlign: "top" }}>
                       <div className="recruitingOutreachLastCell">
                         {hasContact ? (
                           <>
@@ -3546,36 +3643,45 @@ export default function RecruitingPage() {
 
   return (
     <Shell>
-      <div className="recruitingHeaderStack" style={{ display: "grid", gap: 12, marginBottom: 14 }}>
-        <div>
-          <h1 className="h1" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 10 }}>
+      <div className="recruitingTopRow" style={{ marginBottom: 14 }}>
+        <div className="recruitingTitleSearchCluster">
+          <h1 className="h1" style={{ marginBottom: 0, display: "flex", alignItems: "center", gap: 10 }}>
             <AppIcon name="recruiting" className="pageEyebrowIcon" />
             <span>Recruiting</span>
           </h1>
-          <div className="small">Outreach list, potential teams, and locked trip teams.</div>
+          <input
+            className="input recruitingToolbarSearch recruitingToolbarSearchCompact"
+            value={filterConfig.searchQuery}
+            onChange={(event) =>
+              applyFilter({ ...filterConfig, searchQuery: event.target.value }, "custom")
+            }
+            placeholder="Search contacts"
+            aria-label="Search recruiting contacts"
+          />
         </div>
-        <div className="recruitingToolbar appPolishToolbar">
-          <div className="recruitingSearchCluster">
-            <input
-              className="input recruitingToolbarSearch"
-              value={filterConfig.searchQuery}
-              onChange={(event) =>
-                applyFilter({ ...filterConfig, searchQuery: event.target.value }, "custom")
-              }
-              placeholder="Search recruiting contacts"
-              aria-label="Search recruiting contacts"
-            />
-            <button className={`btn ${filterPanelOpen ? "btnPrimary" : ""}`} type="button" onClick={() => setFilterPanelOpen((current) => !current)}>
-              {filterPanelOpen ? "Hide Filters" : "Filters"}
-              {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-            </button>
-          </div>
-          <div className="card recruitingActionCard">
-            <button className="btn btnPrimary" type="button" onClick={openAddContactModal}>
-              Add Contact
-            </button>
-          </div>
+        <div className="recruitingTopRowActions row">
+          <button
+            className={`btn ${filterPanelOpen ? "btnPrimary" : ""}`}
+            type="button"
+            onClick={() => setFilterPanelOpen((current) => !current)}
+          >
+            {filterPanelOpen ? "Hide Filters" : "Filters"}
+            {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          </button>
+          <button className="btn btnPrimary" type="button" onClick={openAddContactModal}>
+            Add Contact
+          </button>
+          <button className="btn" type="button" onClick={() => importInputRef.current?.click()}>
+            Add Bulk Contacts
+          </button>
         </div>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          hidden
+          onChange={handleImportFileChange}
+        />
       </div>
 
       {error ? (
