@@ -240,6 +240,22 @@ function assigneeDisplayFirstName(assigneeName) {
   return n.split(/\s+/)[0];
 }
 
+async function loadTeamAccountantForTrip(admin, tripId, budgetRow) {
+  const fromBudget = normalizeText(budgetRow?.team_accountant);
+  if (fromBudget) return fromBudget;
+
+  const { data, error } = await admin.rpc("get_trip_team_logistics_for_viewer", {
+    p_trip_id: tripId,
+  });
+  if (error) {
+    console.warn("[budget-check-request] team logistics for accountant", error);
+    return "";
+  }
+
+  const payload = data && typeof data === "object" ? data : {};
+  return normalizeText(payload.teamAccountant ?? payload.team_accountant);
+}
+
 function buildBudgetCheckMiscTaskNotes({
   tripId,
   tripName,
@@ -260,17 +276,6 @@ function buildBudgetCheckMiscTaskNotes({
   ]
     .filter(Boolean)
     .join("\n");
-}
-
-function getBudgetChecksUrl(req) {
-  const configured = normalizeText(process.env.NEXT_PUBLIC_APP_URL);
-  if (configured) {
-    return `${configured.replace(/\/$/, "")}/budget?tab=checks`;
-  }
-  const host = normalizeText(req.headers.host);
-  if (!host) return "";
-  const protocol = host.includes("localhost") ? "http" : "https";
-  return `${protocol}://${host}/budget?tab=checks`;
 }
 
 export default async function handler(req, res) {
@@ -310,7 +315,7 @@ export default async function handler(req, res) {
 
     const tripName = normalizeText(trip.trip_name);
     const teamNameSnap = normalizeText(budget?.team_name);
-    const accountantSnap = normalizeText(budget?.team_accountant);
+    const accountantSnap = await loadTeamAccountantForTrip(admin, tripId, budget);
     const budgetAmtSnap =
       budget?.budget_amount === null || budget?.budget_amount === undefined
         ? ""
@@ -413,19 +418,15 @@ export default async function handler(req, res) {
       normalizeEmail(process.env.BUDGET_CHECK_NOTIFY_EMAIL) ||
       assignee.email ||
       normalizeEmail(profile.email);
-    const requesterLabel = getProfileDisplayName(profile) || profile.email || "Staff";
     const subject = buildBudgetCheckStaffEmailSubject({
       tripName: tripName || tripId,
       amountRequested,
     });
     const html = buildBudgetCheckStaffEmailHtml({
-      requesterLabel,
       tripName: tripName || tripId,
-      teamName: teamNameSnap,
       accountant: accountantSnap,
       amountRequested,
       note,
-      checksUrl: getBudgetChecksUrl(req),
     });
 
     const emailResult = await sendNotifyEmail({ to: notifyTo, subject, html });
