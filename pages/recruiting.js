@@ -3160,7 +3160,26 @@ export default function RecruitingPage() {
                 <div className="recruitingOutreachProjectSite">{siteLabel}</div>
                 <div className="recruitingOutreachProjectDates">{datesLabel}</div>
               </div>
-              <div className="recruitingOutreachLastCell" style={{ marginTop: 10 }}>
+              <div className="recruitingMobileNotes" style={{ marginTop: 10 }} onClick={(event) => event.stopPropagation()}>
+                <textarea
+                  className="input recruitingInlineNoteInput"
+                  rows={3}
+                  value={stripHandoffSummary(record.mackaylaNotes)}
+                  onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  placeholder="Mackayla notes"
+                />
+                <textarea
+                  className="input recruitingInlineNoteInput"
+                  rows={3}
+                  value={record.lesleeNotes || ""}
+                  onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  placeholder="Leslee notes"
+                />
+              </div>
+              <div className="small" style={{ marginTop: 10, fontWeight: 700 }}>Last contact</div>
+              <div className="recruitingOutreachLastCell" style={{ marginTop: 4 }}>
                 {hasContact ? (
                   <>
                     <div className="recruitingOutreachLastMethod">
