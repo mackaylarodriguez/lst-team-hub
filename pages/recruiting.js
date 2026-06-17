@@ -15,6 +15,8 @@ import {
   getRecruitingStageLabel,
   importRecruitingContacts,
   listRecruitingCycleContacts,
+  listRecruitingContactActivityByIds,
+  listRecruitingYears,
   logRecruitingCycleContactAction,
   revertRecruitingLockedTeam,
   saveRecruitingCycleContact,
@@ -174,17 +176,34 @@ function outreachLastContactTimestamp(record) {
   return Number.isNaN(date.getTime()) ? null : date.getTime();
 }
 
-function formatOutreachStaleLabel(record) {
-  const timestamp = outreachLastContactTimestamp(record);
-  if (timestamp === null) return "Never contacted";
-  const then = new Date(timestamp);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  then.setHours(0, 0, 0, 0);
-  const diffDays = Math.floor((today - then) / (1000 * 60 * 60 * 24));
-  if (diffDays <= 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  return `${diffDays} days ago`;
+function lastContactDateInputValue(record) {
+  if (!record?.lastContactedAt) return "";
+  const raw = String(record.lastContactedAt).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+}
+
+function normalizeLastContactMethodValue(method) {
+  const normalized = String(method || "").trim().toLowerCase();
+  if (normalized === "bulk email") return "email";
+  if (normalized === "bulk text") return "text";
+  if (["email", "call", "text"].includes(normalized)) return normalized;
+  return "";
+}
+
+function parseLastContactActionDate(dateInput) {
+  const trimmed = String(dateInput || "").trim();
+  const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+    ? trimmed
+    : new Date().toISOString().slice(0, 10);
+  return new Date(`${dateStr}T12:00:00`).toISOString();
+}
+
+function getRecentContactActivities(recordId, activityByRecordId, limit = 3) {
+  const entries = activityByRecordId?.[recordId] || [];
+  return entries.slice(0, limit);
 }
 
 function sortOutreachPersonRows(rows, sortId) {
@@ -1809,6 +1828,9 @@ export default function RecruitingPage() {
   const [filterConfig, setFilterConfig] = useState(DEFAULT_FILTER_CONFIG);
   const [activeFilterId, setActiveFilterId] = useState("all");
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [years, setYears] = useState(() => [CURRENT_RECRUITING_YEAR, CURRENT_RECRUITING_YEAR + 1]);
+  const [selectedYear, setSelectedYear] = useState(CURRENT_RECRUITING_YEAR);
+  const [contactActivityByRecordId, setContactActivityByRecordId] = useState({});
   /** Default matches trip Staff Tasks body (13px); use floating +/- for medium/large. */
   const [tableFontSize, setTableFontSize] = useState("small");
   const [activeTab, setActiveTab] = useState("outreach");
@@ -1939,16 +1961,35 @@ export default function RecruitingPage() {
   useEffect(() => {
     if (!session) return;
 
+    async function loadYears() {
+      try {
+        const nextYears = await listRecruitingYears();
+        setYears(nextYears);
+        setSelectedYear((current) =>
+          nextYears.includes(current) ? current : nextYears[0] || CURRENT_RECRUITING_YEAR
+        );
+      } catch (yearsError) {
+        console.error("Unable to load recruiting years", yearsError);
+      }
+    }
+
+    void loadYears();
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+
     async function loadRecruitingData() {
       try {
         const [nextRecords, nextTripTeamMembers, nextSiteNotes] = await Promise.all([
-          listRecruitingCycleContacts(CURRENT_RECRUITING_YEAR),
+          listRecruitingCycleContacts(selectedYear),
           listTripTeamMembersForDuplicateCheck(),
           listSiteBudgetNotes(),
         ]);
         setRecords(nextRecords);
         setTripTeamMembers(nextTripTeamMembers);
         setSiteBudgetNotes(nextSiteNotes);
+        await loadContactActivityForRecords(nextRecords);
         setError("");
       } catch (loadError) {
         console.error("Unable to load recruiting records", loadError);
@@ -1966,7 +2007,7 @@ export default function RecruitingPage() {
     return () => {
       window.removeEventListener(RECRUITING_UPDATED_EVENT, handleRecruitingUpdate);
     };
-  }, [session]);
+  }, [session, selectedYear]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -2170,15 +2211,30 @@ export default function RecruitingPage() {
 
   const sitePickerLabels = useMemo(() => buildSiteLabelsOrdered(siteBudgetNotes), [siteBudgetNotes]);
 
+  async function loadContactActivityForRecords(nextRecords) {
+    const recordIds = (nextRecords || []).map((record) => record.id).filter(Boolean);
+    if (!recordIds.length) {
+      setContactActivityByRecordId({});
+      return;
+    }
+    try {
+      const nextActivity = await listRecruitingContactActivityByIds(recordIds);
+      setContactActivityByRecordId(nextActivity);
+    } catch (activityError) {
+      console.error("Unable to load recruiting contact activity", activityError);
+    }
+  }
+
   async function refreshCurrentYear() {
     const [nextRecords, nextTripTeamMembers, nextSiteNotes] = await Promise.all([
-      listRecruitingCycleContacts(CURRENT_RECRUITING_YEAR),
+      listRecruitingCycleContacts(selectedYear),
       listTripTeamMembersForDuplicateCheck(),
       listSiteBudgetNotes(),
     ]);
     setRecords(nextRecords);
     setTripTeamMembers(nextTripTeamMembers);
     setSiteBudgetNotes(nextSiteNotes);
+    await loadContactActivityForRecords(nextRecords);
   }
 
   const duplicateSourceLookup = useMemo(() => {
@@ -2313,7 +2369,7 @@ export default function RecruitingPage() {
     try {
       await saveRecruitingCycleContact(
         {
-          recruitingYear: CURRENT_RECRUITING_YEAR,
+          recruitingYear: selectedYear,
           firstName: primary.firstName,
           lastName: primary.lastName,
           email: primary.email,
@@ -2897,14 +2953,66 @@ export default function RecruitingPage() {
     }
   }
 
-  async function handleLogOutreachContact(record, actionType) {
+  async function handleSaveLastContact(record, method, dateInput) {
     if (!record?.id || !session) return;
+    const normalizedMethod = normalizeLastContactMethodValue(method);
+
+    if (!normalizedMethod) {
+      if (!record.lastContactedAt && !record.lastContactMethod) return;
+      try {
+        setLoggingOutreachRecordId(record.id);
+        await saveRecruitingCycleContact(
+          buildRecruitingRecordPayload(record, {
+            lastContactedAt: "",
+            lastContactMethod: "",
+          })
+        );
+        await refreshCurrentYear();
+      } catch (saveError) {
+        console.error("Unable to clear last contact", saveError);
+        setError(saveError.message || "Unable to clear last contact.");
+      } finally {
+        setLoggingOutreachRecordId("");
+      }
+      return;
+    }
+
+    const trimmedDate = String(dateInput || "").trim();
+    if (!trimmedDate) return;
+
+    try {
+      setLoggingOutreachRecordId(record.id);
+      await logRecruitingCycleContactAction({
+        record,
+        actionType: normalizedMethod,
+        actionDate: parseLastContactActionDate(trimmedDate),
+        staffMember: session?.name || session?.email || "Staff",
+        summary: "",
+        stage: Math.max(record.stage, 1),
+      });
+      setError("");
+      await refreshCurrentYear();
+    } catch (logError) {
+      console.error("Unable to save last contact", logError);
+      setError(logError.message || "Unable to save last contact.");
+      showToast(logError.message || "Unable to save last contact.", "error");
+    } finally {
+      setLoggingOutreachRecordId("");
+    }
+  }
+
+  async function handleLogOutreachContact(record, actionType, dateInput) {
+    if (!record?.id || !session) return;
+    const dateStr =
+      String(dateInput || "").trim() ||
+      lastContactDateInputValue(record) ||
+      new Date().toISOString().slice(0, 10);
     try {
       setLoggingOutreachRecordId(record.id);
       await logRecruitingCycleContactAction({
         record,
         actionType,
-        actionDate: new Date().toISOString(),
+        actionDate: parseLastContactActionDate(dateStr),
         staffMember: session?.name || session?.email || "Staff",
         summary: "",
         stage: ["email", "call", "text"].includes(actionType)
@@ -2912,8 +3020,8 @@ export default function RecruitingPage() {
           : undefined,
       });
       setError("");
-      setPageStatus("Contact logged.");
-      showToast(`${formatOutreachContactMethod(actionType)} logged.`, "success");
+      setPageStatus("Contact saved.");
+      showToast(`${formatOutreachContactMethod(actionType)} saved.`, "success");
       await refreshCurrentYear();
     } catch (logError) {
       console.error("Unable to log outreach contact", logError);
@@ -2931,7 +3039,7 @@ export default function RecruitingPage() {
     try {
       const rows = await parseRecruitingImportRows(file);
       const result = await importRecruitingContacts({
-        recruitingYear: CURRENT_RECRUITING_YEAR,
+        recruitingYear: selectedYear,
         rows,
         destination: "potential",
         staffMember: session?.name || session?.email || "Staff",
@@ -2955,6 +3063,29 @@ export default function RecruitingPage() {
     setNewContactDraft(createEmptyNewContactDraft());
     setError("");
     setAddContactModalOpen(true);
+  }
+
+  function renderOutreachRecentContacts(recordId) {
+    const recentContacts = getRecentContactActivities(recordId, contactActivityByRecordId, 3);
+    if (!recentContacts.length) return null;
+
+    return (
+      <ul className="recruitingOutreachRecentList" aria-label="Recent contacts">
+        {recentContacts.map((entry) => (
+          <li key={entry.id} className="recruitingOutreachRecentItem">
+            <span className="recruitingOutreachLastMethod">
+              {formatOutreachContactMethod(entry.actionType)}
+            </span>
+            {entry.actionDate ? (
+              <span className="recruitingOutreachRecentDate">
+                {" "}
+                · {formatCompactDateTime(entry.actionDate)}
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    );
   }
 
   function renderOutreachTable(rowsToRender) {
@@ -2990,8 +3121,8 @@ export default function RecruitingPage() {
                 const draft = buildTeamFormDraft(record);
                 const siteLabel = chartDashText(record.site || draft.location);
                 const datesLabel = chartDashText(recruitingBoardProjectDatesLabel(record));
-                const methodLabel = formatOutreachContactMethod(record.lastContactMethod);
-                const hasContact = Boolean(record.lastContactedAt);
+                const lastContactMethod = normalizeLastContactMethodValue(record.lastContactMethod);
+                const lastContactDate = lastContactDateInputValue(record);
                 const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
                 const isLogging = loggingOutreachRecordId === record.id;
                 const duplicateInfo = person.email
@@ -3053,19 +3184,46 @@ export default function RecruitingPage() {
                         placeholder="Add Leslee notes"
                       />
                     </td>
-                    <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.lastContact, verticalAlign: "top" }}>
-                      <div className="recruitingOutreachLastCell">
-                        {hasContact ? (
-                          <>
-                            <div className="recruitingOutreachLastMethod">{methodLabel || "Contacted"}</div>
-                            <div className="recruitingOutreachContactMeta">
-                              {formatCompactDateTime(record.lastContactedAt)}
-                            </div>
-                            <div className="recruitingOutreachStaleLabel">{formatOutreachStaleLabel(record)}</div>
-                          </>
-                        ) : (
-                          <span className="badge badgeDanger">Never contacted</span>
-                        )}
+                    <td
+                      style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.lastContact, verticalAlign: "top" }}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="recruitingOutreachLastCellWrap">
+                        <div className="recruitingOutreachLastCell">
+                          <select
+                            className="input recruitingOutreachLastMethodSelect"
+                            value={lastContactMethod}
+                            disabled={isLogging}
+                            onChange={(event) =>
+                              void handleSaveLastContact(
+                                record,
+                                event.target.value,
+                                lastContactDate || new Date().toISOString().slice(0, 10)
+                              )
+                            }
+                          >
+                            <option value="">—</option>
+                            <option value="email">Emailed</option>
+                            <option value="call">Called</option>
+                            <option value="text">Texted</option>
+                          </select>
+                          <input
+                            className="input recruitingOutreachLastDateInput"
+                            type="date"
+                            value={lastContactDate}
+                            disabled={isLogging}
+                            onChange={(event) => {
+                              const nextDate = event.target.value;
+                              if (!nextDate) return;
+                              void handleSaveLastContact(
+                                record,
+                                lastContactMethod || "email",
+                                nextDate
+                              );
+                            }}
+                          />
+                        </div>
+                        {renderOutreachRecentContacts(record.id)}
                       </div>
                     </td>
                     <td
@@ -3077,7 +3235,13 @@ export default function RecruitingPage() {
                           className="btn"
                           type="button"
                           disabled={isLogging}
-                          onClick={() => void handleLogOutreachContact(record, "email")}
+                          onClick={() =>
+                            void handleLogOutreachContact(
+                              record,
+                              "email",
+                              lastContactDate || undefined
+                            )
+                          }
                         >
                           Email
                         </button>
@@ -3085,7 +3249,13 @@ export default function RecruitingPage() {
                           className="btn"
                           type="button"
                           disabled={isLogging}
-                          onClick={() => void handleLogOutreachContact(record, "text")}
+                          onClick={() =>
+                            void handleLogOutreachContact(
+                              record,
+                              "text",
+                              lastContactDate || undefined
+                            )
+                          }
                         >
                           Text
                         </button>
@@ -3093,7 +3263,13 @@ export default function RecruitingPage() {
                           className="btn"
                           type="button"
                           disabled={isLogging}
-                          onClick={() => void handleLogOutreachContact(record, "call")}
+                          onClick={() =>
+                            void handleLogOutreachContact(
+                              record,
+                              "call",
+                              lastContactDate || undefined
+                            )
+                          }
                         >
                           Call
                         </button>
@@ -3134,8 +3310,8 @@ export default function RecruitingPage() {
           const draft = buildTeamFormDraft(record);
           const siteLabel = chartDashText(record.site || draft.location);
           const datesLabel = chartDashText(recruitingBoardProjectDatesLabel(record));
-          const methodLabel = formatOutreachContactMethod(record.lastContactMethod);
-          const hasContact = Boolean(record.lastContactedAt);
+          const lastContactMethod = normalizeLastContactMethodValue(record.lastContactMethod);
+          const lastContactDate = lastContactDateInputValue(record);
           const isLogging = loggingOutreachRecordId === record.id;
           const duplicateInfo = person.email
             ? getDuplicateInfoForEmail(person.email, { excludeRecordId: record.id })
@@ -3179,24 +3355,55 @@ export default function RecruitingPage() {
                 />
               </div>
               <div className="small" style={{ marginTop: 10, fontWeight: 700 }}>Last contact</div>
-              <div className="recruitingOutreachLastCell" style={{ marginTop: 4 }}>
-                {hasContact ? (
-                  <>
-                    <div className="recruitingOutreachLastMethod">
-                      {methodLabel || "Contacted"} · {formatCompactDateTime(record.lastContactedAt)}
-                    </div>
-                    <div className="small">{formatOutreachStaleLabel(record)}</div>
-                  </>
-                ) : (
-                  <span className="badge badgeDanger">Never contacted</span>
-                )}
+              <div
+                className="recruitingOutreachLastCellWrap"
+                style={{ marginTop: 4 }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="recruitingOutreachLastCell recruitingOutreachLastCellMobile">
+                  <select
+                    className="input recruitingOutreachLastMethodSelect"
+                    value={lastContactMethod}
+                    disabled={isLogging}
+                    onChange={(event) =>
+                      void handleSaveLastContact(
+                        record,
+                        event.target.value,
+                        lastContactDate || new Date().toISOString().slice(0, 10)
+                      )
+                    }
+                  >
+                    <option value="">—</option>
+                    <option value="email">Emailed</option>
+                    <option value="call">Called</option>
+                    <option value="text">Texted</option>
+                  </select>
+                  <input
+                    className="input recruitingOutreachLastDateInput"
+                    type="date"
+                    value={lastContactDate}
+                    disabled={isLogging}
+                    onChange={(event) => {
+                      const nextDate = event.target.value;
+                      if (!nextDate) return;
+                      void handleSaveLastContact(
+                        record,
+                        lastContactMethod || "email",
+                        nextDate
+                      );
+                    }}
+                  />
+                </div>
+                {renderOutreachRecentContacts(record.id)}
               </div>
               <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
                 <button
                   className="btn"
                   type="button"
                   disabled={isLogging}
-                  onClick={() => void handleLogOutreachContact(record, "email")}
+                  onClick={() =>
+                    void handleLogOutreachContact(record, "email", lastContactDate || undefined)
+                  }
                 >
                   Email
                 </button>
@@ -3204,7 +3411,9 @@ export default function RecruitingPage() {
                   className="btn"
                   type="button"
                   disabled={isLogging}
-                  onClick={() => void handleLogOutreachContact(record, "text")}
+                  onClick={() =>
+                    void handleLogOutreachContact(record, "text", lastContactDate || undefined)
+                  }
                 >
                   Text
                 </button>
@@ -3212,7 +3421,9 @@ export default function RecruitingPage() {
                   className="btn"
                   type="button"
                   disabled={isLogging}
-                  onClick={() => void handleLogOutreachContact(record, "call")}
+                  onClick={() =>
+                    void handleLogOutreachContact(record, "call", lastContactDate || undefined)
+                  }
                 >
                   Call
                 </button>
@@ -3679,6 +3890,18 @@ export default function RecruitingPage() {
           />
         </div>
         <div className="recruitingTopRowActions row">
+          <select
+            className="input recruitingYearSelect"
+            value={selectedYear}
+            onChange={(event) => setSelectedYear(Number(event.target.value))}
+            aria-label="Recruiting year"
+          >
+            {years.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
           <button
             className={`btn ${filterPanelOpen ? "btnPrimary" : ""}`}
             type="button"

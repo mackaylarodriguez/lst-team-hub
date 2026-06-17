@@ -1333,7 +1333,39 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .recruitingOutreachLastCell{
   display:grid;
+  gap:6px;
+}
+.recruitingOutreachLastCellWrap{
+  display:grid;
+  gap:6px;
+}
+.recruitingOutreachRecentList{
+  margin:0;
+  padding:0;
+  list-style:none;
+  display:grid;
   gap:4px;
+}
+.recruitingOutreachRecentItem{
+  font-size:11px;
+  line-height:1.35;
+  color:var(--muted);
+}
+.recruitingOutreachRecentDate{
+  color:var(--muted);
+}
+.recruitingOutreachRecentItem .recruitingOutreachLastMethod{
+  color:var(--text);
+}
+.recruitingOutreachLastMethodSelect,
+.recruitingOutreachLastDateInput{
+  width:100%;
+  min-width:0;
+  font-size:12px;
+  padding:6px 8px;
+}
+.recruitingOutreachLastCellMobile{
+  margin-bottom:4px;
 }
 .recruitingOutreachLastMethod{
   font-weight:700;
