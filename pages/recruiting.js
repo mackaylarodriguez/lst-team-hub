@@ -1102,6 +1102,7 @@ function buildTeamFormDraft(record) {
     .filter(Boolean)
     .join(" - ");
   const recruitingDepartureDate = String(record?.departureDate || "").trim();
+  const savedProjectLength = String(pending.projectLengthSummary ?? "").trim();
 
   const builtMembers = buildTeamMemberDrafts(record);
   const teamMembers =
@@ -1116,7 +1117,7 @@ function buildTeamFormDraft(record) {
     siteType: pending.siteType ?? "",
     trainingTimelineType: pending.trainingTimelineType || DEFAULT_TRAINING_TIMELINE_TYPE,
     projectType: pending.projectType ?? "",
-    projectLengthSummary: pending.projectLengthSummary || projectLengthSummary,
+    projectLengthSummary: savedProjectLength || projectLengthSummary,
     extraTravelStatus: pending.extraTravelStatus || "no",
     startDate:
       pending.startDate !== undefined && pending.startDate !== ""
@@ -2877,6 +2878,8 @@ export default function RecruitingPage() {
               host: teamFormDraft.host,
               teamDeveloper: selectedRecord.assignedTo || "",
               projectLengthSummary: teamFormDraft.projectLengthSummary,
+              weeks: teamFormDraft.recruitingWeeks,
+              projectDates: teamFormDraft.recruitingProjectDates,
               startDate: teamFormDraft.startDate,
               endDate: teamFormDraft.endDate,
               teamMembers: teamFormDraft.teamMembers,
