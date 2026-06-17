@@ -17,6 +17,10 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import {
+  buildBudgetCheckStaffEmailHtml,
+  buildBudgetCheckStaffEmailSubject,
+} from "@/lib/budgetCheckStaffEmail";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -258,6 +262,17 @@ function buildBudgetCheckMiscTaskNotes({
     .join("\n");
 }
 
+function getBudgetChecksUrl(req) {
+  const configured = normalizeText(process.env.NEXT_PUBLIC_APP_URL);
+  if (configured) {
+    return `${configured.replace(/\/$/, "")}/budget?tab=checks`;
+  }
+  const host = normalizeText(req.headers.host);
+  if (!host) return "";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  return `${protocol}://${host}/budget?tab=checks`;
+}
+
 export default async function handler(req, res) {
   if (req.method === "POST") {
     const auth = await authenticateStaffOrAdmin(req);
@@ -399,18 +414,19 @@ export default async function handler(req, res) {
       assignee.email ||
       normalizeEmail(profile.email);
     const requesterLabel = getProfileDisplayName(profile) || profile.email || "Staff";
-    const subject = `Budget check request — ${tripName || "Trip"} — ${amountRequested}`;
-    const html = `
-      <p><strong>${escapeHtml(requesterLabel)}</strong> requested a printed check.</p>
-      <ul>
-        <li><strong>Trip:</strong> ${escapeHtml(tripName || tripId)}</li>
-        ${teamNameSnap ? `<li><strong>Team:</strong> ${escapeHtml(teamNameSnap)}</li>` : ""}
-        ${accountantSnap ? `<li><strong>Accountant:</strong> ${escapeHtml(accountantSnap)}</li>` : ""}
-        <li><strong>Check amount:</strong> ${escapeHtml(amountRequested)}</li>
-        ${note ? `<li><strong>Note:</strong> ${escapeHtml(note)}</li>` : ""}
-      </ul>
-      <p>Request id: <code>${escapeHtml(row.id)}</code></p>
-    `.trim();
+    const subject = buildBudgetCheckStaffEmailSubject({
+      tripName: tripName || tripId,
+      amountRequested,
+    });
+    const html = buildBudgetCheckStaffEmailHtml({
+      requesterLabel,
+      tripName: tripName || tripId,
+      teamName: teamNameSnap,
+      accountant: accountantSnap,
+      amountRequested,
+      note,
+      checksUrl: getBudgetChecksUrl(req),
+    });
 
     const emailResult = await sendNotifyEmail({ to: notifyTo, subject, html });
     if (!emailResult.sent) {
@@ -619,12 +635,4 @@ export default async function handler(req, res) {
 
   res.setHeader("Allow", "POST, PATCH");
   return res.status(405).json({ error: "Method not allowed." });
-}
-
-function escapeHtml(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
