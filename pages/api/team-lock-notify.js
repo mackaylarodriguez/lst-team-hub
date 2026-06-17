@@ -192,6 +192,8 @@ export default async function handler(req, res) {
       body.recruitingProjectDates,
       recruitingProjectDates
     ),
+    startDate: normalizeText(body.startDate),
+    endDate: normalizeText(body.endDate),
   });
 
   const payload = {

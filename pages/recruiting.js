@@ -27,7 +27,10 @@ import {
 } from "@/lib/recruitingCycles";
 import { buildSiteLabelsOrdered, resolveEffectiveSiteHostName } from "@/lib/siteMaterials";
 import { sendTeamLockStaffNotify, buildTeamLockNotifyPayload } from "@/lib/teamLockNotify";
-import { resolveProjectLengthForLock } from "@/lib/teamLockProjectLength";
+import {
+  computeWeeksBetweenDepartAndEnd,
+  resolveProjectLengthForLock,
+} from "@/lib/teamLockProjectLength";
 import { listSiteBudgetNotes } from "@/lib/tripBudget";
 import { listTripTeamMembersForDuplicateCheck } from "@/lib/tripTeamMembers";
 import { saveStaffMiscTask } from "@/lib/staffTasks";
@@ -1109,6 +1112,13 @@ function buildTeamFormDraft(record) {
       ? ""
       : String(record.weeks);
   const recruitingProjectDates = record?.projectDates || "";
+  const startDate =
+    pending.startDate !== undefined && pending.startDate !== ""
+      ? pending.startDate
+      : /^\d{4}-\d{2}-\d{2}$/.test(recruitingDepartureDate)
+        ? recruitingDepartureDate
+        : "";
+  const endDate = pending.endDate ?? "";
 
   const builtMembers = buildTeamMemberDrafts(record);
   const teamMembers =
@@ -1127,15 +1137,12 @@ function buildTeamFormDraft(record) {
       projectLengthSummary: savedProjectLength || projectLengthFromRecord,
       weeks: recruitingWeeks,
       projectDates: recruitingProjectDates,
+      startDate,
+      endDate,
     }),
     extraTravelStatus: pending.extraTravelStatus || "no",
-    startDate:
-      pending.startDate !== undefined && pending.startDate !== ""
-        ? pending.startDate
-        : /^\d{4}-\d{2}-\d{2}$/.test(recruitingDepartureDate)
-          ? recruitingDepartureDate
-          : "",
-    endDate: pending.endDate ?? "",
+    startDate,
+    endDate,
     fundraisingGoalAmount: pending.fundraisingGoalAmount ?? "",
     tripFeeAmount: pending.tripFeeAmount ?? "",
     materialsFeeAmount: pending.materialsFeeAmount ?? "",
@@ -1180,7 +1187,10 @@ function recruitingBoardWeeksLabel(record) {
   if (record?.weeks !== null && record?.weeks !== undefined && String(record.weeks).trim() !== "") {
     return String(record.weeks);
   }
-  const summary = String(getPendingLockSetupRecord(record).projectLengthSummary || "").trim();
+  const pending = getPendingLockSetupRecord(record);
+  const computedWeeks = computeWeeksBetweenDepartAndEnd(pending.startDate, pending.endDate);
+  if (computedWeeks != null) return String(computedWeeks);
+  const summary = String(pending.projectLengthSummary || "").trim();
   if (summary) return summary;
   return "";
 }
