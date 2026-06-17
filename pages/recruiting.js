@@ -27,6 +27,7 @@ import {
 } from "@/lib/recruitingCycles";
 import { buildSiteLabelsOrdered, resolveEffectiveSiteHostName } from "@/lib/siteMaterials";
 import { sendTeamLockStaffNotify, buildTeamLockNotifyPayload } from "@/lib/teamLockNotify";
+import { resolveProjectLengthForLock } from "@/lib/teamLockProjectLength";
 import { listSiteBudgetNotes } from "@/lib/tripBudget";
 import { listTripTeamMembersForDuplicateCheck } from "@/lib/tripTeamMembers";
 import { saveStaffMiscTask } from "@/lib/staffTasks";
@@ -1098,11 +1099,16 @@ function buildTeamFormDraft(record) {
   const weeksLabel = record?.weeks
     ? `${record.weeks} week${String(record.weeks) === "1" ? "" : "s"}`
     : "";
-  const projectLengthSummary = [weeksLabel, record?.projectDates || ""]
+  const projectLengthFromRecord = [weeksLabel, record?.projectDates || ""]
     .filter(Boolean)
     .join(" - ");
   const recruitingDepartureDate = String(record?.departureDate || "").trim();
   const savedProjectLength = String(pending.projectLengthSummary ?? "").trim();
+  const recruitingWeeks =
+    record?.weeks === null || record?.weeks === undefined || record?.weeks === ""
+      ? ""
+      : String(record.weeks);
+  const recruitingProjectDates = record?.projectDates || "";
 
   const builtMembers = buildTeamMemberDrafts(record);
   const teamMembers =
@@ -1117,7 +1123,11 @@ function buildTeamFormDraft(record) {
     siteType: pending.siteType ?? "",
     trainingTimelineType: pending.trainingTimelineType || DEFAULT_TRAINING_TIMELINE_TYPE,
     projectType: pending.projectType ?? "",
-    projectLengthSummary: savedProjectLength || projectLengthSummary,
+    projectLengthSummary: resolveProjectLengthForLock({
+      projectLengthSummary: savedProjectLength || projectLengthFromRecord,
+      weeks: recruitingWeeks,
+      projectDates: recruitingProjectDates,
+    }),
     extraTravelStatus: pending.extraTravelStatus || "no",
     startDate:
       pending.startDate !== undefined && pending.startDate !== ""
@@ -1135,11 +1145,8 @@ function buildTeamFormDraft(record) {
     domesticFeeAmount: pending.domesticFeeAmount ?? "",
     domesticMaterialsFeeAmount: pending.domesticMaterialsFeeAmount ?? "",
     teamMembers,
-    recruitingProjectDates: record?.projectDates || "",
-    recruitingWeeks:
-      record?.weeks === null || record?.weeks === undefined || record?.weeks === ""
-        ? ""
-        : String(record.weeks),
+    recruitingProjectDates,
+    recruitingWeeks,
     recruitingDepartureDate,
     mackaylaNotes: record?.mackaylaNotes || "",
     lesleeNotes: record?.lesleeNotes || "",
@@ -2855,6 +2862,9 @@ export default function RecruitingPage() {
         domesticProjectFeeAmount: teamFormDraft.domesticProjectFeeAmount,
         domesticFeeAmount: teamFormDraft.domesticFeeAmount,
         domesticMaterialsFeeAmount: teamFormDraft.domesticMaterialsFeeAmount,
+        weeks: teamFormDraft.recruitingWeeks,
+        projectDates: teamFormDraft.recruitingProjectDates,
+        departureDate: teamFormDraft.recruitingDepartureDate,
         ...teamFormDraft,
       });
 
@@ -2877,9 +2887,11 @@ export default function RecruitingPage() {
               site: teamFormDraft.location,
               host: teamFormDraft.host,
               teamDeveloper: selectedRecord.assignedTo || "",
-              projectLengthSummary: teamFormDraft.projectLengthSummary,
-              weeks: teamFormDraft.recruitingWeeks,
-              projectDates: teamFormDraft.recruitingProjectDates,
+              projectLengthSummary:
+                result.trip?.projectLengthSummary || teamFormDraft.projectLengthSummary,
+              weeks: teamFormDraft.recruitingWeeks || selectedRecord?.weeks,
+              projectDates:
+                teamFormDraft.recruitingProjectDates || selectedRecord?.projectDates,
               startDate: teamFormDraft.startDate,
               endDate: teamFormDraft.endDate,
               teamMembers: teamFormDraft.teamMembers,

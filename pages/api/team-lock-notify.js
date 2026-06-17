@@ -9,6 +9,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { parseNotifyEmailList, sendResendEmail } from "@/lib/resendMail";
+import { resolveProjectLengthForLock } from "@/lib/teamLockProjectLength";
 import {
   buildTeamLockStaffEmailHtml,
   buildTeamLockStaffEmailSubject,
@@ -115,12 +116,35 @@ export default async function handler(req, res) {
     });
   }
 
+  let tripProjectLength = "";
+  if (tripId) {
+    try {
+      const admin = getSupabaseAdminClient();
+      const { data: tripRow } = await admin
+        .from("trips")
+        .select("project_length_summary")
+        .eq("id", tripId)
+        .maybeSingle();
+      tripProjectLength = normalizeText(tripRow?.project_length_summary);
+    } catch (tripLoadError) {
+      console.warn("[team-lock-notify] could not load trip project length", tripLoadError);
+    }
+  }
+
+  const projectLengthSummary = resolveProjectLengthForLock({
+    projectLengthSummary: normalizeText(body.projectLengthSummary) || tripProjectLength,
+    weeks: body.weeks,
+    projectDates: body.projectDates,
+  });
+
   const payload = {
     teamName,
     site: normalizeText(body.site),
     host: normalizeText(body.host),
     teamDeveloper: normalizeText(body.teamDeveloper),
-    projectLengthSummary: normalizeText(body.projectLengthSummary),
+    projectLengthSummary,
+    weeks: normalizeText(body.weeks),
+    projectDates: normalizeText(body.projectDates),
     startDate: normalizeText(body.startDate),
     endDate: normalizeText(body.endDate),
     teamMembers: Array.isArray(body.teamMembers) ? body.teamMembers : [],

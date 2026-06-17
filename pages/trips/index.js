@@ -550,7 +550,7 @@ export default function Trips() {
             site: tripDraft.location,
             host: tripDraft.host,
             teamDeveloper: session?.name || "",
-            projectLengthSummary: tripDraft.projectLengthSummary,
+            projectLengthSummary: trip.projectLengthSummary || tripDraft.projectLengthSummary,
             startDate: tripDraft.startDate,
             endDate: tripDraft.endDate,
             teamMembers: tripDraft.teamMembers,
