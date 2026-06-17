@@ -13,7 +13,6 @@ import {
   deleteRecruitingCycleContact,
   getRecruitingStageLabel,
   listRecruitingCycleContacts,
-  logRecruitingCycleContactAction,
   revertRecruitingLockedTeam,
   saveRecruitingCycleContact,
 } from "@/lib/recruitingCycles";
@@ -111,16 +110,6 @@ const RECRUITING_BOARD_SORT = ["Potential Teams", "Locked Teams"];
 const CURRENT_RECRUITING_YEAR = new Date().getFullYear();
 
 /** Desktop board tables: percent widths (sum 100%). Team is 8% on every tab; notes columns are largest. */
-const RECRUITING_OUTREACH_COL_PCT = {
-  team: "8%",
-  roster: "13%",
-  projectDates: "7%",
-  site: "8%",
-  weeks: "4%",
-  mackayla: "26%",
-  leslee: "26%",
-  actions: "8%",
-};
 const RECRUITING_POTENTIAL_COL_PCT = {
   team: "8%",
   roster: "12%",
@@ -710,24 +699,6 @@ function LockTeamFormCards({
       </RecruitingFormCard>
     </div>
   );
-}
-
-function buildPromoteDraft(record) {
-  return {
-    firstName: record?.contact?.firstName || "",
-    lastName: record?.contact?.lastName || "",
-    email: record?.contact?.email || "",
-    phone: record?.contact?.phone || "",
-    gender: record?.contact?.gender || "",
-    teamName: record?.teamName || "",
-    teamMembers: record?.teamMembers || "",
-    stage: Math.max(Number(record?.stage || 0), 2),
-    projectDates: record?.projectDates || "",
-    site: record?.site || "",
-    weeks: record?.weeks || "",
-    departureDate: record?.departureDate || "",
-    handoffSummary: extractHandoffSummary(record?.mackaylaNotes),
-  };
 }
 
 function parseDelimitedLines(value) {
@@ -1375,32 +1346,6 @@ function formatCompactDateTime(value) {
   });
 }
 
-function formatContactActionLabel(actionType) {
-  const normalizedAction = String(actionType || "").trim().toLowerCase();
-  if (normalizedAction === "email") return "Emailed";
-  if (normalizedAction === "call") return "Called";
-  if (normalizedAction === "text") return "Texted";
-  if (normalizedAction === "bulk email") return "Bulk Emailed";
-  if (normalizedAction === "bulk text") return "Bulk Texted";
-  return String(actionType || "").trim();
-}
-
-function isContactActionType(actionType) {
-  return ["email", "call", "text", "bulk email", "bulk text"].includes(
-    String(actionType || "").trim().toLowerCase()
-  );
-}
-
-function formatPreviousContactLabel(entry) {
-  const normalizedAction = String(entry?.actionType || "").trim().toLowerCase();
-  if (normalizedAction === "email") return "Emailed previously";
-  if (normalizedAction === "call") return "Called previously";
-  if (normalizedAction === "text") return "Texted previously";
-  if (normalizedAction === "bulk email") return "Bulk emailed previously";
-  if (normalizedAction === "bulk text") return "Bulk texted previously";
-  return `${formatContactActionLabel(entry?.actionType) || "Contacted"} previously`;
-}
-
 function formatRecruitingUpdateMeta(record) {
   if (record?.updatedAt) {
     const dateLabel = formatCompactDateTime(record.updatedAt);
@@ -1443,13 +1388,6 @@ function recordNeedsAttention(record) {
   }
 
   return false;
-}
-
-function normalizeHeader(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
 }
 
 const DEFAULT_FILTER_CONFIG = {
@@ -1512,7 +1450,6 @@ function buildMackaylaNotes(baseNotes, handoffSummary) {
 
 function createEmptyNewContactDraft() {
   return {
-    boardDestination: "potential",
     teamName: "",
     rosterRows: [emptyRosterPerson()],
     assignedTo: PRIMARY_OWNER,
@@ -1553,16 +1490,6 @@ function getAttentionMeta(record) {
     return { label: "Overdue", badgeClass: "badgeDanger", rowAccent: "rgba(239,68,68,.18)" };
   }
   return null;
-}
-
-function getBulkActionDescription(action) {
-  if (action === "move_2027") return "Move the selected rows to the 2027 chart.";
-  if (action === "delete") return "Permanently remove the selected recruiting rows.";
-  if (action === "assign") return "Reassign the selected rows to a staff owner.";
-  if (action === "stage") return "Update the stage for all selected rows.";
-  if (action === "follow up") return "Set the same next follow-up date for all selected rows.";
-  if (action === "bulk email" || action === "bulk text") return "Log one shared outreach touch for everyone selected.";
-  return "Add one shared note or update across the selected rows.";
 }
 
 function getRecordRowStyle(record, isActive = false) {
@@ -1748,10 +1675,7 @@ export default function RecruitingPage() {
   const [unlockingLockedTeamRecordId, setUnlockingLockedTeamRecordId] = useState("");
   const [staffTaskModalOpen, setStaffTaskModalOpen] = useState(false);
   const [isSavingStaffTask, setIsSavingStaffTask] = useState(false);
-  const [promoteModalOpen, setPromoteModalOpen] = useState(false);
   const [recordDetailsModalOpen, setRecordDetailsModalOpen] = useState(false);
-  const [promoteDraft, setPromoteDraft] = useState(() => buildPromoteDraft(null));
-  const [promotePersonDraft, setPromotePersonDraft] = useState({ name: "", email: "", isMinor: false, minorAge: "" });
   const [formTeamModalOpen, setFormTeamModalOpen] = useState(false);
   const [teamFormDraft, setTeamFormDraft] = useState(() => buildTeamFormDraft(null));
   const [teamFormShowMemberTripDates, setTeamFormShowMemberTripDates] = useState(false);
@@ -2074,28 +1998,17 @@ export default function RecruitingPage() {
     }
   }, [baseFilteredRecords, filterConfig.searchQuery, recordsForActiveTab, selectedRecordId]);
 
-  useEffect(() => {
-    if (!selectedRecordId || activeTab === "potential") return;
-    void ensureRecordHistoryLoaded(selectedRecordId);
-  }, [activeTab, selectedRecordId]);
-
   const sitePickerLabels = useMemo(() => buildSiteLabelsOrdered(siteBudgetNotes), [siteBudgetNotes]);
 
   async function refreshCurrentYear() {
     const [nextRecords, nextTripTeamMembers, nextSiteNotes] = await Promise.all([
-      listRecruitingCycleContacts(selectedYear),
+      listRecruitingCycleContacts(CURRENT_RECRUITING_YEAR),
       listTripTeamMembersForDuplicateCheck(),
       listSiteBudgetNotes(),
-    ]);
-    const [nextLatestActivity, nextContactActivity] = await Promise.all([
-      listLatestRecruitingActivityByIds(nextRecords.map((record) => record.id)),
-      listRecruitingContactActivityByIds(nextRecords.map((record) => record.id)),
     ]);
     setRecords(nextRecords);
     setTripTeamMembers(nextTripTeamMembers);
     setSiteBudgetNotes(nextSiteNotes);
-    setLatestActivityByRecordId(nextLatestActivity);
-    setContactActivityByRecordId(nextContactActivity);
   }
 
   const duplicateSourceLookup = useMemo(() => {
@@ -2179,14 +2092,6 @@ export default function RecruitingPage() {
     () => (selectedRecord ? recruitingRosterRowsFromRecord(selectedRecord) : []),
     [selectedRecord]
   );
-  const promotePeople = useMemo(
-    () => parseTeamMemberEntries(promoteDraft.teamMembers),
-    [promoteDraft.teamMembers]
-  );
-  const promotePersonDuplicateInfo = useMemo(
-    () => getDuplicateInfoForEmail(promotePersonDraft.email),
-    [promotePersonDraft.email, duplicateSourceLookup]
-  );
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filterConfig.searchQuery) count += 1;
@@ -2221,88 +2126,6 @@ export default function RecruitingPage() {
     }
   }
 
-  async function ensureRecordHistoryLoaded(recordId, options = {}) {
-    const force = options.force === true;
-    if (!recordId) return [];
-    if (!force && historyCacheRef.current[recordId]) {
-      return historyCacheRef.current[recordId];
-    }
-    if (!force && loadingHistoryRef.current[recordId]) {
-      return [];
-    }
-
-    loadingHistoryRef.current[recordId] = true;
-    setHistoryLoadingByRecordId((current) => ({ ...current, [recordId]: true }));
-
-    try {
-      const rows = await listRecruitingActivityLogs(recordId);
-      historyCacheRef.current = { ...historyCacheRef.current, [recordId]: rows };
-      setHistoryByRecordId((current) => ({ ...current, [recordId]: rows }));
-      setLatestActivityByRecordId((current) => ({
-        ...current,
-        [recordId]: rows[0] || current[recordId] || null,
-      }));
-      setContactActivityByRecordId((current) => ({
-        ...current,
-        [recordId]: rows.filter((entry) => isContactActionType(entry.actionType)),
-      }));
-      return rows;
-    } catch (loadError) {
-      console.error("Unable to load recruiting history", loadError);
-      return [];
-    } finally {
-      delete loadingHistoryRef.current[recordId];
-      setHistoryLoadingByRecordId((current) => {
-        const next = { ...current };
-        delete next[recordId];
-        return next;
-      });
-    }
-  }
-
-  async function handleImportFileChange(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const parsedRows = await parseImportRows(file);
-      setImportPreviewRows(parsedRows);
-      setImportDestination("outreach");
-      setImportSummary("");
-      setImportDuplicates([]);
-      setImportModalOpen(true);
-      setError("");
-    } catch (parseError) {
-      console.error("Unable to parse recruiting import file", parseError);
-      setError(parseError.message || "Unable to parse import file.");
-    } finally {
-      event.target.value = "";
-    }
-  }
-
-  async function handleConfirmImport() {
-    const result = await importRecruitingContacts({
-      recruitingYear: selectedYear,
-      rows: importPreviewRows,
-      destination: importDestination,
-      staffMember: session?.name || session?.email || "Staff",
-    });
-
-    setImportSummary(
-      `Imported ${result.createdCount} contacts • Skipped ${result.duplicateCount} duplicates • Ignored ${result.ignoredCount} invalid rows`
-    );
-    setImportSummary([
-      `Saved ${result.createdCount} imported contacts to the recruiting database`,
-      `Skipped ${result.duplicateCount} duplicates`,
-      `Ignored ${result.ignoredCount} invalid rows`,
-    ].join(" | "));
-    setImportDuplicates(result.duplicates);
-    setImportPreviewRows([]);
-    setImportDestination("outreach");
-    setImportModalOpen(false);
-    await refreshCurrentYear();
-  }
-
   async function handleCreateContact() {
     const rows =
       newContactDraft.rosterRows?.length > 0 ? newContactDraft.rosterRows : [emptyRosterPerson()];
@@ -2316,14 +2139,11 @@ export default function RecruitingPage() {
     if (notifyDuplicateTeamName(newContactDraft.teamName)) {
       return;
     }
-    const sendToPotential = newContactDraft.boardDestination === "potential";
-    const stage = sendToPotential
-      ? Math.max(Number(newContactDraft.stage) || 0, 2)
-      : Math.min(Number(newContactDraft.stage) || 0, 1);
+    const stage = Math.max(Number(newContactDraft.stage) || 0, 2);
     try {
       await saveRecruitingCycleContact(
         {
-          recruitingYear: selectedYear,
+          recruitingYear: CURRENT_RECRUITING_YEAR,
           firstName: primary.firstName,
           lastName: primary.lastName,
           email: primary.email,
@@ -2343,7 +2163,7 @@ export default function RecruitingPage() {
           nextFollowUp: "",
           mackaylaNotes: buildMackaylaNotes(newContactDraft.mackaylaNotesBody, ""),
           lesleeNotes: newContactDraft.lesleeNotes,
-          isPotentialTeam: sendToPotential,
+          isPotentialTeam: true,
         },
         { requireContactNames: true }
       );
@@ -2351,7 +2171,7 @@ export default function RecruitingPage() {
       setNewContactDraft(createEmptyNewContactDraft());
       setAddContactModalOpen(false);
       setError("");
-      handleChangeTab(sendToPotential ? "potential" : "outreach");
+      handleChangeTab("potential");
       await refreshCurrentYear();
     } catch (saveError) {
       console.error("Unable to create recruiting contact", saveError);
@@ -2359,122 +2179,26 @@ export default function RecruitingPage() {
     }
   }
 
-  async function handleLogRecordAction(record, actionType) {
-    const summary = window.prompt(`Summary for ${actionType}`);
-    if (summary === null) return;
-
-    const nextFollowUp =
-      actionType === "note"
-        ? undefined
-        : window.prompt("Next follow-up date (YYYY-MM-DD). Leave blank to skip.") || undefined;
-
-    await logRecruitingCycleContactAction({
-      record,
-      actionType,
-      actionDate: new Date().toISOString(),
-      staffMember: session?.name || session?.email || "Staff",
-      summary,
-      nextFollowUp,
-      stage: actionType === "email" || actionType === "call" || actionType === "text"
-        ? Math.max(record.stage, 1)
-        : undefined,
-    });
-
-    await refreshCurrentYear();
-    await ensureRecordHistoryLoaded(record.id, { force: true });
-  }
-
-  function handlePromote(record) {
-    setSelectedRecordId(record.id);
-    setPromoteDraft(buildPromoteDraft(record));
-    setPromotePersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
-    setPromoteModalOpen(true);
-    setError("");
-  }
-
-  async function handleConfirmPromote() {
-    const record = records.find((item) => item.id === selectedRecordId);
-    if (!record) return;
-    if (notifyDuplicateTeamName(promoteDraft.teamName, { excludeRecordId: record.id })) {
-      return;
-    }
-
-    await saveRecruitingCycleContact(
-      buildRecruitingRecordPayload(record, {
-        firstName: promoteDraft.firstName,
-        lastName: promoteDraft.lastName,
-        email: promoteDraft.email,
-        phone: promoteDraft.phone,
-        gender: promoteDraft.gender,
-        isPotentialTeam: true,
-        stage: Math.max(Number(promoteDraft.stage || 0), 2),
-        assignedTo: BOSS_OWNER,
-        teamName: promoteDraft.teamName,
-        teamMembers: promoteDraft.teamMembers,
-        projectDates: promoteDraft.projectDates,
-        site: promoteDraft.site,
-        weeks: promoteDraft.weeks,
-        departureDate: promoteDraft.departureDate,
-        mackaylaNotes: buildMackaylaNotes(
-          stripHandoffSummary(record.mackaylaNotes),
-          promoteDraft.handoffSummary
-        ),
-      })
-    );
-
-    await logRecruitingCycleContactAction({
-      record,
-      actionType: "handoff",
-      actionDate: new Date().toISOString(),
-      staffMember: session?.name || session?.email || "Staff",
-      summary: String(promoteDraft.handoffSummary || "").trim()
-        ? `Ready for boss handoff: ${String(promoteDraft.handoffSummary).trim()}`
-        : "Moved to Potential Teams.",
-      stage: Math.max(Number(promoteDraft.stage || 0), 2),
-    });
-
-    setError("");
-    setPromoteModalOpen(false);
-    handleChangeTab("potential");
-    setSelectedRecordId(record.id);
-    setRecordDetailsMode("details");
-    setRecordDetailsModalOpen(true);
-    await refreshCurrentYear();
-    await ensureRecordHistoryLoaded(record.id, { force: true });
-  }
-
-  async function handleAdvanceStage(record) {
-    await saveRecruitingCycleContact(
-      buildRecruitingRecordPayload(record, {
-        stage: Math.min(record.stage + 1, 3),
-      })
-    );
-    await refreshCurrentYear();
-  }
-
-  async function openRecordDetails(recordId, mode = "details") {
+  async function openRecordDetails(recordId) {
     if (!recordId) return;
     setSelectedRecordId(recordId);
     setConfirmingDeleteRecordId("");
-    setRecordDetailsMode(mode);
     setRecordDetailsModalOpen(true);
     setPageStatus("");
     setError("");
-    await ensureRecordHistoryLoaded(recordId);
   }
 
   function closeRecordDetailsModal() {
     setRecordDetailsModalOpen(false);
     setSelectedRecordId("");
     setConfirmingDeleteRecordId("");
-    setRecordDetailsMode("details");
     setError("");
   }
 
-  /** Desktop table: double-click row to open edit; ignore when interacting with controls. */
+  /** Ignore double-clicks on row controls when opening the edit modal. */
   function handleRecruitingTableRowDoubleClick(event, recordId) {
     if (event.target.closest("button, a, input, textarea, select, label")) return;
-    void openRecordDetails(recordId, "details");
+    void openRecordDetails(recordId);
   }
 
   async function handleDeleteRecord(recordId = selectedRecordId) {
@@ -2701,115 +2425,6 @@ export default function RecruitingPage() {
     }));
   }
 
-  function handleDownloadTemplate() {
-    const csv = [
-      "First Name,Last Name,Email,Gender,Year,Mackayla Notes,Leslee Notes",
-      'John,Smith,john@email.com,M,2027,"Interested in summer project","Follow up after spring break"',
-      'Sarah,Lee,sarah@email.com,F,,"Alumni referral","Prefers email contact"',
-    ].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "recruiting-import-template.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function toggleSelected(id) {
-    setSelectedIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-    );
-  }
-
-  async function handleBulkActionSubmit() {
-    if (bulkAction === "move_2027") {
-      try {
-        setIsSavingNotes(true);
-        const selectedRecords = records.filter((record) => selectedIds.includes(record.id));
-
-        await Promise.all(
-          selectedRecords.map(async (record) => {
-            await saveRecruitingCycleContact(
-              buildRecruitingRecordPayload(record, {
-                recruitingYear: NEXT_RECRUITING_YEAR,
-              })
-            );
-            await logRecruitingActivity({
-              recruitingCycleContactId: record.id,
-              actionType: "update",
-              actionDate: new Date().toISOString(),
-              staffMember: session?.name || session?.email || "Staff",
-              summary: `Moved recruiting record to ${NEXT_RECRUITING_YEAR}.`,
-            });
-          })
-        );
-
-        setPageStatus(`Moved ${selectedRecords.length} contact${selectedRecords.length === 1 ? "" : "s"} to ${NEXT_RECRUITING_YEAR}.`);
-        setError("");
-      } catch (bulkError) {
-        console.error(`Unable to move recruiting records to ${NEXT_RECRUITING_YEAR}`, bulkError);
-        setError(bulkError.message || `Unable to move selected contacts to ${NEXT_RECRUITING_YEAR}.`);
-      } finally {
-        setIsSavingNotes(false);
-      }
-
-      setBulkModalOpen(false);
-      setSelectedIds([]);
-      setBulkSummary("");
-      setBulkStage("");
-      setBulkNextFollowUp("");
-      setBulkAssignedTo("");
-      await refreshCurrentYear();
-      return;
-    }
-
-    if (bulkAction === "delete") {
-      const confirmed = window.confirm(`Delete ${selectedIds.length} selected contact${selectedIds.length === 1 ? "" : "s"}?`);
-      if (!confirmed) return;
-
-      try {
-        setIsSavingNotes(true);
-        await Promise.all(selectedIds.map((id) => deleteRecruitingCycleContact(id)));
-        setPageStatus(`Deleted ${selectedIds.length} contact${selectedIds.length === 1 ? "" : "s"}.`);
-        setError("");
-      } catch (bulkError) {
-        console.error("Unable to delete selected recruiting contacts", bulkError);
-        setError(bulkError.message || "Unable to delete selected contacts.");
-      } finally {
-        setIsSavingNotes(false);
-      }
-
-      setBulkModalOpen(false);
-      setSelectedIds([]);
-      setBulkSummary("");
-      setBulkStage("");
-      setBulkNextFollowUp("");
-      setBulkAssignedTo("");
-      await refreshCurrentYear();
-      return;
-    }
-
-    await bulkUpdateRecruitingCycleContacts({
-      recruitingCycleContactIds: selectedIds,
-      actionType: bulkAction,
-      actionDate: bulkDate ? new Date(bulkDate).toISOString() : new Date().toISOString(),
-      staffMember: session?.name || session?.email || "Staff",
-      summary: bulkSummary,
-      stage: bulkStage === "" ? undefined : bulkStage,
-      nextFollowUp: bulkNextFollowUp || undefined,
-      assignedTo: bulkAssignedTo || undefined,
-    });
-
-    setBulkModalOpen(false);
-    setSelectedIds([]);
-    setBulkSummary("");
-    setBulkStage("");
-    setBulkNextFollowUp("");
-    setBulkAssignedTo("");
-    await refreshCurrentYear();
-  }
-
   async function handleSaveRecord(recordId = selectedRecordId) {
     const recordToSave = records.find((record) => record.id === recordId);
     if (!recordToSave) return;
@@ -2820,15 +2435,7 @@ export default function RecruitingPage() {
     try {
       setIsSavingNotes(true);
       await saveRecruitingCycleContact(buildRecruitingRecordPayload(recordToSave));
-      await logRecruitingActivity({
-        recruitingCycleContactId: recordId,
-        actionType: "update",
-        actionDate: new Date().toISOString(),
-        staffMember: session?.name || session?.email || "Staff",
-        summary: "Updated recruiting details.",
-      });
       await refreshCurrentYear();
-      await ensureRecordHistoryLoaded(recordId, { force: true });
       closeRecordDetailsModal();
       setPageStatus("Saved.");
     } catch (saveError) {
@@ -2883,15 +2490,7 @@ export default function RecruitingPage() {
           pendingLockTeamSetup: buildPendingLockTeamSetupFromDraft(d, potentialEditShowMemberTripDates),
         })
       );
-      await logRecruitingActivity({
-        recruitingCycleContactId: record.id,
-        actionType: "update",
-        actionDate: new Date().toISOString(),
-        staffMember: session?.name || session?.email || "Staff",
-        summary: "Updated recruiting details (lock-form fields).",
-      });
       await refreshCurrentYear();
-      await ensureRecordHistoryLoaded(record.id, { force: true });
       closeRecordDetailsModal();
       setPageStatus("Saved.");
       potentialEditSnapshotKey.current = "";
@@ -2899,35 +2498,6 @@ export default function RecruitingPage() {
       console.error("Unable to save recruiting record", saveError);
       setError(saveError.message || "Unable to save record.");
       setPageStatus("");
-    } finally {
-      setIsSavingNotes(false);
-    }
-  }
-
-  async function handleMoveRecordToNextYear(recordId = selectedRecordId) {
-    const recordToMove = records.find((record) => record.id === recordId);
-    if (!recordToMove) return;
-
-    try {
-      setIsSavingNotes(true);
-      await saveRecruitingCycleContact(
-        buildRecruitingRecordPayload(recordToMove, {
-          recruitingYear: NEXT_RECRUITING_YEAR,
-        })
-      );
-      await logRecruitingActivity({
-        recruitingCycleContactId: recordId,
-        actionType: "update",
-        actionDate: new Date().toISOString(),
-        staffMember: session?.name || session?.email || "Staff",
-        summary: `Moved recruiting record to ${NEXT_RECRUITING_YEAR}.`,
-      });
-      await refreshCurrentYear();
-      closeRecordDetailsModal();
-      setPageStatus(`Moved to ${NEXT_RECRUITING_YEAR}.`);
-    } catch (moveError) {
-      console.error(`Unable to move recruiting record to ${NEXT_RECRUITING_YEAR}`, moveError);
-      setError(moveError.message || `Unable to move record to ${NEXT_RECRUITING_YEAR}.`);
     } finally {
       setIsSavingNotes(false);
     }
@@ -3107,43 +2677,6 @@ export default function RecruitingPage() {
     });
   }
 
-  function handleAddPersonToPromoteDraft() {
-    const nextEntry = {
-      name: promotePersonDraft.name,
-      email: promotePersonDraft.email,
-      isMinor: promotePersonDraft.isMinor,
-      minorAge: promotePersonDraft.isMinor ? promotePersonDraft.minorAge : "",
-    };
-    const formattedEntry = formatTeamMemberEntry(nextEntry);
-    if (!formattedEntry) return;
-
-    setPromoteDraft((current) => ({
-      ...current,
-      teamMembers: buildTeamMembersText([...promotePeople, nextEntry]),
-    }));
-    setPromotePersonDraft({ name: "", email: "", isMinor: false, minorAge: "" });
-  }
-
-  function handleRemovePersonFromPromoteDraft(indexToRemove) {
-    setPromoteDraft((current) => ({
-      ...current,
-      teamMembers: buildTeamMembersText(
-        parseTeamMemberEntries(current.teamMembers).filter((_, index) => index !== indexToRemove)
-      ),
-    }));
-  }
-
-  function openContactActionModal(record, actionType) {
-    if (!record?.id) return;
-    setContactActionDraft({
-      recordId: record.id,
-      actionType,
-      actionDate: new Date().toISOString().slice(0, 10),
-      summary: "",
-    });
-    setContactActionModalOpen(true);
-  }
-
   function openStaffTaskModal(record) {
     if (!record?.id) return;
     setStaffTaskDraft(buildRecruitingStaffTaskDraft(record));
@@ -3194,252 +2727,10 @@ export default function RecruitingPage() {
     }
   }
 
-  async function handleSaveContactAction() {
-    const record = records.find((entry) => entry.id === contactActionDraft.recordId);
-    if (!record) return;
-
-    const trimmedDateInput = String(contactActionDraft.actionDate || "").trim();
-    const parsedActionDate = /^\d{4}-\d{2}-\d{2}$/.test(trimmedDateInput)
-      ? new Date(`${trimmedDateInput}T12:00:00`)
-      : new Date(trimmedDateInput);
-
-    if (Number.isNaN(parsedActionDate.getTime())) {
-      setError("Enter a valid action date.");
-      return;
-    }
-
-    try {
-      setIsSavingContactAction(true);
-      await logRecruitingCycleContactAction({
-        record,
-        actionType: contactActionDraft.actionType,
-        actionDate: parsedActionDate.toISOString(),
-        staffMember: session?.name || session?.email || "Staff",
-        summary: contactActionDraft.summary,
-        stage: ["email", "call", "text"].includes(contactActionDraft.actionType)
-          ? Math.max(record.stage, 1)
-          : undefined,
-      });
-      setContactActionModalOpen(false);
-      setContactActionDraft({
-        recordId: "",
-        actionType: "email",
-        actionDate: new Date().toISOString().slice(0, 10),
-        summary: "",
-      });
-      setError("");
-      setPageStatus("Contact saved.");
-      await refreshCurrentYear();
-      await ensureRecordHistoryLoaded(record.id, { force: true });
-    } catch (saveError) {
-      console.error("Unable to save recruiting contact action", saveError);
-      setError(saveError.message || "Unable to save contact action.");
-    } finally {
-      setIsSavingContactAction(false);
-    }
-  }
-
   function openAddContactModal() {
     setNewContactDraft(createEmptyNewContactDraft());
     setError("");
     setAddContactModalOpen(true);
-  }
-
-  function toggleContactHistoryExpanded(recordId) {
-    setExpandedContactHistoryById((current) => ({
-      ...current,
-      [recordId]: !current[recordId],
-    }));
-  }
-
-  function renderOutreachTable(recordsToRender) {
-    if (recordsToRender.length === 0) {
-      return (
-        <EmptyState
-          icon="recruiting"
-          title="No contacts in this view"
-          description="Once recruiting rows match this view, they’ll show up here with notes, outreach, and follow-up details."
-        />
-      );
-    }
-
-    return (
-      <div className="recruitingBoardTableHost">
-        <DraggableTable>
-        <table
-          className={`table recruitingCompactTable recruitingBoardSlimTable recruitingBoardTable recruitingFont-${tableFontSize}`}
-        >
-          <thead>
-            <tr>
-              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.team }}>Team</th>
-              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.roster }}>Team roster</th>
-              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.projectDates }}>Project dates</th>
-              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.site }}>Site</th>
-              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.weeks }}>Weeks</th>
-              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.mackayla }}>Mackayla notes</th>
-              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.leslee }}>Leslee notes</th>
-              <th style={{ width: RECRUITING_OUTREACH_COL_PCT.actions }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recordsToRender.map((record, rowIndex) => {
-              const attention = getAttentionMeta(record);
-              const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-              const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
-              const d = buildTeamFormDraft(record);
-
-              return (
-                <tr
-                  key={record.id}
-                  className={rowClass}
-                  onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
-                  style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
-                >
-                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.team, verticalAlign: "middle" }}>
-                    <div className="recruitingTeamCellRow">
-                      <div className="recruitingTeamCellMain">
-                        <span className="recruitingTeamNamePill" title={record.teamName || formatContactName(record)}>
-                          {record.teamName || formatContactName(record) || "—"}
-                        </span>
-                        {attention ? (
-                          <div style={{ marginTop: 6 }}>
-                            <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
-                          </div>
-                        ) : null}
-                        {renderDuplicateNotice(duplicateInfo, { compact: true })}
-                      </div>
-                      <RecruitingBoardCopyRowButton record={record} />
-                    </div>
-                  </td>
-                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
-                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.projectDates, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
-                  </td>
-                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.site, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(d.location)}</div>
-                  </td>
-                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.weeks, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(recruitingBoardWeeksLabel(record))}</div>
-                  </td>
-                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.mackayla, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
-                    <textarea
-                      className="input recruitingInlineNoteInput"
-                      rows={4}
-                      value={stripHandoffSummary(record.mackaylaNotes)}
-                      onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
-                      onBlur={() => void handleSaveRecord(record.id)}
-                      placeholder="Add Mackayla notes"
-                    />
-                  </td>
-                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.leslee, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
-                    <textarea
-                      className="input recruitingInlineNoteInput"
-                      rows={4}
-                      value={record.lesleeNotes || ""}
-                      onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
-                      onBlur={() => void handleSaveRecord(record.id)}
-                      placeholder="Add Leslee notes"
-                    />
-                  </td>
-                  <td style={{ width: RECRUITING_OUTREACH_COL_PCT.actions, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
-                    <div className="row recruitingActionRow recruitingFitActionRow">
-                      <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
-                      <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>Task</button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        </DraggableTable>
-      </div>
-    );
-  }
-
-  function renderOutreachCards(recordsToRender) {
-    if (recordsToRender.length === 0) {
-      return (
-        <EmptyState
-          icon="recruiting"
-          title="No contacts in this view"
-          description="Once recruiting rows match this view, they’ll show up here with notes, outreach, and follow-up details."
-        />
-      );
-    }
-
-    return (
-      <div className="recruitingMobileCards">
-        {recordsToRender.map((record) => {
-          const attention = getAttentionMeta(record);
-          const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
-          const d = buildTeamFormDraft(record);
-
-          return (
-            <div
-              key={record.id}
-              className="card pad recruitingMobileCard"
-              onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
-              style={getRecordRowStyle(record, false)}
-            >
-              <div className="recruitingMobileCardHeader">
-                <div>
-                  <div className="recruitingMobileCardTitle">
-                    {record.teamName || formatContactName(record) || "—"}
-                  </div>
-                  <div className="small recruitingMobileCardEmail">
-                    {record.contact?.email ? <div>{record.contact.email}</div> : null}
-                    {String(record.contact?.phone || "").trim() ? (
-                      <div style={{ marginTop: record.contact?.email ? 3 : 0 }}>
-                        {String(record.contact.phone).trim()}
-                      </div>
-                    ) : null}
-                    {!record.contact?.email && !String(record.contact?.phone || "").trim() ? "—" : null}
-                  </div>
-                </div>
-                {attention ? (
-                  <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
-                ) : null}
-              </div>
-              {renderDuplicateNotice(duplicateInfo, { compact: true })}
-              <div className="small" style={{ marginTop: 8 }}>
-                <strong>Team roster</strong>
-              </div>
-              <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} /></div>
-              <div className="recruitingMobileMeta">
-                <span title="Project dates">{chartDashText(recruitingBoardProjectDatesLabel(record))}</span>
-                <span title="Site">{chartDashText(d.location)}</span>
-                <span title="Weeks">{chartDashText(recruitingBoardWeeksLabel(record))}</span>
-              </div>
-              <div className="recruitingMobileNotes">
-                <textarea
-                  className="input recruitingInlineNoteInput"
-                  rows={4}
-                  value={stripHandoffSummary(record.mackaylaNotes)}
-                  onClick={(event) => event.stopPropagation()}
-                  onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
-                  onBlur={() => void handleSaveRecord(record.id)}
-                  placeholder="Add Mackayla notes"
-                />
-                <textarea
-                  className="input recruitingInlineNoteInput"
-                  rows={4}
-                  value={record.lesleeNotes || ""}
-                  onClick={(event) => event.stopPropagation()}
-                  onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
-                  onBlur={() => void handleSaveRecord(record.id)}
-                  placeholder="Add Leslee notes"
-                />
-              </div>
-              <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
-                <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>Edit</button>
-                <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>Add Task</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
   }
 
   function renderPotentialTable(recordsToRender) {
@@ -3448,7 +2739,7 @@ export default function RecruitingPage() {
         <EmptyState
           icon="spark"
           title="No potential teams yet"
-          description="Qualified contacts and teams will appear here once they move beyond early outreach."
+          description="Qualified teams will appear here as you add and develop recruiting leads."
         />
       );
     }
@@ -3543,7 +2834,7 @@ export default function RecruitingPage() {
                   </td>
                   <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.actions, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow recruitingFitActionRow">
-                      <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
+                      <button className="btn" type="button" onClick={() => void openRecordDetails(record.id)}>
                         Edit
                       </button>
                       <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>
@@ -3570,7 +2861,7 @@ export default function RecruitingPage() {
         <EmptyState
           icon="spark"
           title="No potential teams yet"
-          description="Qualified contacts and teams will appear here once they move beyond early outreach."
+          description="Qualified teams will appear here as you add and develop recruiting leads."
         />
       );
     }
@@ -3638,7 +2929,7 @@ export default function RecruitingPage() {
                 />
               </div>
               <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
-                <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
+                <button className="btn" type="button" onClick={() => void openRecordDetails(record.id)}>
                   Edit
                 </button>
                 <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>
@@ -3700,16 +2991,13 @@ export default function RecruitingPage() {
                         <span className="recruitingTeamNamePill" title={record.teamName || record.linkedTrip?.name || ""}>
                           {record.teamName || record.linkedTrip?.name || "—"}
                         </span>
-                        {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id]) ? (
+                        {formatRecruitingUpdateMeta(record) ? (
                           <div
                             className="small recruitingUpdatedMeta"
                             style={{ marginTop: 6 }}
-                            title={
-                              latestActivityByRecordId[record.id]?.summary ||
-                              formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])
-                            }
+                            title={formatRecruitingUpdateMeta(record)}
                           >
-                            {formatRecruitingUpdateMeta(record, latestActivityByRecordId[record.id])}
+                            {formatRecruitingUpdateMeta(record)}
                           </div>
                         ) : null}
                       </div>
@@ -3755,12 +3043,9 @@ export default function RecruitingPage() {
                       <button
                         className="btn btnPrimary"
                         type="button"
-                        onClick={() => void openRecordDetails(record.id, "details")}
+                        onClick={() => void openRecordDetails(record.id)}
                       >
                         Edit
-                      </button>
-                      <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>
-                        View History
                       </button>
                       <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>
                         Task
@@ -3851,11 +3136,8 @@ export default function RecruitingPage() {
               />
             </div>
             <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
-              <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id, "details")}>
+              <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id)}>
                 Edit
-              </button>
-              <button className="btn" type="button" onClick={() => void openRecordDetails(record.id, "history")}>
-                View History
               </button>
               <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>
                 Add Task
@@ -3892,19 +3174,9 @@ export default function RecruitingPage() {
             <AppIcon name="recruiting" className="pageEyebrowIcon" />
             <span>Recruiting</span>
           </h1>
-          <div className="small">Yearly recruiting cycles, import, queue management, and contact history.</div>
+          <div className="small">Potential teams and locked trip teams.</div>
         </div>
         <div className="recruitingToolbar appPolishToolbar">
-          <select
-            className="input recruitingYearSelect"
-            value={selectedYear}
-            onChange={(event) => setSelectedYear(Number(event.target.value))}
-            aria-label="Recruiting year"
-          >
-            {years.map((year) => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
           <div className="recruitingSearchCluster">
             <input
               className="input recruitingToolbarSearch"
@@ -3912,7 +3184,7 @@ export default function RecruitingPage() {
               onChange={(event) =>
                 applyFilter({ ...filterConfig, searchQuery: event.target.value }, "custom")
               }
-              placeholder={`Search ${selectedYear} contacts`}
+              placeholder="Search recruiting contacts"
               aria-label="Search recruiting contacts"
             />
             <button className={`btn ${filterPanelOpen ? "btnPrimary" : ""}`} type="button" onClick={() => setFilterPanelOpen((current) => !current)}>
@@ -3920,41 +3192,17 @@ export default function RecruitingPage() {
               {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
             </button>
           </div>
-          <button className="btn recruitingTemplateButton" type="button" onClick={handleDownloadTemplate}>
-            Export
-          </button>
           <div className="card recruitingActionCard">
             <button className="btn btnPrimary" type="button" onClick={openAddContactModal}>
               Add Contact
             </button>
-            <button className="btn" type="button" onClick={() => importInputRef.current?.click()}>
-              Add Bulk Contacts
-            </button>
           </div>
         </div>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept=".xlsx,.xls,.csv"
-          hidden
-          onChange={handleImportFileChange}
-        />
       </div>
 
       {error ? (
         <div className="card pad" style={{ marginBottom: 14, color: "var(--danger)" }}>
           {error}
-        </div>
-      ) : null}
-
-      {importSummary ? (
-        <div className="card pad" style={{ marginBottom: 14 }}>
-          <div style={{ fontWeight: 900 }}>{importSummary}</div>
-          {importDuplicates.length > 0 ? (
-            <div className="small" style={{ marginTop: 6 }}>
-              Duplicates skipped: {importDuplicates.map((row) => row.email).join(", ")}
-            </div>
-          ) : null}
         </div>
       ) : null}
 
@@ -4052,29 +3300,9 @@ export default function RecruitingPage() {
                 </button>
               ))}
             </div>
-            <div className="small recruitingDesktopOnly" style={{ marginBottom: 10, color: "var(--muted)", lineHeight: 1.45 }}>
-              Double-click a row to open the edit form. Click the dimmed area outside the form to close it (or use Close).
-            </div>
-
-            {activeTab === "outreach" ? (
-              <>
-                <div className="row" style={{ marginBottom: 10 }}>
-                  <div>
-                    <div style={{ fontWeight: 900 }}>Recruiting</div>
-                    <div className="small">Initial recruiting and follow-up before handoff to potential teams.</div>
-                  </div>
-                </div>
-                <div className="recruitingDesktopOnly">{renderOutreachTable(outreachQueue)}</div>
-                <div className="recruitingMobileOnly">{renderOutreachCards(outreachQueue)}</div>
-              </>
-            ) : null}
 
             {activeTab === "potential" ? (
               <>
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>Potential Teams</div>
-                <div className="small" style={{ marginBottom: 10 }}>
-                  Curated serious leads for team formation and Leslee follow-up.
-                </div>
                 <div className="recruitingDesktopOnly">{renderPotentialTable(pipelineRecords)}</div>
                 <div className="recruitingMobileOnly">{renderPotentialCards(pipelineRecords)}</div>
               </>
@@ -4082,10 +3310,6 @@ export default function RecruitingPage() {
 
             {activeTab === "converted" ? (
               <>
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>Locked Teams</div>
-                <div className="small" style={{ marginBottom: 10 }}>
-                  Recruiting records already turned into real teams.
-                </div>
                 <div className="recruitingDesktopOnly">{renderConvertedTable(convertedTeams)}</div>
                 <div className="recruitingMobileOnly">{renderConvertedCards(convertedTeams)}</div>
               </>
@@ -4117,17 +3341,9 @@ export default function RecruitingPage() {
             style={{ width: "min(920px, 100%)", maxHeight: "85vh", overflow: "auto" }}
           >
             <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>
-                {recordDetailsMode === "history"
-                  ? activeTab === "outreach"
-                    ? "Contact History"
-                    : activeTab === "potential"
-                    ? "Potential Team History"
-                    : "Lock Team History"
-                  : "Edit team & recruiting"}
-              </div>
+              <div style={{ fontWeight: 900 }}>Edit team & recruiting</div>
               <div className="spacer" />
-              {selectedRecord && recordDetailsMode !== "history" ? (
+              {selectedRecord ? (
                 <button
                   className="btn"
                   type="button"
@@ -4152,45 +3368,22 @@ export default function RecruitingPage() {
                       : "Delete"}
                 </button>
               ) : null}
-              {selectedRecord && recordDetailsMode === "details" ? (
-                <button className="btn" type="button" onClick={() => setRecordDetailsMode("history")}>
-                  Contact history
-                </button>
-              ) : null}
               <button className="btn" type="button" onClick={closeRecordDetailsModal}>
                 Close
               </button>
             </div>
             {selectedRecord ? (
               <div style={{ display: "grid", gap: 16 }}>
-                {recordDetailsMode !== "history" && (isSavingNotes || pageStatus) ? (
+                {(isSavingNotes || pageStatus) ? (
                   <div className="small" style={{ color: isSavingNotes ? "var(--primary)" : "var(--muted)" }}>
                     {isSavingNotes ? "Saving changes..." : pageStatus}
                   </div>
                 ) : null}
-                {recordDetailsMode === "history" ? (
-                  <div>
-                    <div style={{ fontWeight: 800 }}>{formatContactName(selectedRecord)}</div>
-                    <div className="small">{selectedRecord.contact?.email}</div>
-                    {selectedRecord.contact?.phone ? (
-                      <div className="small">{selectedRecord.contact.phone}</div>
-                    ) : null}
-                  </div>
-                ) : null}
-                {recordDetailsMode !== "history" ? (
-                  <>
-                    {(activeTab === "potential" || activeTab === "outreach") &&
-                    !selectedRecord.isConvertedToTeam ? (
+                {activeTab === "potential" && !selectedRecord.isConvertedToTeam ? (
                       <>
                         <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
                           Same fields as <strong>Lock Team</strong>. Saving updates this recruiting row only (does not
-                          create a trip). Use <strong>Contact history</strong> in the header to log calls and emails.
-                          {activeTab === "outreach" ? (
-                            <>
-                              {" "}
-                              When ready, use <strong>Promote to Potential Teams</strong> below.
-                            </>
-                          ) : null}
+                          create a trip).
                         </div>
                         {error ? (
                           <div className="card pad" style={{ color: "var(--danger)" }}>{error}</div>
@@ -4256,33 +3449,6 @@ export default function RecruitingPage() {
                             onClick={() => void handleSavePotentialTeamDetails()}
                           >
                             {isSavingNotes ? "Saving..." : "Save record"}
-                          </button>
-                          {activeTab === "outreach" ? (
-                            <button className="btn" type="button" onClick={() => handlePromote(selectedRecord)}>
-                              Promote to Potential Teams
-                            </button>
-                          ) : null}
-                        </div>
-                        <div
-                          style={{
-                            paddingTop: 12,
-                            marginTop: 8,
-                            borderTop: "1px solid rgba(15, 23, 42, 0.06)",
-                          }}
-                        >
-                          <div className="small" style={{ marginBottom: 8, color: "var(--muted)", lineHeight: 1.45 }}>
-                            Move this row to the <strong>{NEXT_RECRUITING_YEAR}</strong> recruiting board when you are
-                            planning for that year (does not change trip data).
-                          </div>
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => void handleMoveRecordToNextYear(selectedRecord.id)}
-                            disabled={isSavingNotes || selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR}
-                          >
-                            {selectedRecord.recruitingYear === NEXT_RECRUITING_YEAR
-                              ? `Already on ${NEXT_RECRUITING_YEAR}`
-                              : `Move to ${NEXT_RECRUITING_YEAR} chart`}
                           </button>
                         </div>
                       </>
@@ -4637,74 +3803,10 @@ export default function RecruitingPage() {
                     </RecruitingFormCard>
 
                     <RecruitingFormCard
-                      title="Recruiting notes & activity"
-                      subtitle="Contact log, then staff notes."
+                      title="Recruiting notes"
+                      subtitle="Staff notes for Mackayla and Leslee."
                     >
-                      <div>
-                        <div className="small" style={{ fontWeight: 700, marginBottom: 8 }}>Contact history</div>
-                        {isCurrentHistoryLoading ? (
-                          <div className="small">Loading history...</div>
-                        ) : currentContactHistory.length > 0 ? (
-                          <div style={{ display: "grid", gap: 10 }}>
-                            {visibleCurrentContactHistory.map((entry) => (
-                              <div
-                                key={entry.id}
-                                style={{ paddingBottom: 10, borderBottom: "1px solid var(--border)" }}
-                              >
-                                <div style={{ fontWeight: 700 }}>{formatPreviousContactLabel(entry)}</div>
-                                {entry.summary ? (
-                                  <div style={{ marginTop: 4 }}>{entry.summary}</div>
-                                ) : null}
-                                <div className="small" style={{ marginTop: 4 }}>
-                                  {entry.staffMember ? `${entry.staffMember} | ` : ""}
-                                  {formatDateTime(entry.actionDate)}
-                                </div>
-                              </div>
-                            ))}
-                            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                              {showCurrentContactHistoryToggle ? (
-                                <button
-                                  className="recruitingLastContactToggle"
-                                  type="button"
-                                  onClick={() => toggleContactHistoryExpanded(selectedRecord.id)}
-                                >
-                                  {isCurrentContactHistoryExpanded ? "See less" : "See more"}
-                                </button>
-                              ) : null}
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={() => openContactActionModal(selectedRecord, "email")}
-                              >
-                                Log contact
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ display: "grid", gap: 8 }}>
-                            <div className="small" style={{ color: "var(--muted)" }}>
-                              No contact history yet.
-                            </div>
-                            <div>
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={() => openContactActionModal(selectedRecord, "email")}
-                              >
-                                Log contact
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div
-                        style={{
-                          paddingTop: 12,
-                          borderTop: "1px solid rgba(15, 23, 42, 0.08)",
-                          display: "grid",
-                          gap: 12,
-                        }}
-                      >
+                      <div style={{ display: "grid", gap: 12 }}>
                         <div>
                           <div className="small" style={{ marginBottom: 6 }}>Mackayla notes</div>
                           <textarea
@@ -4740,11 +3842,6 @@ export default function RecruitingPage() {
                       <button className="btn btnPrimary" type="button" onClick={() => handleSaveRecord()}>
                         {isSavingNotes ? "Saving..." : "Save record"}
                       </button>
-                      {activeTab === "outreach" ? (
-                        <button className="btn" type="button" onClick={() => handlePromote(selectedRecord)}>
-                          Promote to Potential Teams
-                        </button>
-                      ) : null}
                       {canUnlockLockedTeams && selectedRecord.isConvertedToTeam && selectedRecord.convertedTeamId ? (
                         <button
                           className="btn"
@@ -4759,54 +3856,9 @@ export default function RecruitingPage() {
                     </div>
                     </>
                     )}
-                  </>
-                ) : (
-                  <>
-                    <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                      <button
-                        className="btn btnPrimary"
-                        type="button"
-                        onClick={() => setRecordDetailsMode("details")}
-                      >
-                        Edit details
-                      </button>
-                    </div>
-                    <div className="small">
-                      {selectedRecord.teamName || formatContactName(selectedRecord)} | {selectedRecord.assignedTo || PRIMARY_OWNER} | {selectedRecord.stageLabel}
-                    </div>
-                    {!selectedRecord.isConvertedToTeam ? (
-                      <div className="small">
-                        {[selectedRecord.site, selectedRecord.projectDates]
-                          .filter(Boolean)
-                          .join(" | ") || "No project details yet."}
-                      </div>
-                    ) : null}
-                    <div style={{ fontWeight: 800, marginTop: 6 }}>Activity</div>
-                    {isCurrentHistoryLoading ? (
-                      <div className="small">Loading history...</div>
-                    ) : currentHistory.length > 0 ? (
-                      <div style={{ display: "grid", gap: 10 }}>
-                        {currentHistory.map((entry) => (
-                          <div
-                            key={entry.id}
-                            style={{ paddingBottom: 10, borderBottom: "1px solid var(--border)" }}
-                          >
-                            <div>{entry.summary || getRecruitingStageLabel(selectedRecord.stage)}</div>
-                            <div className="small" style={{ marginTop: 4 }}>
-                              {entry.staffMember ? `${entry.staffMember} | ` : ""}
-                              {formatDateTime(entry.actionDate)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="small">No activity logged yet.</div>
-                    )}
-                  </>
-                )}
               </div>
             ) : (
-              <div className="small">Select a recruiting record to view this year's history.</div>
+              <div className="small">Select a recruiting record to edit.</div>
             )}
           </div>
         </div>
@@ -4834,478 +3886,6 @@ export default function RecruitingPage() {
           A
         </button>
       </div>
-
-      {importModalOpen ? (
-        <div
-          className="appModalOverlay"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,.45)",
-            display: "grid",
-            placeItems: "center",
-            padding: 20,
-            zIndex: 50,
-          }}
-        >
-          <div className="card pad appModalCard" style={{ width: "min(900px, 100%)", maxHeight: "80vh", overflow: "auto" }}>
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>Import Preview</div>
-              <div className="spacer" />
-              <button className="btn" type="button" onClick={() => setImportModalOpen(false)}>
-                Close
-              </button>
-            </div>
-            <div className="small" style={{ marginBottom: 12, color: "var(--muted)", lineHeight: 1.45 }}>
-              Importing{" "}
-              <strong>{importPreviewSummary.importableCount}</strong>{" "}
-              contact{importPreviewSummary.importableCount === 1 ? "" : "s"}
-              {importPreviewSummary.totalRows !== importPreviewSummary.importableCount ? (
-                <>
-                  {" "}
-                  from <strong>{importPreviewSummary.totalRows}</strong> spreadsheet row
-                  {importPreviewSummary.totalRows === 1 ? "" : "s"}
-                </>
-              ) : null}
-              {importPreviewSummary.ignoredCount > 0 ? (
-                <>
-                  . <strong>{importPreviewSummary.ignoredCount}</strong> row
-                  {importPreviewSummary.ignoredCount === 1 ? "" : "s"} will be skipped because they are missing an email.
-                </>
-              ) : (
-                "."
-              )}
-            </div>
-            <table className="table dataTableStriped">
-              <thead>
-                <tr>
-                  <th>First Name</th>
-                  <th>Last Name</th>
-                  <th>Email</th>
-                  <th>Gender</th>
-                  <th>Year</th>
-                  <th>Mackayla Notes</th>
-                  <th>Leslee Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {importPreviewRows.map((row, index) => (
-                  <tr key={`${row.email}-${index}`}>
-                    <td>{row.firstName}</td>
-                    <td>{row.lastName}</td>
-                    <td>{row.email}</td>
-                    <td>{row.gender}</td>
-                    <td>{row.recruitingYear}</td>
-                    <td>{row.mackaylaNotes}</td>
-                    <td>{row.lesleeNotes}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{ marginTop: 12, maxWidth: 320 }}>
-              <div className="small" style={{ marginBottom: 6 }}>Send imported contacts to</div>
-              <select
-                className="input"
-                value={importDestination}
-                onChange={(event) => setImportDestination(event.target.value)}
-              >
-                <option value="outreach">Recruiting</option>
-                <option value="potential">Potential Teams</option>
-              </select>
-            </div>
-            <div className="small" style={{ marginTop: 10 }}>
-              Clicking `Save Imported Contacts` saves each row into {importDestination === "potential" ? "Potential Teams" : "Recruiting"} for its import year. Blank year values default to 2026.
-            </div>
-            <div className="row" style={{ marginTop: 12 }}>
-              <button className="btn btnPrimary" type="button" onClick={handleConfirmImport}>
-                Save {importPreviewSummary.importableCount} Imported Contact
-                {importPreviewSummary.importableCount === 1 ? "" : "s"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {promoteModalOpen ? (
-        <div
-          className="appModalOverlay"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,.45)",
-            display: "grid",
-            placeItems: "center",
-            padding: 20,
-            zIndex: 50,
-          }}
-        >
-          <div className="card pad appModalCard" style={{ width: "min(860px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>Promote To Potential Teams</div>
-              <div className="spacer" />
-              <button className="btn" type="button" onClick={() => setPromoteModalOpen(false)}>
-                Close
-              </button>
-            </div>
-            <div className="small" style={{ marginBottom: 12 }}>
-              Fill in the team and project details first. Lead contact info stays lower down just for reference.
-            </div>
-            <div className="small" style={{ fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>
-              Team Details
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 10,
-              }}
-            >
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
-                <input
-                  className="input"
-                  value={promoteDraft.teamName}
-                  onChange={(event) => setPromoteDraft((current) => ({ ...current, teamName: event.target.value }))}
-                  placeholder="Team name"
-                />
-              </div>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Stage</div>
-                <select
-                  className="input"
-                  value={promoteDraft.stage}
-                  onChange={(event) => setPromoteDraft((current) => ({ ...current, stage: Number(event.target.value) }))}
-                >
-                  {RECRUITING_STAGES.map((stage) => (
-                    <option key={stage.value} value={stage.value}>{stage.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Project Dates</div>
-                <input
-                  className="input"
-                  value={promoteDraft.projectDates}
-                  onChange={(event) => setPromoteDraft((current) => ({ ...current, projectDates: event.target.value }))}
-                  placeholder="Dates or season"
-                />
-              </div>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Site</div>
-                <select
-                  className="input"
-                  value={promoteDraft.site}
-                  onChange={(event) => setPromoteDraft((current) => ({ ...current, site: event.target.value }))}
-                >
-                  <option value="">Select site</option>
-                  {mergeSiteOptionListWithCurrent(sitePickerLabels, promoteDraft.site).map((siteOption) => (
-                    <option key={siteOption} value={siteOption}>{siteOption}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Weeks</div>
-                <input
-                  className="input"
-                  type="number"
-                  min="0"
-                  value={promoteDraft.weeks}
-                  onChange={(event) => setPromoteDraft((current) => ({ ...current, weeks: event.target.value }))}
-                  placeholder="Number of weeks"
-                />
-              </div>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Departure Date</div>
-                <input
-                  className="input"
-                  value={promoteDraft.departureDate}
-                  onChange={(event) => setPromoteDraft((current) => ({ ...current, departureDate: event.target.value }))}
-                  placeholder="Month, season, or exact date"
-                />
-              </div>
-            </div>
-            <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Team Members</div>
-                <div style={{ display: "grid", gap: 8 }}>
-                  {promotePeople.length > 0 ? (
-                    promotePeople.map((person, index) => {
-                      const duplicateInfo = person.email
-                        ? getDuplicateInfoForEmail(person.email)
-                        : null;
-
-                      return (
-                        <div
-                          key={`${person.email || person.name || "person"}-${index}`}
-                          style={{
-                            display: "grid",
-                            gap: 6,
-                            padding: 10,
-                            borderRadius: 12,
-                            border: "1px solid var(--border)",
-                            background: "#fff",
-                          }}
-                        >
-                          <div className="row" style={{ alignItems: "flex-start" }}>
-                            <div style={{ flex: 1 }}>
-                              <div className={person.isMinor ? "recruitingMinorName" : ""} style={{ fontWeight: 700 }}>
-                                {formatPersonDisplayName(person) || "Unnamed person"}
-                              </div>
-                              <div className="small">{person.email || "No email added"}</div>
-                              {renderDuplicateNotice(duplicateInfo)}
-                            </div>
-                            <button
-                              className="btn"
-                              type="button"
-                              onClick={() => handleRemovePersonFromPromoteDraft(index)}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="small">Add additional team members here.</div>
-                  )}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                      gap: 8,
-                      alignItems: "end",
-                    }}
-                  >
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Name</div>
-                      <input
-                        className="input"
-                        value={promotePersonDraft.name}
-                        onChange={(event) =>
-                          setPromotePersonDraft((current) => ({
-                            ...current,
-                            name: event.target.value,
-                          }))
-                        }
-                        placeholder="Person name"
-                      />
-                    </div>
-                    <div>
-                      <div className="small" style={{ marginBottom: 6 }}>Email</div>
-                      <input
-                        className="input"
-                        value={promotePersonDraft.email}
-                        onChange={(event) =>
-                          setPromotePersonDraft((current) => ({
-                            ...current,
-                            email: event.target.value,
-                          }))
-                        }
-                        placeholder="person@email.com"
-                      />
-                    </div>
-                    <label className="small" style={{ display: "grid", gap: 6 }}>
-                      <span>Minor</span>
-                      <input
-                        type="checkbox"
-                        checked={promotePersonDraft.isMinor}
-                        onChange={(event) =>
-                          setPromotePersonDraft((current) => ({
-                            ...current,
-                            isMinor: event.target.checked,
-                            minorAge: event.target.checked ? current.minorAge : "",
-                          }))
-                        }
-                      />
-                    </label>
-                    {promotePersonDraft.isMinor ? (
-                      <div>
-                        <div className="small" style={{ marginBottom: 6 }}>Age</div>
-                        <input
-                          className="input"
-                          type="number"
-                          min="0"
-                          value={promotePersonDraft.minorAge}
-                          onChange={(event) =>
-                            setPromotePersonDraft((current) => ({
-                              ...current,
-                              minorAge: event.target.value,
-                            }))
-                          }
-                          placeholder="14"
-                        />
-                      </div>
-                    ) : null}
-                    <button className="btn" type="button" onClick={handleAddPersonToPromoteDraft}>
-                      Add Person
-                    </button>
-                  </div>
-                  {renderDuplicateNotice(promotePersonDuplicateInfo)}
-                </div>
-              </div>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Required Handoff Summary</div>
-                <textarea
-                  className="input"
-                  rows={4}
-                  value={promoteDraft.handoffSummary}
-                  onChange={(event) => setPromoteDraft((current) => ({ ...current, handoffSummary: event.target.value }))}
-                  placeholder="What does Leslee need to know right away?"
-                />
-              </div>
-              <div>
-                <div className="small" style={{ fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 8 }}>
-                  Lead Contact
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: 10,
-                }}
-              >
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>First Name</div>
-                  <input
-                    className="input"
-                    value={promoteDraft.firstName}
-                    onChange={(event) => setPromoteDraft((current) => ({ ...current, firstName: event.target.value }))}
-                  />
-                </div>
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Last Name</div>
-                  <input
-                    className="input"
-                    value={promoteDraft.lastName}
-                    onChange={(event) => setPromoteDraft((current) => ({ ...current, lastName: event.target.value }))}
-                  />
-                </div>
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Email</div>
-                  <input
-                    className="input"
-                    value={promoteDraft.email}
-                    onChange={(event) => setPromoteDraft((current) => ({ ...current, email: event.target.value }))}
-                  />
-                </div>
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Phone</div>
-                  <input
-                    className="input"
-                    value={promoteDraft.phone}
-                    onChange={(event) => setPromoteDraft((current) => ({ ...current, phone: event.target.value }))}
-                    placeholder="Phone number"
-                  />
-                </div>
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Gender</div>
-                  <select
-                    className="input"
-                    value={promoteDraft.gender}
-                    onChange={(event) => setPromoteDraft((current) => ({ ...current, gender: event.target.value }))}
-                  >
-                    <option value="">Not set</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-              <button className="btn btnPrimary" type="button" onClick={() => void handleConfirmPromote()}>
-                Save And Move To Potential Teams
-              </button>
-              <button className="btn" type="button" onClick={() => setPromoteModalOpen(false)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {contactActionModalOpen ? (
-        <div
-          className="appModalOverlay"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,.45)",
-            display: "grid",
-            placeItems: "center",
-            padding: 20,
-            zIndex: 50,
-          }}
-        >
-          <div className="card pad appModalCard" style={{ width: "min(520px, 100%)" }}>
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>
-                {formatContactActionLabel(contactActionDraft.actionType)}
-              </div>
-              <div className="spacer" />
-              <button className="btn" type="button" onClick={() => setContactActionModalOpen(false)}>
-                Close
-              </button>
-            </div>
-            <div style={{ display: "grid", gap: 10 }}>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Type</div>
-                <select
-                  className="input"
-                  value={contactActionDraft.actionType}
-                  onChange={(event) =>
-                    setContactActionDraft((current) => ({
-                      ...current,
-                      actionType: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="email">Email</option>
-                  <option value="call">Call</option>
-                  <option value="text">Text</option>
-                </select>
-              </div>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Date</div>
-                <input
-                  className="input"
-                  type="date"
-                  value={contactActionDraft.actionDate}
-                  onChange={(event) =>
-                    setContactActionDraft((current) => ({
-                      ...current,
-                      actionDate: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div>
-                <div className="small" style={{ marginBottom: 6 }}>Notes</div>
-                <textarea
-                  className="input"
-                  rows={4}
-                  value={contactActionDraft.summary}
-                  onChange={(event) =>
-                    setContactActionDraft((current) => ({
-                      ...current,
-                      summary: event.target.value,
-                    }))
-                  }
-                  placeholder="Add anything you want to remember"
-                />
-              </div>
-            </div>
-            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-              <button className="btn btnPrimary" type="button" onClick={() => void handleSaveContactAction()}>
-                {isSavingContactAction ? "Saving..." : "Save Contact"}
-              </button>
-              <button className="btn" type="button" onClick={() => setContactActionModalOpen(false)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {staffTaskModalOpen ? (
         <div
@@ -5425,7 +4005,7 @@ export default function RecruitingPage() {
             </div>
             <div className="small" style={{ marginBottom: 14, color: "var(--muted)" }}>
               Same layout as Edit. First and last name are required on the starred primary row; everything else is optional.
-              Search for registered workers on each roster row to link an existing profile. Log contact history after you save.
+              Search for registered workers on each roster row to link an existing profile.
             </div>
             {error ? (
               <div className="card pad" style={{ marginBottom: 14, color: "var(--danger)" }}>
@@ -5435,7 +4015,7 @@ export default function RecruitingPage() {
             <div style={{ display: "grid", gap: 16 }}>
               <RecruitingFormCard
                 title="Site, stage & timing"
-                subtitle="Choose which board this row belongs on, then fill site, stage, owner, and timing."
+                subtitle="Fill site, stage, owner, and timing."
               >
                 <div
                   style={{
@@ -5444,22 +4024,6 @@ export default function RecruitingPage() {
                     gap: 10,
                   }}
                 >
-                  <div>
-                    <div className="small" style={{ marginBottom: 6 }}>Add to board</div>
-                    <select
-                      className="input"
-                      value={newContactDraft.boardDestination}
-                      onChange={(event) =>
-                        setNewContactDraft((current) => ({
-                          ...current,
-                          boardDestination: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="outreach">Recruiting</option>
-                      <option value="potential">Potential Teams</option>
-                    </select>
-                  </div>
                   <div>
                     <div className="small" style={{ marginBottom: 6 }}>Stage</div>
                     <select
@@ -5712,7 +4276,7 @@ export default function RecruitingPage() {
 
               <RecruitingFormCard
                 title="Recruiting notes"
-                subtitle="Internal notes. After saving, open the row to log contact history."
+                subtitle="Internal notes for Mackayla and Leslee."
               >
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Mackayla notes</div>
@@ -5740,13 +4304,6 @@ export default function RecruitingPage() {
                 </div>
               </RecruitingFormCard>
 
-              <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
-                This row will be saved to{" "}
-                <strong>
-                  {newContactDraft.boardDestination === "potential" ? "Potential Teams" : "Recruiting"}
-                </strong>
-                .
-              </div>
               <div className="row" style={{ gap: 8, flexWrap: "wrap", paddingTop: 4 }}>
                 <button className="btn btnPrimary" type="button" onClick={handleCreateContact}>
                   Save recruiting row
@@ -5815,83 +4372,6 @@ export default function RecruitingPage() {
                 disabled={isFormingTeam}
               >
                 {isFormingTeam ? "Locking team..." : "Lock Team"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {bulkModalOpen ? (
-        <div
-          className="appModalOverlay"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,.45)",
-            display: "grid",
-            placeItems: "center",
-            padding: 20,
-            zIndex: 50,
-          }}
-        >
-          <div className="card pad appModalCard" style={{ width: "min(620px, 100%)" }}>
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>Bulk Action</div>
-              <div className="spacer" />
-              <button className="btn" type="button" onClick={() => setBulkModalOpen(false)}>
-                Close
-              </button>
-            </div>
-            <div style={{ display: "grid", gap: 10 }}>
-              <select className="input" value={bulkAction} onChange={(event) => setBulkAction(event.target.value)}>
-                {BULK_ACTION_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-              <div className="small">{bulkActionDescription}</div>
-              {showBulkDateField ? (
-                <input
-                  className="input"
-                  type="datetime-local"
-                  value={bulkDate}
-                  onChange={(event) => setBulkDate(event.target.value)}
-                />
-              ) : null}
-              {showBulkSummaryField ? (
-                <textarea
-                  className="input"
-                  rows={3}
-                  value={bulkSummary}
-                  onChange={(event) => setBulkSummary(event.target.value)}
-                  placeholder={bulkAction === "delete" ? "Optional note for this delete" : "Summary / note"}
-                />
-              ) : null}
-              {showBulkStageField ? (
-                <select className="input" value={bulkStage} onChange={(event) => setBulkStage(event.target.value)}>
-                  <option value="">Choose stage</option>
-                  {RECRUITING_STAGES.map((stage) => (
-                    <option key={stage.value} value={stage.value}>{stage.label}</option>
-                  ))}
-                </select>
-              ) : null}
-              {showBulkFollowUpField ? (
-                <input
-                  className="input"
-                  type="date"
-                  value={bulkNextFollowUp}
-                  onChange={(event) => setBulkNextFollowUp(event.target.value)}
-                />
-              ) : null}
-              {showBulkAssignedToField ? (
-                <select className="input" value={bulkAssignedTo} onChange={(event) => setBulkAssignedTo(event.target.value)}>
-                  <option value="">Choose owner</option>
-                  {OWNER_OPTIONS.map((owner) => (
-                    <option key={owner} value={owner}>{owner}</option>
-                  ))}
-                </select>
-              ) : null}
-              <button className="btn btnPrimary" type="button" onClick={handleBulkActionSubmit}>
-                Apply to {selectedIds.length} contacts
               </button>
             </div>
           </div>
