@@ -26,6 +26,7 @@ import {
   saveRecruitingCycleContact,
 } from "@/lib/recruitingCycles";
 import { buildSiteLabelsOrdered, resolveEffectiveSiteHostName } from "@/lib/siteMaterials";
+import { sendTeamLockStaffNotify, buildTeamLockNotifyPayload } from "@/lib/teamLockNotify";
 import { listSiteBudgetNotes } from "@/lib/tripBudget";
 import { listTripTeamMembersForDuplicateCheck } from "@/lib/tripTeamMembers";
 import { saveStaffMiscTask } from "@/lib/staffTasks";
@@ -2860,11 +2861,46 @@ export default function RecruitingPage() {
       setFormTeamModalOpen(false);
       handleChangeTab("converted");
       setSelectedRecordId(result?.record?.id || selectedRecord.id);
-      setPageStatus(
+
+      let statusMessage =
         result?.status === "already_converted"
           ? "Trip already added. Moved to Locked Teams."
-          : "Trip added. Moved to Locked Teams."
-      );
+          : "Trip added. Moved to Locked Teams.";
+
+      if (result?.status === "converted" && result?.trip?.id) {
+        try {
+          const notifyResult = await sendTeamLockStaffNotify(
+            buildTeamLockNotifyPayload({
+              tripId: result.trip.id,
+              teamName: teamFormDraft.name,
+              site: teamFormDraft.location,
+              host: teamFormDraft.host,
+              teamDeveloper: selectedRecord.assignedTo || "",
+              projectLengthSummary: teamFormDraft.projectLengthSummary,
+              startDate: teamFormDraft.startDate,
+              endDate: teamFormDraft.endDate,
+              teamMembers: teamFormDraft.teamMembers,
+              extraTravelStatus: teamFormDraft.extraTravelStatus,
+              fundraisingGoalAmount: teamFormDraft.fundraisingGoalAmount,
+              tripFeeAmount: teamFormDraft.tripFeeAmount,
+              materialsFeeAmount: teamFormDraft.materialsFeeAmount,
+              hannoverHousingFeeAmount: teamFormDraft.hannoverHousingFeeAmount,
+              mackaylaNotes: teamFormDraft.mackaylaNotes,
+              lesleeNotes: teamFormDraft.lesleeNotes,
+            })
+          );
+          if (notifyResult?.email?.sent) {
+            statusMessage += " Staff lock email sent.";
+          } else if (notifyResult?.email?.reason === "missing_team_lock_notify_email") {
+            statusMessage += " (Set TEAM_LOCK_NOTIFY_EMAIL to send staff lock email.)";
+          }
+        } catch (notifyError) {
+          console.warn("Team locked but staff notification email failed", notifyError);
+          statusMessage += " Trip saved; staff lock email did not send.";
+        }
+      }
+
+      setPageStatus(statusMessage);
     } catch (error) {
       console.error("Unable to lock team", error);
       setError(error.message || "Unable to lock team.");

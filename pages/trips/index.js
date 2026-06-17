@@ -25,6 +25,7 @@ import {
   resolveEffectiveSiteHostName,
 } from "@/lib/siteMaterials";
 import { listSiteBudgetNotes } from "@/lib/tripBudget";
+import { buildTeamLockNotifyPayload, sendTeamLockStaffNotify } from "@/lib/teamLockNotify";
 import { listStaffTripMetrics } from "@/lib/staffOverview";
 import {
   DEFAULT_TRAINING_TIMELINE_TYPE,
@@ -540,6 +541,35 @@ export default function Trips() {
       }
 
       const trip = await createTripForCurrentUser(tripDraft);
+
+      try {
+        const notifyResult = await sendTeamLockStaffNotify(
+          buildTeamLockNotifyPayload({
+            tripId: trip.id,
+            teamName: tripDraft.name,
+            site: tripDraft.location,
+            host: tripDraft.host,
+            teamDeveloper: session?.name || "",
+            projectLengthSummary: tripDraft.projectLengthSummary,
+            startDate: tripDraft.startDate,
+            endDate: tripDraft.endDate,
+            teamMembers: tripDraft.teamMembers,
+            extraTravelStatus: tripDraft.extraTravelStatus,
+            fundraisingGoalAmount: tripDraft.fundraisingGoalAmount,
+            tripFeeAmount: tripDraft.tripFeeAmount,
+            materialsFeeAmount: tripDraft.materialsFeeAmount,
+            hannoverHousingFeeAmount: tripDraft.hannoverHousingFeeAmount,
+            mackaylaNotes: "",
+            lesleeNotes: "",
+          })
+        );
+        if (notifyResult?.email?.sent) {
+          showToast("Trip created. Staff lock email sent.", "success");
+        }
+      } catch (notifyError) {
+        console.warn("Trip created but staff lock email failed", notifyError);
+      }
+
       handleCancelTripForm();
       router.push(`/trips/${trip.id}`);
     } catch (error) {
