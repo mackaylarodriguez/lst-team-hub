@@ -1364,6 +1364,20 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-size:12px;
   padding:6px 8px;
 }
+.recruitingOutreachLogControls{
+  width:50%;
+  min-width:0;
+}
+.recruitingOutreachActionsCell{
+  display:grid;
+  gap:8px;
+  align-content:start;
+}
+.recruitingOutreachEditBtn{
+  width:50%;
+  min-width:0;
+  justify-self:start;
+}
 .recruitingOutreachLastCellMobile{
   margin-bottom:4px;
 }

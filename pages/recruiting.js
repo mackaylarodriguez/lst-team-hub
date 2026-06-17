@@ -143,8 +143,8 @@ const RECRUITING_OUTREACH_LIST_COL_PCT = {
   project: "12%",
   mackayla: "22%",
   leslee: "22%",
-  lastContact: "14%",
-  actions: "14%",
+  lastContact: "16%",
+  actions: "10%",
 };
 
 const OUTREACH_SORT_OPTIONS = [
@@ -3001,37 +3001,6 @@ export default function RecruitingPage() {
     }
   }
 
-  async function handleLogOutreachContact(record, actionType, dateInput) {
-    if (!record?.id || !session) return;
-    const dateStr =
-      String(dateInput || "").trim() ||
-      lastContactDateInputValue(record) ||
-      new Date().toISOString().slice(0, 10);
-    try {
-      setLoggingOutreachRecordId(record.id);
-      await logRecruitingCycleContactAction({
-        record,
-        actionType,
-        actionDate: parseLastContactActionDate(dateStr),
-        staffMember: session?.name || session?.email || "Staff",
-        summary: "",
-        stage: ["email", "call", "text"].includes(actionType)
-          ? Math.max(record.stage, 1)
-          : undefined,
-      });
-      setError("");
-      setPageStatus("Contact saved.");
-      showToast(`${formatOutreachContactMethod(actionType)} saved.`, "success");
-      await refreshCurrentYear();
-    } catch (logError) {
-      console.error("Unable to log outreach contact", logError);
-      setError(logError.message || "Unable to log contact.");
-      showToast(logError.message || "Unable to log contact.", "error");
-    } finally {
-      setLoggingOutreachRecordId("");
-    }
-  }
-
   async function handleImportFileChange(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -3085,6 +3054,41 @@ export default function RecruitingPage() {
           </li>
         ))}
       </ul>
+    );
+  }
+
+  function renderOutreachContactLogControls(record, lastContactMethod, lastContactDate, isLogging) {
+    return (
+      <div className="recruitingOutreachLogControls recruitingOutreachLastCell">
+        <select
+          className="input recruitingOutreachLastMethodSelect"
+          value={lastContactMethod}
+          disabled={isLogging}
+          onChange={(event) =>
+            void handleSaveLastContact(
+              record,
+              event.target.value,
+              lastContactDate || new Date().toISOString().slice(0, 10)
+            )
+          }
+        >
+          <option value="">—</option>
+          <option value="email">Emailed</option>
+          <option value="call">Called</option>
+          <option value="text">Texted</option>
+        </select>
+        <input
+          className="input recruitingOutreachLastDateInput"
+          type="date"
+          value={lastContactDate}
+          disabled={isLogging}
+          onChange={(event) => {
+            const nextDate = event.target.value;
+            if (!nextDate) return;
+            void handleSaveLastContact(record, lastContactMethod || "email", nextDate);
+          }}
+        />
+      </div>
     );
   }
 
@@ -3188,93 +3192,21 @@ export default function RecruitingPage() {
                       style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.lastContact, verticalAlign: "top" }}
                       onClick={(event) => event.stopPropagation()}
                     >
-                      <div className="recruitingOutreachLastCellWrap">
-                        <div className="recruitingOutreachLastCell">
-                          <select
-                            className="input recruitingOutreachLastMethodSelect"
-                            value={lastContactMethod}
-                            disabled={isLogging}
-                            onChange={(event) =>
-                              void handleSaveLastContact(
-                                record,
-                                event.target.value,
-                                lastContactDate || new Date().toISOString().slice(0, 10)
-                              )
-                            }
-                          >
-                            <option value="">—</option>
-                            <option value="email">Emailed</option>
-                            <option value="call">Called</option>
-                            <option value="text">Texted</option>
-                          </select>
-                          <input
-                            className="input recruitingOutreachLastDateInput"
-                            type="date"
-                            value={lastContactDate}
-                            disabled={isLogging}
-                            onChange={(event) => {
-                              const nextDate = event.target.value;
-                              if (!nextDate) return;
-                              void handleSaveLastContact(
-                                record,
-                                lastContactMethod || "email",
-                                nextDate
-                              );
-                            }}
-                          />
-                        </div>
-                        {renderOutreachRecentContacts(record.id)}
-                      </div>
+                      {renderOutreachRecentContacts(record.id)}
                     </td>
                     <td
                       style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.actions, verticalAlign: "top" }}
                       onClick={(event) => event.stopPropagation()}
                     >
-                      <div className="row recruitingActionRow recruitingFitActionRow recruitingOutreachActionRow">
+                      <div className="recruitingOutreachActionsCell">
+                        {renderOutreachContactLogControls(
+                          record,
+                          lastContactMethod,
+                          lastContactDate,
+                          isLogging
+                        )}
                         <button
-                          className="btn"
-                          type="button"
-                          disabled={isLogging}
-                          onClick={() =>
-                            void handleLogOutreachContact(
-                              record,
-                              "email",
-                              lastContactDate || undefined
-                            )
-                          }
-                        >
-                          Email
-                        </button>
-                        <button
-                          className="btn"
-                          type="button"
-                          disabled={isLogging}
-                          onClick={() =>
-                            void handleLogOutreachContact(
-                              record,
-                              "text",
-                              lastContactDate || undefined
-                            )
-                          }
-                        >
-                          Text
-                        </button>
-                        <button
-                          className="btn"
-                          type="button"
-                          disabled={isLogging}
-                          onClick={() =>
-                            void handleLogOutreachContact(
-                              record,
-                              "call",
-                              lastContactDate || undefined
-                            )
-                          }
-                        >
-                          Call
-                        </button>
-                        <button
-                          className="btn btnPrimary"
+                          className="btn btnPrimary recruitingOutreachEditBtn"
                           type="button"
                           onClick={() => void openRecordDetails(record.id)}
                         >
@@ -3355,79 +3287,17 @@ export default function RecruitingPage() {
                 />
               </div>
               <div className="small" style={{ marginTop: 10, fontWeight: 700 }}>Last contact</div>
-              <div
-                className="recruitingOutreachLastCellWrap"
-                style={{ marginTop: 4 }}
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="recruitingOutreachLastCell recruitingOutreachLastCellMobile">
-                  <select
-                    className="input recruitingOutreachLastMethodSelect"
-                    value={lastContactMethod}
-                    disabled={isLogging}
-                    onChange={(event) =>
-                      void handleSaveLastContact(
-                        record,
-                        event.target.value,
-                        lastContactDate || new Date().toISOString().slice(0, 10)
-                      )
-                    }
-                  >
-                    <option value="">—</option>
-                    <option value="email">Emailed</option>
-                    <option value="call">Called</option>
-                    <option value="text">Texted</option>
-                  </select>
-                  <input
-                    className="input recruitingOutreachLastDateInput"
-                    type="date"
-                    value={lastContactDate}
-                    disabled={isLogging}
-                    onChange={(event) => {
-                      const nextDate = event.target.value;
-                      if (!nextDate) return;
-                      void handleSaveLastContact(
-                        record,
-                        lastContactMethod || "email",
-                        nextDate
-                      );
-                    }}
-                  />
-                </div>
+              <div style={{ marginTop: 4 }} onClick={(event) => event.stopPropagation()}>
                 {renderOutreachRecentContacts(record.id)}
               </div>
-              <div className="recruitingMobileActions" onClick={(event) => event.stopPropagation()}>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={isLogging}
-                  onClick={() =>
-                    void handleLogOutreachContact(record, "email", lastContactDate || undefined)
-                  }
-                >
-                  Email
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={isLogging}
-                  onClick={() =>
-                    void handleLogOutreachContact(record, "text", lastContactDate || undefined)
-                  }
-                >
-                  Text
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={isLogging}
-                  onClick={() =>
-                    void handleLogOutreachContact(record, "call", lastContactDate || undefined)
-                  }
-                >
-                  Call
-                </button>
-                <button className="btn btnPrimary" type="button" onClick={() => void openRecordDetails(record.id)}>
+              <div className="recruitingMobileActions recruitingOutreachActionsCell" onClick={(event) => event.stopPropagation()}>
+                {renderOutreachContactLogControls(
+                  record,
+                  lastContactMethod,
+                  lastContactDate,
+                  isLogging
+                )}
+                <button className="btn btnPrimary recruitingOutreachEditBtn" type="button" onClick={() => void openRecordDetails(record.id)}>
                   Edit
                 </button>
               </div>
