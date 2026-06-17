@@ -241,7 +241,6 @@ function buildBudgetCheckMiscTaskNotes({
   tripName,
   teamNameSnap,
   accountantSnap,
-  budgetAmtSnap,
   amountRequested,
   note,
   requesterLine,
@@ -251,7 +250,6 @@ function buildBudgetCheckMiscTaskNotes({
     `Trip: ${tn || tripId}`,
     teamNameSnap ? `Team name: ${teamNameSnap}` : null,
     accountantSnap ? `Team accountant: ${accountantSnap}` : null,
-    budgetAmtSnap ? `Budget amount on file: ${budgetAmtSnap}` : null,
     `Check amount requested: ${amountRequested}`,
     note ? `Note from staff: ${note}` : null,
     requesterLine ? `Requested by: ${requesterLine}` : null,
@@ -318,7 +316,6 @@ export default async function handler(req, res) {
       tripName,
       teamNameSnap,
       accountantSnap,
-      budgetAmtSnap,
       amountRequested,
       note,
       requesterLine,
@@ -409,7 +406,6 @@ export default async function handler(req, res) {
         <li><strong>Trip:</strong> ${escapeHtml(tripName || tripId)}</li>
         ${teamNameSnap ? `<li><strong>Team:</strong> ${escapeHtml(teamNameSnap)}</li>` : ""}
         ${accountantSnap ? `<li><strong>Accountant:</strong> ${escapeHtml(accountantSnap)}</li>` : ""}
-        ${budgetAmtSnap ? `<li><strong>Budget on file:</strong> ${escapeHtml(budgetAmtSnap)}</li>` : ""}
         <li><strong>Check amount:</strong> ${escapeHtml(amountRequested)}</li>
         ${note ? `<li><strong>Note:</strong> ${escapeHtml(note)}</li>` : ""}
       </ul>
@@ -494,7 +490,6 @@ export default async function handler(req, res) {
         tripName: tripNameSnap,
         teamNameSnap: normalizeText(existing.team_name_snapshot),
         accountantSnap: normalizeText(existing.team_accountant_snapshot),
-        budgetAmtSnap: normalizeText(existing.budget_amount_snapshot),
         amountRequested,
         note,
         requesterLine,
