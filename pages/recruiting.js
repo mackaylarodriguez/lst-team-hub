@@ -4,23 +4,15 @@ import EmptyState from "@/components/EmptyState";
 import { showToast } from "@/components/Toast";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as XLSX from "xlsx";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole, isStaffRole } from "@/lib/roles";
 import {
   RECRUITING_STAGES,
   RECRUITING_UPDATED_EVENT,
-  bulkUpdateRecruitingCycleContacts,
   convertRecruitingCycleRecordToTrip,
   deleteRecruitingCycleContact,
   getRecruitingStageLabel,
-  importRecruitingContacts,
-  listRecruitingActivityLogs,
-  listRecruitingContactActivityByIds,
-  listLatestRecruitingActivityByIds,
   listRecruitingCycleContacts,
-  listRecruitingYears,
-  logRecruitingActivity,
   logRecruitingCycleContactAction,
   revertRecruitingLockedTeam,
   saveRecruitingCycleContact,
@@ -99,14 +91,12 @@ function ignoreTripIdsForConvertedRecruitingRecord(record) {
 
 function getWorkflowBoardLabel(record) {
   if (record?.isConvertedToTeam) return "Locked Teams";
-  if (record?.isPotentialTeam) return "Potential Teams";
-  return "Recruiting";
+  return "Potential Teams";
 }
 
-/** Tab id for `activeTab` — must stay aligned with outreachQueue / pipelineRecords / convertedTeams splits. */
+/** Tab id for `activeTab` — aligned with pipelineRecords / convertedTeams splits. */
 function recruitingBoardTabForRecord(record) {
   if (record?.isConvertedToTeam) return "converted";
-  if (!record?.isPotentialTeam && Number(record?.stage) <= 1) return "outreach";
   return "potential";
 }
 
@@ -116,7 +106,9 @@ function joinLabels(labels) {
   return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
 }
 
-const RECRUITING_BOARD_SORT = ["Recruiting", "Potential Teams", "Locked Teams"];
+const RECRUITING_BOARD_SORT = ["Potential Teams", "Locked Teams"];
+
+const CURRENT_RECRUITING_YEAR = new Date().getFullYear();
 
 /** Desktop board tables: percent widths (sum 100%). Team is 8% on every tab; notes columns are largest. */
 const RECRUITING_OUTREACH_COL_PCT = {
@@ -1314,7 +1306,7 @@ function RecruitingBoardCopyRowButton({ record }) {
 const ROSTER_BOARD_PREVIEW_COUNT = 4;
 
 /** Roster column for board tables: name + email + phone under email when present; “See more” when more than four people. */
-function RecruitingRosterBoardColumn({ record }) {
+function RecruitingRosterBoardColumn({ record, showGender = true }) {
   const [expanded, setExpanded] = useState(false);
   const draft = buildTeamFormDraft(record);
   const members = draft.teamMembers?.length ? draft.teamMembers : [];
@@ -1344,7 +1336,7 @@ function RecruitingRosterBoardColumn({ record }) {
             {phone ? (
               <div className={`recruitingRosterChartPhone${member.email ? "" : " isRosterPhoneOnly"}`}>{phone}</div>
             ) : null}
-            {gender ? <div className="recruitingRosterChartGender">{gender}</div> : null}
+            {showGender && gender ? <div className="recruitingRosterChartGender">{gender}</div> : null}
           </div>
         );
       })}
@@ -1409,13 +1401,7 @@ function formatPreviousContactLabel(entry) {
   return `${formatContactActionLabel(entry?.actionType) || "Contacted"} previously`;
 }
 
-function formatRecruitingUpdateMeta(record, latestActivity) {
-  if (latestActivity?.staffMember || latestActivity?.actionDate) {
-    const dateLabel = formatCompactDateTime(latestActivity.actionDate || latestActivity.createdAt);
-    const staffLabel = latestActivity.staffMember || "Staff";
-    return dateLabel ? `Updated by ${staffLabel} • ${dateLabel}` : `Updated by ${staffLabel}`;
-  }
-
+function formatRecruitingUpdateMeta(record) {
   if (record?.updatedAt) {
     const dateLabel = formatCompactDateTime(record.updatedAt);
     return dateLabel ? `Updated ${dateLabel}` : "Updated recently";
@@ -1466,200 +1452,6 @@ function normalizeHeader(value) {
     .replace(/[^a-z0-9]/g, "");
 }
 
-function cellImportValue(value) {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "boolean") return "";
-  return String(value).trim();
-}
-
-function normalizeImportedGender(value) {
-  const normalized = cellImportValue(value);
-  const compact = normalized.toLowerCase().replace(/[^a-z]/g, "");
-  if (!compact) return "";
-  if (compact === "f" || compact === "fem" || compact === "female" || compact === "woman" || compact === "girl") {
-    return "Female";
-  }
-  if (compact === "m" || compact === "mal" || compact === "male" || compact === "man" || compact === "boy") {
-    return "Male";
-  }
-  return normalized;
-}
-
-function isNonGenderImportColumn(headerKey) {
-  const key = String(headerKey || "").toLowerCase();
-  if (!key) return true;
-  return (
-    key.includes("email") ||
-    key.includes("note") ||
-    key.includes("year") ||
-    key.includes("firstname") ||
-    key === "first" ||
-    key.includes("fname") ||
-    key.includes("givenname") ||
-    key.includes("lastname") ||
-    key === "last" ||
-    key.includes("lname") ||
-    key.includes("surname")
-  );
-}
-
-function summarizeImportPreviewRows(rows) {
-  const list = rows || [];
-  const candidateRows = list.filter(
-    (row) => String(row?.firstName || "").trim() || String(row?.lastName || "").trim() || String(row?.email || "").trim()
-  );
-  const importableRows = candidateRows.filter((row) => String(row?.email || "").trim());
-  const ignoredRows = candidateRows.length - importableRows.length;
-  return {
-    totalRows: list.length,
-    importableCount: importableRows.length,
-    ignoredCount: ignoredRows,
-  };
-}
-
-function resolveImportedGender(values) {
-  const fromNamedColumn = normalizeImportedGender(
-    cellImportValue(values.gender) ||
-      findImportedColumnValue(values, {
-        exactKeys: [
-          "gender",
-          "genders",
-          "gen",
-          "g",
-          "sex",
-          "mf",
-          "fm",
-          "morf",
-          "mof",
-          "fom",
-          "genderidentity",
-          "maleorfemale",
-          "malefemale",
-        ],
-        includesKeys: ["gender", "sex", "malefemale", "maleorfemale", "malefem", "femal", "mal"],
-      })
-  );
-  if (fromNamedColumn === "Female" || fromNamedColumn === "Male") {
-    return fromNamedColumn;
-  }
-
-  for (const [key, rawValue] of Object.entries(values || {})) {
-    if (isNonGenderImportColumn(key)) continue;
-    const normalized = normalizeImportedGender(rawValue);
-    if (normalized === "Female" || normalized === "Male") {
-      return normalized;
-    }
-  }
-
-  return fromNamedColumn;
-}
-
-function findImportedColumnValue(values, config) {
-  const entries = Object.entries(values || {});
-
-  for (const key of config.exactKeys || []) {
-    const match = entries.find(([entryKey, entryValue]) => entryKey === key && String(entryValue || "").trim());
-    if (match) return match[1];
-  }
-
-  for (const includesKey of config.includesKeys || []) {
-    const match = entries.find(([entryKey, entryValue]) =>
-      entryKey.includes(includesKey) && String(entryValue || "").trim()
-    );
-    if (match) return match[1];
-  }
-
-  return "";
-}
-
-function normalizeImportedEmail(value) {
-  const normalized = String(value || "").trim();
-  if (!normalized) return "";
-  const emailMatch = normalized.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-  return normalizeEmailValue(emailMatch ? emailMatch[0] : normalized);
-}
-
-function normalizeImportedRecruitingYear(value) {
-  const normalized = String(value || "").trim();
-  if (!normalized) return 2026;
-  const yearMatch = normalized.match(/(?:20)?(26|27)/);
-  const parsed = Number(yearMatch ? yearMatch[1] : normalized);
-  if (parsed === 27) return 2027;
-  if (parsed === 26) return 2026;
-  return parsed === 2027 ? 2027 : 2026;
-}
-
-function parseImportRows(file) {
-  return file.arrayBuffer().then((buffer) => {
-    const workbook = XLSX.read(buffer, { type: "array" });
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(worksheet, {
-      header: 1,
-      defval: "",
-      blankrows: false,
-      raw: false,
-    });
-
-    if (!rows.length) return [];
-
-    const headerRow = rows[0].map((value) => normalizeHeader(value));
-    const dataRows = rows.slice(1);
-
-    return dataRows.map((row) => {
-      const values = Object.fromEntries(
-        headerRow.map((header, index) => [
-          header || `col${index}`,
-          cellImportValue(row[index]),
-        ])
-      );
-      const recruitingYear = normalizeImportedRecruitingYear(
-        findImportedColumnValue(values, {
-          exactKeys: ["year", "years", "yr", "recruitingyear", "recruitingcycleyear", "chartyear", "boardyear"],
-          includesKeys: ["year", "chart", "board"],
-        })
-      );
-      const importedEmail = normalizeImportedEmail(
-        findImportedColumnValue(values, {
-          exactKeys: [
-            "email",
-            "emails",
-            "emailaddress",
-            "emailaddresses",
-            "primaryemail",
-            "emailid",
-          ],
-          includesKeys: ["email", "mail"],
-        })
-      );
-      const importedGender = resolveImportedGender(values);
-
-      return {
-        firstName: cellImportValue(
-          values.firstname ||
-            values.first ||
-            findImportedColumnValue(values, {
-              exactKeys: ["firstname", "first", "fname", "givenname"],
-              includesKeys: ["firstname", "first", "fname", "given"],
-            })
-        ),
-        lastName: cellImportValue(
-          values.lastname ||
-            values.last ||
-            findImportedColumnValue(values, {
-              exactKeys: ["lastname", "last", "lname", "surname", "familyname"],
-              includesKeys: ["lastname", "last", "lname", "surname", "family"],
-            })
-        ),
-        email: importedEmail,
-        gender: importedGender,
-        recruitingYear,
-        mackaylaNotes: cellImportValue(values.mackaylanotes || values.mackaylanote || ""),
-        lesleeNotes: cellImportValue(values.lesleenotes || values.lesleenote || ""),
-      };
-    });
-  });
-}
-
 const DEFAULT_FILTER_CONFIG = {
   searchQuery: "",
   stage: "",
@@ -1670,28 +1462,12 @@ const DEFAULT_FILTER_CONFIG = {
 
 const TABLE_FONT_SIZES = ["small", "medium", "large"];
 
-const BULK_ACTION_OPTIONS = [
-  { value: "bulk email", label: "Mark Bulk Email Sent" },
-  { value: "bulk text", label: "Mark Bulk Text Sent" },
-  { value: "bulk note", label: "Add Bulk Note" },
-  { value: "follow up", label: "Set Next Follow-Up Date" },
-  { value: "assign", label: "Assign To Staff Member" },
-  { value: "stage", label: "Change Stage" },
-  { value: "move_2027", label: "Move To 2027" },
-  { value: "delete", label: "Delete Selected" },
-];
-
 const RECRUITING_TABS = [
-  { id: "outreach", label: "Recruiting" },
   { id: "potential", label: "Potential Teams" },
   { id: "converted", label: "Locked Teams" },
 ];
 
 const RECRUITING_TAB_META = {
-  outreach: {
-    description: "First touches, follow-up, and early interest.",
-    toneClass: "recruitingBoardTab recruitingBoardTabOutreach",
-  },
   potential: {
     description: "Qualified teams moving toward formation.",
     toneClass: "recruitingBoardTab recruitingBoardTabPotential",
@@ -1701,8 +1477,6 @@ const RECRUITING_TAB_META = {
     toneClass: "recruitingBoardTab recruitingBoardTabConverted",
   },
 };
-
-const NEXT_RECRUITING_YEAR = 2027;
 
 const PRIMARY_OWNER = "Mackayla";
 const BOSS_OWNER = "Leslee";
@@ -1738,7 +1512,7 @@ function buildMackaylaNotes(baseNotes, handoffSummary) {
 
 function createEmptyNewContactDraft() {
   return {
-    boardDestination: "outreach",
+    boardDestination: "potential",
     teamName: "",
     rosterRows: [emptyRosterPerson()],
     assignedTo: PRIMARY_OWNER,
@@ -1953,15 +1727,9 @@ export default function RecruitingPage() {
   const [session, setSession] = useState(null);
   const [registeredWorkers, setRegisteredWorkers] = useState([]);
   const [workersLoadError, setWorkersLoadError] = useState("");
-  const [years, setYears] = useState([]);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [records, setRecords] = useState([]);
   const [tripTeamMembers, setTripTeamMembers] = useState([]);
   const [siteBudgetNotes, setSiteBudgetNotes] = useState([]);
-  const [historyByRecordId, setHistoryByRecordId] = useState({});
-  const [historyLoadingByRecordId, setHistoryLoadingByRecordId] = useState({});
-  const [latestActivityByRecordId, setLatestActivityByRecordId] = useState({});
-  const [contactActivityByRecordId, setContactActivityByRecordId] = useState({});
   const [error, setError] = useState("");
   const [pageStatus, setPageStatus] = useState("");
   const [isFormingTeam, setIsFormingTeam] = useState(false);
@@ -1970,35 +1738,18 @@ export default function RecruitingPage() {
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   /** Default matches trip Staff Tasks body (13px); use floating +/- for medium/large. */
   const [tableFontSize, setTableFontSize] = useState("small");
-  const [activeTab, setActiveTab] = useState("outreach");
+  const [activeTab, setActiveTab] = useState("potential");
   const [selectedRecordId, setSelectedRecordId] = useState("");
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [expandedContactHistoryById, setExpandedContactHistoryById] = useState({});
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [newContactDraft, setNewContactDraft] = useState(() => createEmptyNewContactDraft());
-  const [importModalOpen, setImportModalOpen] = useState(false);
-  const [importPreviewRows, setImportPreviewRows] = useState([]);
-  const [importDestination, setImportDestination] = useState("outreach");
-  const [importSummary, setImportSummary] = useState("");
-  const [importDuplicates, setImportDuplicates] = useState([]);
-  const [bulkModalOpen, setBulkModalOpen] = useState(false);
-  const [bulkAction, setBulkAction] = useState("bulk email");
-  const [bulkDate, setBulkDate] = useState(new Date().toISOString().slice(0, 16));
-  const [bulkSummary, setBulkSummary] = useState("");
-  const [bulkStage, setBulkStage] = useState("");
-  const [bulkNextFollowUp, setBulkNextFollowUp] = useState("");
-  const [bulkAssignedTo, setBulkAssignedTo] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [confirmingDeleteRecordId, setConfirmingDeleteRecordId] = useState("");
   const [deletingRecordId, setDeletingRecordId] = useState("");
   const [unlockingLockedTeamRecordId, setUnlockingLockedTeamRecordId] = useState("");
-  const [contactActionModalOpen, setContactActionModalOpen] = useState(false);
-  const [isSavingContactAction, setIsSavingContactAction] = useState(false);
   const [staffTaskModalOpen, setStaffTaskModalOpen] = useState(false);
   const [isSavingStaffTask, setIsSavingStaffTask] = useState(false);
   const [promoteModalOpen, setPromoteModalOpen] = useState(false);
   const [recordDetailsModalOpen, setRecordDetailsModalOpen] = useState(false);
-  const [recordDetailsMode, setRecordDetailsMode] = useState("details");
   const [promoteDraft, setPromoteDraft] = useState(() => buildPromoteDraft(null));
   const [promotePersonDraft, setPromotePersonDraft] = useState({ name: "", email: "", isMinor: false, minorAge: "" });
   const [formTeamModalOpen, setFormTeamModalOpen] = useState(false);
@@ -2007,21 +1758,12 @@ export default function RecruitingPage() {
   const [potentialTeamEditDraft, setPotentialTeamEditDraft] = useState(() => buildTeamFormDraft(null));
   const [potentialEditShowMemberTripDates, setPotentialEditShowMemberTripDates] = useState(false);
   const potentialEditSnapshotKey = useRef("");
-  const [contactActionDraft, setContactActionDraft] = useState({
-    recordId: "",
-    actionType: "email",
-    actionDate: new Date().toISOString().slice(0, 10),
-    summary: "",
-  });
   const [staffTaskDraft, setStaffTaskDraft] = useState({
     recordId: "",
     taskName: "",
     dueDate: "",
     notes: "",
   });
-  const importInputRef = useRef(null);
-  const historyCacheRef = useRef({});
-  const loadingHistoryRef = useRef({});
 
   function normalizeTeamNameKey(value) {
     return String(value || "")
@@ -2060,9 +1802,8 @@ export default function RecruitingPage() {
   }
 
   useEffect(() => {
-    const useLockStyleEdit =
-      activeTab === "potential" || activeTab === "outreach";
-    if (!recordDetailsModalOpen || recordDetailsMode !== "details" || !useLockStyleEdit) {
+    const useLockStyleEdit = activeTab === "potential";
+    if (!recordDetailsModalOpen || !useLockStyleEdit) {
       potentialEditSnapshotKey.current = "";
       return;
     }
@@ -2073,7 +1814,7 @@ export default function RecruitingPage() {
     potentialEditSnapshotKey.current = snap;
     setPotentialTeamEditDraft(buildTeamFormDraft(rec));
     setPotentialEditShowMemberTripDates(Boolean(rec.pendingLockTeamSetup?.showMemberTripDates));
-  }, [recordDetailsModalOpen, recordDetailsMode, activeTab, selectedRecordId, records]);
+  }, [recordDetailsModalOpen, activeTab, selectedRecordId, records]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2125,41 +1866,16 @@ export default function RecruitingPage() {
   useEffect(() => {
     if (!session) return;
 
-    async function loadYears() {
-      try {
-        const nextYears = await listRecruitingYears();
-        setYears(nextYears);
-        if (!nextYears.includes(selectedYear)) {
-          setSelectedYear(nextYears[0] || new Date().getFullYear());
-        }
-      } catch (loadError) {
-        console.error("Unable to load recruiting years", loadError);
-        setError(loadError.message || "Unable to load recruiting years.");
-      }
-    }
-
-    void loadYears();
-  }, [selectedYear, session]);
-
-  useEffect(() => {
-    if (!session || !selectedYear) return;
-
     async function loadRecruitingData() {
       try {
         const [nextRecords, nextTripTeamMembers, nextSiteNotes] = await Promise.all([
-          listRecruitingCycleContacts(selectedYear),
+          listRecruitingCycleContacts(CURRENT_RECRUITING_YEAR),
           listTripTeamMembersForDuplicateCheck(),
           listSiteBudgetNotes(),
-        ]);
-        const [nextLatestActivity, nextContactActivity] = await Promise.all([
-          listLatestRecruitingActivityByIds(nextRecords.map((record) => record.id)),
-          listRecruitingContactActivityByIds(nextRecords.map((record) => record.id)),
         ]);
         setRecords(nextRecords);
         setTripTeamMembers(nextTripTeamMembers);
         setSiteBudgetNotes(nextSiteNotes);
-        setLatestActivityByRecordId(nextLatestActivity);
-        setContactActivityByRecordId(nextContactActivity);
         setError("");
       } catch (loadError) {
         console.error("Unable to load recruiting records", loadError);
@@ -2177,20 +1893,7 @@ export default function RecruitingPage() {
     return () => {
       window.removeEventListener(RECRUITING_UPDATED_EVENT, handleRecruitingUpdate);
     };
-  }, [selectedYear, session]);
-
-  useEffect(() => {
-    historyCacheRef.current = historyByRecordId;
-  }, [historyByRecordId]);
-
-  useEffect(() => {
-    historyCacheRef.current = {};
-    loadingHistoryRef.current = {};
-    setHistoryByRecordId({});
-    setHistoryLoadingByRecordId({});
-    setLatestActivityByRecordId({});
-    setContactActivityByRecordId({});
-  }, [selectedYear]);
+  }, [session]);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -2289,18 +1992,8 @@ export default function RecruitingPage() {
     });
   }, [activeFilterId, filterConfig, records, tripTeamMembers]);
 
-  const outreachQueue = useMemo(
-    () =>
-      baseFilteredRecords.filter(
-        (record) => !record.isConvertedToTeam && !record.isPotentialTeam && record.stage <= 1
-      ),
-    [baseFilteredRecords]
-  );
   const pipelineRecords = useMemo(
-    () =>
-      baseFilteredRecords.filter(
-        (record) => !record.isConvertedToTeam && (record.isPotentialTeam || record.stage >= 2)
-      ),
+    () => baseFilteredRecords.filter((record) => !record.isConvertedToTeam),
     [baseFilteredRecords]
   );
   const convertedTeams = useMemo(
@@ -2312,10 +2005,9 @@ export default function RecruitingPage() {
     [session?.permissionRole, session?.role]
   );
   const recordsForActiveTab = useMemo(() => {
-    if (activeTab === "potential") return pipelineRecords;
     if (activeTab === "converted") return convertedTeams;
-    return outreachQueue;
-  }, [activeTab, convertedTeams, outreachQueue, pipelineRecords]);
+    return pipelineRecords;
+  }, [activeTab, convertedTeams, pipelineRecords]);
 
   const stats = useMemo(() => {
     const total = records.length;
@@ -2328,45 +2020,16 @@ export default function RecruitingPage() {
   }, [records]);
   const boardCounts = useMemo(
     () => ({
-      outreach: outreachQueue.length,
       potential: pipelineRecords.length,
       converted: convertedTeams.length,
     }),
-    [convertedTeams, outreachQueue, pipelineRecords]
+    [convertedTeams, pipelineRecords]
   );
-  const importPreviewSummary = useMemo(
-    () => summarizeImportPreviewRows(importPreviewRows),
-    [importPreviewRows]
-  );
-  const bulkActionDescription = getBulkActionDescription(bulkAction);
-  const showBulkDateField = bulkAction === "bulk email" || bulkAction === "bulk text";
-  const showBulkSummaryField = ["bulk note", "bulk email", "bulk text", "delete"].includes(bulkAction);
-  const showBulkStageField = bulkAction === "stage";
-  const showBulkFollowUpField = bulkAction === "follow up";
-  const showBulkAssignedToField = bulkAction === "assign";
 
   const selectedRecord = useMemo(
     () => records.find((record) => record.id === selectedRecordId) || null,
     [records, selectedRecordId]
   );
-  const currentHistory = useMemo(
-    () => (selectedRecordId ? historyByRecordId[selectedRecordId] || [] : []),
-    [historyByRecordId, selectedRecordId]
-  );
-  const currentContactHistory = useMemo(
-    () => currentHistory.filter((entry) => isContactActionType(entry.actionType)),
-    [currentHistory]
-  );
-  const isCurrentHistoryLoading = selectedRecordId
-    ? Boolean(historyLoadingByRecordId[selectedRecordId])
-    : false;
-  const isCurrentContactHistoryExpanded = selectedRecordId
-    ? Boolean(expandedContactHistoryById[selectedRecordId])
-    : false;
-  const visibleCurrentContactHistory = isCurrentContactHistoryExpanded
-    ? currentContactHistory
-    : currentContactHistory.slice(0, 3);
-  const showCurrentContactHistoryToggle = currentContactHistory.length > 3;
 
   useEffect(() => {
     const searchTrim = String(filterConfig.searchQuery || "").trim();
@@ -3843,7 +3506,7 @@ export default function RecruitingPage() {
                       <RecruitingBoardCopyRowButton record={record} />
                     </div>
                   </td>
-                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
+                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} showGender={false} /></td>
                   <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.projectDates, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
                   </td>
@@ -3947,7 +3610,7 @@ export default function RecruitingPage() {
               <div className="small" style={{ marginTop: 8 }}>
                 <strong>Team roster</strong>
               </div>
-              <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} /></div>
+              <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} showGender={false} /></div>
               <div className="recruitingMobileMeta">
                 <span title="Project dates">{chartDashText(recruitingBoardProjectDatesLabel(record))}</span>
                 <span title="Site">{chartDashText(d.location)}</span>
