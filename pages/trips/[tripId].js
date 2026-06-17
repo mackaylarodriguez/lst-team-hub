@@ -1039,10 +1039,10 @@ export default function TripPage() {
             }
           }}
         >
-          <div className="card pad appModalCard" style={{ width: "min(480px, 100%)", maxHeight: "90vh", overflow: "auto" }}>
-            <div className="row" style={{ marginBottom: 10 }}>
+          <div className="card pad appModalCard" style={{ width: "min(420px, 100%)", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="row" style={{ marginBottom: 12 }}>
               <div style={{ fontWeight: 900 }}>
-                {budgetCheckEditingId ? "Edit check request" : "Request budget check"}
+                {budgetCheckEditingId ? "Edit check request" : "Request printed check"}
               </div>
               <div className="spacer" />
               <button
@@ -1057,25 +1057,10 @@ export default function TripPage() {
                 Close
               </button>
             </div>
-            <p className="small" style={{ marginBottom: 14, lineHeight: 1.45, color: "var(--muted)" }}>
-              {budgetCheckEditingId ? (
-                <>
-                  Only <strong>pending</strong> requests can be edited. The assignee&apos;s task stays in sync.
-                  Mark processed on{" "}
-                  <Link href="/budget?tab=checks">Budget → Checks</Link>.
-                </>
-              ) : (
-                <>
-                  This is not the same as the team&apos;s saved budget total — enter the amount for the check you
-                  need printed. Any staff or admin can mark the request processed later on{" "}
-                  <Link href="/budget?tab=checks">Budget → Checks</Link>.
-                </>
-              )}
-            </p>
-            <div style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "grid", gap: 10 }}>
               <div>
                 <div className="small" style={{ marginBottom: 4 }}>
-                  Check amount
+                  Amount
                 </div>
                 <input
                   className="input"
@@ -1088,14 +1073,13 @@ export default function TripPage() {
               </div>
               <div>
                 <div className="small" style={{ marginBottom: 4 }}>
-                  Note (optional)
+                  Note
                 </div>
-                <textarea
+                <input
                   className="input"
-                  rows={3}
                   value={budgetCheckNote}
                   onChange={(e) => setBudgetCheckNote(e.target.value)}
-                  placeholder="Payee, memo, or other context for accounting."
+                  placeholder="Payee or memo (optional)"
                 />
               </div>
             </div>
