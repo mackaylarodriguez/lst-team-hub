@@ -19,6 +19,8 @@ import {
   listRecruitingYears,
   logRecruitingCycleContactAction,
   revertRecruitingLockedTeam,
+  demoteRecruitingRecordToOutreach,
+  promoteRecruitingRecordToPotentialTeam,
   saveRecruitingCycleContact,
 } from "@/lib/recruitingCycles";
 import { buildSiteLabelsOrdered, resolveEffectiveSiteHostName } from "@/lib/siteMaterials";
@@ -2131,6 +2133,14 @@ export default function RecruitingPage() {
     () => baseFilteredRecords.filter((record) => !record.isConvertedToTeam),
     [baseFilteredRecords]
   );
+  const outreachRecords = useMemo(
+    () => pipelineRecords.filter((record) => !record.isPotentialTeam),
+    [pipelineRecords]
+  );
+  const potentialTeamRecords = useMemo(
+    () => pipelineRecords.filter((record) => record.isPotentialTeam),
+    [pipelineRecords]
+  );
   const convertedTeams = useMemo(
     () => baseFilteredRecords.filter((record) => record.isConvertedToTeam),
     [baseFilteredRecords]
@@ -2141,13 +2151,14 @@ export default function RecruitingPage() {
   );
   const recordsForActiveTab = useMemo(() => {
     if (activeTab === "converted") return convertedTeams;
-    if (activeTab === "outreach") return pipelineRecords;
+    if (activeTab === "outreach") return outreachRecords;
+    if (activeTab === "potential") return potentialTeamRecords;
     return pipelineRecords;
-  }, [activeTab, convertedTeams, pipelineRecords]);
+  }, [activeTab, convertedTeams, outreachRecords, potentialTeamRecords, pipelineRecords]);
 
   const outreachPersonRows = useMemo(
-    () => buildOutreachPersonRows(pipelineRecords),
-    [pipelineRecords]
+    () => buildOutreachPersonRows(outreachRecords),
+    [outreachRecords]
   );
 
   const sortedOutreachPersonRows = useMemo(
@@ -2168,8 +2179,8 @@ export default function RecruitingPage() {
   }, [sortedOutreachPersonRows]);
 
   const visiblePotentialRecordIds = useMemo(
-    () => pipelineRecords.map((record) => record.id).filter(Boolean),
-    [pipelineRecords]
+    () => potentialTeamRecords.map((record) => record.id).filter(Boolean),
+    [potentialTeamRecords]
   );
 
   const visibleBulkRecordIds = useMemo(() => {
@@ -2208,10 +2219,10 @@ export default function RecruitingPage() {
   const boardCounts = useMemo(
     () => ({
       outreach: outreachPersonRows.length,
-      potential: pipelineRecords.length,
+      potential: potentialTeamRecords.length,
       converted: convertedTeams.length,
     }),
-    [convertedTeams, outreachPersonRows, pipelineRecords]
+    [convertedTeams, outreachPersonRows, potentialTeamRecords]
   );
 
   const selectedRecord = useMemo(
@@ -2433,7 +2444,7 @@ export default function RecruitingPage() {
     setConfirmingBulkDelete(false);
   }
 
-  function renderBulkDeleteToolbar(summaryText) {
+  function renderBulkDeleteToolbar(summaryText, extraActions = null) {
     return (
       <div className="recruitingBulkToolbar row" style={{ marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
         <div className="small" style={{ color: "var(--muted)", alignSelf: "center" }}>
@@ -2443,6 +2454,7 @@ export default function RecruitingPage() {
         <div className="spacer" />
         {selectedBulkRecordIds.length > 0 ? (
           <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+            {extraActions}
             <button
               className="btn"
               type="button"
@@ -2506,6 +2518,84 @@ export default function RecruitingPage() {
     }
   }
 
+  async function handleBulkMoveToRecruitingList() {
+    const ids = [...selectedBulkRecordIds];
+    if (!ids.length) return;
+
+    try {
+      setIsBulkDeleting(true);
+      let movedCount = 0;
+      for (const id of ids) {
+        const record = records.find((item) => item.id === id);
+        if (!record?.isPotentialTeam || record.isConvertedToTeam) continue;
+        await demoteRecruitingRecordToOutreach(record, {
+          staffMember: session?.name || session?.email || "Staff",
+        });
+        movedCount += 1;
+      }
+      if (ids.includes(selectedRecordId)) {
+        closeRecordDetailsModal();
+      }
+      clearBulkSelection();
+      setError("");
+      setPageStatus(`Moved ${movedCount} to Recruiting list.`);
+      showToast(`Moved ${movedCount} to Recruiting list.`, "success");
+      await refreshCurrentYear();
+    } catch (moveError) {
+      console.error("Unable to move selected recruiting rows", moveError);
+      setError(moveError.message || "Unable to move selected contacts.");
+      showToast(moveError.message || "Unable to move selected contacts.", "error");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }
+
+  async function handlePromoteToPotentialTeam(record = selectedRecord) {
+    if (!record?.id || record.isConvertedToTeam || record.isPotentialTeam) return;
+
+    try {
+      setIsSavingNotes(true);
+      await promoteRecruitingRecordToPotentialTeam(record, {
+        staffMember: session?.name || session?.email || "Staff",
+      });
+      closeRecordDetailsModal();
+      setError("");
+      setPageStatus(`${record.teamName || formatContactName(record)} moved to Potential Teams.`);
+      showToast("Moved to Potential Teams.", "success");
+      handleChangeTab("potential");
+      await refreshCurrentYear();
+    } catch (promoteError) {
+      console.error("Unable to promote recruiting record", promoteError);
+      setError(promoteError.message || "Unable to move to Potential Teams.");
+      showToast(promoteError.message || "Unable to move to Potential Teams.", "error");
+    } finally {
+      setIsSavingNotes(false);
+    }
+  }
+
+  async function handleMoveToRecruitingList(record = selectedRecord) {
+    if (!record?.id || record.isConvertedToTeam || !record.isPotentialTeam) return;
+
+    try {
+      setIsSavingNotes(true);
+      await demoteRecruitingRecordToOutreach(record, {
+        staffMember: session?.name || session?.email || "Staff",
+      });
+      closeRecordDetailsModal();
+      setError("");
+      setPageStatus(`${record.teamName || formatContactName(record)} moved to Recruiting list.`);
+      showToast("Moved to Recruiting list.", "success");
+      handleChangeTab("outreach");
+      await refreshCurrentYear();
+    } catch (demoteError) {
+      console.error("Unable to move recruiting record to outreach", demoteError);
+      setError(demoteError.message || "Unable to move to Recruiting list.");
+      showToast(demoteError.message || "Unable to move to Recruiting list.", "error");
+    } finally {
+      setIsSavingNotes(false);
+    }
+  }
+
   async function handleCreateContact() {
     const rows =
       newContactDraft.rosterRows?.length > 0 ? newContactDraft.rosterRows : [emptyRosterPerson()];
@@ -2519,7 +2609,8 @@ export default function RecruitingPage() {
     if (notifyDuplicateTeamName(newContactDraft.teamName)) {
       return;
     }
-    const stage = Math.max(Number(newContactDraft.stage) || 0, 2);
+    const sendToPotential = activeTab === "potential";
+    const stage = sendToPotential ? Math.max(Number(newContactDraft.stage) || 0, 2) : 0;
     try {
       await saveRecruitingCycleContact(
         {
@@ -2543,7 +2634,7 @@ export default function RecruitingPage() {
           nextFollowUp: "",
           mackaylaNotes: buildMackaylaNotes(newContactDraft.mackaylaNotesBody, ""),
           lesleeNotes: newContactDraft.lesleeNotes,
-          isPotentialTeam: true,
+          isPotentialTeam: sendToPotential,
         },
         { requireContactNames: true }
       );
@@ -2551,7 +2642,7 @@ export default function RecruitingPage() {
       setNewContactDraft(createEmptyNewContactDraft());
       setAddContactModalOpen(false);
       setError("");
-      handleChangeTab("potential");
+      handleChangeTab(sendToPotential ? "potential" : "outreach");
       await refreshCurrentYear();
     } catch (saveError) {
       console.error("Unable to create recruiting contact", saveError);
@@ -3165,7 +3256,7 @@ export default function RecruitingPage() {
       const result = await importRecruitingContacts({
         recruitingYear: selectedYear,
         rows,
-        destination: "potential",
+        destination: activeTab === "potential" ? "potential" : "outreach",
         staffMember: session?.name || session?.email || "Staff",
       });
       setError("");
@@ -4159,9 +4250,19 @@ export default function RecruitingPage() {
 
             {activeTab === "potential" ? (
               <>
-                {renderBulkDeleteToolbar(`${pipelineRecords.length} teams shown`)}
-                <div className="recruitingDesktopOnly">{renderPotentialTable(pipelineRecords)}</div>
-                <div className="recruitingMobileOnly">{renderPotentialCards(pipelineRecords)}</div>
+                {renderBulkDeleteToolbar(
+                  `${potentialTeamRecords.length} teams shown`,
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={isBulkDeleting}
+                    onClick={() => void handleBulkMoveToRecruitingList()}
+                  >
+                    Move to Recruiting list
+                  </button>
+                )}
+                <div className="recruitingDesktopOnly">{renderPotentialTable(potentialTeamRecords)}</div>
+                <div className="recruitingMobileOnly">{renderPotentialCards(potentialTeamRecords)}</div>
               </>
             ) : null}
 
@@ -4307,6 +4408,26 @@ export default function RecruitingPage() {
                           >
                             {isSavingNotes ? "Saving..." : "Save record"}
                           </button>
+                          {activeTab === "outreach" && !selectedRecord.isPotentialTeam ? (
+                            <button
+                              className="btn"
+                              type="button"
+                              disabled={isSavingNotes}
+                              onClick={() => void handlePromoteToPotentialTeam(selectedRecord)}
+                            >
+                              Move to Potential Teams
+                            </button>
+                          ) : null}
+                          {activeTab === "potential" && selectedRecord.isPotentialTeam ? (
+                            <button
+                              className="btn"
+                              type="button"
+                              disabled={isSavingNotes}
+                              onClick={() => void handleMoveToRecruitingList(selectedRecord)}
+                            >
+                              Move to Recruiting list
+                            </button>
+                          ) : null}
                         </div>
                       </>
                     ) : (
