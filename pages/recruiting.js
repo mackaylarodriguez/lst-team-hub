@@ -11,7 +11,7 @@ import {
   RECRUITING_STAGES,
   RECRUITING_UPDATED_EVENT,
   convertRecruitingCycleRecordToTrip,
-  deleteRecruitingCycleContact,
+  deleteRecruitingCycleContactForBoard,
   getRecruitingStageLabel,
   importRecruitingContacts,
   listRecruitingCycleContacts,
@@ -2498,16 +2498,26 @@ export default function RecruitingPage() {
 
     try {
       setIsBulkDeleting(true);
+      let deletedCount = 0;
+      let demotedCount = 0;
       for (const id of ids) {
-        await deleteRecruitingCycleContact(id);
+        const result = await deleteRecruitingCycleContactForBoard(id, activeTab, {
+          staffMember: session?.name || session?.email || "Staff",
+        });
+        if (result.action === "demoted") demotedCount += 1;
+        else if (result.action === "deleted") deletedCount += 1;
       }
       if (ids.includes(selectedRecordId)) {
         closeRecordDetailsModal();
       }
       clearBulkSelection();
       setError("");
-      setPageStatus(`Deleted ${ids.length} contact${ids.length === 1 ? "" : "s"}.`);
-      showToast(`Deleted ${ids.length} contact${ids.length === 1 ? "" : "s"}.`, "success");
+      const parts = [];
+      if (deletedCount) parts.push(`Deleted ${deletedCount}`);
+      if (demotedCount) parts.push(`Moved ${demotedCount} to Recruiting list`);
+      const summary = parts.join(" · ") || "No changes made.";
+      setPageStatus(`${summary}.`);
+      showToast(`${summary}.`, "success");
       await refreshCurrentYear();
     } catch (deleteError) {
       console.error("Unable to delete selected recruiting rows", deleteError);
@@ -2678,10 +2688,18 @@ export default function RecruitingPage() {
 
     try {
       setDeletingRecordId(record.id);
-      await deleteRecruitingCycleContact(record.id);
+      const result = await deleteRecruitingCycleContactForBoard(record.id, activeTab, {
+        staffMember: session?.name || session?.email || "Staff",
+      });
       setSelectedBulkRecordIds((current) => current.filter((id) => id !== record.id));
       closeRecordDetailsModal();
-      setPageStatus(`${record.teamName || formatContactName(record)} deleted.`);
+      const label = record.teamName || formatContactName(record);
+      if (result.action === "demoted") {
+        setPageStatus(`${label} moved to Recruiting list.`);
+        showToast("Moved to Recruiting list.", "success");
+      } else {
+        setPageStatus(`${label} deleted.`);
+      }
       await refreshCurrentYear();
     } catch (deleteError) {
       console.error("Unable to delete recruiting row", deleteError);
