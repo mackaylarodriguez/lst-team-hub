@@ -1840,6 +1840,14 @@ export default function RecruitingPage() {
   const [activeTab, setActiveTab] = useState("outreach");
   const [outreachSort, setOutreachSort] = useState("stale");
   const [loggingOutreachRecordId, setLoggingOutreachRecordId] = useState("");
+  const [outreachContactModalOpen, setOutreachContactModalOpen] = useState(false);
+  const [outreachContactDraft, setOutreachContactDraft] = useState({
+    recordId: "",
+    personLabel: "",
+    method: "email",
+    date: "",
+    notes: "",
+  });
   const [selectedBulkRecordIds, setSelectedBulkRecordIds] = useState([]);
   const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -3217,12 +3225,12 @@ export default function RecruitingPage() {
     }
   }
 
-  async function handleSaveLastContact(record, method, dateInput) {
-    if (!record?.id || !session) return;
+  async function handleSaveLastContact(record, method, dateInput, summary = "") {
+    if (!record?.id || !session) return false;
     const normalizedMethod = normalizeLastContactMethodValue(method);
 
     if (!normalizedMethod) {
-      if (!record.lastContactedAt && !record.lastContactMethod) return;
+      if (!record.lastContactedAt && !record.lastContactMethod) return false;
       try {
         setLoggingOutreachRecordId(record.id);
         await saveRecruitingCycleContact(
@@ -3232,17 +3240,18 @@ export default function RecruitingPage() {
           })
         );
         await refreshCurrentYear();
+        return true;
       } catch (saveError) {
         console.error("Unable to clear last contact", saveError);
         setError(saveError.message || "Unable to clear last contact.");
+        return false;
       } finally {
         setLoggingOutreachRecordId("");
       }
-      return;
     }
 
     const trimmedDate = String(dateInput || "").trim();
-    if (!trimmedDate) return;
+    if (!trimmedDate) return false;
 
     try {
       setLoggingOutreachRecordId(record.id);
@@ -3251,17 +3260,66 @@ export default function RecruitingPage() {
         actionType: normalizedMethod,
         actionDate: parseLastContactActionDate(trimmedDate),
         staffMember: session?.name || session?.email || "Staff",
-        summary: "",
+        summary: String(summary || "").trim(),
         stage: Math.max(record.stage, 1),
       });
       setError("");
+      setPageStatus("Contact saved.");
+      showToast(`${formatOutreachContactMethod(normalizedMethod)} saved.`, "success");
       await refreshCurrentYear();
+      return true;
     } catch (logError) {
       console.error("Unable to save last contact", logError);
       setError(logError.message || "Unable to save last contact.");
       showToast(logError.message || "Unable to save last contact.", "error");
+      return false;
     } finally {
       setLoggingOutreachRecordId("");
+    }
+  }
+
+  function openOutreachContactModal(record, person) {
+    if (!record?.id) return;
+    setOutreachContactDraft({
+      recordId: record.id,
+      personLabel: formatOutreachPersonName(person),
+      method: normalizeLastContactMethodValue(record.lastContactMethod) || "email",
+      date: lastContactDateInputValue(record) || new Date().toISOString().slice(0, 10),
+      notes: "",
+    });
+    setOutreachContactModalOpen(true);
+  }
+
+  function closeOutreachContactModal() {
+    setOutreachContactModalOpen(false);
+    setOutreachContactDraft({
+      recordId: "",
+      personLabel: "",
+      method: "email",
+      date: "",
+      notes: "",
+    });
+  }
+
+  async function handleSaveOutreachContactModal() {
+    const record = records.find((item) => item.id === outreachContactDraft.recordId);
+    if (!record) return;
+    if (!normalizeLastContactMethodValue(outreachContactDraft.method)) {
+      setError("Choose how you contacted them.");
+      return;
+    }
+    if (!String(outreachContactDraft.date || "").trim()) {
+      setError("Contact date is required.");
+      return;
+    }
+    const saved = await handleSaveLastContact(
+      record,
+      outreachContactDraft.method,
+      outreachContactDraft.date,
+      outreachContactDraft.notes
+    );
+    if (saved) {
+      closeOutreachContactModal();
     }
   }
 
@@ -3321,38 +3379,25 @@ export default function RecruitingPage() {
     );
   }
 
-  function renderOutreachContactLogControls(record, lastContactMethod, lastContactDate, isLogging) {
+  function renderOutreachActionButtons(record, person, isLogging) {
     return (
-      <div className="recruitingOutreachLogControls recruitingOutreachLastCell">
-        <select
-          className="input recruitingOutreachLastMethodSelect"
-          value={lastContactMethod}
+      <>
+        <button
+          className="btn recruitingOutreachContactBtn"
+          type="button"
           disabled={isLogging}
-          onChange={(event) =>
-            void handleSaveLastContact(
-              record,
-              event.target.value,
-              lastContactDate || new Date().toISOString().slice(0, 10)
-            )
-          }
+          onClick={() => openOutreachContactModal(record, person)}
         >
-          <option value="">—</option>
-          <option value="email">Emailed</option>
-          <option value="call">Called</option>
-          <option value="text">Texted</option>
-        </select>
-        <input
-          className="input recruitingOutreachLastDateInput"
-          type="date"
-          value={lastContactDate}
-          disabled={isLogging}
-          onChange={(event) => {
-            const nextDate = event.target.value;
-            if (!nextDate) return;
-            void handleSaveLastContact(record, lastContactMethod || "email", nextDate);
-          }}
-        />
-      </div>
+          Contact
+        </button>
+        <button
+          className="btn btnPrimary recruitingOutreachEditBtn"
+          type="button"
+          onClick={() => void openRecordDetails(record.id)}
+        >
+          Edit
+        </button>
+      </>
     );
   }
 
@@ -3399,8 +3444,6 @@ export default function RecruitingPage() {
                 const draft = buildTeamFormDraft(record);
                 const siteLabel = chartDashText(record.site || draft.location);
                 const datesLabel = chartDashText(recruitingBoardProjectDatesLabel(record));
-                const lastContactMethod = normalizeLastContactMethodValue(record.lastContactMethod);
-                const lastContactDate = lastContactDateInputValue(record);
                 const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
                 const isLogging = loggingOutreachRecordId === record.id;
                 const duplicateInfo = person.email
@@ -3487,19 +3530,7 @@ export default function RecruitingPage() {
                       onClick={(event) => event.stopPropagation()}
                     >
                       <div className="recruitingOutreachActionsCell">
-                        {renderOutreachContactLogControls(
-                          record,
-                          lastContactMethod,
-                          lastContactDate,
-                          isLogging
-                        )}
-                        <button
-                          className="btn btnPrimary recruitingOutreachEditBtn"
-                          type="button"
-                          onClick={() => void openRecordDetails(record.id)}
-                        >
-                          Edit
-                        </button>
+                        {renderOutreachActionButtons(record, person, isLogging)}
                       </div>
                     </td>
                   </tr>
@@ -3530,8 +3561,6 @@ export default function RecruitingPage() {
           const draft = buildTeamFormDraft(record);
           const siteLabel = chartDashText(record.site || draft.location);
           const datesLabel = chartDashText(recruitingBoardProjectDatesLabel(record));
-          const lastContactMethod = normalizeLastContactMethodValue(record.lastContactMethod);
-          const lastContactDate = lastContactDateInputValue(record);
           const isLogging = loggingOutreachRecordId === record.id;
           const duplicateInfo = person.email
             ? getDuplicateInfoForEmail(person.email, { excludeRecordId: record.id })
@@ -3591,15 +3620,7 @@ export default function RecruitingPage() {
                 {renderOutreachRecentContacts(record.id)}
               </div>
               <div className="recruitingMobileActions recruitingOutreachActionsCell" onClick={(event) => event.stopPropagation()}>
-                {renderOutreachContactLogControls(
-                  record,
-                  lastContactMethod,
-                  lastContactDate,
-                  isLogging
-                )}
-                <button className="btn btnPrimary recruitingOutreachEditBtn" type="button" onClick={() => void openRecordDetails(record.id)}>
-                  Edit
-                </button>
+                {renderOutreachActionButtons(record, person, isLogging)}
               </div>
             </div>
           );
@@ -4964,6 +4985,108 @@ export default function RecruitingPage() {
                 {isSavingStaffTask ? "Saving..." : "Save Staff Task"}
               </button>
               <button className="btn" type="button" onClick={() => setStaffTaskModalOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {outreachContactModalOpen ? (
+        <div
+          className="appModalOverlay"
+          role="presentation"
+          onClick={closeOutreachContactModal}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 50,
+          }}
+        >
+          <div
+            className="card pad appModalCard recruitingOutreachContactModal"
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+            style={{ width: "min(420px, 100%)" }}
+          >
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div style={{ fontWeight: 900 }}>Log contact</div>
+              <div className="spacer" />
+              <button className="btn" type="button" onClick={closeOutreachContactModal}>
+                Close
+              </button>
+            </div>
+            {outreachContactDraft.personLabel ? (
+              <div className="small" style={{ marginBottom: 12, color: "var(--muted)" }}>
+                {outreachContactDraft.personLabel}
+              </div>
+            ) : null}
+            <div style={{ display: "grid", gap: 12 }}>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Method</div>
+                <select
+                  className="input"
+                  value={outreachContactDraft.method}
+                  disabled={loggingOutreachRecordId === outreachContactDraft.recordId}
+                  onChange={(event) =>
+                    setOutreachContactDraft((current) => ({
+                      ...current,
+                      method: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="email">Emailed</option>
+                  <option value="call">Called</option>
+                  <option value="text">Texted</option>
+                </select>
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Date</div>
+                <input
+                  className="input"
+                  type="date"
+                  value={outreachContactDraft.date}
+                  disabled={loggingOutreachRecordId === outreachContactDraft.recordId}
+                  onChange={(event) =>
+                    setOutreachContactDraft((current) => ({
+                      ...current,
+                      date: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Notes</div>
+                <textarea
+                  className="input"
+                  rows={4}
+                  value={outreachContactDraft.notes}
+                  disabled={loggingOutreachRecordId === outreachContactDraft.recordId}
+                  onChange={(event) =>
+                    setOutreachContactDraft((current) => ({
+                      ...current,
+                      notes: event.target.value,
+                    }))
+                  }
+                  placeholder="Optional notes about this contact"
+                />
+              </div>
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+              <button
+                className="btn btnPrimary"
+                type="button"
+                disabled={loggingOutreachRecordId === outreachContactDraft.recordId}
+                onClick={() => void handleSaveOutreachContactModal()}
+              >
+                {loggingOutreachRecordId === outreachContactDraft.recordId ? "Saving..." : "Save contact"}
+              </button>
+              <button className="btn" type="button" onClick={closeOutreachContactModal}>
                 Cancel
               </button>
             </div>
