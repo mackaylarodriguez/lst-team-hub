@@ -1391,6 +1391,20 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .recruitingOutreachActionRow{
   flex-wrap:wrap;
 }
+.recruitingOutreachSelectInput{
+  width:16px;
+  height:16px;
+  margin:0;
+  cursor:pointer;
+}
+.recruitingOutreachRowSelected{
+  background:rgba(59,130,246,.08);
+}
+.recruitingOutreachMobileSelectRow{
+  align-items:flex-start;
+  gap:10px;
+  margin-bottom:4px;
+}
 .recruitingOutreachListTable .recruitingOutreachActionRow .btn{
   font-size:12px;
   padding:6px 10px;

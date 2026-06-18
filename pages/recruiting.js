@@ -116,14 +116,15 @@ const RECRUITING_BOARD_SORT = ["Potential Teams", "Locked Teams"];
 const CURRENT_RECRUITING_YEAR = new Date().getFullYear();
 
 const RECRUITING_POTENTIAL_COL_PCT = {
-  team: "8%",
+  select: "3%",
+  team: "7%",
   roster: "12%",
   projectDates: "7%",
   site: "6%",
   weeks: "6%",
   fundraising: "9%",
-  mackayla: "23%",
-  leslee: "23%",
+  mackayla: "22%",
+  leslee: "22%",
   actions: "6%",
 };
 const RECRUITING_CONVERTED_COL_PCT = {
@@ -139,7 +140,8 @@ const RECRUITING_CONVERTED_COL_PCT = {
 
 /** Recruiting list: one row per person. */
 const RECRUITING_OUTREACH_LIST_COL_PCT = {
-  contact: "16%",
+  select: "3%",
+  contact: "15%",
   project: "12%",
   mackayla: "22%",
   leslee: "22%",
@@ -1836,6 +1838,10 @@ export default function RecruitingPage() {
   const [activeTab, setActiveTab] = useState("outreach");
   const [outreachSort, setOutreachSort] = useState("stale");
   const [loggingOutreachRecordId, setLoggingOutreachRecordId] = useState("");
+  const [selectedBulkRecordIds, setSelectedBulkRecordIds] = useState([]);
+  const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const bulkSelectAllRef = useRef(null);
   const [selectedRecordId, setSelectedRecordId] = useState("");
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [newContactDraft, setNewContactDraft] = useState(() => createEmptyNewContactDraft());
@@ -2010,6 +2016,17 @@ export default function RecruitingPage() {
   }, [session, selectedYear]);
 
   useEffect(() => {
+    setSelectedBulkRecordIds([]);
+    setConfirmingBulkDelete(false);
+  }, [activeTab, selectedYear]);
+
+  useEffect(() => {
+    setSelectedBulkRecordIds((current) =>
+      current.filter((id) => records.some((record) => record.id === id))
+    );
+  }, [records]);
+
+  useEffect(() => {
     if (!router.isReady) return;
     const querySearch = Array.isArray(router.query.search)
       ? router.query.search[0]
@@ -2137,6 +2154,42 @@ export default function RecruitingPage() {
     () => sortOutreachPersonRows(outreachPersonRows, outreachSort),
     [outreachPersonRows, outreachSort]
   );
+
+  const visibleOutreachRecordIds = useMemo(() => {
+    const ids = [];
+    const seen = new Set();
+    sortedOutreachPersonRows.forEach((row) => {
+      const recordId = row.record?.id;
+      if (!recordId || seen.has(recordId)) return;
+      seen.add(recordId);
+      ids.push(recordId);
+    });
+    return ids;
+  }, [sortedOutreachPersonRows]);
+
+  const visiblePotentialRecordIds = useMemo(
+    () => pipelineRecords.map((record) => record.id).filter(Boolean),
+    [pipelineRecords]
+  );
+
+  const visibleBulkRecordIds = useMemo(() => {
+    if (activeTab === "outreach") return visibleOutreachRecordIds;
+    if (activeTab === "potential") return visiblePotentialRecordIds;
+    return [];
+  }, [activeTab, visibleOutreachRecordIds, visiblePotentialRecordIds]);
+
+  const allVisibleBulkSelected =
+    visibleBulkRecordIds.length > 0 &&
+    visibleBulkRecordIds.every((id) => selectedBulkRecordIds.includes(id));
+  const someVisibleBulkSelected = visibleBulkRecordIds.some((id) =>
+    selectedBulkRecordIds.includes(id)
+  );
+
+  useEffect(() => {
+    const input = bulkSelectAllRef.current;
+    if (!input) return;
+    input.indeterminate = someVisibleBulkSelected && !allVisibleBulkSelected;
+  }, [someVisibleBulkSelected, allVisibleBulkSelected]);
 
   const outreachNeverContactedCount = useMemo(
     () => outreachPersonRows.filter((row) => !row.record.lastContactedAt).length,
@@ -2352,6 +2405,107 @@ export default function RecruitingPage() {
     }
   }
 
+  function toggleBulkRecordSelected(recordId) {
+    if (!recordId) return;
+    setSelectedBulkRecordIds((current) =>
+      current.includes(recordId)
+        ? current.filter((id) => id !== recordId)
+        : [...current, recordId]
+    );
+    setConfirmingBulkDelete(false);
+  }
+
+  function toggleSelectAllVisibleBulk() {
+    if (allVisibleBulkSelected) {
+      setSelectedBulkRecordIds((current) =>
+        current.filter((id) => !visibleBulkRecordIds.includes(id))
+      );
+    } else {
+      setSelectedBulkRecordIds((current) => [
+        ...new Set([...current, ...visibleBulkRecordIds]),
+      ]);
+    }
+    setConfirmingBulkDelete(false);
+  }
+
+  function clearBulkSelection() {
+    setSelectedBulkRecordIds([]);
+    setConfirmingBulkDelete(false);
+  }
+
+  function renderBulkDeleteToolbar(summaryText) {
+    return (
+      <div className="recruitingBulkToolbar row" style={{ marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
+        <div className="small" style={{ color: "var(--muted)", alignSelf: "center" }}>
+          {summaryText}
+          {selectedBulkRecordIds.length > 0 ? ` · ${selectedBulkRecordIds.length} selected` : ""}
+        </div>
+        <div className="spacer" />
+        {selectedBulkRecordIds.length > 0 ? (
+          <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+            <button
+              className="btn"
+              type="button"
+              disabled={isBulkDeleting}
+              onClick={clearBulkSelection}
+            >
+              Clear selection
+            </button>
+            <button
+              className="btn"
+              type="button"
+              disabled={isBulkDeleting}
+              onClick={() => {
+                if (confirmingBulkDelete) {
+                  void handleBulkDeleteSelected();
+                  return;
+                }
+                setConfirmingBulkDelete(true);
+              }}
+              style={{
+                borderColor: "rgba(239,68,68,.28)",
+                color: "var(--danger)",
+                background: confirmingBulkDelete ? "rgba(239,68,68,.08)" : "transparent",
+              }}
+            >
+              {isBulkDeleting
+                ? "Deleting..."
+                : confirmingBulkDelete
+                  ? `Confirm delete ${selectedBulkRecordIds.length}`
+                  : `Delete selected (${selectedBulkRecordIds.length})`}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  async function handleBulkDeleteSelected() {
+    const ids = [...selectedBulkRecordIds];
+    if (!ids.length) return;
+
+    try {
+      setIsBulkDeleting(true);
+      for (const id of ids) {
+        await deleteRecruitingCycleContact(id);
+      }
+      if (ids.includes(selectedRecordId)) {
+        closeRecordDetailsModal();
+      }
+      clearBulkSelection();
+      setError("");
+      setPageStatus(`Deleted ${ids.length} contact${ids.length === 1 ? "" : "s"}.`);
+      showToast(`Deleted ${ids.length} contact${ids.length === 1 ? "" : "s"}.`, "success");
+      await refreshCurrentYear();
+    } catch (deleteError) {
+      console.error("Unable to delete selected recruiting rows", deleteError);
+      setError(deleteError.message || "Unable to delete selected contacts.");
+      showToast(deleteError.message || "Unable to delete selected contacts.", "error");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }
+
   async function handleCreateContact() {
     const rows =
       newContactDraft.rosterRows?.length > 0 ? newContactDraft.rosterRows : [emptyRosterPerson()];
@@ -2434,6 +2588,7 @@ export default function RecruitingPage() {
     try {
       setDeletingRecordId(record.id);
       await deleteRecruitingCycleContact(record.id);
+      setSelectedBulkRecordIds((current) => current.filter((id) => id !== record.id));
       closeRecordDetailsModal();
       setPageStatus(`${record.teamName || formatContactName(record)} deleted.`);
       await refreshCurrentYear();
@@ -3111,6 +3266,16 @@ export default function RecruitingPage() {
           >
             <thead>
               <tr>
+                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.select }}>
+                  <input
+                    ref={bulkSelectAllRef}
+                    className="recruitingOutreachSelectInput"
+                    type="checkbox"
+                    aria-label="Select all visible contacts"
+                    checked={allVisibleBulkSelected}
+                    onChange={toggleSelectAllVisibleBulk}
+                  />
+                </th>
                 <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.contact }}>Contact</th>
                 <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project }}>Trip details</th>
                 <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.mackayla }}>Mackayla notes</th>
@@ -3133,12 +3298,26 @@ export default function RecruitingPage() {
                   ? getDuplicateInfoForEmail(person.email, { excludeRecordId: record.id })
                   : null;
 
+                const isSelected = selectedBulkRecordIds.includes(record.id);
+
                 return (
                   <tr
                     key={row.id}
-                    className={rowClass}
+                    className={`${rowClass}${isSelected ? " recruitingOutreachRowSelected" : ""}`}
                     onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
                   >
+                    <td
+                      style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.select, verticalAlign: "top" }}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <input
+                        className="recruitingOutreachSelectInput"
+                        type="checkbox"
+                        aria-label={`Select ${formatOutreachPersonName(person)}`}
+                        checked={isSelected}
+                        onChange={() => toggleBulkRecordSelected(record.id)}
+                      />
+                    </td>
                     <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.contact, verticalAlign: "top" }}>
                       <div className="recruitingOutreachContactCell">
                         <div className="recruitingOutreachContactName">
@@ -3249,17 +3428,29 @@ export default function RecruitingPage() {
             ? getDuplicateInfoForEmail(person.email, { excludeRecordId: record.id })
             : null;
 
+          const isSelected = selectedBulkRecordIds.includes(record.id);
+
           return (
             <div
               key={row.id}
-              className="card pad recruitingMobileCard recruitingOutreachMobileCard"
+              className={`card pad recruitingMobileCard recruitingOutreachMobileCard${isSelected ? " recruitingOutreachRowSelected" : ""}`}
               onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
             >
-              <div className="recruitingOutreachContactName">
+              <div className="row recruitingOutreachMobileSelectRow">
+                <input
+                  className="recruitingOutreachSelectInput"
+                  type="checkbox"
+                  aria-label={`Select ${formatOutreachPersonName(person)}`}
+                  checked={isSelected}
+                  onChange={() => toggleBulkRecordSelected(record.id)}
+                  onClick={(event) => event.stopPropagation()}
+                />
+                <div className="recruitingOutreachContactName">
                 {row.personIndex === 0 ? (
                   <span className="recruitingRosterPrimaryMark" title="Primary contact">★ </span>
                 ) : null}
                 {formatOutreachPersonName(person)}
+              </div>
               </div>
               {person.email ? <div className="small">{person.email}</div> : null}
               {person.gender ? <div className="small">{person.gender}</div> : null}
@@ -3327,6 +3518,16 @@ export default function RecruitingPage() {
         >
           <thead>
             <tr>
+              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.select }}>
+                <input
+                  ref={bulkSelectAllRef}
+                  className="recruitingOutreachSelectInput"
+                  type="checkbox"
+                  aria-label="Select all visible teams"
+                  checked={allVisibleBulkSelected}
+                  onChange={toggleSelectAllVisibleBulk}
+                />
+              </th>
               <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.team }}>Team</th>
               <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.roster }}>Team roster</th>
               <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.projectDates }}>Project dates</th>
@@ -3348,14 +3549,27 @@ export default function RecruitingPage() {
               const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
               const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
               const d = buildTeamFormDraft(record);
+              const isSelected = selectedBulkRecordIds.includes(record.id);
 
               return (
                 <tr
                   key={record.id}
-                  className={rowClass}
+                  className={`${rowClass}${isSelected ? " recruitingOutreachRowSelected" : ""}`}
                   onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
                   style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
+                  <td
+                    style={{ width: RECRUITING_POTENTIAL_COL_PCT.select, verticalAlign: "top" }}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <input
+                      className="recruitingOutreachSelectInput"
+                      type="checkbox"
+                      aria-label={`Select ${record.teamName || formatContactName(record)}`}
+                      checked={isSelected}
+                      onChange={() => toggleBulkRecordSelected(record.id)}
+                    />
+                  </td>
                   <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.team, verticalAlign: "middle" }}>
                     <div className="recruitingTeamCellRow">
                       <div className="recruitingTeamCellMain">
@@ -3447,15 +3661,25 @@ export default function RecruitingPage() {
           const attention = getAttentionMeta(record);
           const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
           const d = buildTeamFormDraft(record);
+          const isSelected = selectedBulkRecordIds.includes(record.id);
 
           return (
             <div
               key={record.id}
-              className="card pad recruitingMobileCard"
+              className={`card pad recruitingMobileCard${isSelected ? " recruitingOutreachRowSelected" : ""}`}
               onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
               style={getRecordRowStyle(record, false)}
             >
-              <div className="recruitingMobileCardHeader">
+              <div className="row recruitingOutreachMobileSelectRow">
+                <input
+                  className="recruitingOutreachSelectInput"
+                  type="checkbox"
+                  aria-label={`Select ${record.teamName || formatContactName(record)}`}
+                  checked={isSelected}
+                  onChange={() => toggleBulkRecordSelected(record.id)}
+                  onClick={(event) => event.stopPropagation()}
+                />
+                <div className="recruitingMobileCardHeader" style={{ flex: 1, minWidth: 0 }}>
                 <div>
                   <div className="recruitingMobileCardTitle">{record.teamName || formatContactName(record)}</div>
                   <div className="small recruitingMobileCardEmail">
@@ -3471,6 +3695,7 @@ export default function RecruitingPage() {
                 {attention ? (
                   <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
                 ) : null}
+              </div>
               </div>
               {renderDuplicateNotice(duplicateInfo, { compact: true })}
               <div className="small" style={{ marginTop: 8 }}>
@@ -3909,10 +4134,10 @@ export default function RecruitingPage() {
 
             {activeTab === "outreach" ? (
               <>
+                {renderBulkDeleteToolbar(
+                  `${outreachNeverContactedCount} never contacted · ${sortedOutreachPersonRows.length} people shown`
+                )}
                 <div className="recruitingOutreachToolbar row" style={{ marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
-                  <div className="small" style={{ color: "var(--muted)", alignSelf: "center" }}>
-                    {outreachNeverContactedCount} never contacted · {sortedOutreachPersonRows.length} people shown
-                  </div>
                   <div className="spacer" />
                   <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
                     {OUTREACH_SORT_OPTIONS.map((option) => (
@@ -3934,6 +4159,7 @@ export default function RecruitingPage() {
 
             {activeTab === "potential" ? (
               <>
+                {renderBulkDeleteToolbar(`${pipelineRecords.length} teams shown`)}
                 <div className="recruitingDesktopOnly">{renderPotentialTable(pipelineRecords)}</div>
                 <div className="recruitingMobileOnly">{renderPotentialCards(pipelineRecords)}</div>
               </>
