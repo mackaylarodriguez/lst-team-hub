@@ -2210,11 +2210,6 @@ export default function RecruitingPage() {
     input.indeterminate = someVisibleBulkSelected && !allVisibleBulkSelected;
   }, [someVisibleBulkSelected, allVisibleBulkSelected]);
 
-  const outreachNeverContactedCount = useMemo(
-    () => outreachPersonRows.filter((row) => !row.record.lastContactedAt).length,
-    [outreachPersonRows]
-  );
-
   const stats = useMemo(() => {
     const total = records.length;
     const noContact = records.filter((record) => record.stage === 0).length;
@@ -2453,14 +2448,22 @@ export default function RecruitingPage() {
   }
 
   function renderBulkDeleteToolbar(summaryText, extraActions = null) {
+    const summary = String(summaryText || "").trim();
+    const hasSelection = selectedBulkRecordIds.length > 0;
+    if (!summary && !hasSelection) {
+      return null;
+    }
+
     return (
       <div className="recruitingBulkToolbar row" style={{ marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
-        <div className="small" style={{ color: "var(--muted)", alignSelf: "center" }}>
-          {summaryText}
-          {selectedBulkRecordIds.length > 0 ? ` · ${selectedBulkRecordIds.length} selected` : ""}
-        </div>
+        {summary || hasSelection ? (
+          <div className="small" style={{ color: "var(--muted)", alignSelf: "center" }}>
+            {summary}
+            {hasSelection ? `${summary ? " · " : ""}${selectedBulkRecordIds.length} selected` : ""}
+          </div>
+        ) : null}
         <div className="spacer" />
-        {selectedBulkRecordIds.length > 0 ? (
+        {hasSelection ? (
           <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
             {extraActions}
             <button
@@ -4264,9 +4267,7 @@ export default function RecruitingPage() {
 
             {activeTab === "outreach" ? (
               <>
-                {renderBulkDeleteToolbar(
-                  `${outreachNeverContactedCount} never contacted · ${sortedOutreachPersonRows.length} people shown`
-                )}
+                {renderBulkDeleteToolbar("")}
                 <div className="recruitingOutreachToolbar row" style={{ marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
                   <div className="spacer" />
                   <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
