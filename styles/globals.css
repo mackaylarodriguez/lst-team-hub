@@ -1348,8 +1348,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .recruitingOutreachRecentItem{
   font-size:11px;
-  line-height:1.35;
-  color:var(--muted);
+  line-height:1.4;
+  color:var(--text);
+  word-break:break-word;
 }
 .recruitingOutreachRecentDate{
   color:var(--muted);

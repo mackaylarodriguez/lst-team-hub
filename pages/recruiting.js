@@ -1510,6 +1510,13 @@ function formatCompactDateTime(value) {
   });
 }
 
+function formatOutreachActivityLine(entry) {
+  const method = formatOutreachContactMethod(entry?.actionType);
+  const dateLabel = entry?.actionDate ? formatCompactDateTime(entry.actionDate) : "";
+  const notes = String(entry?.summary || "").trim();
+  return [method, dateLabel, notes].filter(Boolean).join(" · ");
+}
+
 function formatRecruitingUpdateMeta(record) {
   if (record?.updatedAt) {
     const dateLabel = formatCompactDateTime(record.updatedAt);
@@ -3367,15 +3374,7 @@ export default function RecruitingPage() {
       <ul className="recruitingOutreachRecentList" aria-label="Recent contacts">
         {recentContacts.map((entry) => (
           <li key={entry.id} className="recruitingOutreachRecentItem">
-            <span className="recruitingOutreachLastMethod">
-              {formatOutreachContactMethod(entry.actionType)}
-            </span>
-            {entry.actionDate ? (
-              <span className="recruitingOutreachRecentDate">
-                {" "}
-                · {formatCompactDateTime(entry.actionDate)}
-              </span>
-            ) : null}
+            {formatOutreachActivityLine(entry)}
           </li>
         ))}
       </ul>
