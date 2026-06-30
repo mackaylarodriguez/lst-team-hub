@@ -10,6 +10,9 @@ import {
   listEffectiveTutorials,
   preferredTripResourceOpenUrl,
   tripDocumentTileRootClassName,
+  siteLinkActionButtonStyle,
+  tripDocDeleteButtonStyle,
+  tripDocumentWideCardStyle,
 } from "../tripPageShared";
 import {
   CollapsibleSection,
