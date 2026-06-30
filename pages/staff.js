@@ -13,7 +13,7 @@ import {
   listWorkerAssignmentSummary,
   TRIPS_UPDATED_EVENT,
 } from "@/lib/trips";
-import { isStaffRole } from "@/lib/roles";
+import { isManagerRole } from "@/lib/roles";
 import { listStaffParticipantOverview } from "@/lib/staffOverview";
 
 function createEmptyWorkerDraft() {
@@ -136,7 +136,7 @@ export default function StaffAssignments() {
       const nextSession = await requireSession(router);
       if (cancelled || !nextSession) return;
 
-      if (!isStaffRole(nextSession.role)) {
+      if (!isManagerRole(nextSession.permissionRole || nextSession.role)) {
         router.replace("/trips");
         return;
       }

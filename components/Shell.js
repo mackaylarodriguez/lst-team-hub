@@ -10,7 +10,7 @@ import {
   setImpersonatedProfile,
 } from "@/lib/auth";
 import { useEffect, useState } from "react";
-import { isManagerRole, isStaffRole, ROLE_ADMIN } from "@/lib/roles";
+import { isManagerRole, ROLE_ADMIN } from "@/lib/roles";
 
 function SidebarIcon({ name }) {
   if (name === "trips") {
@@ -148,7 +148,6 @@ export default function Shell({ children }) {
 
   const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
   const isAdminUser = session?.actualRole === ROLE_ADMIN;
-  const isStaffUser = isStaffRole(session?.role);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -234,10 +233,10 @@ export default function Shell({ children }) {
     canManageTrips
       ? { href: "/admin", label: "My Tasks", active: path === "/admin", icon: "tasks" }
       : null,
-    isStaffUser
+    canManageTrips
       ? { href: "/staff", label: "Workers", active: path === "/staff", icon: "workers" }
       : null,
-    isStaffUser
+    canManageTrips
       ? { href: "/recruiting", label: "Recruiting", active: path === "/recruiting", icon: "recruiting" }
       : null,
     canManageTrips

@@ -6,7 +6,7 @@ import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { requireSession } from "@/lib/auth";
-import { isManagerRole, isStaffRole } from "@/lib/roles";
+import { isManagerRole } from "@/lib/roles";
 import {
   RECRUITING_STAGES,
   RECRUITING_UPDATED_EVENT,
@@ -1941,7 +1941,7 @@ export default function RecruitingPage() {
       const nextSession = await requireSession(router);
       if (cancelled || !nextSession) return;
 
-      if (!isStaffRole(nextSession.permissionRole || nextSession.role)) {
+      if (!isManagerRole(nextSession.permissionRole || nextSession.role)) {
         router.replace("/trips");
         return;
       }
