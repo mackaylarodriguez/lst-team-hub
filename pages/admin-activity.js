@@ -46,10 +46,6 @@ function formatTimestamp(value) {
   });
 }
 
-function formatWindowLabel(days) {
-  return `Last ${days} day${days === 1 ? "" : "s"}`;
-}
-
 export default function AdminActivityPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -218,59 +214,38 @@ export default function AdminActivityPage() {
           <AppIcon name="spark" className="pageEyebrowIcon" />
           <span>Admin Activity</span>
         </h1>
-        <p className="p">
-          Raw audit feed for the last few days — staff task work, recruiting moves, teams created, and teams locked.
-          Only visible to your admin account.
-        </p>
 
-        <div className="card pad adminActivitySection adminEmailTestCard">
-          <div className="sectionTitleRow">
-            <h2 className="sectionTitle">Email test lab</h2>
-          </div>
-          <p className="small" style={{ marginBottom: 14 }}>
-            Send yourself a preview of the worker invite or team lock email using real trip data.
-            Subject lines are prefixed with <strong>[TEST]</strong>. No team is locked and no worker invite is created.
-          </p>
+        <div className="card pad adminActivityToolbar">
           <div className="adminEmailTestGrid">
-            <div>
-              <div className="small" style={{ fontWeight: 700, marginBottom: 6 }}>
-                Trip
-              </div>
-              <select
-                className="input"
-                value={emailTestTripId}
-                onChange={(event) => setEmailTestTripId(event.target.value)}
-              >
-                <option value="">Select a trip…</option>
-                {trips.map((trip) => (
-                  <option key={trip.id} value={trip.id}>
-                    {trip.name}
-                    {trip.location ? ` — ${trip.location}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <div className="small" style={{ fontWeight: 700, marginBottom: 6 }}>
-                Send test to
-              </div>
-              <input
-                className="input"
-                type="email"
-                value={emailTestTo}
-                onChange={(event) => setEmailTestTo(event.target.value)}
-                placeholder="you@lst.org"
-              />
-            </div>
-          </div>
-          <div className="adminActivityPillRow" style={{ marginTop: 14 }}>
+            <select
+              className="input"
+              value={emailTestTripId}
+              onChange={(event) => setEmailTestTripId(event.target.value)}
+              aria-label="Trip for email test"
+            >
+              <option value="">Trip for email test…</option>
+              {trips.map((trip) => (
+                <option key={trip.id} value={trip.id}>
+                  {trip.name}
+                  {trip.location ? ` — ${trip.location}` : ""}
+                </option>
+              ))}
+            </select>
+            <input
+              className="input"
+              type="email"
+              value={emailTestTo}
+              onChange={(event) => setEmailTestTo(event.target.value)}
+              placeholder="Test email"
+              aria-label="Test email recipient"
+            />
             <button
               type="button"
               className="btn btnPrimary"
               disabled={!emailTestTripId || !emailTestTo || !!emailTestSending}
               onClick={() => void sendTestEmail("worker_invite")}
             >
-              {emailTestSending === "worker_invite" ? "Sending…" : "Send test worker invite"}
+              {emailTestSending === "worker_invite" ? "Sending…" : "Test invite"}
             </button>
             <button
               type="button"
@@ -278,21 +253,12 @@ export default function AdminActivityPage() {
               disabled={!emailTestTripId || !emailTestTo || !!emailTestSending}
               onClick={() => void sendTestEmail("team_lock")}
             >
-              {emailTestSending === "team_lock" ? "Sending…" : "Send test team lock email"}
+              {emailTestSending === "team_lock" ? "Sending…" : "Test lock email"}
             </button>
           </div>
-          {emailTestStatus ? (
-            <div className="small" style={{ marginTop: 12 }}>
-              {emailTestStatus}
-            </div>
-          ) : null}
-        </div>
+          {emailTestStatus ? <div className="small adminActivityToolbarStatus">{emailTestStatus}</div> : null}
 
-        <div className="adminActivityControls card pad">
-          <div className="adminActivityControlGroup">
-            <div className="small" style={{ fontWeight: 700, marginBottom: 8 }}>
-              Time window
-            </div>
+          <div className="adminActivityToolbarRow">
             <div className="adminActivityPillRow">
               {ADMIN_ACTIVITY_DAYS_OPTIONS.map((option) => (
                 <button
@@ -301,20 +267,15 @@ export default function AdminActivityPage() {
                   className={`btn ${days === option ? "btnPrimary" : ""}`}
                   onClick={() => setDays(option)}
                 >
-                  {formatWindowLabel(option)}
+                  {option}d
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="adminActivityControlGroup">
-            <div className="small" style={{ fontWeight: 700, marginBottom: 8 }}>
-              Filter feed
-            </div>
             <select
-              className="input"
+              className="input adminActivityFilterSelect"
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value)}
+              aria-label="Filter activity feed"
             >
               {CATEGORY_OPTIONS.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -322,18 +283,13 @@ export default function AdminActivityPage() {
                 </option>
               ))}
             </select>
+            <button className="btn" type="button" onClick={loadDashboard} disabled={isLoading}>
+              Refresh
+            </button>
           </div>
-
-          <button className="btn" type="button" onClick={loadDashboard} disabled={isLoading}>
-            Refresh
-          </button>
         </div>
 
-        {loadError ? (
-          <div className="card pad adminActivityError">
-            {loadError}
-          </div>
-        ) : null}
+        {loadError ? <div className="card pad adminActivityError">{loadError}</div> : null}
 
         {isLoading ? (
           <div className="adminActivityLoading">
@@ -344,35 +300,32 @@ export default function AdminActivityPage() {
             <div className="adminActivitySummaryGrid">
               <div className="card pad adminActivitySummaryCard">
                 <div className="adminActivitySummaryValue">{summary.totalEvents}</div>
-                <div className="small">Total events</div>
+                <div className="small">Events</div>
               </div>
               <div className="card pad adminActivitySummaryCard">
                 <div className="adminActivitySummaryValue">{summary.staffTaskCompletions}</div>
-                <div className="small">Staff tasks completed</div>
+                <div className="small">Tasks done</div>
               </div>
               <div className="card pad adminActivitySummaryCard">
                 <div className="adminActivitySummaryValue">{summary.recruitingActions}</div>
-                <div className="small">Recruiting actions</div>
+                <div className="small">Recruiting</div>
               </div>
               <div className="card pad adminActivitySummaryCard">
                 <div className="adminActivitySummaryValue">{summary.teamsLocked}</div>
-                <div className="small">Teams locked</div>
+                <div className="small">Locked</div>
               </div>
               <div className="card pad adminActivitySummaryCard">
                 <div className="adminActivitySummaryValue">{summary.teamsCreated}</div>
-                <div className="small">Teams created</div>
+                <div className="small">Created</div>
               </div>
               <div className="card pad adminActivitySummaryCard">
                 <div className="adminActivitySummaryValue">{summary.tripEvents}</div>
-                <div className="small">Trip activity logs</div>
+                <div className="small">Trip logs</div>
               </div>
             </div>
 
             <div className="card pad adminActivitySection">
-              <div className="sectionTitleRow">
-                <h2 className="sectionTitle">What staff are doing most</h2>
-                <span className="small">{formatWindowLabel(days)}</span>
-              </div>
+              <h2 className="sectionTitle adminActivitySectionTitle">Staff activity</h2>
 
               {(dashboard?.staffBreakdown || []).length ? (
                 <div className="tableWrap">
@@ -383,9 +336,9 @@ export default function AdminActivityPage() {
                         <th>Total</th>
                         <th>Recruiting</th>
                         <th>Staff tasks</th>
-                        <th>Misc tasks</th>
-                        <th>Completions</th>
-                        <th>Teams locked</th>
+                        <th>Misc</th>
+                        <th>Done</th>
+                        <th>Locked</th>
                         <th>Trip logs</th>
                       </tr>
                     </thead>
@@ -409,20 +362,14 @@ export default function AdminActivityPage() {
                   </table>
                 </div>
               ) : (
-                <EmptyState
-                  title="No staff activity yet"
-                  description={`Nothing logged in the last ${days} days.`}
-                />
+                <EmptyState title="No staff activity" />
               )}
             </div>
 
             <div className="card pad adminActivitySection">
-              <div className="sectionTitleRow">
-                <h2 className="sectionTitle">Full activity feed</h2>
-                <span className="small">
-                  {filteredEvents.length} event{filteredEvents.length === 1 ? "" : "s"}
-                </span>
-              </div>
+              <h2 className="sectionTitle adminActivitySectionTitle">
+                Activity feed ({filteredEvents.length})
+              </h2>
 
               {filteredEvents.length ? (
                 <div className="adminActivityFeed">
@@ -451,10 +398,7 @@ export default function AdminActivityPage() {
                   ))}
                 </div>
               ) : (
-                <EmptyState
-                  title="No events in this filter"
-                  description="Try another category or widen the time window."
-                />
+                <EmptyState title="No events" />
               )}
             </div>
           </>

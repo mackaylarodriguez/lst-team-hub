@@ -3524,17 +3524,39 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 
 .adminActivityPage{
   display:grid;
-  gap:16px;
+  gap:12px;
 }
-.adminActivityControls{
+.adminActivityToolbar{
+  display:grid;
+  gap:12px;
+}
+.adminActivityToolbarRow{
   display:flex;
   flex-wrap:wrap;
-  gap:16px;
-  align-items:flex-end;
+  gap:8px;
+  align-items:center;
 }
-.adminActivityControlGroup{
-  min-width:180px;
-  flex:1 1 180px;
+.adminActivityToolbarStatus{
+  margin:0;
+}
+.adminActivityFilterSelect{
+  min-width:160px;
+  flex:1 1 160px;
+  max-width:220px;
+}
+.adminActivitySectionTitle{
+  margin:0 0 12px;
+}
+.adminEmailTestGrid{
+  display:grid;
+  grid-template-columns:minmax(180px, 1.4fr) minmax(160px, 1fr) auto auto;
+  gap:8px;
+  align-items:center;
+}
+@media (max-width: 720px){
+  .adminEmailTestGrid{
+    grid-template-columns:1fr;
+  }
 }
 .adminActivityPillRow{
   display:flex;
@@ -3628,14 +3650,6 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .adminActivityError{
   color:#b42318;
   font-weight:700;
-}
-.adminEmailTestCard{
-  margin-bottom:0;
-}
-.adminEmailTestGrid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
-  gap:12px;
 }
 
 .trainingPreviewNavItem{
