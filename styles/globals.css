@@ -3629,6 +3629,14 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   color:#b42318;
   font-weight:700;
 }
+.adminEmailTestCard{
+  margin-bottom:0;
+}
+.adminEmailTestGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  gap:12px;
+}
 
 .trainingPreviewNavItem{
   display:block;

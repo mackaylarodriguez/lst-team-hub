@@ -373,7 +373,7 @@ function getWorkerConnectionStatus(member) {
       accountBadgeClass: "badgeWarn",
       canInvite: true,
       inviteLabel: "Send Invite",
-      inviteTitle: "Send a new invite email",
+      inviteTitle: "Send the one-time Hub invite email",
     };
   }
 

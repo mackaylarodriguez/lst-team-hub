@@ -125,6 +125,7 @@ export default function StaffAssignments() {
   const [isAddingWorker, setIsAddingWorker] = useState(false);
   const [newWorkerDraft, setNewWorkerDraft] = useState(() => createEmptyWorkerDraft());
   const [invitingWorkerEmail, setInvitingWorkerEmail] = useState("");
+  const [invitedEmails, setInvitedEmails] = useState(() => new Set());
   const [deletingWorkerId, setDeletingWorkerId] = useState("");
   const [confirmingDeleteWorkerId, setConfirmingDeleteWorkerId] = useState("");
 
@@ -149,6 +150,43 @@ export default function StaffAssignments() {
       cancelled = true;
     };
   }, [router]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadInviteStatus() {
+      const emails = workers
+        .filter((worker) => !worker.hasAccount && normalizeWorkerEmailKey(worker.email))
+        .map((worker) => normalizeWorkerEmailKey(worker.email));
+
+      if (!emails.length) {
+        if (!cancelled) setInvitedEmails(new Set());
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/worker-invite-status", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ emails }),
+        });
+        const result = await response.json().catch(() => null);
+        if (!cancelled && response.ok) {
+          setInvitedEmails(new Set(result?.invited || []));
+        }
+      } catch (statusError) {
+        console.error("Unable to load worker invite status", statusError);
+      }
+    }
+
+    loadInviteStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workers]);
 
   useEffect(() => {
     async function loadData() {
@@ -382,11 +420,15 @@ export default function StaffAssignments() {
       const result = await response.json().catch(() => null);
 
       if (!response.ok) {
+        if (response.status === 409 && result?.alreadyInvited) {
+          setInvitedEmails((current) => new Set([...current, email]));
+        }
         throw new Error(result?.error || "Unable to send invite.");
       }
 
       setMessage(`Invite sent to ${email}.`);
       setError("");
+      setInvitedEmails((current) => new Set([...current, email]));
     } catch (inviteError) {
       console.error("Unable to send worker invite from staff page", inviteError);
       setError(inviteError.message || "Unable to send invite.");
@@ -567,6 +609,7 @@ export default function StaffAssignments() {
         onAssign={handleAssign}
         onInvite={handleInviteWorker}
         invitingWorkerEmail={invitingWorkerEmail}
+        invitedEmails={invitedEmails}
         onDelete={handleDeleteWorker}
         deletingWorkerId={deletingWorkerId}
         confirmingDeleteWorkerId={confirmingDeleteWorkerId}
@@ -585,6 +628,7 @@ export default function StaffAssignments() {
         onAssign={handleAssign}
         onInvite={handleInviteWorker}
         invitingWorkerEmail={invitingWorkerEmail}
+        invitedEmails={invitedEmails}
         onDelete={handleDeleteWorker}
         deletingWorkerId={deletingWorkerId}
         confirmingDeleteWorkerId={confirmingDeleteWorkerId}
@@ -774,6 +818,7 @@ function WorkerDirectorySection({
   onAssign,
   onInvite,
   invitingWorkerEmail,
+  invitedEmails,
   onDelete,
   deletingWorkerId,
   confirmingDeleteWorkerId,
@@ -816,6 +861,8 @@ function WorkerDirectorySection({
               {workers.map((worker) => {
                 const participant = participantForWorker(worker, participantByProfileId, participantByEmail);
                 const tripRows = collectWorkerTripRows(worker, participant);
+                const workerEmailKey = normalizeWorkerEmailKey(worker.email);
+                const inviteAlreadySent = invitedEmails?.has?.(workerEmailKey);
                 return (
                   <tr key={worker.id}>
                     <td style={{ whiteSpace: "nowrap" }}>
@@ -835,8 +882,8 @@ function WorkerDirectorySection({
                       </div>
                     </td>
                     <td>
-                      <span className={`badge ${worker.hasAccount ? "badgeSuccess" : "badgeWarn"}`.trim()}>
-                        {worker.hasAccount ? "Account created" : "Pending invite"}
+                      <span className={`badge ${worker.hasAccount ? "badgeSuccess" : inviteAlreadySent ? "badgeInfo" : "badgeWarn"}`.trim()}>
+                        {worker.hasAccount ? "Account created" : inviteAlreadySent ? "Invite sent" : "Pending invite"}
                       </span>
                     </td>
                     <td>
@@ -928,7 +975,8 @@ function WorkerDirectorySection({
                             disabled={
                               worker.hasAccount ||
                               !worker.assignments.length ||
-                              invitingWorkerEmail === worker.email
+                              invitingWorkerEmail === worker.email ||
+                              inviteAlreadySent
                             }
                             onClick={() => onInvite(worker)}
                           >
@@ -936,7 +984,9 @@ function WorkerDirectorySection({
                               ? "Sending invite…"
                               : worker.hasAccount
                                 ? "Invite (account exists)"
-                                : "Resend invite email"}
+                                : inviteAlreadySent
+                                  ? "Invite sent"
+                                  : "Send invite"}
                           </button>
                           <button
                             type="button"

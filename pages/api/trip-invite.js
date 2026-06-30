@@ -1,5 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { sendResendEmail } from "@/lib/resendMail";
+import { loadTripEmailContext } from "@/lib/tripEmailContext";
+import {
+  buildWorkerInviteEmailHtml,
+  buildWorkerInviteEmailSubject,
+} from "@/lib/workerInviteEmail";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -20,32 +25,40 @@ function getBaseUrl(req) {
   return host ? `${protocol}://${host}` : "";
 }
 
-function getPublicSupabaseClient() {
-  const supabaseUrl = normalizeText(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const supabaseAnonKey = normalizeText(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+async function authUserExists(admin, email) {
+  let page = 1;
+  const perPage = 1000;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Missing Supabase public environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
-    );
+  while (true) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error) {
+      throw error;
+    }
+
+    const match = (data?.users || []).find((user) => normalizeEmail(user?.email) === email);
+    if (match) {
+      return true;
+    }
+
+    if (!data?.users?.length || data.users.length < perPage) {
+      return false;
+    }
+    page += 1;
   }
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
 }
 
-function isExistingAuthUserError(error) {
-  const message = String(error?.message || error?.details || "").toLowerCase();
-  return (
-    message.includes("already been registered") ||
-    message.includes("already registered") ||
-    message.includes("already exists") ||
-    message.includes("user already exists")
-  );
+async function profileExists(admin, email) {
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id")
+    .ilike("email", email)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return !!data?.id;
 }
 
 export default async function handler(req, res) {
@@ -66,45 +79,98 @@ export default async function handler(req, res) {
     const redirectTo = `${baseUrl}/login?next=${encodeURIComponent(`/trips/${tripId}`)}`;
     const supabaseAdmin = getSupabaseAdminClient();
 
-    const inviteResult = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      recipientEmail,
-      {
+    const hasAuthUser = await authUserExists(supabaseAdmin, recipientEmail);
+    if (hasAuthUser) {
+      const hasProfile = await profileExists(supabaseAdmin, recipientEmail);
+      if (hasProfile) {
+        return res.status(409).json({
+          error: "This person already has a Hub account. They can sign in or use Forgot Password if needed.",
+          alreadyInvited: true,
+        });
+      }
+
+      return res.status(409).json({
+        error:
+          "Invite already sent for this email. If they need a new link, they can use Forgot Password on the login page.",
+        alreadyInvited: true,
+      });
+    }
+
+    const tripName = normalizeText(req.body?.tripName);
+    const tripLocation = normalizeText(req.body?.tripLocation);
+    const tripDates = normalizeText(req.body?.tripDates);
+    const senderName = normalizeText(req.body?.senderName) || "LST staff";
+    const recipientName = normalizeText(req.body?.recipientName);
+
+    const tripContext = await loadTripEmailContext(supabaseAdmin, tripId);
+
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "invite",
+      email: recipientEmail,
+      options: {
         redirectTo,
         data: {
           tripId,
-          tripName: normalizeText(req.body?.tripName),
-          tripLocation: normalizeText(req.body?.tripLocation),
-          tripDates: normalizeText(req.body?.tripDates),
+          tripName,
+          tripLocation,
+          tripDates,
           senderEmail: normalizeEmail(req.body?.senderEmail),
-          senderName: normalizeText(req.body?.senderName),
+          senderName,
         },
-      }
-    );
+      },
+    });
 
-    if (inviteResult.error) {
-      if (!isExistingAuthUserError(inviteResult.error)) {
-        console.error("Unable to send Supabase invite email", inviteResult.error);
-        throw inviteResult.error;
-      }
+    if (linkError) {
+      console.error("Unable to generate worker invite link", linkError);
+      throw linkError;
+    }
 
-      const supabasePublic = getPublicSupabaseClient();
-      const resetResult = await supabasePublic.auth.resetPasswordForEmail(
-        recipientEmail,
-        { redirectTo }
-      );
+    const inviteUrl = String(linkData?.properties?.action_link || "").trim();
+    if (!inviteUrl) {
+      throw new Error("Invite link was not returned from Supabase.");
+    }
 
-      if (resetResult.error) {
-        console.error("Unable to send Supabase password reset fallback", resetResult.error);
-        throw resetResult.error;
-      }
+    const subject = buildWorkerInviteEmailSubject({
+      tripName: tripContext.tripName || tripName,
+    });
+    const html = buildWorkerInviteEmailHtml({
+      recipientName,
+      senderName,
+      tripName: tripContext.tripName || tripName,
+      tripLocation: tripContext.tripLocation || tripLocation,
+      host: tripContext.host,
+      teamDeveloper: tripContext.teamDeveloper,
+      startDate: tripContext.startDate,
+      endDate: tripContext.endDate,
+      projectLengthSummary: tripContext.projectLengthSummary,
+      projectDates: tripDates,
+      extraTravelStatus: tripContext.extraTravelStatus,
+      fundraisingGoalAmount: tripContext.fundraisingGoalAmount,
+      teamMembers: tripContext.teamMembers,
+      appLoginUrl: `${baseUrl}/login`,
+      inviteUrl,
+    });
 
-      return res.status(200).json({ ok: true, mode: "reset" });
+    const emailResult = await sendResendEmail({
+      to: recipientEmail,
+      subject,
+      html,
+    });
+
+    if (!emailResult.sent) {
+      console.error("[trip-invite] custom invite email not sent:", emailResult.reason, emailResult.detail || "");
+      return res.status(500).json({
+        error:
+          "Could not send the invite email. Check RESEND_API_KEY and BUDGET_CHECK_FROM_EMAIL in your environment.",
+        reason: emailResult.reason,
+      });
     }
 
     return res.status(200).json({
       ok: true,
       mode: "invite",
-      id: inviteResult.data?.user?.id || "",
+      id: linkData?.user?.id || "",
+      email: emailResult,
     });
   } catch (error) {
     return res.status(500).json({

@@ -7,6 +7,8 @@ import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { ROLE_ADMIN } from "@/lib/roles";
+import { listTripsForCurrentUser } from "@/lib/trips";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import {
   ADMIN_ACTIVITY_DAYS_OPTIONS,
   listAdminActivityDashboard,
@@ -56,6 +58,11 @@ export default function AdminActivityPage() {
   const [dashboard, setDashboard] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [trips, setTrips] = useState([]);
+  const [emailTestTripId, setEmailTestTripId] = useState("");
+  const [emailTestTo, setEmailTestTo] = useState("");
+  const [emailTestStatus, setEmailTestStatus] = useState("");
+  const [emailTestSending, setEmailTestSending] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -70,6 +77,7 @@ export default function AdminActivityPage() {
       }
 
       setSession(nextSession);
+      setEmailTestTo(String(nextSession.email || "").trim());
     }
 
     init();
@@ -78,6 +86,80 @@ export default function AdminActivityPage() {
       cancelled = true;
     };
   }, [router]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    let cancelled = false;
+
+    async function loadTrips() {
+      try {
+        const nextTrips = await listTripsForCurrentUser();
+        if (cancelled) return;
+        setTrips(nextTrips || []);
+        setEmailTestTripId((current) => current || nextTrips?.[0]?.id || "");
+      } catch (error) {
+        console.error("Unable to load trips for email test", error);
+      }
+    }
+
+    loadTrips();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  const sendTestEmail = useCallback(
+    async (template) => {
+      if (!emailTestTripId || !emailTestTo) {
+        setEmailTestStatus("Pick a trip and enter a test email address.");
+        return;
+      }
+
+      setEmailTestSending(template);
+      setEmailTestStatus("");
+
+      try {
+        const supabase = getSupabaseClient();
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+
+        const token = sessionData?.session?.access_token;
+        if (!token) {
+          throw new Error("Not signed in.");
+        }
+
+        const response = await fetch("/api/admin-email-test", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            template,
+            tripId: emailTestTripId,
+            testEmail: emailTestTo,
+            senderName: session?.name || session?.email || "LST staff",
+          }),
+        });
+
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(result?.error || "Unable to send test email.");
+        }
+
+        const label = template === "worker_invite" ? "Worker invite" : "Team lock";
+        setEmailTestStatus(`${label} test sent to ${result?.sentTo || emailTestTo}.`);
+      } catch (error) {
+        console.error("Unable to send admin test email", error);
+        setEmailTestStatus(error?.message || "Unable to send test email.");
+      } finally {
+        setEmailTestSending("");
+      }
+    },
+    [emailTestTo, emailTestTripId, session]
+  );
 
   const loadDashboard = useCallback(async () => {
     if (!session) return;
@@ -140,6 +222,71 @@ export default function AdminActivityPage() {
           Raw audit feed for the last few days — staff task work, recruiting moves, teams created, and teams locked.
           Only visible to your admin account.
         </p>
+
+        <div className="card pad adminActivitySection adminEmailTestCard">
+          <div className="sectionTitleRow">
+            <h2 className="sectionTitle">Email test lab</h2>
+          </div>
+          <p className="small" style={{ marginBottom: 14 }}>
+            Send yourself a preview of the worker invite or team lock email using real trip data.
+            Subject lines are prefixed with <strong>[TEST]</strong>. No team is locked and no worker invite is created.
+          </p>
+          <div className="adminEmailTestGrid">
+            <div>
+              <div className="small" style={{ fontWeight: 700, marginBottom: 6 }}>
+                Trip
+              </div>
+              <select
+                className="input"
+                value={emailTestTripId}
+                onChange={(event) => setEmailTestTripId(event.target.value)}
+              >
+                <option value="">Select a trip…</option>
+                {trips.map((trip) => (
+                  <option key={trip.id} value={trip.id}>
+                    {trip.name}
+                    {trip.location ? ` — ${trip.location}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div className="small" style={{ fontWeight: 700, marginBottom: 6 }}>
+                Send test to
+              </div>
+              <input
+                className="input"
+                type="email"
+                value={emailTestTo}
+                onChange={(event) => setEmailTestTo(event.target.value)}
+                placeholder="you@lst.org"
+              />
+            </div>
+          </div>
+          <div className="adminActivityPillRow" style={{ marginTop: 14 }}>
+            <button
+              type="button"
+              className="btn btnPrimary"
+              disabled={!emailTestTripId || !emailTestTo || !!emailTestSending}
+              onClick={() => void sendTestEmail("worker_invite")}
+            >
+              {emailTestSending === "worker_invite" ? "Sending…" : "Send test worker invite"}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={!emailTestTripId || !emailTestTo || !!emailTestSending}
+              onClick={() => void sendTestEmail("team_lock")}
+            >
+              {emailTestSending === "team_lock" ? "Sending…" : "Send test team lock email"}
+            </button>
+          </div>
+          {emailTestStatus ? (
+            <div className="small" style={{ marginTop: 12 }}>
+              {emailTestStatus}
+            </div>
+          ) : null}
+        </div>
 
         <div className="adminActivityControls card pad">
           <div className="adminActivityControlGroup">
