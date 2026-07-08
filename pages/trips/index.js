@@ -565,6 +565,8 @@ export default function Trips() {
         );
         if (notifyResult?.email?.sent) {
           showToast("Trip created. Staff lock email sent.", "success");
+        } else if (notifyResult?.workerInvites?.sent > 0) {
+          showToast(`Trip created. Worker invites sent (${notifyResult.workerInvites.sent}).`, "success");
         }
       } catch (notifyError) {
         console.warn("Trip created but staff lock email failed", notifyError);

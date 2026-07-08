@@ -2817,6 +2817,19 @@ export default function RecruitingPage() {
           } else if (notifyResult?.email?.reason === "missing_team_lock_notify_email") {
             statusMessage += " (Set TEAM_LOCK_NOTIFY_EMAIL to send staff lock email.)";
           }
+          const invites = notifyResult?.workerInvites;
+          if (invites?.sent > 0) {
+            statusMessage += ` Worker invites sent (${invites.sent}).`;
+          }
+          if (invites?.skipped > 0) {
+            statusMessage += ` ${invites.skipped} worker(s) already had accounts or pending invites.`;
+          }
+          if (invites?.failed > 0) {
+            statusMessage += ` ${invites.failed} worker invite(s) failed.`;
+          }
+          if (invites?.error) {
+            statusMessage += " Worker invites could not send.";
+          }
         } catch (notifyError) {
           console.warn("Team locked but staff notification email failed", notifyError);
           statusMessage += " Trip saved; staff lock email did not send.";

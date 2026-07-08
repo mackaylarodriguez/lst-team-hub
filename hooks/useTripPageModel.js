@@ -2759,10 +2759,16 @@ export function useTripPageModel() {
             travelInsuranceAck: existing.travelInsuranceAck,
           });
         } else {
+          const rosterMember = tripTeamMemberId
+            ? (trip?.teamMembers || []).find((m) => String(m.id) === String(tripTeamMemberId))
+            : null;
+          const participant = userId
+            ? (trip?.participants || []).find((p) => String(p.id) === String(userId))
+            : null;
           setTravelFormDraft({
             ...TRAVEL_FORM_EMPTY,
             teamName: trip.name || "",
-            email: target.email || "",
+            email: target.email || participant?.email || rosterMember?.email || "",
           });
         }
       })
@@ -2809,6 +2815,14 @@ export function useTripPageModel() {
     const participant = userId
       ? (trip?.participants || []).find((p) => String(p.id) === String(userId))
       : null;
+    const rosterMember = tripTeamMemberId
+      ? (trip?.teamMembers || []).find((m) => String(m.id) === String(tripTeamMemberId))
+      : null;
+    const ownerEmail =
+      normalizeEmail(travelFormDraft.email) ||
+      normalizeEmail(participant?.email) ||
+      normalizeEmail(rosterMember?.email) ||
+      "";
     if (!trip?.id || (!userId && !tripTeamMemberId)) return;
     try {
       setTravelFormStatus("Saving...");
@@ -2824,13 +2838,13 @@ export function useTripPageModel() {
       setTravelFormStatus("Saved.");
       showToast("Travel form saved.");
       const travelFormTask = (trip.tasks || []).find((t) => t.title === "Fill out Travel Form");
-      const tfState = participantTaskStates[normalizeEmail(participant.email)] || {};
+      const tfState = ownerEmail ? participantTaskStates[ownerEmail] || {} : {};
       if (
-        participant &&
+        ownerEmail &&
         travelFormTask &&
         !isWorkerTaskCompletedInState(travelFormTask, tfState)
       ) {
-        toggleTask(travelFormTask.id, participant.email);
+        toggleTask(travelFormTask.id, ownerEmail);
       }
       setTravelFormModalOpen(false);
       setTravelFormTargetRefKey("");

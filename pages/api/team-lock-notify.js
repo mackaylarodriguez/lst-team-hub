@@ -14,6 +14,7 @@ import {
   buildTeamLockStaffEmailHtml,
   buildTeamLockStaffEmailSubject,
 } from "@/lib/teamLockStaffEmail";
+import { sendWorkerInvitesForTrip } from "@/lib/sendWorkerInvite";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -62,7 +63,7 @@ async function authenticateStaffOrAdmin(req) {
 
   const { data: profile, error: profileErr } = await admin
     .from("profiles")
-    .select("id, email, role")
+    .select("id, email, role, first_name, last_name")
     .ilike("email", email)
     .maybeSingle();
 
@@ -76,6 +77,17 @@ async function authenticateStaffOrAdmin(req) {
   }
 
   return { profile, user };
+}
+
+function getBaseUrl(req) {
+  const configured = normalizeText(process.env.NEXT_PUBLIC_APP_URL);
+  if (configured) {
+    return configured.replace(/\/$/, "");
+  }
+  const host = normalizeText(req.headers.host);
+  if (!host) return "";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  return `${protocol}://${host}`;
 }
 
 function getTripUrl(req, tripId) {
@@ -137,6 +149,11 @@ async function loadProjectLengthSources(admin, tripId) {
   return sources;
 }
 
+function formatSenderName(profile, userEmail) {
+  const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim();
+  return fullName || normalizeText(userEmail) || "LST staff";
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -156,21 +173,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "tripId and teamName are required." });
   }
 
+  const admin = getSupabaseAdminClient();
   const notifyTo = parseNotifyEmailList(process.env.TEAM_LOCK_NOTIFY_EMAIL);
-  if (!notifyTo.length) {
-    return res.status(200).json({
-      ok: true,
-      email: { sent: false, reason: "missing_team_lock_notify_email" },
-    });
-  }
-
   let tripProjectLength = "";
   let recruitingWeeks = "";
   let recruitingProjectDates = "";
   let pendingProjectLength = "";
 
   try {
-    const admin = getSupabaseAdminClient();
     const sources = await loadProjectLengthSources(admin, tripId);
     tripProjectLength = sources.tripProjectLength;
     recruitingWeeks = sources.recruitingWeeks;
@@ -221,13 +231,49 @@ export default async function handler(req, res) {
     tripUrl: getTripUrl(req, tripId),
   };
 
-  const subject = buildTeamLockStaffEmailSubject(payload);
-  const html = buildTeamLockStaffEmailHtml(payload);
-  const emailResult = await sendResendEmail({ to: notifyTo, subject, html });
+  let emailResult = { sent: false, reason: "missing_team_lock_notify_email" };
+  if (notifyTo.length) {
+    const subject = buildTeamLockStaffEmailSubject(payload);
+    const html = buildTeamLockStaffEmailHtml(payload);
+    emailResult = await sendResendEmail({ to: notifyTo, subject, html });
 
-  if (!emailResult.sent) {
-    console.warn("[team-lock-notify] notification email not sent:", emailResult.reason, emailResult.detail || "");
+    if (!emailResult.sent) {
+      console.warn(
+        "[team-lock-notify] notification email not sent:",
+        emailResult.reason,
+        emailResult.detail || ""
+      );
+    }
   }
 
-  return res.status(200).json({ ok: true, email: emailResult });
+  let workerInvites = {
+    attempted: 0,
+    sent: 0,
+    skipped: 0,
+    failed: 0,
+    results: [],
+  };
+
+  try {
+    workerInvites = await sendWorkerInvitesForTrip({
+      admin,
+      baseUrl: getBaseUrl(req),
+      tripId,
+      teamMembers: payload.teamMembers,
+      senderName: formatSenderName(auth.profile, auth.user?.email),
+      senderEmail: auth.user?.email || "",
+    });
+  } catch (inviteError) {
+    console.error("[team-lock-notify] worker invite batch failed", inviteError);
+    workerInvites = {
+      attempted: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      results: [],
+      error: inviteError?.message || "Unable to send worker invites.",
+    };
+  }
+
+  return res.status(200).json({ ok: true, email: emailResult, workerInvites });
 }
