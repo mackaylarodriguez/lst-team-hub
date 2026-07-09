@@ -2819,10 +2819,13 @@ export default function RecruitingPage() {
           }
           const invites = notifyResult?.workerInvites;
           if (invites?.sent > 0) {
-            statusMessage += ` Worker invites sent (${invites.sent}).`;
+            const parts = [];
+            if (invites.invited > 0) parts.push(`${invites.invited} invite(s)`);
+            if (invites.notified > 0) parts.push(`${invites.notified} notification(s)`);
+            statusMessage += ` Worker emails sent (${parts.join(", ") || invites.sent}).`;
           }
           if (invites?.skipped > 0) {
-            statusMessage += ` ${invites.skipped} worker(s) already had accounts or pending invites.`;
+            statusMessage += ` ${invites.skipped} worker(s) skipped (no email on roster).`;
           }
           if (invites?.failed > 0) {
             statusMessage += ` ${invites.failed} worker invite(s) failed.`;
