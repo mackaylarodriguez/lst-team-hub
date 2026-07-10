@@ -10,6 +10,7 @@ export const PATHS = {
   staticApi: path.join(ROOT, "components/trip/tripPageStaticApi.js"),
   tabPanels: path.join(ROOT, "components/trip/TripTabPanels.js"),
   tripPage: path.join(ROOT, "pages/trips/[tripId].js"),
+  tripDetailHeroBar: path.join(ROOT, "components/trip/TripDetailHeroBar.js"),
   tabsDir: path.join(ROOT, "components/trip/tabs"),
 };
 
@@ -427,7 +428,7 @@ export function isPrivateBinding(name) {
 }
 
 export function consumerFiles() {
-  return [...listTabFiles(), PATHS.tripPage, PATHS.tabPanels];
+  return [...listTabFiles(), PATHS.tripPage, PATHS.tabPanels, PATHS.tripDetailHeroBar];
 }
 
 /** Replace only the main tripPage destructure (after loading guards), not the shell. */
