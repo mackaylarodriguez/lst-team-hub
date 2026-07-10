@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useTripPage } from "../TripPageContext";
+import TripOverviewHeader from "../TripOverviewHeader";
 import { deleteTripMeeting } from "@/lib/tripMeetings";
 import { toDatetimeLocalValue } from "../tripPageShared";
 import {
@@ -76,6 +77,7 @@ export default function TripOverviewTab() {
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
+      <TripOverviewHeader />
               <CollapsibleSection defaultOpen>
               <div className="cardSectionPill" style={{ marginBottom: 8 }}>
                 Progress at a glance
