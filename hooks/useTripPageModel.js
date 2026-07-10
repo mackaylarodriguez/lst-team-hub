@@ -89,7 +89,7 @@ import {
   listTripAnnouncements,
   saveTripAnnouncement,
 } from "@/lib/tripAnnouncements";
-import { saveTripFundraisingSettings } from "@/lib/tripFundraising";
+import { saveTripFundraisingSettings, parsePositiveFundraisingGoal, resolveWorkerFundraisingGoalAmount } from "@/lib/tripFundraising";
 import { listTripActivity, logTripActivity } from "@/lib/tripActivity";
 import {
   buildParticipantDocumentTypesPayload,
@@ -5842,6 +5842,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
       return [];
     }
 
+    const tripDefaultGoal = parsePositiveFundraisingGoal(trip?.fundraisingGoalAmount);
     const rosterGoalByEmail = new Map(
       (trip.teamMembers || [])
         .filter((m) => m?.email)
@@ -5852,21 +5853,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
       .filter((participant) => String(participant.id) === String(currentParticipant?.id || ""))
       .map((participant) => {
         const rosterGoalRaw = rosterGoalByEmail.get(normalizeEmail(participant.email));
-        const participantGoal =
-          participant.fundraisingGoalAmount != null &&
-          participant.fundraisingGoalAmount !== "" &&
-          Number.isFinite(Number(participant.fundraisingGoalAmount))
-            ? Number(participant.fundraisingGoalAmount)
-            : null;
-        const rosterGoal =
-          rosterGoalRaw != null &&
-          rosterGoalRaw !== "" &&
-          Number.isFinite(Number(rosterGoalRaw))
-            ? Number(rosterGoalRaw)
-            : null;
+        const participantGoal = parsePositiveFundraisingGoal(participant.fundraisingGoalAmount);
+        const rosterGoal = parsePositiveFundraisingGoal(rosterGoalRaw);
         return {
           ...participant,
-          fundraisingGoalAmount: participantGoal != null ? participantGoal : rosterGoal,
+          fundraisingGoalAmount: participantGoal ?? rosterGoal ?? tripDefaultGoal,
         };
       })
       .filter((p) => shouldIncludeInTripWorkerPipeline(trip, p.email));
@@ -5963,22 +5954,26 @@ normalizeEmail(participant.email) === activeParticipantEmail
   const overviewTrainingPct = canViewTeamDashboard
     ? trainingPct
     : currentTrainingProgress?.percent || 0;
-  const currentParticipantFundraisingGoalAmount =
-    (() => {
-      const participantGoalRaw = currentParticipant?.fundraisingGoalAmount;
-      if (participantGoalRaw != null && Number.isFinite(Number(participantGoalRaw))) {
-        return Number(participantGoalRaw);
-      }
-      const rosterGoalRaw = sessionTripRosterRow?.fundraisingGoalAmount;
-      if (rosterGoalRaw != null && Number.isFinite(Number(rosterGoalRaw))) {
-        return Number(rosterGoalRaw);
-      }
-      const workerCardGoalRaw = visibleFundraisingParticipants?.[0]?.fundraisingGoalAmount;
-      if (workerCardGoalRaw != null && Number.isFinite(Number(workerCardGoalRaw))) {
-        return Number(workerCardGoalRaw);
-      }
-      return 0;
-    })();
+  const rosterMemberForWorker = useMemo(() => {
+    if (sessionTripRosterRow) return sessionTripRosterRow;
+    if (!trip || !currentParticipant) return null;
+
+    const memberId = currentParticipant.tripTeamMemberId;
+    if (memberId) {
+      const byId = (trip.teamMembers || []).find((m) => String(m.id) === String(memberId));
+      if (byId) return byId;
+    }
+
+    const email = normalizeEmail(currentParticipant.email || session?.email);
+    if (!email) return null;
+    return (trip.teamMembers || []).find((m) => normalizeEmail(m.email) === email) || null;
+  }, [trip, currentParticipant, sessionTripRosterRow, session?.email]);
+
+  const currentParticipantFundraisingGoalAmount = resolveWorkerFundraisingGoalAmount({
+    participant: visibleFundraisingParticipants?.[0] || currentParticipant,
+    rosterMember: rosterMemberForWorker,
+    tripFundraisingGoalAmount: trip?.fundraisingGoalAmount,
+  });
   const isTeamFundraisingMode = trip?.fundraisingMode === "team";
   const tripFundraisingGoal = Number(trip?.fundraisingGoalAmount || 0);
   const summedParticipantFundraisingGoal = useMemo(
@@ -5990,10 +5985,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
       }, 0),
     [visibleFundraisingParticipants]
   );
-  const workerSpecificFundraisingGoalAmount =
-    currentParticipantFundraisingGoalAmount > 0
-      ? currentParticipantFundraisingGoalAmount
-      : tripFundraisingGoal;
+  const workerSpecificFundraisingGoalAmount = currentParticipantFundraisingGoalAmount;
   const staffTeamFundraisingGoalAmount =
     isTeamFundraisingMode
       ? tripFundraisingGoal

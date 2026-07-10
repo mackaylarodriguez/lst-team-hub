@@ -3408,6 +3408,9 @@ export default function RecruitingPage() {
         >
           Contact
         </button>
+        <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>
+          Task
+        </button>
         <button
           className="btn btnPrimary recruitingOutreachEditBtn"
           type="button"

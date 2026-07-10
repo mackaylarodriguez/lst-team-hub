@@ -156,6 +156,7 @@ import {
 } from "@/lib/workbookInventory";
 import { resolveSiteLogisticsUrl } from "@/lib/siteInfoLinks";
 import { TripPageProvider } from "@/components/trip/TripPageProvider";
+import TripDetailHeroBar from "@/components/trip/TripDetailHeroBar";
 import TripTabPanels from "@/components/trip/TripTabPanels";
 import { useTripPageModel } from "@/hooks/useTripPageModel";
 import * as TripPageShared from "@/components/trip/tripPageShared";
@@ -608,6 +609,8 @@ export default function TripPage() {
           <span className="small" style={{ color: "var(--muted)", margin: "0 6px" }}>/</span>
           <span className="small" style={{ color: "var(--text)" }}>{trip.name}</span>
         </nav>
+
+        <TripDetailHeroBar />
 
       <div className="tabs tripPageTabs appPolishToolbar" style={{ marginBottom: 14 }}>
         {tabs.map(t => (
