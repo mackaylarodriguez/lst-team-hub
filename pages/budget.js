@@ -28,6 +28,7 @@ import {
   saveTripTicket,
   deleteTripTicket,
   syncTripTicketsFromTeamMembers,
+  TICKET_AGENCY_OPTIONS,
 } from "@/lib/tripTickets";
 import {
   listAllTripHousingEntries,
@@ -2345,13 +2346,23 @@ export default function BudgetPage() {
                           />
                         </td>
                         <td style={{ minWidth: 140, maxWidth: 300 }}>
-                          <textarea
+                          <select
                             className="input"
-                            rows={3}
                             value={t.ticketAgency || ""}
                             onChange={(e) => updateTicketRow(t.id, "ticketAgency", e.target.value)}
-                            placeholder="Agency"
-                          />
+                            aria-label="Ticket agency"
+                          >
+                            <option value="">Select agency</option>
+                            {TICKET_AGENCY_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                            {t.ticketAgency &&
+                            !TICKET_AGENCY_OPTIONS.includes(t.ticketAgency) ? (
+                              <option value={t.ticketAgency}>{t.ticketAgency}</option>
+                            ) : null}
+                          </select>
                         </td>
                         <td style={{ minWidth: 112 }}>
                           <input
