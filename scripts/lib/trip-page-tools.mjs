@@ -378,20 +378,38 @@ function isLikelyContextKey(name) {
   return name.length >= 6 || CONTEXT_KEY_RE.test(name);
 }
 
+function stripStringLiterals(source) {
+  return source
+    .replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, '""')
+    .replace(/'[^'\\]*(?:\\.[^'\\]*)*'/g, "''")
+    .replace(/`[^`\\]*(?:\\.[^`\\]*)*`/g, "``");
+}
+
+function isContextKeyUsedAsIdentifier(body, key) {
+  const patterns = [
+    new RegExp(`\\{${key}\\b`),
+    new RegExp(`\\b${key}\\.`),
+    new RegExp(`\\b${key}\\s*[,})\\]}]`),
+    new RegExp(`\\(\\s*${key}\\b`),
+    new RegExp(`[,{\\s(=]${key}\\s*&&`),
+    new RegExp(`\\b${key}\\s*&&`),
+    new RegExp(`\\b${key}\\s*\\|\\|`),
+    new RegExp(`\\b${key}\\s*\\?`),
+    new RegExp(`=\\s*${key}\\b`),
+    new RegExp(`\\b${key}\\s*=`),
+  ];
+  return patterns.some((re) => re.test(body));
+}
+
 export function findUsedContextKeys(source, availableKeys, imports, filePath = "") {
-  const body = getConsumerBody(source, filePath);
+  const body = stripStringLiterals(getConsumerBody(source, filePath));
   const used = new Set();
 
   for (const key of availableKeys) {
     if (imports.has(key)) continue;
     if (EXCLUDED_USAGE_NAMES.has(key)) continue;
     if (!isLikelyContextKey(key)) continue;
-    const re = new RegExp(`\\b${key}\\b`);
-    if (!re.test(body)) continue;
-    // Skip bare object keys (`key:`) but allow `key &&`, `key.`, `key(`, etc.
-    if (new RegExp(`\\b${key}\\s*:`).test(body) && !new RegExp(`\\b${key}\\s*(&&|\\|\\||\\?|\\.|;|,|\\)|$)`).test(body)) {
-      continue;
-    }
+    if (!isContextKeyUsedAsIdentifier(body, key)) continue;
     used.add(key);
   }
   return used;
