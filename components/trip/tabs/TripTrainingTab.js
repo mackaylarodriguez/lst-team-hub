@@ -3,6 +3,7 @@ import { useTripPage } from "../TripPageContext";
 import TripParticipantCollapsible from "../TripParticipantCollapsible";
 import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
 import TripTrainingPrototypePanel from "@/components/training/prototype/TripTrainingPrototypePanel";
+import TripTrainingProgressCard from "../TripTrainingProgressCard";
 import { buildTrainingModuleRowDomId } from "../tripPageShared";
 import {
   getTrainingSessionOptionsForModuleTitle,
@@ -26,12 +27,9 @@ export default function TripTrainingTab() {
     canvasTrainingModules,
     gatewayTrainingUrl,
     currentParticipant,
-    currentTrainingProgress,
     formatShortDate,
     optionalTrainingResources,
-    overviewTrainingPct,
     requiredTrainingResources,
-    session,
     supplementalTrainingModules,
     toDateInputValue,
     toggleTraining,
@@ -72,39 +70,7 @@ export default function TripTrainingTab() {
               </CollapsibleSection>
     
               <CollapsibleSection defaultOpen>
-              <div className="card pad tripSectionCard tripTaskProgressCard">
-                <div className="tripTaskProgressTop">
-                  <div className="cardSectionPill">Training progress</div>
-                  <span className="badge">{overviewTrainingPct}% complete</span>
-                </div>
-                <div className="progress tripTaskProgressBar">
-                  <div style={{ width: `${overviewTrainingPct}%` }} />
-                </div>
-                <div className="small tripTaskProgressMeta">
-                  {canViewTeamDashboard
-                    ? "Overall completion across all participant training checklists."
-                    : `${currentTrainingProgress?.completed || 0} of ${currentTrainingProgress?.total || 0} modules complete.`}
-                </div>
-    
-                {canViewTeamDashboard ? (
-                  <div className="tripTaskProgressParticipants">
-                    {visibleTrainingParticipants.map((participant) => (
-                      <div
-                        key={`${participant.email}-training-summary`}
-                        className="tripTaskProgressParticipantRow"
-                      >
-                        <span className="tripTaskProgressParticipantName">{participant.name}</span>
-                        <div className="progress tripTaskProgressBarSmall">
-                          <div style={{ width: `${participant.percent}%` }} />
-                        </div>
-                        <span className="small tripTaskProgressParticipantStat">
-                          {participant.percent}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+              <TripTrainingProgressCard />
               </CollapsibleSection>
     
               <CollapsibleSection defaultOpen>

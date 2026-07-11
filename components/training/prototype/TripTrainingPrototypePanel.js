@@ -1,11 +1,10 @@
-import { useMemo, useState } from "react";
-import TrainingPrototypeBanner from "./TrainingPrototypeBanner";
+import { useState } from "react";
+import TripTrainingProgressCard from "@/components/trip/TripTrainingProgressCard";
 import TrainingPrototypeModuleBlock from "./TrainingPrototypeModuleBlock";
 import TrainingSectionFullView from "./TrainingSectionFullView";
 import TrainingQuizModuleView from "./TrainingQuizModuleView";
 import {
   TRAINING_CENTER_PROTOTYPE_MODULES,
-  computePrototypeSectionProgress,
   getNextPrototypeSectionId,
   getPrototypeModuleById,
   getPrototypeSectionById,
@@ -17,11 +16,6 @@ export default function TripTrainingPrototypePanel() {
   const [activeSectionId, setActiveSectionId] = useState("");
   const [completedSectionIds, setCompletedSectionIds] = useState({});
   const [sectionQuizSubmitted, setSectionQuizSubmitted] = useState(false);
-
-  const progress = useMemo(
-    () => computePrototypeSectionProgress(completedSectionIds),
-    [completedSectionIds]
-  );
 
   function markSectionComplete(sectionId) {
     if (!sectionId) return;
@@ -72,34 +66,7 @@ export default function TripTrainingPrototypePanel() {
   return (
     <>
       <div className="trainingPrototypeCenter">
-        <TrainingPrototypeBanner />
-
-        <div className="card pad" style={{ marginBottom: 16 }}>
-          <div className="row" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-            <div style={{ flex: "1 1 240px" }}>
-              <div className="cardSectionPill" style={{ marginBottom: 8, width: "fit-content" }}>
-                Training Center (Prototype)
-              </div>
-              <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>Canvas-style course preview</div>
-              <div className="small trainingPrototypeMuted">
-                Two modules with collapsible sections, full-session flow, embedded video, and a quiz — staff demo only.
-              </div>
-            </div>
-            <div style={{ minWidth: 200 }}>
-              <div className="row" style={{ marginBottom: 6 }}>
-                <span className="small">Mock progress</span>
-                <div className="spacer" />
-                <span className="badge">{progress.percent}%</span>
-              </div>
-              <div className="progress">
-                <div style={{ width: `${progress.percent}%` }} />
-              </div>
-              <div className="small trainingPrototypeMuted" style={{ marginTop: 6 }}>
-                {progress.completed} of {progress.total} sections completed (local state)
-              </div>
-            </div>
-          </div>
-        </div>
+        <TripTrainingProgressCard />
 
         <div className="trainingPrototypeModuleList">
           {TRAINING_CENTER_PROTOTYPE_MODULES.map((module, index) => (
