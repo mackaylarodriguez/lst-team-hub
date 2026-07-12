@@ -579,7 +579,7 @@ export function useTripPageModel() {
       ],
       url: basicTrainingUrl,
       icon: "BT",
-      accent: "#16a34a",
+      accent: "#4a6289",
     },
     {
       id: "gateway-endmeetings",
@@ -593,7 +593,7 @@ export function useTripPageModel() {
       ],
       url: gatewayTrainingUrl,
       icon: "GT",
-      accent: "#ea580c",
+      accent: "#6b6356",
     },
     {
       id: "optional",
@@ -603,7 +603,7 @@ export function useTripPageModel() {
         "Optional workshops offered through the year, mainly for experienced Workers.",
       url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=135&",
       icon: "AT",
-      accent: "#9333ea",
+      accent: "#6a6574",
     },
     {
       id: "lst-connect",
@@ -613,7 +613,7 @@ export function useTripPageModel() {
         "Join LST Connect to practice with an online Reader before leaving. Register as a Worker.",
       url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=133&",
       icon: "LC",
-      accent: "#ca8a04",
+      accent: "#5a7168",
     },
   ];
   const requiredTrainingResources = trainingResources.filter(

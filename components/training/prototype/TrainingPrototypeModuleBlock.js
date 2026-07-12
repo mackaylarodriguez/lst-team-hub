@@ -116,7 +116,7 @@ export default function TrainingPrototypeModuleBlock({
                       <div className="trainingPrototypeSectionActions">
                         <div className="trainingPrototypeSectionFooter">
                           <TrainingPrototypeFullSessionButton
-                            label="Open fullscreen quiz"
+                            label="Open Quiz ↗"
                             onClick={() => onOpenQuiz(module.id)}
                           />
                         </div>
@@ -126,6 +126,7 @@ export default function TrainingPrototypeModuleBlock({
                     <div className="trainingPrototypeSectionActions">
                       <div className="trainingPrototypeSectionFooter">
                         <TrainingPrototypeFullSessionButton
+                          label="Open Training Section ↗"
                           onClick={() => onOpenFullSession(module.id, section.id)}
                         />
                       </div>
