@@ -16,16 +16,26 @@ import {
   TICKET_AGENCY_OPTIONS,
 } from "@/lib/tripTickets";
 import { listTripTeamMembers } from "@/lib/tripTeamMembers";
+import { computeDefaultTeamBudgetFromRoster } from "@/lib/tripFundraising";
 
-function buildDraftFromSources(trip, budget) {
+function buildDraftFromSources(trip, budget, teamMembers) {
   const tripName = trip?.name || "";
+  const savedBudgetAmount = String(budget?.budgetAmount ?? "").trim();
+  const defaultTeamBudget = computeDefaultTeamBudgetFromRoster({
+    teamMembers,
+    tripFundraisingGoalAmount: trip?.fundraisingGoalAmount,
+    fundraisingMode: trip?.fundraisingMode,
+  });
+  const budgetAmount =
+    savedBudgetAmount ||
+    (defaultTeamBudget > 0 ? formatUsdNumber(defaultTeamBudget) : "");
   return {
     teamName: budget?.teamName || tripName,
     projectStartDate: budget?.projectStartDate || trip?.startDate || "",
     projectEndDate: budget?.projectEndDate || trip?.endDate || "",
     siteCountry: budget?.siteCountry || trip?.location || "",
     teamAccountant: budget?.teamAccountant || "",
-    budgetAmount: budget?.budgetAmount || "",
+    budgetAmount,
     onsiteExpensesAmount: budget?.onsiteExpensesAmount || "",
     housingAmount: budget?.housingAmount || "",
     returnedAmount: budget?.returnedAmount || "",
@@ -66,7 +76,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
           listTripTeamMembers(tripId).catch(() => []),
         ]);
         if (cancelled) return;
-        setDraft(buildDraftFromSources(trip, budget));
+        setDraft(buildDraftFromSources(trip, budget, roster));
         setTickets(ticketRows || []);
         setTeamMembers(roster || []);
       } catch (e) {
@@ -307,6 +317,20 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
               <section className="budgetTeamEditorSection">
                 <h3 className="budgetTeamEditorSectionTitle">Overview amounts</h3>
                 <div className="budgetTeamEditorFields">
+                  <Field label="Team budget">
+                    <input
+                      className="input"
+                      value={draft.budgetAmount}
+                      onChange={(e) => patchDraft({ budgetAmount: e.target.value })}
+                      onBlur={(e) => patchDraft({ budgetAmount: normalizeMoneyInputToUsd(e.target.value) })}
+                      inputMode="decimal"
+                      placeholder="$0.00"
+                    />
+                    <p className="small" style={{ margin: "6px 0 0", color: "var(--muted)" }}>
+                      Defaults to worker fundraising goals combined. Changing this only updates the team budget—not
+                      individual fundraising goals.
+                    </p>
+                  </Field>
                   <Field label="On-site expenses">
                     <input
                       className="input"
@@ -323,16 +347,6 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
               <section className="budgetTeamEditorSection">
                 <h3 className="budgetTeamEditorSectionTitle">Housing</h3>
                 <div className="budgetTeamEditorFields">
-                  <Field label="Housing budget amount">
-                    <input
-                      className="input"
-                      value={draft.budgetAmount}
-                      onChange={(e) => patchDraft({ budgetAmount: e.target.value })}
-                      onBlur={(e) => patchDraft({ budgetAmount: normalizeMoneyInputToUsd(e.target.value) })}
-                      inputMode="decimal"
-                      placeholder="$0.00"
-                    />
-                  </Field>
                   <Field label="Housing amount">
                     <input
                       className="input"
