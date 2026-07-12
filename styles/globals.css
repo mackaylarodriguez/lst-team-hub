@@ -3995,6 +3995,81 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   padding:4px 10px;
   min-height:30px;
 }
+.trainingPrototypeEditModalOverlay{
+  position:fixed;
+  inset:0;
+  z-index:5100;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:rgba(15,23,42,.45);
+}
+.trainingPrototypeEditModal{
+  width:min(760px, 100%);
+  max-height:min(88vh, 900px);
+  overflow:auto;
+  display:grid;
+  gap:16px;
+}
+.trainingPrototypeEditModalHeader,
+.trainingPrototypeEditModalFooter{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.trainingPrototypeEditModalFooter{
+  justify-content:flex-end;
+  padding-top:4px;
+  border-top:1px solid rgba(15,23,42,.08);
+}
+.trainingPrototypeEditModalTitle{
+  margin:0;
+  font-size:18px;
+}
+.trainingPrototypeEditSectionList{
+  display:grid;
+  gap:14px;
+}
+.trainingPrototypeEditSectionCard{
+  display:grid;
+  gap:12px;
+  padding:14px;
+  border:1px solid rgba(15,23,42,.1);
+  border-radius:12px;
+  background:rgba(255,255,255,.72);
+}
+.trainingPrototypeEditSectionHeading{
+  font-size:14px;
+  font-weight:700;
+}
+.trainingPrototypeEditField{
+  display:grid;
+  gap:6px;
+}
+.trainingPrototypeEditLabel{
+  font-size:12px;
+  font-weight:700;
+  color:var(--muted);
+}
+.trainingPrototypeEditTextarea{
+  min-height:140px;
+  resize:vertical;
+  line-height:1.5;
+  font-family:inherit;
+}
+.trainingPrototypeEditCardList{
+  display:grid;
+  gap:12px;
+}
+.trainingPrototypeEditCard{
+  display:grid;
+  gap:10px;
+  padding:12px;
+  border:1px dashed rgba(15,23,42,.14);
+  border-radius:10px;
+}
 .trainingPrototypeWrittenPreview,
 .trainingPrototypeWrittenBody{
   display:grid;
@@ -4053,6 +4128,13 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   gap:10px;
 }
 .trainingPrototypeRichText li{
+  margin:0;
+}
+.trainingPrototypeRichBlockGroup{
+  display:grid;
+  gap:8px;
+}
+.trainingPrototypeRichBlockGroup p{
   margin:0;
 }
 .trainingPrototypeRichTitle,

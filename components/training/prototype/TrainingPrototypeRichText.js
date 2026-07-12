@@ -23,6 +23,24 @@ function renderPrototypeRichBlock(paragraph, index) {
     );
   }
 
+  const bulletLines = lines.filter((line) => line.startsWith("- "));
+  const nonBulletLines = lines.filter((line) => !line.startsWith("- "));
+
+  if (bulletLines.length > 0) {
+    return (
+      <div key={index} className="trainingPrototypeRichBlockGroup">
+        {nonBulletLines.map((line, lineIndex) => (
+          <p key={`heading-${lineIndex}`}>{renderPrototypeRichInline(line)}</p>
+        ))}
+        <ul>
+          {bulletLines.map((line, lineIndex) => (
+            <li key={lineIndex}>{renderPrototypeRichInline(line.slice(2))}</li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   if (lines.length > 0 && lines.every((line) => line.startsWith("- "))) {
     return (
       <ul key={index}>

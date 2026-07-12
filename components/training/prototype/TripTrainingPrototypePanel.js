@@ -1,22 +1,33 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useTripPage } from "@/components/trip/TripPageContext";
 import TripTrainingProgressCard from "@/components/trip/TripTrainingProgressCard";
 import TrainingPrototypeModuleBlock from "./TrainingPrototypeModuleBlock";
+import TrainingPrototypeModuleEditModal from "./TrainingPrototypeModuleEditModal";
 import TrainingSectionFullView from "./TrainingSectionFullView";
 import TrainingQuizModuleView from "./TrainingQuizModuleView";
 import {
-  TRAINING_CENTER_PROTOTYPE_MODULES,
-  getNextPrototypeSectionId,
-  getPreviousPrototypeSectionId,
-  getPrototypeModuleById,
-  getPrototypeSectionById,
-} from "@/lib/trainingCenterPrototypeMock";
+  clonePrototypeModules,
+  findPrototypeModuleById,
+  findPrototypeSectionById,
+  getNextPrototypeSectionIdFromModules,
+  getPreviousPrototypeSectionIdFromModules,
+  loadPrototypeModules,
+  savePrototypeModules,
+} from "@/lib/trainingPrototypeStorage";
 
 export default function TripTrainingPrototypePanel() {
+  const { canManageTrips } = useTripPage();
+  const [modules, setModules] = useState(() => clonePrototypeModules());
   const [view, setView] = useState("center");
   const [activeModuleId, setActiveModuleId] = useState("");
   const [activeSectionId, setActiveSectionId] = useState("");
+  const [editingModuleId, setEditingModuleId] = useState("");
   const [completedSectionIds, setCompletedSectionIds] = useState({});
   const [sectionQuizSubmitted, setSectionQuizSubmitted] = useState(false);
+
+  useEffect(() => {
+    setModules(loadPrototypeModules());
+  }, []);
 
   function markSectionComplete(sectionId) {
     if (!sectionId) return;
@@ -41,14 +52,23 @@ export default function TripTrainingPrototypePanel() {
     setActiveSectionId("");
   }
 
+  function handleSaveModule(updatedModule) {
+    setModules((current) => {
+      const next = current.map((module) => (module.id === updatedModule.id ? updatedModule : module));
+      savePrototypeModules(next);
+      return next;
+    });
+    setEditingModuleId("");
+  }
+
   function handleSectionContinue(sectionId, moduleId) {
     markSectionComplete(sectionId);
-    const nextSectionId = getNextPrototypeSectionId(sectionId, moduleId);
+    const nextSectionId = getNextPrototypeSectionIdFromModules(modules, sectionId, moduleId);
     if (!nextSectionId) {
       closeOverlay();
       return;
     }
-    if (getPrototypeSectionById(nextSectionId)?.isQuiz) {
+    if (findPrototypeSectionById(modules, nextSectionId)?.isQuiz) {
       setActiveSectionId(nextSectionId);
       setView("quiz");
       return;
@@ -57,9 +77,9 @@ export default function TripTrainingPrototypePanel() {
   }
 
   function handleSectionPrevious(sectionId, moduleId) {
-    const previousSectionId = getPreviousPrototypeSectionId(sectionId, moduleId);
+    const previousSectionId = getPreviousPrototypeSectionIdFromModules(modules, sectionId, moduleId);
     if (!previousSectionId) return;
-    if (getPrototypeSectionById(previousSectionId)?.isQuiz) {
+    if (findPrototypeSectionById(modules, previousSectionId)?.isQuiz) {
       setActiveSectionId(previousSectionId);
       setView("quiz");
       return;
@@ -68,17 +88,18 @@ export default function TripTrainingPrototypePanel() {
     setView("section");
   }
 
-  const activeSection = getPrototypeSectionById(activeSectionId);
-  const activeModule = getPrototypeModuleById(activeModuleId || activeSection?.moduleId);
+  const activeSection = findPrototypeSectionById(modules, activeSectionId);
+  const activeModule = findPrototypeModuleById(modules, activeModuleId || activeSection?.moduleId);
   const activeModuleSections = activeModule?.sections || [];
+  const editingModule = findPrototypeModuleById(modules, editingModuleId);
 
   const sectionOverlayOpen =
     view === "section" && activeSection && !activeSection.isQuiz && activeModule;
   const quizOverlayOpen = view === "quiz";
   const previousSectionId = activeSection
-    ? getPreviousPrototypeSectionId(activeSection.id, activeModule?.id)
+    ? getPreviousPrototypeSectionIdFromModules(modules, activeSection.id, activeModule?.id)
     : activeModuleId && activeSectionId
-      ? getPreviousPrototypeSectionId(activeSectionId, activeModuleId)
+      ? getPreviousPrototypeSectionIdFromModules(modules, activeSectionId, activeModuleId)
       : null;
   const hasPreviousSection = !!previousSectionId;
 
@@ -88,13 +109,15 @@ export default function TripTrainingPrototypePanel() {
         <TripTrainingProgressCard />
 
         <div className="trainingPrototypeModuleList">
-          {TRAINING_CENTER_PROTOTYPE_MODULES.map((module, index) => (
+          {modules.map((module, index) => (
             <TrainingPrototypeModuleBlock
               key={module.id}
               module={module}
               completedSectionIds={completedSectionIds}
               sectionQuizSubmitted={sectionQuizSubmitted}
               defaultOpen={index === 0}
+              canEdit={canManageTrips}
+              onEditModule={setEditingModuleId}
               onOpenFullSession={openFullSession}
               onOpenQuiz={openQuiz}
             />
@@ -112,7 +135,10 @@ export default function TripTrainingPrototypePanel() {
           onPrevious={() => handleSectionPrevious(activeSection.id, activeModule.id)}
           onContinue={() => handleSectionContinue(activeSection.id, activeModule.id)}
           continueLabel={
-            getPrototypeSectionById(getNextPrototypeSectionId(activeSection.id, activeModule.id))?.isQuiz
+            findPrototypeSectionById(
+              modules,
+              getNextPrototypeSectionIdFromModules(modules, activeSection.id, activeModule.id)
+            )?.isQuiz
               ? "Continue to quiz"
               : "Next"
           }
@@ -131,6 +157,14 @@ export default function TripTrainingPrototypePanel() {
             markSectionComplete("s5");
             closeOverlay();
           }}
+        />
+      ) : null}
+
+      {canManageTrips && editingModule ? (
+        <TrainingPrototypeModuleEditModal
+          module={editingModule}
+          onSave={handleSaveModule}
+          onCancel={() => setEditingModuleId("")}
         />
       ) : null}
     </>

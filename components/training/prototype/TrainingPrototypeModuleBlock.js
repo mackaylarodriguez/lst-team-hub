@@ -9,26 +9,13 @@ import {
   getPrototypeModuleStatus,
 } from "@/lib/trainingCenterPrototypeMock";
 
-function PrototypeEditButton() {
-  return (
-    <button
-      type="button"
-      className="btn trainingPrototypeEditBtn"
-      title="Prototype only — editing is not wired yet"
-      onClick={() => {
-        // UI placeholder for future staff authoring
-      }}
-    >
-      Edit
-    </button>
-  );
-}
-
 export default function TrainingPrototypeModuleBlock({
   module,
   completedSectionIds,
   sectionQuizSubmitted,
   defaultOpen = true,
+  canEdit = false,
+  onEditModule,
   onOpenFullSession,
   onOpenQuiz,
 }) {
@@ -55,7 +42,15 @@ export default function TrainingPrototypeModuleBlock({
         </button>
         <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <span className={`badge ${moduleStatusMeta.badge}`}>{moduleStatusMeta.label}</span>
-          <PrototypeEditButton />
+          {canEdit ? (
+            <button
+              type="button"
+              className="btn trainingPrototypeEditBtn"
+              onClick={() => onEditModule?.(module.id)}
+            >
+              Edit
+            </button>
+          ) : null}
         </div>
       </div>
 
