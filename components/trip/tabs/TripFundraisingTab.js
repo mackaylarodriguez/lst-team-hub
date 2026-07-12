@@ -132,7 +132,7 @@ export default function TripFundraisingTab() {
                         Staff: Team budget & expenses
                       </div>
                       <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
-                        Same totals as Budget → Overview for this team.
+                        Team budget is the combined worker fundraising goals for this team.
                       </div>
                     </div>
                     <button

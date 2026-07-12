@@ -105,6 +105,7 @@ import {
   parsePositiveFundraisingGoal,
   resolveWorkerFundraisingGoalAmount,
   computeDefaultTeamBudgetFromFundraising,
+  computeTeamFundraisingGoalTotal,
 } from "@/lib/tripFundraising";
 import { listTripActivity, logTripActivity } from "@/lib/tripActivity";
 import {
@@ -1039,29 +1040,24 @@ export function useTripPageModel() {
       ticketRows: tripStaffBudgetTickets,
       tripId: trip.id,
     });
-    if (summary.budgetTotal != null) return summary;
-
-    const defaultBudgetTotal = computeDefaultTeamBudgetFromFundraising({
-      teamMembers: trip.teamMembers,
-      participants: trip.participants,
-      tripFundraisingGoalAmount: trip.fundraisingGoalAmount,
-      fundraisingMode: trip.fundraisingMode,
-    });
-    if (!(defaultBudgetTotal > 0)) return summary;
+    const fundraisingBudgetTotal = computeTeamFundraisingGoalTotal(trip);
+    const budgetTotal =
+      fundraisingBudgetTotal > 0 ? fundraisingBudgetTotal : summary.budgetTotal;
+    if (budgetTotal == null) return summary;
 
     const spentTotal =
       summary.airfareTotal + summary.housingTotal + (summary.onsiteTotal ?? 0);
     return {
       ...summary,
-      budgetTotal: defaultBudgetTotal,
-      leftover: defaultBudgetTotal - spentTotal,
+      budgetTotal,
+      leftover: budgetTotal - spentTotal,
     };
   }, [
+    trip,
     trip?.id,
     trip?.teamMembers,
     trip?.participants,
     trip?.fundraisingGoalAmount,
-    trip?.fundraisingMode,
     tripStaffBudgetSnapshot,
     tripStaffBudgetTickets,
   ]);
@@ -6163,22 +6159,13 @@ normalizeEmail(participant.email) === activeParticipantEmail
   ]);
   const isTeamFundraisingMode = trip?.fundraisingMode === "team";
   const tripFundraisingGoal = Number(trip?.fundraisingGoalAmount || 0);
-  const summedParticipantFundraisingGoal = useMemo(
-    () =>
-      (visibleFundraisingParticipants || []).reduce((sum, participant) => {
-        const goal = Number(participant?.fundraisingGoalAmount);
-        if (!Number.isFinite(goal) || goal <= 0) return sum;
-        return sum + goal;
-      }, 0),
-    [visibleFundraisingParticipants]
-  );
+  const staffTeamFundraisingGoalAmount = useMemo(() => {
+    const summed = computeTeamFundraisingGoalTotal(trip);
+    if (summed > 0) return summed;
+    return parsePositiveFundraisingGoal(trip?.fundraisingGoalAmount) ?? 0;
+  }, [trip]);
+  const summedParticipantFundraisingGoal = staffTeamFundraisingGoalAmount;
   const workerSpecificFundraisingGoalAmount = currentParticipantFundraisingGoalAmount;
-  const staffTeamFundraisingGoalAmount =
-    isTeamFundraisingMode
-      ? tripFundraisingGoal
-      : summedParticipantFundraisingGoal > 0
-        ? summedParticipantFundraisingGoal
-        : tripFundraisingGoal;
   const fundraisingGoalAmount =
     !canViewTeamDashboard ? workerSpecificFundraisingGoalAmount : staffTeamFundraisingGoalAmount;
   const useTeamFundraisingDeadlineRollup = canViewFundraisingTeamDashboard;

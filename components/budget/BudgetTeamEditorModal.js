@@ -23,10 +23,7 @@ function buildDraftFromSources(trip, budget, teamMembers, participants) {
   const tripName = trip?.name || "";
   const savedBudgetAmount = String(budget?.budgetAmount ?? "").trim();
   const defaultTeamBudget = computeDefaultTeamBudgetFromFundraising({
-    teamMembers,
-    participants,
-    tripFundraisingGoalAmount: trip?.fundraisingGoalAmount,
-    fundraisingMode: trip?.fundraisingMode,
+    trip: { ...trip, teamMembers, participants },
   });
   const budgetAmount =
     savedBudgetAmount ||
