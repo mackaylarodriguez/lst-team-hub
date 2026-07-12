@@ -16,13 +16,15 @@ import {
   TICKET_AGENCY_OPTIONS,
 } from "@/lib/tripTickets";
 import { listTripTeamMembers } from "@/lib/tripTeamMembers";
-import { computeDefaultTeamBudgetFromRoster } from "@/lib/tripFundraising";
+import { listTripParticipants } from "@/lib/trips";
+import { computeDefaultTeamBudgetFromFundraising } from "@/lib/tripFundraising";
 
-function buildDraftFromSources(trip, budget, teamMembers) {
+function buildDraftFromSources(trip, budget, teamMembers, participants) {
   const tripName = trip?.name || "";
   const savedBudgetAmount = String(budget?.budgetAmount ?? "").trim();
-  const defaultTeamBudget = computeDefaultTeamBudgetFromRoster({
+  const defaultTeamBudget = computeDefaultTeamBudgetFromFundraising({
     teamMembers,
+    participants,
     tripFundraisingGoalAmount: trip?.fundraisingGoalAmount,
     fundraisingMode: trip?.fundraisingMode,
   });
@@ -82,13 +84,14 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
       if (!tripId) return;
       setLoading(true);
       try {
-        const [budget, ticketRows, roster] = await Promise.all([
+        const [budget, ticketRows, roster, participants] = await Promise.all([
           getTripBudget(tripId),
           listTripTickets(tripId),
           listTripTeamMembers(tripId).catch(() => []),
+          listTripParticipants(tripId).catch(() => []),
         ]);
         if (cancelled) return;
-        setDraft(buildDraftFromSources(trip, budget, roster));
+        setDraft(buildDraftFromSources(trip, budget, roster, participants));
         setTickets(ticketRows || []);
         setTeamMembers(roster || []);
       } catch (e) {

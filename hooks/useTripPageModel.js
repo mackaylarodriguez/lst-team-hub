@@ -100,7 +100,12 @@ import {
   listTripAnnouncements,
   saveTripAnnouncement,
 } from "@/lib/tripAnnouncements";
-import { saveTripFundraisingSettings, parsePositiveFundraisingGoal, resolveWorkerFundraisingGoalAmount } from "@/lib/tripFundraising";
+import {
+  saveTripFundraisingSettings,
+  parsePositiveFundraisingGoal,
+  resolveWorkerFundraisingGoalAmount,
+  computeDefaultTeamBudgetFromFundraising,
+} from "@/lib/tripFundraising";
 import { listTripActivity, logTripActivity } from "@/lib/tripActivity";
 import {
   buildParticipantDocumentTypesPayload,
@@ -1029,12 +1034,37 @@ export function useTripPageModel() {
 
   const tripStaffBudgetSummary = useMemo(() => {
     if (!trip?.id) return null;
-    return computeTripBudgetOverviewSummary({
+    const summary = computeTripBudgetOverviewSummary({
       budgetRow: tripStaffBudgetSnapshot,
       ticketRows: tripStaffBudgetTickets,
       tripId: trip.id,
     });
-  }, [trip?.id, tripStaffBudgetSnapshot, tripStaffBudgetTickets]);
+    if (summary.budgetTotal != null) return summary;
+
+    const defaultBudgetTotal = computeDefaultTeamBudgetFromFundraising({
+      teamMembers: trip.teamMembers,
+      participants: trip.participants,
+      tripFundraisingGoalAmount: trip.fundraisingGoalAmount,
+      fundraisingMode: trip.fundraisingMode,
+    });
+    if (!(defaultBudgetTotal > 0)) return summary;
+
+    const spentTotal =
+      summary.airfareTotal + summary.housingTotal + (summary.onsiteTotal ?? 0);
+    return {
+      ...summary,
+      budgetTotal: defaultBudgetTotal,
+      leftover: defaultBudgetTotal - spentTotal,
+    };
+  }, [
+    trip?.id,
+    trip?.teamMembers,
+    trip?.participants,
+    trip?.fundraisingGoalAmount,
+    trip?.fundraisingMode,
+    tripStaffBudgetSnapshot,
+    tripStaffBudgetTickets,
+  ]);
 
   useEffect(() => {
     if (!trip?.id || tab !== "Materials") return;
