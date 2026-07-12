@@ -307,16 +307,6 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
               <section className="budgetTeamEditorSection">
                 <h3 className="budgetTeamEditorSectionTitle">Overview amounts</h3>
                 <div className="budgetTeamEditorFields">
-                  <Field label="Team budget">
-                    <input
-                      className="input"
-                      value={draft.budgetAmount}
-                      onChange={(e) => patchDraft({ budgetAmount: e.target.value })}
-                      onBlur={(e) => patchDraft({ budgetAmount: normalizeMoneyInputToUsd(e.target.value) })}
-                      inputMode="decimal"
-                      placeholder="$0.00"
-                    />
-                  </Field>
                   <Field label="On-site expenses">
                     <input
                       className="input"
@@ -333,6 +323,16 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
               <section className="budgetTeamEditorSection">
                 <h3 className="budgetTeamEditorSectionTitle">Housing</h3>
                 <div className="budgetTeamEditorFields">
+                  <Field label="Housing budget amount">
+                    <input
+                      className="input"
+                      value={draft.budgetAmount}
+                      onChange={(e) => patchDraft({ budgetAmount: e.target.value })}
+                      onBlur={(e) => patchDraft({ budgetAmount: normalizeMoneyInputToUsd(e.target.value) })}
+                      inputMode="decimal"
+                      placeholder="$0.00"
+                    />
+                  </Field>
                   <Field label="Housing amount">
                     <input
                       className="input"

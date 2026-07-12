@@ -923,6 +923,7 @@ export default function BudgetPage() {
           siteCountry: row.siteCountry || trip?.location || "",
           siteCity: row.siteCity || "",
           teamAccountant: row.teamAccountant,
+          budgetAmount: row.budgetAmount,
           returnedAmount: row.returnedAmount,
           housingAmount: row.housingAmount,
           housingLink: row.housingLink,
@@ -1962,6 +1963,7 @@ export default function BudgetPage() {
                         "Site",
                         "Workers (roster)",
                         "Team Accountant",
+                        "Housing budget amount",
                         "Returned Amount",
                         "Housing Amount",
                         "Housing Link",
@@ -1976,6 +1978,7 @@ export default function BudgetPage() {
                         r.siteCountry || "",
                         String(countTripRosterMembers(teamMembersByTripId, r.tripId)),
                         r.teamAccountant || "",
+                        formatUsdDisplay(r.budgetAmount),
                         formatUsdDisplay(r.returnedAmount),
                         formatUsdDisplay(r.housingAmount),
                         r.housingLink || "",
@@ -2020,7 +2023,7 @@ export default function BudgetPage() {
                 </div>
               </div>
               <div className="small" style={{ color: "var(--muted)" }}>
-                Housing amount, links, and PDFs for each trip. Team budgets are edited on the Overview tab.
+                Housing budget amount, housing amount, links, and PDFs for each trip.
               </div>
               {tripsSortedForBudget.length > 0 ? (
                 <div
@@ -2065,6 +2068,7 @@ export default function BudgetPage() {
                   <th>Site</th>
                   <th style={{ width: 72, textAlign: "center" }}>Workers</th>
                   <th>Team Accountant</th>
+                  <th>Housing budget amount</th>
                   <th>Returned Amount</th>
                   <th>Housing Amount</th>
                   <th>Housing link / PDF</th>
@@ -2165,6 +2169,21 @@ export default function BudgetPage() {
                               No roster members yet for this trip.
                             </div>
                           ) : null}
+                        </td>
+                        <td style={{ minWidth: 112 }}>
+                          <input
+                            className="input"
+                            value={r.budgetAmount || ""}
+                            onChange={(e) => updateHousingDraftRow(r.tripId, "budgetAmount", e.target.value)}
+                            onBlur={(e) => {
+                              const next = normalizeMoneyInputToUsd(e.target.value);
+                              if (next !== (r.budgetAmount || "")) {
+                                updateHousingDraftRow(r.tripId, "budgetAmount", next);
+                              }
+                            }}
+                            inputMode="decimal"
+                            placeholder="$0.00"
+                          />
                         </td>
                         <td style={{ minWidth: 112 }}>
                           <input
@@ -2382,6 +2401,7 @@ export default function BudgetPage() {
                           {countTripRosterMembers(teamMembersByTripId, r.tripId)}
                         </td>
                         <td>{r.teamAccountant || ""}</td>
+                        <td>{formatUsdDisplay(r.budgetAmount)}</td>
                         <td>{formatUsdDisplay(r.returnedAmount)}</td>
                         <td
                           style={{
