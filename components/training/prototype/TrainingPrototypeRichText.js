@@ -17,7 +17,7 @@ export default function TrainingPrototypeRichText({ text, className }) {
   if (paragraphs.length === 0) return null;
 
   return (
-    <div className={className}>
+    <div className={className ? `trainingPrototypeRichText ${className}` : "trainingPrototypeRichText"}>
       {paragraphs.map((paragraph, index) => (
         <p key={index}>{renderPrototypeRichInline(paragraph)}</p>
       ))}

@@ -4010,6 +4010,14 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:grid;
   gap:8px;
 }
+.trainingPrototypeRichText{
+  display:grid;
+  gap:14px;
+}
+.trainingPrototypeRichText p{
+  margin:0;
+  line-height:1.55;
+}
 .trainingPrototypeSectionInner p{
   margin:0;
   line-height:1.5;
