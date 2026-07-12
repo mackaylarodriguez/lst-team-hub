@@ -1790,7 +1790,7 @@ export default function BudgetPage() {
             </div>
 
             <div className="budgetTableScroller">
-              <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1480, fontSize: 12 }}>
+              <table className="table dataTableStriped budgetStickyTable budgetOverviewTable" style={{ minWidth: 1480, fontSize: 12 }}>
                 <thead>
                   <tr>
                     <th>Team Name</th>
@@ -1808,27 +1808,20 @@ export default function BudgetPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {budgetOverviewRows.map((row, rowIndex) => {
+                  {budgetOverviewRows.map((row) => {
                     const isArchived = archivedTripIds.has(row.tripId);
                     return (
                       <tr
                         key={row.tripId}
+                        className={
+                          isEditingOverview
+                            ? undefined
+                            : `budgetOverviewRowClickable${
+                                isArchived ? " budgetOverviewRowArchived" : ""
+                              }`
+                        }
                         onClick={
                           isEditingOverview ? undefined : () => setTeamEditorTripId(row.tripId)
-                        }
-                        style={
-                          isArchived
-                            ? {
-                                opacity: 0.7,
-                                backgroundColor: "var(--border)",
-                                cursor: isEditingOverview ? undefined : "pointer",
-                              }
-                            : rowIndex % 2 === 0
-                              ? { cursor: isEditingOverview ? undefined : "pointer" }
-                              : {
-                                  backgroundColor: "rgba(15, 23, 42, 0.02)",
-                                  cursor: isEditingOverview ? undefined : "pointer",
-                                }
                         }
                         title={
                           isEditingOverview
