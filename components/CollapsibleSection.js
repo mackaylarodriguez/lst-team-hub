@@ -65,7 +65,7 @@ export default function CollapsibleSection({
       }
     >
       <div
-        className={isSlim ? "collapsibleSectionSlimHeader" : undefined}
+        className={isSlim ? "collapsibleSectionSlimHeader" : "collapsibleSectionDefaultHeader"}
         style={
           isSlim
             ? undefined
@@ -103,15 +103,18 @@ export default function CollapsibleSection({
           }
         >
           <span
-            className={isSlim ? "collapsibleSectionSlimChevron" : undefined}
+            className={isSlim ? "collapsibleSectionSlimChevron" : "collapsibleSectionDefaultChevron"}
             aria-hidden
             style={isSlim ? undefined : { fontSize: 12, marginTop: 3, flexShrink: 0 }}
           >
             {open ? "\u25BC" : "\u25B6"}
           </span>
-          <span className={isSlim ? "collapsibleSectionSlimTitleWrap" : undefined} style={isSlim ? undefined : { flex: 1, minWidth: 0 }}>
+          <span
+            className={isSlim ? "collapsibleSectionSlimTitleWrap" : "collapsibleSectionDefaultTitleWrap"}
+            style={isSlim ? undefined : { flex: 1, minWidth: 0 }}
+          >
             <span
-              className={isSlim ? "collapsibleSectionSlimTitle" : undefined}
+              className={isSlim ? "collapsibleSectionSlimTitle" : "collapsibleSectionDefaultTitle"}
               style={isSlim ? undefined : { fontWeight: 800, display: "block" }}
             >
               {title}
@@ -138,7 +141,7 @@ export default function CollapsibleSection({
           id={panelId}
           role="region"
           aria-labelledby={buttonId}
-          className={isSlim ? "collapsibleSectionSlimPanel" : undefined}
+          className={isSlim ? "collapsibleSectionSlimPanel" : "collapsibleSectionDefaultPanel"}
           style={isSlim ? undefined : { padding: "12px 14px 14px" }}
         >
           {children}

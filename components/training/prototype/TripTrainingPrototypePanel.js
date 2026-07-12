@@ -113,7 +113,6 @@ export default function TripTrainingPrototypePanel() {
         <CollapsibleSection
           className="tripTrainingResourcesDropdown"
           title="Training resources"
-          subtitle="Required and optional training links"
           defaultOpen={false}
           style={{ marginBottom: 16 }}
         >

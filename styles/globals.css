@@ -2244,7 +2244,35 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   gap:18px;
 }
 .tripTrainingResourcesDropdown{
-  --collapsible-header-bg:#eef7fc;
+  --collapsible-header-bg:#fff;
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:12px;
+  background:#fff;
+  overflow:hidden;
+}
+.tripTrainingResourcesDropdown .collapsibleSectionDefaultHeader{
+  background:#fff;
+  padding:16px 18px 14px;
+  border-bottom:1px solid transparent;
+}
+.tripTrainingResourcesDropdown:has(.collapsibleSectionDefaultPanel) .collapsibleSectionDefaultHeader{
+  border-bottom-color:rgba(15,23,42,.06);
+}
+.tripTrainingResourcesDropdown .collapsibleSectionDefaultChevron{
+  font-size:12px;
+  margin-top:8px;
+  flex-shrink:0;
+  color:var(--primary);
+}
+.tripTrainingResourcesDropdown .collapsibleSectionDefaultTitle{
+  margin:0;
+  font-size:22px;
+  line-height:1.2;
+  font-weight:900;
+  color:var(--primary);
+}
+.tripTrainingResourcesDropdown .collapsibleSectionDefaultPanel{
+  padding:16px 18px;
 }
 .tripTrainingResourcesColumnHeading{
   font-weight:900;
