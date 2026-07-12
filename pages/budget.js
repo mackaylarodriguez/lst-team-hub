@@ -354,14 +354,25 @@ function sumOnsiteExpensesForTrip(onsiteExpenseRows, tripId) {
   );
 }
 
+function parseBudgetAmountOrNull(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  return parseCurrencyLike(raw);
+}
+
+function formatUsdNumberOrDash(value) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return formatUsdNumber(value);
+}
+
 function buildBudgetOverviewRows(housingRows, ticketRows, onsiteExpenseRows, teamMembersByTripId) {
   return (housingRows || []).map((row) => {
-    const budgetTotal = parseCurrencyLike(row.budgetAmount) ?? 0;
+    const budgetTotal = parseBudgetAmountOrNull(row.budgetAmount);
     const airfareTotal = sumTicketAirfareForTrip(ticketRows, row.tripId);
     const housingTotal = parseCurrencyLike(row.housingAmount) ?? 0;
     const onsiteTotal = sumOnsiteExpensesForTrip(onsiteExpenseRows, row.tripId);
     const spentTotal = airfareTotal + housingTotal + onsiteTotal;
-    const leftover = budgetTotal - spentTotal;
+    const leftover = budgetTotal == null ? null : budgetTotal - spentTotal;
 
     return {
       tripId: row.tripId,
@@ -371,6 +382,7 @@ function buildBudgetOverviewRows(housingRows, ticketRows, onsiteExpenseRows, tea
       site: row.siteCountry || "",
       workers: countTripRosterMembers(teamMembersByTripId, row.tripId),
       teamAccountant: row.teamAccountant || "",
+      budgetAmount: row.budgetAmount || "",
       budgetTotal,
       airfareTotal,
       housingTotal,
@@ -383,7 +395,11 @@ function buildBudgetOverviewRows(housingRows, ticketRows, onsiteExpenseRows, tea
 
 function BudgetOverviewStackedBar({ budgetTotal, airfareTotal, housingTotal, onsiteTotal, leftover }) {
   const spentTotal = airfareTotal + housingTotal + onsiteTotal;
-  const total = Math.max(budgetTotal, spentTotal, 1);
+  if (budgetTotal == null && spentTotal <= 0) {
+    return <div className="small" style={{ color: "var(--muted)" }}>No budget data yet</div>;
+  }
+
+  const total = Math.max(budgetTotal ?? spentTotal, spentTotal, 1);
   const segments = [
     { key: "airfare", value: airfareTotal, color: "#2563eb", label: "Airfare" },
     { key: "housing", value: housingTotal, color: "#16a34a", label: "Housing" },
@@ -465,6 +481,8 @@ export default function BudgetPage() {
   const [housingRowsDraft, setHousingRowsDraft] = useState([]);
   const [isEditingTickets, setIsEditingTickets] = useState(false);
   const [isEditingOnsiteExpenses, setIsEditingOnsiteExpenses] = useState(false);
+  const [isEditingOverview, setIsEditingOverview] = useState(false);
+  const [overviewBudgetDraft, setOverviewBudgetDraft] = useState([]);
   const [onsiteExpenseRows, setOnsiteExpenseRows] = useState([]);
   const [onsiteExpensesMissingTable, setOnsiteExpensesMissingTable] = useState(false);
   const [newOnsiteExpenseTripId, setNewOnsiteExpenseTripId] = useState("");
@@ -589,21 +607,36 @@ export default function BudgetPage() {
     return { totalRows, teamCount, avgTicketCost, workerPaidCount };
   }, [ticketsSortedWithBands.sorted]);
 
+  const overviewHousingRows = useMemo(() => {
+    if (!isEditingOverview) return housingRows;
+    const draftByTripId = new Map(
+      (overviewBudgetDraft || []).map((row) => [String(row.tripId), row.budgetAmount ?? ""])
+    );
+    return (housingRows || []).map((row) => ({
+      ...row,
+      budgetAmount: draftByTripId.has(String(row.tripId))
+        ? draftByTripId.get(String(row.tripId))
+        : row.budgetAmount,
+    }));
+  }, [housingRows, isEditingOverview, overviewBudgetDraft]);
+
   const budgetOverviewRows = useMemo(
-    () => buildBudgetOverviewRows(housingRows, ticketRows, onsiteExpenseRows, teamMembersByTripId),
-    [housingRows, ticketRows, onsiteExpenseRows, teamMembersByTripId]
+    () => buildBudgetOverviewRows(overviewHousingRows, ticketRows, onsiteExpenseRows, teamMembersByTripId),
+    [overviewHousingRows, ticketRows, onsiteExpenseRows, teamMembersByTripId]
   );
 
   const budgetOverviewTotals = useMemo(() => {
     return budgetOverviewRows.reduce(
-      (acc, row) => ({
-        budgetTotal: acc.budgetTotal + row.budgetTotal,
-        airfareTotal: acc.airfareTotal + row.airfareTotal,
-        housingTotal: acc.housingTotal + row.housingTotal,
-        onsiteTotal: acc.onsiteTotal + row.onsiteTotal,
-        leftover: acc.leftover + row.leftover,
-      }),
-      { budgetTotal: 0, airfareTotal: 0, housingTotal: 0, onsiteTotal: 0, leftover: 0 }
+      (acc, row) => {
+        if (row.budgetTotal != null) acc.budgetTotal += row.budgetTotal;
+        acc.airfareTotal += row.airfareTotal;
+        acc.housingTotal += row.housingTotal;
+        acc.onsiteTotal += row.onsiteTotal;
+        if (row.leftover != null) acc.leftover += row.leftover;
+        if (row.budgetTotal != null) acc.teamsWithBudget += 1;
+        return acc;
+      },
+      { budgetTotal: 0, airfareTotal: 0, housingTotal: 0, onsiteTotal: 0, leftover: 0, teamsWithBudget: 0 }
     );
   }, [budgetOverviewRows]);
 
@@ -929,7 +962,6 @@ export default function BudgetPage() {
           siteCountry: row.siteCountry || trip?.location || "",
           siteCity: row.siteCity || "",
           teamAccountant: row.teamAccountant,
-          budgetAmount: row.budgetAmount,
           returnedAmount: row.returnedAmount,
           housingAmount: row.housingAmount,
           housingLink: row.housingLink,
@@ -1343,6 +1375,48 @@ export default function BudgetPage() {
     }
   }
 
+  function beginOverviewEdit() {
+    setOverviewBudgetDraft(
+      housingRows.map((row) => ({
+        tripId: row.tripId,
+        budgetAmount: row.budgetAmount || "",
+      }))
+    );
+    setIsEditingOverview(true);
+  }
+
+  function cancelOverviewEdit() {
+    setOverviewBudgetDraft([]);
+    setIsEditingOverview(false);
+  }
+
+  function updateOverviewBudgetDraft(tripId, budgetAmount) {
+    setOverviewBudgetDraft((prev) =>
+      prev.map((row) => (row.tripId === tripId ? { ...row, budgetAmount } : row))
+    );
+  }
+
+  async function saveOverviewBudget() {
+    try {
+      setStatus("Saving...");
+      for (const row of overviewBudgetDraft) {
+        await saveTripBudget(row.tripId, {
+          budgetAmount: row.budgetAmount ?? "",
+        });
+      }
+      const housingRes = await listAllTripBudgets();
+      setHousingRows(mergeHousingWithTrips(trips, housingRes));
+      setIsEditingOverview(false);
+      setOverviewBudgetDraft([]);
+      setStatus("Saved.");
+      showToast("Team budgets saved.", "success");
+    } catch (e) {
+      const msg = e.message || "Error saving.";
+      setStatus(msg);
+      showToast(msg, "error");
+    }
+  }
+
   if (!session || loading) {
     return (
       <Shell>
@@ -1624,29 +1698,68 @@ export default function BudgetPage() {
 
         {tab === "Overview" && (
           <div className="card pad" style={budgetSectionCardStyle}>
-            <div style={{ fontWeight: 900, marginBottom: 8 }}>Team budget overview</div>
-            <p className="small" style={{ color: "var(--muted)", margin: "0 0 16px" }}>
-              Airfare totals sum each team&apos;s ticket rows from Ticketing. Housing pulls each team&apos;s
-              housing amount. On-site expenses sum line items from the On-site expenses tab. Leftover is team
-              budget minus those three categories.
-            </p>
+            <div
+              className="row"
+              style={{
+                gap: 12,
+                flexWrap: "wrap",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                marginBottom: 8,
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 900 }}>Team budget overview</div>
+                <p className="small" style={{ color: "var(--muted)", margin: "6px 0 0" }}>
+                  Team budgets are entered here only. Airfare totals sum ticket rows from Ticketing. Housing
+                  pulls each team&apos;s housing amount. On-site expenses sum line items from the On-site
+                  expenses tab. Leftover is team budget minus those three categories.
+                </p>
+              </div>
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                {isEditingOverview ? (
+                  <>
+                    <button type="button" className="btn" onClick={cancelOverviewEdit}>
+                      Cancel
+                    </button>
+                    <button type="button" className="btn btnPrimary" onClick={() => void saveOverviewBudget()}>
+                      Save
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="btn btnPrimary" onClick={beginOverviewEdit}>
+                    Edit
+                  </button>
+                )}
+              </div>
+            </div>
 
             <div style={{ ...budgetSectionSummaryGridStyle, marginBottom: 18 }}>
               {[
-                { label: "Total team budgets", value: budgetOverviewTotals.budgetTotal },
+                {
+                  label: "Total team budgets",
+                  value:
+                    budgetOverviewTotals.teamsWithBudget > 0
+                      ? budgetOverviewTotals.budgetTotal
+                      : null,
+                },
                 { label: "Total airfare", value: budgetOverviewTotals.airfareTotal },
                 { label: "Total housing", value: budgetOverviewTotals.housingTotal },
                 { label: "Total on-site", value: budgetOverviewTotals.onsiteTotal },
                 {
                   label: "Total leftover",
-                  value: budgetOverviewTotals.leftover,
-                  color: budgetOverviewTotals.leftover < 0 ? "#dc2626" : undefined,
+                  value:
+                    budgetOverviewTotals.teamsWithBudget > 0 ? budgetOverviewTotals.leftover : null,
+                  color:
+                    budgetOverviewTotals.teamsWithBudget > 0 && budgetOverviewTotals.leftover < 0
+                      ? "#dc2626"
+                      : undefined,
                 },
               ].map((card) => (
                 <div key={card.label} style={budgetSectionSummaryCardStyle}>
                   <div style={budgetSectionSummaryLabelStyle}>{card.label}</div>
                   <div style={{ ...budgetSectionSummaryValueStyle, color: card.color || budgetSectionSummaryValueStyle.color }}>
-                    {formatUsdNumber(card.value)}
+                    {formatUsdNumberOrDash(card.value)}
                   </div>
                 </div>
               ))}
@@ -1690,12 +1803,40 @@ export default function BudgetPage() {
                         <td>{row.site || "—"}</td>
                         <td style={{ textAlign: "center", fontWeight: 700 }}>{row.workers}</td>
                         <td>{row.teamAccountant || "—"}</td>
-                        <td>{formatUsdNumber(row.budgetTotal)}</td>
-                        <td>{formatUsdNumber(row.airfareTotal)}</td>
-                        <td>{formatUsdNumber(row.housingTotal)}</td>
-                        <td>{formatUsdNumber(row.onsiteTotal)}</td>
-                        <td style={{ color: row.leftover < 0 ? "#dc2626" : "#15803d", fontWeight: 700 }}>
-                          {formatUsdNumber(row.leftover)}
+                        <td style={{ minWidth: 112 }}>
+                          {isEditingOverview ? (
+                            <input
+                              className="input"
+                              value={row.budgetAmount || ""}
+                              onChange={(e) => updateOverviewBudgetDraft(row.tripId, e.target.value)}
+                              onBlur={(e) => {
+                                const next = normalizeMoneyInputToUsd(e.target.value);
+                                if (next !== (row.budgetAmount || "")) {
+                                  updateOverviewBudgetDraft(row.tripId, next);
+                                }
+                              }}
+                              inputMode="decimal"
+                              placeholder="$0.00"
+                            />
+                          ) : (
+                            formatUsdNumberOrDash(row.budgetTotal)
+                          )}
+                        </td>
+                        <td>{formatUsdNumberOrDash(row.airfareTotal)}</td>
+                        <td>{formatUsdNumberOrDash(row.housingTotal)}</td>
+                        <td>{formatUsdNumberOrDash(row.onsiteTotal)}</td>
+                        <td
+                          style={{
+                            color:
+                              row.leftover == null
+                                ? undefined
+                                : row.leftover < 0
+                                  ? "#dc2626"
+                                  : "#15803d",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {formatUsdNumberOrDash(row.leftover)}
                         </td>
                         <td>
                           <BudgetOverviewStackedBar
@@ -1714,12 +1855,25 @@ export default function BudgetPage() {
                   <tfoot>
                     <tr style={{ fontWeight: 800, background: "rgba(248, 250, 252, 0.95)" }}>
                       <td colSpan={6}>Totals</td>
-                      <td>{formatUsdNumber(budgetOverviewTotals.budgetTotal)}</td>
-                      <td>{formatUsdNumber(budgetOverviewTotals.airfareTotal)}</td>
-                      <td>{formatUsdNumber(budgetOverviewTotals.housingTotal)}</td>
-                      <td>{formatUsdNumber(budgetOverviewTotals.onsiteTotal)}</td>
-                      <td style={{ color: budgetOverviewTotals.leftover < 0 ? "#dc2626" : "#15803d" }}>
-                        {formatUsdNumber(budgetOverviewTotals.leftover)}
+                      <td>
+                        {formatUsdNumberOrDash(
+                          budgetOverviewTotals.teamsWithBudget > 0 ? budgetOverviewTotals.budgetTotal : null
+                        )}
+                      </td>
+                      <td>{formatUsdNumberOrDash(budgetOverviewTotals.airfareTotal)}</td>
+                      <td>{formatUsdNumberOrDash(budgetOverviewTotals.housingTotal)}</td>
+                      <td>{formatUsdNumberOrDash(budgetOverviewTotals.onsiteTotal)}</td>
+                      <td
+                        style={{
+                          color:
+                            budgetOverviewTotals.teamsWithBudget > 0 && budgetOverviewTotals.leftover < 0
+                              ? "#dc2626"
+                              : "#15803d",
+                        }}
+                      >
+                        {formatUsdNumberOrDash(
+                          budgetOverviewTotals.teamsWithBudget > 0 ? budgetOverviewTotals.leftover : null
+                        )}
                       </td>
                       <td />
                     </tr>
@@ -1954,7 +2108,6 @@ export default function BudgetPage() {
                         "Site",
                         "Workers (roster)",
                         "Team Accountant",
-                        "Budget Amount",
                         "Returned Amount",
                         "Housing Amount",
                         "Housing Link",
@@ -1969,7 +2122,6 @@ export default function BudgetPage() {
                         r.siteCountry || "",
                         String(countTripRosterMembers(teamMembersByTripId, r.tripId)),
                         r.teamAccountant || "",
-                        formatUsdDisplay(r.budgetAmount),
                         formatUsdDisplay(r.returnedAmount),
                         formatUsdDisplay(r.housingAmount),
                         r.housingLink || "",
@@ -2014,7 +2166,7 @@ export default function BudgetPage() {
                 </div>
               </div>
               <div className="small" style={{ color: "var(--muted)" }}>
-                Budget amount, housing amount, links, and PDFs for each trip.
+                Housing amount, links, and PDFs for each trip. Team budgets are edited on the Overview tab.
               </div>
               {tripsSortedForBudget.length > 0 ? (
                 <div
@@ -2059,7 +2211,6 @@ export default function BudgetPage() {
                   <th>Site</th>
                   <th style={{ width: 72, textAlign: "center" }}>Workers</th>
                   <th>Team Accountant</th>
-                  <th>Budget Amount</th>
                   <th>Returned Amount</th>
                   <th>Housing Amount</th>
                   <th>Housing link / PDF</th>
@@ -2160,21 +2311,6 @@ export default function BudgetPage() {
                               No roster members yet for this trip.
                             </div>
                           ) : null}
-                        </td>
-                        <td style={{ minWidth: 112 }}>
-                          <input
-                            className="input"
-                            value={r.budgetAmount || ""}
-                            onChange={(e) => updateHousingDraftRow(r.tripId, "budgetAmount", e.target.value)}
-                            onBlur={(e) => {
-                              const next = normalizeMoneyInputToUsd(e.target.value);
-                              if (next !== (r.budgetAmount || "")) {
-                                updateHousingDraftRow(r.tripId, "budgetAmount", next);
-                              }
-                            }}
-                            inputMode="decimal"
-                            placeholder="$0.00"
-                          />
                         </td>
                         <td style={{ minWidth: 112 }}>
                           <input
@@ -2392,7 +2528,6 @@ export default function BudgetPage() {
                           {countTripRosterMembers(teamMembersByTripId, r.tripId)}
                         </td>
                         <td>{r.teamAccountant || ""}</td>
-                        <td>{formatUsdDisplay(r.budgetAmount)}</td>
                         <td>{formatUsdDisplay(r.returnedAmount)}</td>
                         <td
                           style={{
