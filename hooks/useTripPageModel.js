@@ -568,16 +568,6 @@ export function useTripPageModel() {
 
   const trainingResources = [
     {
-      id: "canvas",
-      group: "required",
-      title: "On-Demand Training",
-      description:
-        "Video-based training you can complete on your own schedule via Google Classroom.",
-      url: trainingAccessUrl,
-      icon: "OD",
-      accent: "#2563eb",
-    },
-    {
       id: "basic",
       group: "required",
       title: "Basic Training",

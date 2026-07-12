@@ -4,6 +4,7 @@ import TripParticipantCollapsible from "../TripParticipantCollapsible";
 import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
 import TripTrainingPrototypePanel from "@/components/training/prototype/TripTrainingPrototypePanel";
 import TripTrainingProgressCard from "../TripTrainingProgressCard";
+import TripTrainingResourcesLayout from "../TripTrainingResourcesLayout";
 import { buildTrainingModuleRowDomId } from "../tripPageShared";
 import {
   getTrainingSessionOptionsForModuleTitle,
@@ -15,7 +16,6 @@ import {
   AppEmptyState,
   AppMetricCard,
   AppDetailAction,
-  TrainingResourceLink,
   OptionalTripWideDocumentCard,
 } from "../tripPageShared";
 
@@ -46,26 +46,11 @@ export default function TripTrainingTab() {
               <CollapsibleSection defaultOpen>
               <div className="card pad">
                 <div className="cardSectionPill" style={{ marginBottom: 8 }}>Training resources</div>
-    
-                <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
-                  Required training
-                </div>
-                <div className="tripTrainingResourceGrid">
-                  {requiredTrainingResources.map((resource) => (
-                    <TrainingResourceLink key={resource.id} resource={resource} />
-                  ))}
-                </div>
-    
-                <div style={{ height: 18 }} />
-    
-                <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
-                  Optional
-                </div>
-                <div className="tripTrainingOptionalGrid">
-                  {optionalTrainingResources.map((resource) => (
-                    <TrainingResourceLink key={resource.id} resource={resource} />
-                  ))}
-                </div>
+
+                <TripTrainingResourcesLayout
+                  requiredTrainingResources={requiredTrainingResources}
+                  optionalTrainingResources={optionalTrainingResources}
+                />
               </div>
               </CollapsibleSection>
     

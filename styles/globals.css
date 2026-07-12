@@ -2239,6 +2239,26 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:16px;
 }
+.tripTrainingResourcesColumns{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+  gap:20px;
+  align-items:start;
+}
+.tripTrainingResourcesColumn{
+  display:grid;
+  gap:10px;
+  min-width:0;
+}
+.tripTrainingResourcesColumnHeading{
+  font-weight:900;
+  margin:0;
+}
+.tripTrainingResourcesStack{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+}
 .tripTrainingPanel{
   margin-bottom:4px;
 }
@@ -2820,6 +2840,10 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   .tripTrainingResourceGrid{
     grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
   }
+  .tripTrainingResourcesColumns{
+    grid-template-columns:1fr;
+    gap:18px;
+  }
   .tabs{
     flex-wrap:nowrap;
     overflow-x:auto;
@@ -3068,7 +3092,8 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   .tripTaskParticipantGrid,
   .tripTaskSummaryGrid,
   .tripTrainingOptionalGrid,
-  .tripTrainingResourceGrid{
+  .tripTrainingResourceGrid,
+  .tripTrainingResourcesColumns{
     grid-template-columns:1fr;
   }
   .tripMobileFormGrid{
