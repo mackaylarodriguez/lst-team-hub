@@ -36,11 +36,6 @@ import {
   uploadTripHousingExtraPdf,
 } from "@/lib/tripHousingEntries";
 import { listAllTripTeamMembers } from "@/lib/tripTeamMembers";
-import {
-  deleteTripOnsiteExpense,
-  listAllTripOnsiteExpenses,
-  saveTripOnsiteExpense,
-} from "@/lib/tripOnsiteExpenses";
 import { listTripsForCurrentUser } from "@/lib/trips";
 import {
   deleteBudgetCheckRequest,
@@ -313,6 +308,7 @@ function mergeHousingWithTrips(trips, budgets) {
         budgetAmount: "",
         returnedAmount: "",
         housingAmount: "",
+        onsiteExpensesAmount: "",
         housingLink: "",
         housingPdfUrl: "",
         notes: "",
@@ -347,13 +343,6 @@ function sumTicketAirfareForTrip(ticketRows, tripId) {
   );
 }
 
-function sumOnsiteExpensesForTrip(onsiteExpenseRows, tripId) {
-  return sumCurrencyRows(
-    (onsiteExpenseRows || []).filter((row) => String(row.tripId) === String(tripId)),
-    "amount"
-  );
-}
-
 function parseBudgetAmountOrNull(value) {
   const raw = String(value ?? "").trim();
   if (!raw) return null;
@@ -365,13 +354,13 @@ function formatUsdNumberOrDash(value) {
   return formatUsdNumber(value);
 }
 
-function buildBudgetOverviewRows(housingRows, ticketRows, onsiteExpenseRows, teamMembersByTripId) {
+function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId) {
   return (housingRows || []).map((row) => {
     const budgetTotal = parseBudgetAmountOrNull(row.budgetAmount);
     const airfareTotal = sumTicketAirfareForTrip(ticketRows, row.tripId);
     const housingTotal = parseCurrencyLike(row.housingAmount) ?? 0;
-    const onsiteTotal = sumOnsiteExpensesForTrip(onsiteExpenseRows, row.tripId);
-    const spentTotal = airfareTotal + housingTotal + onsiteTotal;
+    const onsiteTotal = parseBudgetAmountOrNull(row.onsiteExpensesAmount);
+    const spentTotal = airfareTotal + housingTotal + (onsiteTotal ?? 0);
     const leftover = budgetTotal == null ? null : budgetTotal - spentTotal;
 
     return {
@@ -383,6 +372,7 @@ function buildBudgetOverviewRows(housingRows, ticketRows, onsiteExpenseRows, tea
       workers: countTripRosterMembers(teamMembersByTripId, row.tripId),
       teamAccountant: row.teamAccountant || "",
       budgetAmount: row.budgetAmount || "",
+      onsiteExpensesAmount: row.onsiteExpensesAmount || "",
       budgetTotal,
       airfareTotal,
       housingTotal,
@@ -394,7 +384,7 @@ function buildBudgetOverviewRows(housingRows, ticketRows, onsiteExpenseRows, tea
 }
 
 function BudgetOverviewStackedBar({ budgetTotal, airfareTotal, housingTotal, onsiteTotal, leftover }) {
-  const spentTotal = airfareTotal + housingTotal + onsiteTotal;
+  const spentTotal = airfareTotal + housingTotal + (onsiteTotal ?? 0);
   if (budgetTotal == null && spentTotal <= 0) {
     return <div className="small" style={{ color: "var(--muted)" }}>No budget data yet</div>;
   }
@@ -406,9 +396,9 @@ function BudgetOverviewStackedBar({ budgetTotal, airfareTotal, housingTotal, ons
     { key: "onsite", value: onsiteTotal, color: "#ea580c", label: "On-site" },
   ].filter((segment) => segment.value > 0);
 
-  if (leftover > 0) {
+  if (leftover != null && leftover > 0) {
     segments.push({ key: "leftover", value: leftover, color: "#94a3b8", label: "Leftover" });
-  } else if (leftover < 0) {
+  } else if (leftover != null && leftover < 0) {
     segments.push({
       key: "over",
       value: Math.abs(leftover),
@@ -483,10 +473,7 @@ export default function BudgetPage() {
   const [isEditingOnsiteExpenses, setIsEditingOnsiteExpenses] = useState(false);
   const [isEditingOverview, setIsEditingOverview] = useState(false);
   const [overviewBudgetDraft, setOverviewBudgetDraft] = useState([]);
-  const [onsiteExpenseRows, setOnsiteExpenseRows] = useState([]);
-  const [onsiteExpensesMissingTable, setOnsiteExpensesMissingTable] = useState(false);
-  const [newOnsiteExpenseTripId, setNewOnsiteExpenseTripId] = useState("");
-  const [onsiteExpenseToDeleteId, setOnsiteExpenseToDeleteId] = useState(null);
+  const [onsiteExpensesDraft, setOnsiteExpensesDraft] = useState([]);
   const [ticketToDeleteId, setTicketToDeleteId] = useState(null);
   const [budgetRowDeleteTripId, setBudgetRowDeleteTripId] = useState(null);
   const [teamMembersByTripId, setTeamMembersByTripId] = useState({});
@@ -610,19 +597,22 @@ export default function BudgetPage() {
   const overviewHousingRows = useMemo(() => {
     if (!isEditingOverview) return housingRows;
     const draftByTripId = new Map(
-      (overviewBudgetDraft || []).map((row) => [String(row.tripId), row.budgetAmount ?? ""])
+      (overviewBudgetDraft || []).map((row) => [String(row.tripId), row])
     );
-    return (housingRows || []).map((row) => ({
-      ...row,
-      budgetAmount: draftByTripId.has(String(row.tripId))
-        ? draftByTripId.get(String(row.tripId))
-        : row.budgetAmount,
-    }));
+    return (housingRows || []).map((row) => {
+      const draft = draftByTripId.get(String(row.tripId));
+      if (!draft) return row;
+      return {
+        ...row,
+        budgetAmount: draft.budgetAmount ?? row.budgetAmount,
+        onsiteExpensesAmount: draft.onsiteExpensesAmount ?? row.onsiteExpensesAmount,
+      };
+    });
   }, [housingRows, isEditingOverview, overviewBudgetDraft]);
 
   const budgetOverviewRows = useMemo(
-    () => buildBudgetOverviewRows(overviewHousingRows, ticketRows, onsiteExpenseRows, teamMembersByTripId),
-    [overviewHousingRows, ticketRows, onsiteExpenseRows, teamMembersByTripId]
+    () => buildBudgetOverviewRows(overviewHousingRows, ticketRows, teamMembersByTripId),
+    [overviewHousingRows, ticketRows, teamMembersByTripId]
   );
 
   const budgetOverviewTotals = useMemo(() => {
@@ -631,7 +621,7 @@ export default function BudgetPage() {
         if (row.budgetTotal != null) acc.budgetTotal += row.budgetTotal;
         acc.airfareTotal += row.airfareTotal;
         acc.housingTotal += row.housingTotal;
-        acc.onsiteTotal += row.onsiteTotal;
+        if (row.onsiteTotal != null) acc.onsiteTotal += row.onsiteTotal;
         if (row.leftover != null) acc.leftover += row.leftover;
         if (row.budgetTotal != null) acc.teamsWithBudget += 1;
         return acc;
@@ -640,23 +630,18 @@ export default function BudgetPage() {
     );
   }, [budgetOverviewRows]);
 
-  const onsiteExpensesSorted = useMemo(() => {
-    const startByTripId = new Map();
-    for (const t of trips || []) {
-      const ms = parseTripStartDateMs(t.startDate);
-      startByTripId.set(t.id, ms ?? Number.MAX_SAFE_INTEGER);
-    }
-    return [...onsiteExpenseRows].sort((a, b) => {
-      const sa = startByTripId.get(a.tripId) ?? Number.MAX_SAFE_INTEGER;
-      const sb = startByTripId.get(b.tripId) ?? Number.MAX_SAFE_INTEGER;
-      if (sa !== sb) return sa - sb;
-      return String(a.tripName || a.tripId || "").localeCompare(
-        String(b.tripName || b.tripId || ""),
-        undefined,
-        { sensitivity: "base" }
-      );
-    });
-  }, [onsiteExpenseRows, trips]);
+  const visibleOnsiteExpenseRows = useMemo(() => {
+    if (!isEditingOnsiteExpenses) return housingRows;
+    const draftByTripId = new Map(
+      (onsiteExpensesDraft || []).map((row) => [String(row.tripId), row.onsiteExpensesAmount ?? ""])
+    );
+    return (housingRows || []).map((row) => ({
+      ...row,
+      onsiteExpensesAmount: draftByTripId.has(String(row.tripId))
+        ? draftByTripId.get(String(row.tripId))
+        : row.onsiteExpensesAmount,
+    }));
+  }, [housingRows, isEditingOnsiteExpenses, onsiteExpensesDraft]);
 
   const siteHousingNotesForDisplay = useMemo(() => {
     const byCanonicalSite = new Map();
@@ -749,7 +734,7 @@ export default function BudgetPage() {
 
       try {
         setLoading(true);
-        const [avgRes, tripsRes, housingRes, ticketsRes, rosterMembers, checkRequests, onsiteExpensesRes] =
+        const [avgRes, tripsRes, housingRes, ticketsRes, rosterMembers, checkRequests] =
           await Promise.all([
             getBudgetAverages(),
             listTripsForCurrentUser(),
@@ -763,10 +748,6 @@ export default function BudgetPage() {
               console.warn("Budget check requests not loaded", err);
               return [];
             }),
-            listAllTripOnsiteExpenses().catch((err) => {
-              console.warn("On-site expenses not loaded", err);
-              return { rows: [], missingTable: true };
-            }),
           ]);
         if (cancelled) return;
         const rosterByTrip = {};
@@ -778,10 +759,6 @@ export default function BudgetPage() {
         }
         if (!cancelled) setTeamMembersByTripId(rosterByTrip);
         if (!cancelled) setBudgetCheckRows(checkRequests || []);
-        if (!cancelled) {
-          setOnsiteExpenseRows(onsiteExpensesRes?.rows || []);
-          setOnsiteExpensesMissingTable(!!onsiteExpensesRes?.missingTable);
-        }
         await syncTripTicketsFromTeamMembers(tripsRes || []);
         const refreshedTickets = await listAllTripTickets();
         if (cancelled) return;
@@ -1318,60 +1295,40 @@ export default function BudgetPage() {
     }
   }
 
-  async function updateOnsiteExpenseRow(expenseId, field, value) {
-    const row = onsiteExpenseRows.find((r) => r.id === expenseId);
-    if (!row) return;
-    const updated = { ...row, [field]: value };
-    setOnsiteExpenseRows((prev) => prev.map((r) => (r.id === expenseId ? updated : r)));
+  function beginOnsiteExpensesEdit() {
+    setOnsiteExpensesDraft(
+      housingRows.map((row) => ({
+        tripId: row.tripId,
+        onsiteExpensesAmount: row.onsiteExpensesAmount || "",
+      }))
+    );
+    setIsEditingOnsiteExpenses(true);
+  }
+
+  function updateOnsiteExpensesDraftRow(tripId, onsiteExpensesAmount) {
+    setOnsiteExpensesDraft((prev) =>
+      prev.map((row) => (row.tripId === tripId ? { ...row, onsiteExpensesAmount } : row))
+    );
+  }
+
+  async function saveOnsiteExpenses() {
     try {
       setStatus("Saving...");
-      await saveTripOnsiteExpense(updated);
+      for (const row of onsiteExpensesDraft) {
+        await saveTripBudget(row.tripId, {
+          onsiteExpensesAmount: row.onsiteExpensesAmount ?? "",
+        });
+      }
+      const housingRes = await listAllTripBudgets();
+      setHousingRows(mergeHousingWithTrips(trips, housingRes));
+      setIsEditingOnsiteExpenses(false);
+      setOnsiteExpensesDraft([]);
       setStatus("Saved.");
+      showToast("On-site expenses saved.", "success");
     } catch (e) {
       const msg = e.message || "Error saving.";
       setStatus(msg);
       showToast(msg, "error");
-    }
-  }
-
-  async function handleAddOnsiteExpense() {
-    const tripId = newOnsiteExpenseTripId || tripsSortedForBudget[0]?.id;
-    if (!tripId) {
-      setStatus("No trip selected. Create a trip first.");
-      return;
-    }
-    if (onsiteExpensesMissingTable) {
-      showToast(
-        "On-site expenses need the Supabase table: run supabase/trip_onsite_expenses_install.sql.",
-        "warning"
-      );
-      return;
-    }
-    const trip = trips.find((t) => t.id === tripId);
-    try {
-      setStatus("Adding...");
-      const saved = await saveTripOnsiteExpense({
-        tripId,
-        description: "",
-        amount: "",
-        notes: "",
-      });
-      setOnsiteExpenseRows((prev) => [...prev, { ...saved, tripName: trip?.name || "" }]);
-      setStatus("On-site expense added.");
-    } catch (e) {
-      const msg = e.message || "Unable to add.";
-      setStatus(msg);
-      showToast(msg, "error");
-    }
-  }
-
-  async function removeOnsiteExpense(id) {
-    try {
-      await deleteTripOnsiteExpense(id);
-      setOnsiteExpenseRows((prev) => prev.filter((r) => r.id !== id));
-      setStatus("On-site expense removed.");
-    } catch (e) {
-      setStatus(e.message || "Error deleting.");
     }
   }
 
@@ -1380,6 +1337,7 @@ export default function BudgetPage() {
       housingRows.map((row) => ({
         tripId: row.tripId,
         budgetAmount: row.budgetAmount || "",
+        onsiteExpensesAmount: row.onsiteExpensesAmount || "",
       }))
     );
     setIsEditingOverview(true);
@@ -1390,9 +1348,9 @@ export default function BudgetPage() {
     setIsEditingOverview(false);
   }
 
-  function updateOverviewBudgetDraft(tripId, budgetAmount) {
+  function updateOverviewBudgetDraft(tripId, patch) {
     setOverviewBudgetDraft((prev) =>
-      prev.map((row) => (row.tripId === tripId ? { ...row, budgetAmount } : row))
+      prev.map((row) => (row.tripId === tripId ? { ...row, ...patch } : row))
     );
   }
 
@@ -1402,6 +1360,7 @@ export default function BudgetPage() {
       for (const row of overviewBudgetDraft) {
         await saveTripBudget(row.tripId, {
           budgetAmount: row.budgetAmount ?? "",
+          onsiteExpensesAmount: row.onsiteExpensesAmount ?? "",
         });
       }
       const housingRes = await listAllTripBudgets();
@@ -1409,7 +1368,7 @@ export default function BudgetPage() {
       setIsEditingOverview(false);
       setOverviewBudgetDraft([]);
       setStatus("Saved.");
-      showToast("Team budgets saved.", "success");
+      showToast("Overview amounts saved.", "success");
     } catch (e) {
       const msg = e.message || "Error saving.";
       setStatus(msg);
@@ -1442,19 +1401,6 @@ export default function BudgetPage() {
           setTicketToDeleteId(null);
         }}
         onCancel={() => setTicketToDeleteId(null)}
-      />
-      <ConfirmModal
-        open={!!onsiteExpenseToDeleteId}
-        title="Delete on-site expense?"
-        message="This expense row will be permanently removed."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        variant="danger"
-        onConfirm={() => {
-          if (onsiteExpenseToDeleteId) void removeOnsiteExpense(onsiteExpenseToDeleteId);
-          setOnsiteExpenseToDeleteId(null);
-        }}
-        onCancel={() => setOnsiteExpenseToDeleteId(null)}
       />
       <ConfirmModal
         open={!!budgetRowDeleteTripId}
@@ -1726,9 +1672,9 @@ export default function BudgetPage() {
                 </div>
               </div>
               <p className="small" style={{ color: "var(--muted)", margin: "6px 0 0" }}>
-                Team budgets are entered here only. Airfare totals sum ticket rows from Ticketing. Housing
-                pulls each team&apos;s housing amount. On-site expenses sum line items from the On-site
-                expenses tab. Leftover is team budget minus those three categories.
+                Team budgets and on-site expenses are entered here. Airfare totals sum ticket rows from
+                Ticketing. Housing pulls each team&apos;s housing amount. Leftover is team budget minus airfare,
+                housing, and on-site.
               </p>
             </div>
 
@@ -1743,7 +1689,10 @@ export default function BudgetPage() {
                 },
                 { label: "Total airfare", value: budgetOverviewTotals.airfareTotal },
                 { label: "Total housing", value: budgetOverviewTotals.housingTotal },
-                { label: "Total on-site", value: budgetOverviewTotals.onsiteTotal },
+                {
+                  label: "Total on-site",
+                  value: budgetOverviewTotals.onsiteTotal > 0 ? budgetOverviewTotals.onsiteTotal : null,
+                },
                 {
                   label: "Total leftover",
                   value:
@@ -1806,11 +1755,13 @@ export default function BudgetPage() {
                             <input
                               className="input"
                               value={row.budgetAmount || ""}
-                              onChange={(e) => updateOverviewBudgetDraft(row.tripId, e.target.value)}
+                              onChange={(e) =>
+                                updateOverviewBudgetDraft(row.tripId, { budgetAmount: e.target.value })
+                              }
                               onBlur={(e) => {
                                 const next = normalizeMoneyInputToUsd(e.target.value);
                                 if (next !== (row.budgetAmount || "")) {
-                                  updateOverviewBudgetDraft(row.tripId, next);
+                                  updateOverviewBudgetDraft(row.tripId, { budgetAmount: next });
                                 }
                               }}
                               inputMode="decimal"
@@ -1822,7 +1773,29 @@ export default function BudgetPage() {
                         </td>
                         <td>{formatUsdNumberOrDash(row.airfareTotal)}</td>
                         <td>{formatUsdNumberOrDash(row.housingTotal)}</td>
-                        <td>{formatUsdNumberOrDash(row.onsiteTotal)}</td>
+                        <td style={{ minWidth: 112 }}>
+                          {isEditingOverview ? (
+                            <input
+                              className="input"
+                              value={row.onsiteExpensesAmount || ""}
+                              onChange={(e) =>
+                                updateOverviewBudgetDraft(row.tripId, {
+                                  onsiteExpensesAmount: e.target.value,
+                                })
+                              }
+                              onBlur={(e) => {
+                                const next = normalizeMoneyInputToUsd(e.target.value);
+                                if (next !== (row.onsiteExpensesAmount || "")) {
+                                  updateOverviewBudgetDraft(row.tripId, { onsiteExpensesAmount: next });
+                                }
+                              }}
+                              inputMode="decimal"
+                              placeholder="$0.00"
+                            />
+                          ) : (
+                            formatUsdNumberOrDash(row.onsiteTotal)
+                          )}
+                        </td>
                         <td
                           style={{
                             color:
@@ -1860,7 +1833,11 @@ export default function BudgetPage() {
                       </td>
                       <td>{formatUsdNumberOrDash(budgetOverviewTotals.airfareTotal)}</td>
                       <td>{formatUsdNumberOrDash(budgetOverviewTotals.housingTotal)}</td>
-                      <td>{formatUsdNumberOrDash(budgetOverviewTotals.onsiteTotal)}</td>
+                      <td>
+                        {formatUsdNumberOrDash(
+                          budgetOverviewTotals.onsiteTotal > 0 ? budgetOverviewTotals.onsiteTotal : null
+                        )}
+                      </td>
                       <td
                         style={{
                           color:
@@ -3010,55 +2987,40 @@ export default function BudgetPage() {
               style={{ ...budgetSectionHeaderStyle, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
             >
               <div style={{ flex: "1 1 280px", minWidth: 0 }}>
-                <div className="appSectionBadge" style={{ marginBottom: 8 }}>On-site expenses</div>
-                <div className="small" style={{ color: "var(--muted)" }}>
-                  Track meals, transport, supplies, and other on-site costs by team. Totals roll up on the Overview tab.
-                </div>
-                {onsiteExpensesMissingTable ? (
-                  <div className="small" style={{ marginTop: 10, color: "#b45309" }}>
-                    Database table missing. Run <code>supabase/trip_onsite_expenses_install.sql</code> in Supabase to
-                    enable saving.
-                  </div>
-                ) : null}
-                {trips.length > 0 ? (
+                <div
+                  className="row mobileSectionHeader"
+                  style={{ gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
+                >
+                  <div className="appSectionBadge" style={{ marginBottom: 0 }}>On-site expenses</div>
                   <div
-                    className="row"
-                    style={{ marginTop: 10, gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}
+                    className="row mobileSectionHeaderActions"
+                    style={{
+                      gap: 8,
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      marginLeft: "auto",
+                    }}
                   >
-                    <div style={{ flex: "0 1 260px", minWidth: 0 }}>
-                      <label className="small" htmlFor="budget-new-onsite-trip" style={{ display: "block", marginBottom: 4, color: "var(--muted)" }}>
-                        Trip
-                      </label>
-                      <select
-                        id="budget-new-onsite-trip"
-                        className="input"
-                        value={newOnsiteExpenseTripId}
-                        onChange={(e) => setNewOnsiteExpenseTripId(e.target.value)}
-                      >
-                        {tripsSortedForBudget.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name || t.id}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <button
-                      className="btn btnPrimary"
-                      type="button"
-                      disabled={onsiteExpensesMissingTable}
-                      onClick={() => void handleAddOnsiteExpense()}
-                    >
-                      Add expense
-                    </button>
-                    <button
-                      type="button"
-                      className={isEditingOnsiteExpenses ? "btn btnPrimary" : "btn"}
-                      onClick={() => setIsEditingOnsiteExpenses((current) => !current)}
-                    >
-                      {isEditingOnsiteExpenses ? "Done editing" : "Edit"}
-                    </button>
+                    {isEditingOnsiteExpenses ? (
+                      <>
+                        <button type="button" className="btn" onClick={() => setIsEditingOnsiteExpenses(false)}>
+                          Cancel
+                        </button>
+                        <button type="button" className="btn btnPrimary" onClick={() => void saveOnsiteExpenses()}>
+                          Save
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" className="btn btnPrimary" onClick={beginOnsiteExpensesEdit}>
+                        Edit
+                      </button>
+                    )}
                   </div>
-                ) : null}
+                </div>
+                <div className="small" style={{ color: "var(--muted)", marginTop: 8 }}>
+                  Enter one on-site expense total per team. Amounts also appear on the Overview tab.
+                </div>
               </div>
             </div>
 
@@ -3066,19 +3028,19 @@ export default function BudgetPage() {
               <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 920, fontSize: 12 }}>
                 <thead>
                   <tr>
-                    <th>Team</th>
-                    <th>Description</th>
-                    <th>Amount</th>
-                    <th>Notes</th>
-                    <th style={{ width: 88 }}>Actions</th>
+                    <th>Team Name</th>
+                    <th>Project Start</th>
+                    <th>Project End</th>
+                    <th>Site</th>
+                    <th>On-site amount</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {onsiteExpensesSorted.map((row, rowIndex) => {
+                  {visibleOnsiteExpenseRows.map((row, rowIndex) => {
                     const isArchived = archivedTripIds.has(row.tripId);
                     return (
                       <tr
-                        key={row.id}
+                        key={row.tripId}
                         style={
                           isArchived
                             ? { opacity: 0.7, backgroundColor: "var(--border)" }
@@ -3087,58 +3049,31 @@ export default function BudgetPage() {
                               : { backgroundColor: "rgba(15, 23, 42, 0.02)" }
                         }
                       >
-                        <td style={{ fontWeight: 700 }}>{row.tripName || row.tripId?.slice(0, 8) || "—"}</td>
-                        {isEditingOnsiteExpenses ? (
-                          <>
-                            <td style={{ minWidth: 220 }}>
-                              <input
-                                className="input"
-                                value={row.description || ""}
-                                onChange={(e) => updateOnsiteExpenseRow(row.id, "description", e.target.value)}
-                                placeholder="Meals, transport, supplies…"
-                              />
-                            </td>
-                            <td style={{ minWidth: 112 }}>
-                              <input
-                                className="input"
-                                value={row.amount || ""}
-                                onChange={(e) => updateOnsiteExpenseRow(row.id, "amount", e.target.value)}
-                                onBlur={(e) => {
-                                  const next = normalizeMoneyInputToUsd(e.target.value);
-                                  if (next !== (row.amount || "")) {
-                                    updateOnsiteExpenseRow(row.id, "amount", next);
-                                  }
-                                }}
-                                inputMode="decimal"
-                                placeholder="$0.00"
-                              />
-                            </td>
-                            <td style={{ minWidth: 180 }}>
-                              <textarea
-                                className="input"
-                                rows={2}
-                                value={row.notes || ""}
-                                onChange={(e) => updateOnsiteExpenseRow(row.id, "notes", e.target.value)}
-                              />
-                            </td>
-                            <td>
-                              <button
-                                type="button"
-                                className="btn"
-                                onClick={() => setOnsiteExpenseToDeleteId(row.id)}
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td>{row.description || "—"}</td>
-                            <td>{formatUsdDisplay(row.amount)}</td>
-                            <td>{row.notes || "—"}</td>
-                            <td>—</td>
-                          </>
-                        )}
+                        <td style={{ fontWeight: 700 }}>{row.teamName || row.tripName || "—"}</td>
+                        <td>{row.projectStartDate || "—"}</td>
+                        <td>{row.projectEndDate || "—"}</td>
+                        <td>{row.siteCountry || "—"}</td>
+                        <td style={{ minWidth: 112 }}>
+                          {isEditingOnsiteExpenses ? (
+                            <input
+                              className="input"
+                              value={row.onsiteExpensesAmount || ""}
+                              onChange={(e) =>
+                                updateOnsiteExpensesDraftRow(row.tripId, e.target.value)
+                              }
+                              onBlur={(e) => {
+                                const next = normalizeMoneyInputToUsd(e.target.value);
+                                if (next !== (row.onsiteExpensesAmount || "")) {
+                                  updateOnsiteExpensesDraftRow(row.tripId, next);
+                                }
+                              }}
+                              inputMode="decimal"
+                              placeholder="$0.00"
+                            />
+                          ) : (
+                            formatUsdDisplay(row.onsiteExpensesAmount) || "—"
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -3146,11 +3081,11 @@ export default function BudgetPage() {
               </table>
             </div>
 
-            {onsiteExpensesSorted.length === 0 ? (
+            {visibleOnsiteExpenseRows.length === 0 ? (
               <EmptyState
                 icon="empty"
-                title="No on-site expenses yet"
-                description="Add expense rows by team. Amounts appear on the Overview tab."
+                title="No teams yet"
+                description="Trips appear here once they are created."
               />
             ) : null}
           </div>
