@@ -3917,6 +3917,15 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   justify-content:flex-end;
   margin-top:2px;
 }
+.trainingPrototypeSectionActions{
+  display:grid;
+  gap:10px;
+  margin-top:4px;
+}
+.trainingPrototypeMarkReadRow{
+  display:flex;
+  justify-content:flex-start;
+}
 .trainingPrototypeFullSessionBtn{
   display:inline-flex;
   align-items:center;
@@ -4016,6 +4025,15 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .trainingPrototypeRichText p{
   margin:0;
+  line-height:1.55;
+}
+.trainingPrototypeRichText ul{
+  margin:0;
+  padding-left:1.25rem;
+  display:grid;
+  gap:10px;
+}
+.trainingPrototypeRichText li{
   line-height:1.55;
 }
 .trainingPrototypeSectionInner p{

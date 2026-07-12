@@ -8,6 +8,25 @@ function renderPrototypeRichInline(text) {
   });
 }
 
+function renderPrototypeRichBlock(paragraph, index) {
+  const lines = String(paragraph || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length > 0 && lines.every((line) => line.startsWith("- "))) {
+    return (
+      <ul key={index}>
+        {lines.map((line, lineIndex) => (
+          <li key={lineIndex}>{renderPrototypeRichInline(line.slice(2))}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  return <p key={index}>{renderPrototypeRichInline(paragraph.replace(/\n+/g, " ").trim())}</p>;
+}
+
 export default function TrainingPrototypeRichText({ text, className }) {
   const paragraphs = String(text || "")
     .split(/\n\n+/)
@@ -18,9 +37,7 @@ export default function TrainingPrototypeRichText({ text, className }) {
 
   return (
     <div className={className ? `trainingPrototypeRichText ${className}` : "trainingPrototypeRichText"}>
-      {paragraphs.map((paragraph, index) => (
-        <p key={index}>{renderPrototypeRichInline(paragraph)}</p>
-      ))}
+      {paragraphs.map((paragraph, index) => renderPrototypeRichBlock(paragraph, index))}
     </div>
   );
 }

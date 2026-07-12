@@ -2,7 +2,7 @@ import { useState } from "react";
 import TrainingPrototypeFullscreenShell from "./TrainingPrototypeFullscreenShell";
 import { TRAINING_CENTER_PROTOTYPE_QUIZ } from "@/lib/trainingCenterPrototypeMock";
 
-export default function TrainingQuizModuleView({ onBack, onSubmitSuccess }) {
+export default function TrainingQuizModuleView({ onBack, hasPrevious = false, onPrevious, onSubmitSuccess }) {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
@@ -19,8 +19,8 @@ export default function TrainingQuizModuleView({ onBack, onSubmitSuccess }) {
       onClose={onBack}
       footer={
         <>
-          <button type="button" className="btn" onClick={onBack}>
-            Back to Training Center
+          <button type="button" className="btn" onClick={onPrevious} disabled={!hasPrevious}>
+            Previous
           </button>
           <div className="spacer" />
           <button type="submit" className="btn btnPrimary" form="trainingPrototypeQuizForm" disabled={submitted}>

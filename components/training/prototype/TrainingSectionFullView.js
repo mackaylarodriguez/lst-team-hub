@@ -8,8 +8,10 @@ export default function TrainingSectionFullView({
   sectionIndex,
   sectionTotal,
   onBack,
+  hasPrevious = false,
+  onPrevious,
   onContinue,
-  continueLabel = "Continue",
+  continueLabel = "Next",
 }) {
   const [videoWatched, setVideoWatched] = useState(false);
   const blocks = section?.fullSessionBlocks || [{ heading: section?.title, body: section?.body }];
@@ -21,8 +23,8 @@ export default function TrainingSectionFullView({
       onClose={onBack}
       footer={
         <>
-          <button type="button" className="btn" onClick={onBack}>
-            Back to Training Center
+          <button type="button" className="btn" onClick={onPrevious} disabled={!hasPrevious}>
+            Previous
           </button>
           <div className="spacer" />
           {section?.showVideo ? (

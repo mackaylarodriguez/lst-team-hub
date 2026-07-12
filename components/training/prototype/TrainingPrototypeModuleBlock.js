@@ -31,6 +31,7 @@ export default function TrainingPrototypeModuleBlock({
   defaultOpen = true,
   onOpenFullSession,
   onOpenQuiz,
+  onMarkSectionRead,
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const sections = module.sections || [];
@@ -107,18 +108,42 @@ export default function TrainingPrototypeModuleBlock({
                           Multiple-choice questions appear on the dedicated quiz page.
                         </p>
                       )}
-                      <div className="trainingPrototypeSectionFooter">
-                        <TrainingPrototypeFullSessionButton
-                          label="Open fullscreen quiz"
-                          onClick={() => onOpenQuiz(module.id)}
-                        />
+                      <div className="trainingPrototypeSectionActions">
+                        <div className="trainingPrototypeSectionFooter">
+                          <TrainingPrototypeFullSessionButton
+                            label="Open fullscreen quiz"
+                            onClick={() => onOpenQuiz(module.id)}
+                          />
+                        </div>
+                        <div className="trainingPrototypeMarkReadRow">
+                          <button
+                            type="button"
+                            className={sectionComplete ? "btn" : "btn btnPrimary"}
+                            disabled={sectionComplete}
+                            onClick={() => onMarkSectionRead?.(section.id)}
+                          >
+                            {sectionComplete ? "Marked as read" : "Mark as read"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="trainingPrototypeSectionFooter">
-                      <TrainingPrototypeFullSessionButton
-                        onClick={() => onOpenFullSession(module.id, section.id)}
-                      />
+                    <div className="trainingPrototypeSectionActions">
+                      <div className="trainingPrototypeSectionFooter">
+                        <TrainingPrototypeFullSessionButton
+                          onClick={() => onOpenFullSession(module.id, section.id)}
+                        />
+                      </div>
+                      <div className="trainingPrototypeMarkReadRow">
+                        <button
+                          type="button"
+                          className={sectionComplete ? "btn" : "btn btnPrimary"}
+                          disabled={sectionComplete}
+                          onClick={() => onMarkSectionRead?.(section.id)}
+                        >
+                          {sectionComplete ? "Marked as read" : "Mark as read"}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
