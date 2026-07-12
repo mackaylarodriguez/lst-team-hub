@@ -5,7 +5,7 @@ import Spinner from "@/components/Spinner";
 import ConfirmModal from "@/components/ConfirmModal";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import {
   assignWorkerByEmailToTrip,
@@ -25,7 +25,7 @@ import {
   saveTripTeamMembers,
   updateTripTeamMemberTshirtSize,
 } from "@/lib/tripTeamMembers";
-import { pruneTripTicketsForNonTravelingLeaders } from "@/lib/tripTickets";
+import { pruneTripTicketsForNonTravelingLeaders, listTripTickets } from "@/lib/tripTickets";
 import {
   getTrainingModuleDeadline,
   listTrainingModules,
@@ -150,6 +150,7 @@ import {
   listSiteBudgetNotes,
   saveTripBudget,
   uploadTripHousingPdf,
+  computeTripBudgetOverviewSummary,
 } from "@/lib/tripBudget";
 import {
   deleteBudgetCheckRequest,
@@ -362,6 +363,8 @@ export function useTripPageModel() {
   /** Staff/leaders: scheduling form hidden until Add meeting (or when editing an existing row). */
   const [meetingAddFormOpen, setMeetingAddFormOpen] = useState(false);
   const [tripBudgetRow, setTripBudgetRow] = useState(null);
+  const [tripStaffBudgetSnapshot, setTripStaffBudgetSnapshot] = useState(null);
+  const [tripStaffBudgetTickets, setTripStaffBudgetTickets] = useState([]);
   const [tripHousingLinkUrl, setTripHousingLinkUrl] = useState("");
   const [tripHousingPdfUrl, setTripHousingPdfUrl] = useState("");
   const [tripHousingDocuments, setTripHousingDocuments] = useState([]);
@@ -1005,6 +1008,33 @@ export function useTripPageModel() {
       cancelled = true;
     };
   }, [trip?.id, staffViewAllParticipants]);
+
+  const refreshTripStaffBudgetData = useCallback(async () => {
+    if (!trip?.id || !canManageTrips) return;
+    try {
+      const [budget, tickets] = await Promise.all([
+        getTripBudget(trip.id),
+        listTripTickets(trip.id),
+      ]);
+      setTripStaffBudgetSnapshot(budget);
+      setTripStaffBudgetTickets(tickets || []);
+    } catch (e) {
+      console.warn("[trip] staff budget summary", e);
+    }
+  }, [trip?.id, canManageTrips]);
+
+  useEffect(() => {
+    void refreshTripStaffBudgetData();
+  }, [refreshTripStaffBudgetData]);
+
+  const tripStaffBudgetSummary = useMemo(() => {
+    if (!trip?.id) return null;
+    return computeTripBudgetOverviewSummary({
+      budgetRow: tripStaffBudgetSnapshot,
+      ticketRows: tripStaffBudgetTickets,
+      tripId: trip.id,
+    });
+  }, [trip?.id, tripStaffBudgetSnapshot, tripStaffBudgetTickets]);
 
   useEffect(() => {
     if (!trip?.id || tab !== "Materials") return;
@@ -7629,6 +7659,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     tripBudgetCheckRequests,
     tripBudgetLoadError,
     tripBudgetRow,
+    tripStaffBudgetSummary,
     tripDocsUndoBanner,
     tripDocsUndoRunRef,
     tripDocsUndoTimerRef,
@@ -7709,6 +7740,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     handleToggleMaterialsPackingItem,
     handleUploadParticipantDocument,
     persistWorkerTaskDueDate,
+    refreshTripStaffBudgetData,
     restoreDismissedDefaultTripDocuments,
     runTripDocsUndoAction,
     saveStaffTasks: persistStaffTasks,

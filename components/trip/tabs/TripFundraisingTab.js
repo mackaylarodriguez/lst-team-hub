@@ -1,5 +1,6 @@
 import { useState } from "react";
 import BudgetTeamEditorModal from "@/components/budget/BudgetTeamEditorModal";
+import { formatTripBudgetSummaryUsd } from "@/lib/tripBudget";
 import { useTripPage } from "../TripPageContext";
 import {
   CollapsibleSection,
@@ -10,6 +11,37 @@ import {
   TrainingResourceLink,
   OptionalTripWideDocumentCard,
 } from "../tripPageShared";
+
+const tripStaffBudgetCardGridStyle = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+  gap: 10,
+};
+
+const tripStaffBudgetCardStyle = {
+  borderRadius: 12,
+  border: "1px solid rgba(15, 23, 42, 0.08)",
+  background: "rgba(248, 250, 252, 0.88)",
+  padding: "12px 14px",
+  display: "grid",
+  gap: 6,
+  minWidth: 0,
+};
+
+const tripStaffBudgetCardLabelStyle = {
+  fontSize: 10,
+  fontWeight: 800,
+  letterSpacing: ".12em",
+  textTransform: "uppercase",
+  color: "var(--muted)",
+};
+
+const tripStaffBudgetCardValueStyle = {
+  fontSize: 22,
+  lineHeight: 1,
+  fontWeight: 900,
+  fontVariantNumeric: "tabular-nums",
+};
 
 export default function TripFundraisingTab() {
     const {
@@ -44,15 +76,87 @@ export default function TripFundraisingTab() {
     teamFundraisingDraft,
     teamFundraisingStatus,
     trip,
+    tripStaffBudgetSummary,
+    refreshTripStaffBudgetData,
     updateFundraisingDraft,
     visibleFundraisingParticipants,
   } = useTripPage();
-  const [staffFundraisingTool, setStaffFundraisingTool] = useState("");
   const [teamBudgetEditorOpen, setTeamBudgetEditorOpen] = useState(false);
+
+  const staffBudgetCards = [
+    { label: "Team budget", value: tripStaffBudgetSummary?.budgetTotal },
+    { label: "Airfare", value: tripStaffBudgetSummary?.airfareTotal },
+    { label: "Housing", value: tripStaffBudgetSummary?.housingTotal },
+    {
+      label: "On-site expenses",
+      value: tripStaffBudgetSummary?.onsiteTotal,
+    },
+    {
+      label: "Leftover",
+      value: tripStaffBudgetSummary?.leftover,
+      color:
+        tripStaffBudgetSummary?.leftover != null && tripStaffBudgetSummary.leftover < 0
+          ? "#dc2626"
+          : tripStaffBudgetSummary?.leftover != null
+            ? "#15803d"
+            : undefined,
+    },
+  ];
 
   return (
     <>
     <div style={{ display: "grid", gap: 16 }}>
+              {canManageTrips ? (
+                <div
+                  className="card pad"
+                  style={{
+                    boxShadow: "none",
+                    background:
+                      "linear-gradient(180deg, rgba(241, 245, 249, 0.95), rgba(255,255,255,1) 55%)",
+                    borderColor: "rgba(15, 23, 42, 0.1)",
+                    display: "grid",
+                    gap: 14,
+                  }}
+                >
+                  <div
+                    className="row"
+                    style={{
+                      gap: 10,
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <div>
+                      <div className="cardSectionPill" style={{ marginBottom: 6 }}>
+                        Staff: Team budget & expenses
+                      </div>
+                      <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
+                        Same totals as Budget → Overview for this team.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btnPrimary"
+                      disabled={!trip?.id}
+                      onClick={() => setTeamBudgetEditorOpen(true)}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  <div style={tripStaffBudgetCardGridStyle}>
+                    {staffBudgetCards.map((card) => (
+                      <div key={card.label} style={tripStaffBudgetCardStyle}>
+                        <div style={tripStaffBudgetCardLabelStyle}>{card.label}</div>
+                        <div style={{ ...tripStaffBudgetCardValueStyle, color: card.color }}>
+                          {formatTripBudgetSummaryUsd(card.value)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div
                 style={{
                   display: "grid",
@@ -620,58 +724,14 @@ export default function TripFundraisingTab() {
               </div>
               </CollapsibleSection>
 
-              {canManageTrips ? (
-                <CollapsibleSection title="Staff: Team budget & expenses" defaultOpen={false}>
-                  <div
-                    className="card pad"
-                    style={{
-                      boxShadow: "none",
-                      display: "grid",
-                      gap: 12,
-                    }}
-                  >
-                    <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
-                      Staff-only tools for this trip. Open the combined editor for team budget, housing,
-                      links, and tickets.
-                    </div>
-                    <div
-                      className="row"
-                      style={{ gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}
-                    >
-                      <label className="budgetTeamEditorField" style={{ flex: "1 1 260px", minWidth: 0 }}>
-                        <span className="budgetTeamEditorLabel">Staff tools</span>
-                        <select
-                          className="input"
-                          value={staffFundraisingTool}
-                          onChange={(event) => setStaffFundraisingTool(event.target.value)}
-                        >
-                          <option value="">Choose an action…</option>
-                          <option value="team-budget">Edit team budget, housing & tickets</option>
-                        </select>
-                      </label>
-                      <button
-                        type="button"
-                        className="btn btnPrimary"
-                        disabled={staffFundraisingTool !== "team-budget" || !trip?.id}
-                        onClick={() => setTeamBudgetEditorOpen(true)}
-                      >
-                        Open
-                      </button>
-                    </div>
-                  </div>
-                </CollapsibleSection>
-              ) : null}
-    
             </div>
       {teamBudgetEditorOpen && trip?.id ? (
         <BudgetTeamEditorModal
           tripId={trip.id}
           trip={trip}
           tripName={trip.name || ""}
-          onClose={() => {
-            setTeamBudgetEditorOpen(false);
-            setStaffFundraisingTool("");
-          }}
+          onClose={() => setTeamBudgetEditorOpen(false)}
+          onSaved={() => void refreshTripStaffBudgetData()}
         />
       ) : null}
     </>
