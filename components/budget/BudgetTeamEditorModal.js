@@ -72,6 +72,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
   const [draft, setDraft] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
+  const [participants, setParticipants] = useState([]);
   const [pdfUploading, setPdfUploading] = useState(false);
   const [ticketDeleteId, setTicketDeleteId] = useState("");
 
@@ -92,6 +93,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
         setDraft(buildDraftFromSources(trip, budget, roster, participants));
         setTickets(ticketRows || []);
         setTeamMembers(roster || []);
+        setParticipants(participants || []);
       } catch (e) {
         if (!cancelled) {
           showToast(e.message || "Could not load team budget.", "error");
@@ -122,8 +124,18 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
     return names;
   }, [teamMembers]);
 
+  const computedFundraisingBudgetTotal = useMemo(
+    () =>
+      computeDefaultTeamBudgetFromFundraising({
+        trip: { ...trip, teamMembers, participants },
+      }),
+    [trip, teamMembers, participants]
+  );
+
   const summary = useMemo(() => {
-    const budgetTotal = parseCurrencyLike(draft?.budgetAmount);
+    const draftBudgetTotal = parseCurrencyLike(draft?.budgetAmount);
+    const budgetTotal =
+      computedFundraisingBudgetTotal > 0 ? computedFundraisingBudgetTotal : draftBudgetTotal;
     const airfareTotal = (tickets || []).reduce(
       (sum, row) => sum + (parseCurrencyLike(row.totalTicketCost) ?? 0),
       0
@@ -133,7 +145,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
     const spent = airfareTotal + housingTotal + (onsiteTotal ?? 0);
     const leftover = budgetTotal == null ? null : budgetTotal - spent;
     return { budgetTotal, airfareTotal, housingTotal, onsiteTotal, leftover };
-  }, [draft, tickets]);
+  }, [draft, tickets, computedFundraisingBudgetTotal]);
 
   function patchDraft(patch) {
     setDraft((current) => ({ ...current, ...patch }));

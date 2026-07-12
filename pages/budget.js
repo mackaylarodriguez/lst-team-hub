@@ -38,6 +38,7 @@ import {
 } from "@/lib/tripHousingEntries";
 import { listAllTripTeamMembers } from "@/lib/tripTeamMembers";
 import { listTripsForCurrentUser } from "@/lib/trips";
+import { computeTeamFundraisingGoalTotal } from "@/lib/tripFundraising";
 import {
   deleteBudgetCheckRequest,
   listBudgetCheckRequests,
@@ -354,9 +355,18 @@ function formatUsdNumberOrDash(value) {
   return formatUsdNumber(value);
 }
 
-function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId) {
+function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, tripsById) {
   return (housingRows || []).map((row) => {
-    const budgetTotal = parseBudgetAmountOrNull(row.budgetAmount);
+    const tripMeta = tripsById?.get(String(row.tripId)) || {};
+    const teamMembers = teamMembersByTripId[String(row.tripId)] || [];
+    const fundraisingBudgetTotal = computeTeamFundraisingGoalTotal({
+      ...tripMeta,
+      id: row.tripId,
+      teamMembers,
+      participants: [],
+    });
+    const savedBudgetTotal = parseBudgetAmountOrNull(row.budgetAmount);
+    const budgetTotal = fundraisingBudgetTotal > 0 ? fundraisingBudgetTotal : savedBudgetTotal;
     const airfareTotal = sumTicketAirfareForTrip(ticketRows, row.tripId);
     const housingTotal = parseCurrencyLike(row.housingAmount) ?? 0;
     const onsiteTotal = parseBudgetAmountOrNull(row.onsiteExpensesAmount);
@@ -612,9 +622,17 @@ export default function BudgetPage() {
     });
   }, [housingRows, isEditingOverview, overviewBudgetDraft]);
 
+  const tripsById = useMemo(() => {
+    const map = new Map();
+    for (const trip of trips || []) {
+      if (trip?.id) map.set(String(trip.id), trip);
+    }
+    return map;
+  }, [trips]);
+
   const budgetOverviewRows = useMemo(
-    () => buildBudgetOverviewRows(overviewHousingRows, ticketRows, teamMembersByTripId),
-    [overviewHousingRows, ticketRows, teamMembersByTripId]
+    () => buildBudgetOverviewRows(overviewHousingRows, ticketRows, teamMembersByTripId, tripsById),
+    [overviewHousingRows, ticketRows, teamMembersByTripId, tripsById]
   );
 
   const budgetOverviewTotals = useMemo(() => {

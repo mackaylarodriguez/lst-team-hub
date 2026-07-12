@@ -1051,9 +1051,8 @@ export function useTripPageModel() {
       tripId: trip.id,
     });
     const fundraisingBudgetTotal = computeTeamFundraisingGoalTotal(trip);
-    const budgetTotal =
-      fundraisingBudgetTotal > 0 ? fundraisingBudgetTotal : summary.budgetTotal;
-    if (budgetTotal == null) return summary;
+    const budgetTotal = fundraisingBudgetTotal > 0 ? fundraisingBudgetTotal : null;
+    if (budgetTotal == null) return { ...summary, budgetTotal: null, leftover: null };
 
     const spentTotal =
       summary.airfareTotal + summary.housingTotal + (summary.onsiteTotal ?? 0);
@@ -6169,11 +6168,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
   ]);
   const isTeamFundraisingMode = trip?.fundraisingMode === "team";
   const tripFundraisingGoal = Number(trip?.fundraisingGoalAmount || 0);
-  const staffTeamFundraisingGoalAmount = useMemo(() => {
-    const summed = computeTeamFundraisingGoalTotal(trip);
-    if (summed > 0) return summed;
-    return parsePositiveFundraisingGoal(trip?.fundraisingGoalAmount) ?? 0;
-  }, [trip]);
+  const staffTeamFundraisingGoalAmount = useMemo(
+    () => computeTeamFundraisingGoalTotal(trip),
+    [trip, trip?.teamMembers, trip?.participants, trip?.fundraisingGoalAmount]
+  );
   const summedParticipantFundraisingGoal = staffTeamFundraisingGoalAmount;
   const workerSpecificFundraisingGoalAmount = currentParticipantFundraisingGoalAmount;
   const fundraisingGoalAmount =
