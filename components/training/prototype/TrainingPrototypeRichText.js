@@ -8,6 +8,40 @@ function renderPrototypeRichInline(text) {
   });
 }
 
+const TIMELINE_HEADING_PATTERN =
+  /^(three months from departure|two months from departure|one month from departure|october\/november|january|february|march|april|may)$/i;
+
+function stripPrototypeMarkers(text) {
+  return String(text || "")
+    .trim()
+    .replace(/^\*\*/, "")
+    .replace(/\*\*$/, "");
+}
+
+function looksLikeTimelineHeading(text) {
+  const normalized = stripPrototypeMarkers(text);
+  return TIMELINE_HEADING_PATTERN.test(normalized) || /from departure$/i.test(normalized);
+}
+
+function expandInlineDashLists(text) {
+  return String(text || "")
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("- ") || !trimmed.includes(" - ")) return line;
+
+      const dashParts = trimmed
+        .split(" - ")
+        .map((part) => part.trim())
+        .filter(Boolean);
+      if (dashParts.length < 2 || !looksLikeTimelineHeading(dashParts[0])) return line;
+
+      const heading = dashParts[0].startsWith("**") ? dashParts[0] : `**${dashParts[0]}**`;
+      return [heading, ...dashParts.slice(1).map((item) => `- ${item}`)].join("\n");
+    })
+    .join("\n");
+}
+
 function renderPrototypeRichBlock(paragraph, index) {
   const trimmed = String(paragraph || "").trim();
   const lines = trimmed
@@ -55,7 +89,8 @@ function renderPrototypeRichBlock(paragraph, index) {
 }
 
 export default function TrainingPrototypeRichText({ text, className }) {
-  const paragraphs = String(text || "")
+  const normalizedText = expandInlineDashLists(text);
+  const paragraphs = String(normalizedText || "")
     .split(/\n\n+/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import CollapsibleSection from "@/components/CollapsibleSection";
 import { useTripPage } from "@/components/trip/TripPageContext";
+import { TrainingResourceLink } from "@/components/trip/tripPageShared";
 import TripTrainingProgressCard from "@/components/trip/TripTrainingProgressCard";
 import TrainingPrototypeModuleBlock from "./TrainingPrototypeModuleBlock";
 import TrainingPrototypeModuleEditModal from "./TrainingPrototypeModuleEditModal";
@@ -16,7 +18,7 @@ import {
 } from "@/lib/trainingPrototypeStorage";
 
 export default function TripTrainingPrototypePanel() {
-  const { canManageTrips } = useTripPage();
+  const { canManageTrips, optionalTrainingResources, requiredTrainingResources } = useTripPage();
   const [modules, setModules] = useState(() => clonePrototypeModules());
   const [view, setView] = useState("center");
   const [activeModuleId, setActiveModuleId] = useState("");
@@ -107,6 +109,33 @@ export default function TripTrainingPrototypePanel() {
     <>
       <div className="trainingPrototypeCenter">
         <TripTrainingProgressCard />
+
+        <CollapsibleSection
+          title="Training resources"
+          subtitle="Required and optional training links"
+          defaultOpen={false}
+          style={{ marginBottom: 16 }}
+        >
+          <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
+            Required training
+          </div>
+          <div className="tripTrainingResourceGrid">
+            {requiredTrainingResources.map((resource) => (
+              <TrainingResourceLink key={resource.id} resource={resource} />
+            ))}
+          </div>
+
+          <div style={{ height: 18 }} />
+
+          <div className="small" style={{ fontWeight: 900, marginBottom: 8 }}>
+            Optional
+          </div>
+          <div className="tripTrainingOptionalGrid">
+            {optionalTrainingResources.map((resource) => (
+              <TrainingResourceLink key={resource.id} resource={resource} />
+            ))}
+          </div>
+        </CollapsibleSection>
 
         <div className="trainingPrototypeModuleList">
           {modules.map((module, index) => (
