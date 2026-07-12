@@ -16,6 +16,7 @@ import {
   loadPrototypeModules,
   savePrototypeModules,
 } from "@/lib/trainingPrototypeStorage";
+import { getPrototypeSectionQuiz } from "@/lib/trainingCenterPrototypeMock";
 
 export default function TripTrainingPrototypePanel() {
   const { canManageTrips, optionalTrainingResources, requiredTrainingResources } = useTripPage();
@@ -25,7 +26,6 @@ export default function TripTrainingPrototypePanel() {
   const [activeSectionId, setActiveSectionId] = useState("");
   const [editingModuleId, setEditingModuleId] = useState("");
   const [completedSectionIds, setCompletedSectionIds] = useState({});
-  const [sectionQuizSubmitted, setSectionQuizSubmitted] = useState(false);
 
   useEffect(() => {
     setModules(loadPrototypeModules());
@@ -43,8 +43,11 @@ export default function TripTrainingPrototypePanel() {
   }
 
   function openQuiz(moduleId) {
+    const module = findPrototypeModuleById(modules, moduleId);
+    const quizSection = module?.sections?.find((section) => section.isQuiz);
+    if (!quizSection) return;
     setActiveModuleId(moduleId);
-    setActiveSectionId("s5");
+    setActiveSectionId(quizSection.id);
     setView("quiz");
   }
 
@@ -93,16 +96,15 @@ export default function TripTrainingPrototypePanel() {
   const activeSection = findPrototypeSectionById(modules, activeSectionId);
   const activeModule = findPrototypeModuleById(modules, activeModuleId || activeSection?.moduleId);
   const activeModuleSections = activeModule?.sections || [];
+  const activeQuizSection = view === "quiz" ? activeSection : null;
   const editingModule = findPrototypeModuleById(modules, editingModuleId);
 
   const sectionOverlayOpen =
     view === "section" && activeSection && !activeSection.isQuiz && activeModule;
   const quizOverlayOpen = view === "quiz";
-  const previousSectionId = activeSection
-    ? getPreviousPrototypeSectionIdFromModules(modules, activeSection.id, activeModule?.id)
-    : activeModuleId && activeSectionId
-      ? getPreviousPrototypeSectionIdFromModules(modules, activeSectionId, activeModuleId)
-      : null;
+  const previousSectionId = activeSectionId
+    ? getPreviousPrototypeSectionIdFromModules(modules, activeSectionId, activeModule?.id)
+    : null;
   const hasPreviousSection = !!previousSectionId;
 
   return (
@@ -128,7 +130,6 @@ export default function TripTrainingPrototypePanel() {
               key={module.id}
               module={module}
               completedSectionIds={completedSectionIds}
-              sectionQuizSubmitted={sectionQuizSubmitted}
               defaultOpen={index === 0}
               canEdit={canManageTrips}
               onEditModule={setEditingModuleId}
@@ -162,14 +163,16 @@ export default function TripTrainingPrototypePanel() {
         />
       ) : null}
 
-      {quizOverlayOpen ? (
+      {quizOverlayOpen && activeQuizSection && activeModule ? (
         <TrainingQuizModuleView
+          title={activeQuizSection.title}
+          subtitle={`Section ${activeModuleSections.findIndex((section) => section.id === activeQuizSection.id) + 1} of ${activeModuleSections.length}`}
+          quizQuestions={getPrototypeSectionQuiz(activeQuizSection)}
           onBack={closeOverlay}
           hasPrevious={hasPreviousSection}
-          onPrevious={() => handleSectionPrevious(activeSectionId, activeModuleId)}
+          onPrevious={() => handleSectionPrevious(activeQuizSection.id, activeModule.id)}
           onSubmitSuccess={() => {
-            setSectionQuizSubmitted(true);
-            markSectionComplete("s5");
+            markSectionComplete(activeQuizSection.id);
             closeOverlay();
           }}
         />

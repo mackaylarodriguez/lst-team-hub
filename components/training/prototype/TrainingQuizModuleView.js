@@ -1,8 +1,17 @@
 import { useState } from "react";
 import TrainingPrototypeFullscreenShell from "./TrainingPrototypeFullscreenShell";
+import TrainingPrototypeQuizForm from "./TrainingPrototypeQuizForm";
 import { TRAINING_CENTER_PROTOTYPE_QUIZ } from "@/lib/trainingCenterPrototypeMock";
 
-export default function TrainingQuizModuleView({ onBack, hasPrevious = false, onPrevious, onSubmitSuccess }) {
+export default function TrainingQuizModuleView({
+  title = "Module Quiz",
+  subtitle = "Module quiz",
+  quizQuestions = TRAINING_CENTER_PROTOTYPE_QUIZ,
+  onBack,
+  hasPrevious = false,
+  onPrevious,
+  onSubmitSuccess,
+}) {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
@@ -14,8 +23,8 @@ export default function TrainingQuizModuleView({ onBack, hasPrevious = false, on
 
   return (
     <TrainingPrototypeFullscreenShell
-      title="Knowledge check (Prototype)"
-      subtitle="Module quiz"
+      title={title}
+      subtitle={subtitle}
       onClose={onBack}
       footer={
         <>
@@ -24,46 +33,29 @@ export default function TrainingQuizModuleView({ onBack, hasPrevious = false, on
           </button>
           <div className="spacer" />
           <button type="submit" className="btn btnPrimary" form="trainingPrototypeQuizForm" disabled={submitted}>
-            Submit (demo)
+            Submit
           </button>
         </>
       }
     >
-      <p className="small trainingPrototypeMuted" style={{ marginTop: 0 }}>
-        Three sample questions. Submit shows a success message — no grading or persistence.
-      </p>
+      <div className="trainingPrototypeQuizShell">
+        {submitted ? (
+          <div className="trainingPrototypeSuccessBox" role="status">
+            Success! Your answers were submitted.
+          </div>
+        ) : null}
 
-      {submitted ? (
-        <div className="trainingPrototypeSuccessBox" role="status">
-          Success! Your answers were submitted in this demo. In production, results would appear here.
-        </div>
-      ) : null}
-
-      <form id="trainingPrototypeQuizForm" className="trainingPrototypeQuizForm" onSubmit={handleSubmit}>
-        {TRAINING_CENTER_PROTOTYPE_QUIZ.map((question, index) => (
-          <fieldset key={question.id} className="trainingPrototypeQuizQuestion">
-            <legend>
-              {index + 1}. {question.prompt}
-            </legend>
-            <div className="trainingPrototypeQuizOptions">
-              {question.options.map((option, optionIndex) => (
-                <label key={option} className="trainingPrototypeQuizOption">
-                  <input
-                    type="radio"
-                    name={question.id}
-                    value={String(optionIndex)}
-                    checked={answers[question.id] === String(optionIndex)}
-                    onChange={() =>
-                      setAnswers((current) => ({ ...current, [question.id]: String(optionIndex) }))
-                    }
-                  />
-                  <span>{option}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-        ))}
-      </form>
+        <TrainingPrototypeQuizForm
+          quizQuestions={quizQuestions}
+          answers={answers}
+          centered
+          submitted={submitted}
+          onAnswerChange={(questionId, value) =>
+            setAnswers((current) => ({ ...current, [questionId]: value }))
+          }
+          onSubmit={handleSubmit}
+        />
+      </div>
     </TrainingPrototypeFullscreenShell>
   );
 }

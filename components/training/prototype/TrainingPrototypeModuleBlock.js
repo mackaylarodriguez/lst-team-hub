@@ -7,13 +7,14 @@ import {
   PROTOTYPE_STATUS_META,
   formatPrototypeDueDate,
   getPrototypeModuleStatus,
+  getPrototypeSectionQuiz,
   resolvePrototypeSectionVideoEmbed,
 } from "@/lib/trainingCenterPrototypeMock";
+import TrainingPrototypeQuizForm from "./TrainingPrototypeQuizForm";
 
 export default function TrainingPrototypeModuleBlock({
   module,
   completedSectionIds,
-  sectionQuizSubmitted,
   defaultOpen = true,
   canEdit = false,
   onEditModule,
@@ -107,15 +108,17 @@ export default function TrainingPrototypeModuleBlock({
                   ) : null}
 
                   {section.isQuiz ? (
-                    <div className="trainingPrototypeQuizPreview">
-                      {sectionQuizSubmitted ? (
+                    <div className="trainingPrototypeQuizPreview trainingPrototypeQuizPreviewCentered">
+                      {sectionComplete ? (
                         <div className="trainingPrototypeSuccessBox" role="status">
-                          Quiz submitted in demo mode.
+                          Quiz submitted.
                         </div>
                       ) : (
-                        <p className="small trainingPrototypeMuted">
-                          Multiple-choice questions appear on the dedicated quiz page.
-                        </p>
+                        <TrainingPrototypeQuizForm
+                          quizQuestions={getPrototypeSectionQuiz(section)}
+                          centered
+                          formId={`trainingPrototypeQuizPreview-${section.id}`}
+                        />
                       )}
                       <div className="trainingPrototypeSectionActions">
                         <div className="trainingPrototypeSectionFooter">
