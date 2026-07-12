@@ -110,10 +110,6 @@ export default function TrainingPrototypeModuleBlock({
                     </div>
                   ) : null}
 
-                  {canViewSectionAckRoster ? (
-                    <TrainingPrototypeSectionAckStatus roster={sectionCompletionRosters[section.id]} />
-                  ) : null}
-
                   {section.isQuiz ? (
                     <div className="trainingPrototypeQuizPreview trainingPrototypeQuizPreviewCentered">
                       {sectionComplete ? (
@@ -127,21 +123,28 @@ export default function TrainingPrototypeModuleBlock({
                           formId={`trainingPrototypeQuizPreview-${section.id}`}
                         />
                       )}
-                      <div className="trainingPrototypeSectionActions">
-                        <div className="trainingPrototypeSectionFooter">
-                          <button
-                            type="button"
-                            className={sectionComplete ? "btn" : "btn btnPrimary"}
-                            disabled={sectionComplete}
-                            onClick={() => onMarkSectionRead?.(section.id)}
-                          >
-                            {sectionComplete ? "Marked as read" : "Mark as read"}
-                          </button>
-                          <TrainingPrototypeFullSessionButton
-                            label="Open Quiz ↗"
-                            onClick={() => onOpenQuiz(module.id)}
-                          />
-                        </div>
+                    </div>
+                  ) : null}
+
+                  {canViewSectionAckRoster ? (
+                    <TrainingPrototypeSectionAckStatus roster={sectionCompletionRosters[section.id]} />
+                  ) : null}
+
+                  {section.isQuiz ? (
+                    <div className="trainingPrototypeSectionActions">
+                      <div className="trainingPrototypeSectionFooter">
+                        <button
+                          type="button"
+                          className={sectionComplete ? "btn" : "btn btnPrimary"}
+                          disabled={sectionComplete}
+                          onClick={() => onMarkSectionRead?.(section.id)}
+                        >
+                          {sectionComplete ? "Marked as read" : "Mark as read"}
+                        </button>
+                        <TrainingPrototypeFullSessionButton
+                          label="Open Quiz ↗"
+                          onClick={() => onOpenQuiz(module.id)}
+                        />
                       </div>
                     </div>
                   ) : (
