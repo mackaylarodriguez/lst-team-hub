@@ -858,6 +858,23 @@ export default function TripPage() {
             <div style={{ display: "grid", gap: 10 }}>
               <div>
                 <div className="small" style={{ marginBottom: 4 }}>
+                  Payee
+                </div>
+                <input
+                  className="input"
+                  readOnly
+                  value={String(materialsDraft?.teamAccountant || "").trim()}
+                  placeholder="Set team accountant on Materials"
+                  style={{
+                    backgroundColor: "rgba(15, 23, 42, 0.07)",
+                    color: "rgba(15, 23, 42, 0.55)",
+                    cursor: "not-allowed",
+                  }}
+                  aria-readonly="true"
+                />
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 4 }}>
                   Amount
                 </div>
                 <input
@@ -877,7 +894,7 @@ export default function TripPage() {
                   className="input"
                   value={budgetCheckNote}
                   onChange={(e) => setBudgetCheckNote(e.target.value)}
-                  placeholder="Payee or memo (optional)"
+                  placeholder="Memo (optional)"
                 />
               </div>
             </div>

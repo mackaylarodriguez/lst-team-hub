@@ -130,7 +130,7 @@ function budgetCheckTableHead(showActions = true) {
       <th>Requested by</th>
       <th>Trip</th>
       <th>Site</th>
-      <th>Accountant</th>
+      <th>Payee</th>
       <th>Check amount</th>
       <th>Notes</th>
       <th>Completed on</th>
@@ -703,6 +703,12 @@ export default function BudgetPage() {
     }
     return map;
   }, [trips]);
+  const newBudgetCheckPayee = useMemo(() => {
+    const tripId = newBudgetCheckTripId || tripsSortedForBudget[0]?.id;
+    if (!tripId) return "";
+    const row = (housingRows || []).find((r) => String(r.tripId) === String(tripId));
+    return String(row?.teamAccountant || "").trim();
+  }, [newBudgetCheckTripId, tripsSortedForBudget, housingRows]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1399,6 +1405,23 @@ export default function BudgetPage() {
             <div style={{ fontWeight: 900, marginBottom: 12 }}>Edit check request</div>
             <div style={{ display: "grid", gap: 10 }}>
               <div>
+                <label className="small" htmlFor="budget-check-edit-payee" style={{ display: "block", marginBottom: 4 }}>
+                  Payee
+                </label>
+                <input
+                  id="budget-check-edit-payee"
+                  className="input"
+                  readOnly
+                  value={
+                    String(
+                      budgetCheckRows.find((r) => r.id === budgetCheckEditId)?.teamAccountantSnapshot || ""
+                    ).trim()
+                  }
+                  style={ticketComputedFieldStyle}
+                  aria-readonly="true"
+                />
+              </div>
+              <div>
                 <label className="small" htmlFor="budget-check-edit-amount" style={{ display: "block", marginBottom: 4 }}>
                   Amount
                 </label>
@@ -1420,7 +1443,7 @@ export default function BudgetPage() {
                   className="input"
                   value={budgetCheckEditNote}
                   onChange={(e) => setBudgetCheckEditNote(e.target.value)}
-                  placeholder="Payee or memo (optional)"
+                  placeholder="Memo (optional)"
                 />
               </div>
             </div>
@@ -3021,6 +3044,20 @@ export default function BudgetPage() {
                   ))}
                 </select>
               </div>
+              <div style={{ flex: "1 1 160px", minWidth: 0 }}>
+                <label className="small" htmlFor="budget-check-payee" style={{ display: "block", marginBottom: 4 }}>
+                  Payee
+                </label>
+                <input
+                  id="budget-check-payee"
+                  className="input"
+                  readOnly
+                  value={newBudgetCheckPayee}
+                  placeholder="Set team accountant on Housing"
+                  style={ticketComputedFieldStyle}
+                  aria-readonly="true"
+                />
+              </div>
               <div style={{ flex: "0 1 130px", minWidth: 0 }}>
                 <label className="small" htmlFor="budget-check-amount" style={{ display: "block", marginBottom: 4 }}>
                   Amount
@@ -3044,7 +3081,7 @@ export default function BudgetPage() {
                   className="input"
                   value={newBudgetCheckNote}
                   onChange={(e) => setNewBudgetCheckNote(e.target.value)}
-                  placeholder="Payee or memo (optional)"
+                  placeholder="Memo (optional)"
                 />
               </div>
               <button

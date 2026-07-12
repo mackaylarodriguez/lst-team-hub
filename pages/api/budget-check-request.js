@@ -269,7 +269,7 @@ function buildBudgetCheckMiscTaskNotes({
   return [
     `Trip: ${tn || tripId}`,
     teamNameSnap ? `Team name: ${teamNameSnap}` : null,
-    accountantSnap ? `Team accountant: ${accountantSnap}` : null,
+    accountantSnap ? `Payee: ${accountantSnap}` : null,
     `Check amount requested: ${amountRequested}`,
     note ? `Note from staff: ${note}` : null,
     requesterLine ? `Requested by: ${requesterLine}` : null,
@@ -439,7 +439,7 @@ export default async function handler(req, res) {
     const html = buildBudgetCheckStaffEmailHtml({
       requesterLabel,
       tripName: tripName || tripId,
-      accountant: accountantSnap,
+      payee: accountantSnap,
       amountRequested,
       note,
       checksUrl: getBudgetChecksUrl(req),
