@@ -9,10 +9,19 @@ function renderPrototypeRichInline(text) {
 }
 
 function renderPrototypeRichBlock(paragraph, index) {
-  const lines = String(paragraph || "")
+  const trimmed = String(paragraph || "").trim();
+  const lines = trimmed
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+
+  if (/^__.+__$/.test(trimmed)) {
+    return (
+      <p key={index} className="trainingPrototypeRichTitle">
+        {trimmed.slice(2, -2)}
+      </p>
+    );
+  }
 
   if (lines.length > 0 && lines.every((line) => line.startsWith("- "))) {
     return (

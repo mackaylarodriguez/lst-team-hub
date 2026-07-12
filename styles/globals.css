@@ -3999,17 +3999,23 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeWrittenBody{
   display:grid;
   gap:14px;
+  font-size:14px;
+  line-height:1.55;
+  font-family:inherit;
 }
 .trainingPrototypeWrittenPreview h3,
 .trainingPrototypeWrittenSection h3{
   margin:0 0 6px;
-  font-size:15px;
+  font-size:inherit;
+  font-weight:700;
+  font-family:inherit;
 }
 .trainingPrototypeWrittenPreview p,
 .trainingPrototypeWrittenSection p{
   margin:0;
-  line-height:1.55;
-  font-size:14px;
+  line-height:inherit;
+  font-size:inherit;
+  font-family:inherit;
 }
 .trainingPrototypeSectionStack{
   display:grid;
@@ -4018,14 +4024,27 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeSectionInner{
   display:grid;
   gap:8px;
+  font-size:14px;
+  line-height:1.55;
+  font-family:inherit;
 }
 .trainingPrototypeRichText{
   display:grid;
   gap:14px;
+  font-size:inherit;
+  line-height:inherit;
+  font-family:inherit;
+}
+.trainingPrototypeRichText p,
+.trainingPrototypeRichText li,
+.trainingPrototypeRichText strong,
+.trainingPrototypeRichText ul{
+  font-size:inherit;
+  line-height:inherit;
+  font-family:inherit;
 }
 .trainingPrototypeRichText p{
   margin:0;
-  line-height:1.55;
 }
 .trainingPrototypeRichText ul{
   margin:0;
@@ -4034,12 +4053,44 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   gap:10px;
 }
 .trainingPrototypeRichText li{
-  line-height:1.55;
-}
-.trainingPrototypeSectionInner p{
   margin:0;
-  line-height:1.5;
-  font-size:13px;
+}
+.trainingPrototypeRichTitle,
+.trainingPrototypeTimelineCardTitle{
+  margin:0 0 12px;
+  font-size:inherit;
+  font-weight:700;
+  text-decoration:underline;
+  font-family:inherit;
+  line-height:inherit;
+}
+.trainingPrototypeTimelineCardStack{
+  display:grid;
+  gap:12px;
+}
+.trainingPrototypeTimelineCard{
+  border:1px solid rgba(15,23,42,.1);
+  border-radius:12px;
+  padding:14px 16px;
+  background:rgba(255,255,255,.72);
+}
+.trainingPrototypeTimelineCard .trainingPrototypeRichText{
+  gap:10px;
+}
+.trainingPrototypeWrittenSection.trainingPrototypeTimelineCard{
+  border:1px solid rgba(15,23,42,.1);
+  border-radius:12px;
+  padding:16px 18px;
+  background:rgba(255,255,255,.72);
+}
+.trainingPrototypeWrittenSection.trainingPrototypeTimelineCard h3,
+.trainingPrototypeWrittenSection.trainingPrototypeTimelineCard .trainingPrototypeTimelineCardTitle{
+  margin:0 0 12px;
+}
+.trainingPrototypeSectionInner .trainingPrototypeTimelineCard{
+  font-size:inherit;
+  line-height:inherit;
+  font-family:inherit;
 }
 .trainingPrototypeSectionRule{
   margin:0;

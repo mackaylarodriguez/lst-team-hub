@@ -44,12 +44,22 @@ export default function TrainingSectionFullView({
       }
     >
       <div className="trainingPrototypeWrittenBody">
-        {blocks.map((block) => (
-          <div key={block.heading} className="trainingPrototypeWrittenSection">
-            <h3>{block.heading}</h3>
-            <TrainingPrototypeRichText text={block.body} />
-          </div>
-        ))}
+        {blocks.map((block) => {
+          const sectionClassName = block.card
+            ? "trainingPrototypeWrittenSection trainingPrototypeTimelineCard"
+            : "trainingPrototypeWrittenSection";
+
+          return (
+            <div key={block.heading} className={sectionClassName}>
+              {block.card ? (
+                <p className="trainingPrototypeTimelineCardTitle">{block.heading}</p>
+              ) : (
+                <h3>{block.heading}</h3>
+              )}
+              <TrainingPrototypeRichText text={block.body} />
+            </div>
+          );
+        })}
       </div>
 
       {section?.showVideo ? (
