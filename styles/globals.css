@@ -4205,17 +4205,6 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeEditCheckboxRow .trainingPrototypeEditLabel{
   margin:0;
 }
-.trainingPrototypeEditButtonPanel{
-  padding:12px;
-  border:1px solid rgba(15,23,42,.08);
-  border-radius:10px;
-  background:rgba(248,250,252,.72);
-}
-.trainingPrototypeEditButtonFields{
-  display:grid;
-  gap:10px;
-  margin-top:10px;
-}
 .trainingPrototypeEditCardList{
   display:grid;
   gap:12px;
