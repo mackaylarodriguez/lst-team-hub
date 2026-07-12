@@ -94,7 +94,10 @@ export default function TrainingPrototypeModuleBlock({
                       ))}
                     </div>
                   ) : section.fullSessionBlocks?.length ? (
-                    <TrainingPrototypeWrittenBlocks blocks={section.fullSessionBlocks} />
+                    <TrainingPrototypeWrittenBlocks
+                      blocks={section.fullSessionBlocks}
+                      sectionTitle={section.title}
+                    />
                   ) : (
                     <TrainingPrototypeRichText text={section.body} />
                   )}

@@ -47,7 +47,7 @@ export default function TrainingSectionFullView({
         </>
       }
     >
-      <TrainingPrototypeWrittenBlocks blocks={blocks} />
+      <TrainingPrototypeWrittenBlocks blocks={blocks} sectionTitle={section?.title} />
 
       {!isVideoSection ? (
         <div className="trainingPrototypeMarkCompleteRow">

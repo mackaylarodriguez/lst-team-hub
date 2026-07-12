@@ -129,6 +129,7 @@ function applySectionDraft(existingSection, sectionDraft) {
     fullSessionBlocks = [
       {
         ...existingSection.fullSessionBlocks[0],
+        heading: sectionDraft.title,
         body: sectionDraft.body,
         hideHeading: sectionDraft.hideHeading,
       },
