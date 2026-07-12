@@ -36,6 +36,11 @@ import {
   uploadTripHousingExtraPdf,
 } from "@/lib/tripHousingEntries";
 import { listAllTripTeamMembers } from "@/lib/tripTeamMembers";
+import {
+  deleteTripOnsiteExpense,
+  listAllTripOnsiteExpenses,
+  saveTripOnsiteExpense,
+} from "@/lib/tripOnsiteExpenses";
 import { listTripsForCurrentUser } from "@/lib/trips";
 import {
   deleteBudgetCheckRequest,
@@ -293,34 +298,156 @@ function mergeHousingWithTrips(trips, budgets) {
   const orderedTrips = [...(trips || [])].sort(compareTripsForBudgetSort);
   return orderedTrips.map((trip) => {
     const b = byTripId.get(trip.id);
-    return b
-      ? {
-          ...b,
-          tripName: b.tripName || trip.name,
-          housingLink: n(b.housingLink),
-          housingPdfUrl: n(b.housingPdfUrl),
-        }
-      : {
-          id: null,
-          tripId: trip.id,
-          tripName: trip.name || "",
-          teamName: trip.name || "",
-          projectStartDate: trip.startDate || "",
-          projectEndDate: trip.endDate || "",
-          siteCountry: trip.location || "",
-          siteCity: "",
-          teamAccountant: "",
-          budgetAmount: "",
-          returnedAmount: "",
-          housingAmount: "",
-          housingLink: "",
-          housingPdfUrl: "",
-          notes: "",
-          numWorkers: null,
-          tshirts: "",
-          workbooks: "",
-        };
+    const tripName = trip.name || "";
+    if (!b) {
+      return {
+        id: null,
+        tripId: trip.id,
+        tripName,
+        teamName: tripName,
+        projectStartDate: trip.startDate || "",
+        projectEndDate: trip.endDate || "",
+        siteCountry: trip.location || "",
+        siteCity: "",
+        teamAccountant: "",
+        budgetAmount: "",
+        returnedAmount: "",
+        housingAmount: "",
+        housingLink: "",
+        housingPdfUrl: "",
+        notes: "",
+        numWorkers: null,
+        tshirts: "",
+        workbooks: "",
+      };
+    }
+
+    return {
+      ...b,
+      tripName: b.tripName || b.teamName || tripName,
+      teamName: b.teamName || tripName,
+      projectStartDate: b.projectStartDate || trip.startDate || "",
+      projectEndDate: b.projectEndDate || trip.endDate || "",
+      siteCountry: b.siteCountry || trip.location || "",
+      siteCity: b.siteCity || "",
+      housingLink: n(b.housingLink),
+      housingPdfUrl: n(b.housingPdfUrl),
+    };
   });
+}
+
+function sumCurrencyRows(rows, amountField) {
+  return (rows || []).reduce((sum, row) => sum + (parseCurrencyLike(row?.[amountField]) ?? 0), 0);
+}
+
+function sumTicketAirfareForTrip(ticketRows, tripId) {
+  return sumCurrencyRows(
+    (ticketRows || []).filter((row) => String(row.tripId) === String(tripId)),
+    "totalTicketCost"
+  );
+}
+
+function sumOnsiteExpensesForTrip(onsiteExpenseRows, tripId) {
+  return sumCurrencyRows(
+    (onsiteExpenseRows || []).filter((row) => String(row.tripId) === String(tripId)),
+    "amount"
+  );
+}
+
+function buildBudgetOverviewRows(housingRows, ticketRows, onsiteExpenseRows, teamMembersByTripId) {
+  return (housingRows || []).map((row) => {
+    const budgetTotal = parseCurrencyLike(row.budgetAmount) ?? 0;
+    const airfareTotal = sumTicketAirfareForTrip(ticketRows, row.tripId);
+    const housingTotal = parseCurrencyLike(row.housingAmount) ?? 0;
+    const onsiteTotal = sumOnsiteExpensesForTrip(onsiteExpenseRows, row.tripId);
+    const spentTotal = airfareTotal + housingTotal + onsiteTotal;
+    const leftover = budgetTotal - spentTotal;
+
+    return {
+      tripId: row.tripId,
+      teamName: row.teamName || row.tripName || "",
+      projectStartDate: row.projectStartDate || "",
+      projectEndDate: row.projectEndDate || "",
+      site: row.siteCountry || "",
+      workers: countTripRosterMembers(teamMembersByTripId, row.tripId),
+      teamAccountant: row.teamAccountant || "",
+      budgetTotal,
+      airfareTotal,
+      housingTotal,
+      onsiteTotal,
+      leftover,
+      spentTotal,
+    };
+  });
+}
+
+function BudgetOverviewStackedBar({ budgetTotal, airfareTotal, housingTotal, onsiteTotal, leftover }) {
+  const spentTotal = airfareTotal + housingTotal + onsiteTotal;
+  const total = Math.max(budgetTotal, spentTotal, 1);
+  const segments = [
+    { key: "airfare", value: airfareTotal, color: "#2563eb", label: "Airfare" },
+    { key: "housing", value: housingTotal, color: "#16a34a", label: "Housing" },
+    { key: "onsite", value: onsiteTotal, color: "#ea580c", label: "On-site" },
+  ].filter((segment) => segment.value > 0);
+
+  if (leftover > 0) {
+    segments.push({ key: "leftover", value: leftover, color: "#94a3b8", label: "Leftover" });
+  } else if (leftover < 0) {
+    segments.push({
+      key: "over",
+      value: Math.abs(leftover),
+      color: "#dc2626",
+      label: "Over budget",
+    });
+  }
+
+  if (!segments.length) {
+    return <div className="small" style={{ color: "var(--muted)" }}>No budget data yet</div>;
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 6, minWidth: 180 }}>
+      <div
+        style={{
+          display: "flex",
+          height: 12,
+          borderRadius: 999,
+          overflow: "hidden",
+          border: "1px solid rgba(15, 23, 42, 0.08)",
+          background: "rgba(248, 250, 252, 0.9)",
+        }}
+        title={segments.map((segment) => `${segment.label}: ${formatUsdNumber(segment.value)}`).join(" · ")}
+      >
+        {segments.map((segment) => (
+          <div
+            key={segment.key}
+            style={{
+              width: `${(segment.value / total) * 100}%`,
+              background: segment.color,
+              minWidth: segment.value > 0 ? 2 : 0,
+            }}
+          />
+        ))}
+      </div>
+      <div className="small" style={{ display: "flex", flexWrap: "wrap", gap: 8, color: "var(--muted)" }}>
+        {segments.map((segment) => (
+          <span key={segment.key} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                background: segment.color,
+                display: "inline-block",
+              }}
+            />
+            {segment.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function BudgetPage() {
@@ -333,10 +460,15 @@ export default function BudgetPage() {
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [newTicketTripId, setNewTicketTripId] = useState("");
-  const [tab, setTab] = useState("Housing");
+  const [tab, setTab] = useState("Overview");
   const [isEditingHousing, setIsEditingHousing] = useState(false);
   const [housingRowsDraft, setHousingRowsDraft] = useState([]);
   const [isEditingTickets, setIsEditingTickets] = useState(false);
+  const [isEditingOnsiteExpenses, setIsEditingOnsiteExpenses] = useState(false);
+  const [onsiteExpenseRows, setOnsiteExpenseRows] = useState([]);
+  const [onsiteExpensesMissingTable, setOnsiteExpensesMissingTable] = useState(false);
+  const [newOnsiteExpenseTripId, setNewOnsiteExpenseTripId] = useState("");
+  const [onsiteExpenseToDeleteId, setOnsiteExpenseToDeleteId] = useState(null);
   const [ticketToDeleteId, setTicketToDeleteId] = useState(null);
   const [budgetRowDeleteTripId, setBudgetRowDeleteTripId] = useState(null);
   const [teamMembersByTripId, setTeamMembersByTripId] = useState({});
@@ -457,6 +589,42 @@ export default function BudgetPage() {
     return { totalRows, teamCount, avgTicketCost, workerPaidCount };
   }, [ticketsSortedWithBands.sorted]);
 
+  const budgetOverviewRows = useMemo(
+    () => buildBudgetOverviewRows(housingRows, ticketRows, onsiteExpenseRows, teamMembersByTripId),
+    [housingRows, ticketRows, onsiteExpenseRows, teamMembersByTripId]
+  );
+
+  const budgetOverviewTotals = useMemo(() => {
+    return budgetOverviewRows.reduce(
+      (acc, row) => ({
+        budgetTotal: acc.budgetTotal + row.budgetTotal,
+        airfareTotal: acc.airfareTotal + row.airfareTotal,
+        housingTotal: acc.housingTotal + row.housingTotal,
+        onsiteTotal: acc.onsiteTotal + row.onsiteTotal,
+        leftover: acc.leftover + row.leftover,
+      }),
+      { budgetTotal: 0, airfareTotal: 0, housingTotal: 0, onsiteTotal: 0, leftover: 0 }
+    );
+  }, [budgetOverviewRows]);
+
+  const onsiteExpensesSorted = useMemo(() => {
+    const startByTripId = new Map();
+    for (const t of trips || []) {
+      const ms = parseTripStartDateMs(t.startDate);
+      startByTripId.set(t.id, ms ?? Number.MAX_SAFE_INTEGER);
+    }
+    return [...onsiteExpenseRows].sort((a, b) => {
+      const sa = startByTripId.get(a.tripId) ?? Number.MAX_SAFE_INTEGER;
+      const sb = startByTripId.get(b.tripId) ?? Number.MAX_SAFE_INTEGER;
+      if (sa !== sb) return sa - sb;
+      return String(a.tripName || a.tripId || "").localeCompare(
+        String(b.tripName || b.tripId || ""),
+        undefined,
+        { sensitivity: "base" }
+      );
+    });
+  }, [onsiteExpenseRows, trips]);
+
   const siteHousingNotesForDisplay = useMemo(() => {
     const byCanonicalSite = new Map();
     for (const note of siteHousingNotes || []) {
@@ -511,7 +679,11 @@ export default function BudgetPage() {
 
   useEffect(() => {
     const t = String(router.query.tab || "").toLowerCase();
-    if (t === "checks") setTab("Checks");
+    if (t === "overview") setTab("Overview");
+    else if (t === "housing") setTab("Housing");
+    else if (t === "ticketing") setTab("Ticketing");
+    else if (t === "onsite" || t === "on-site" || t === "onsite-expenses") setTab("On-site expenses");
+    else if (t === "checks") setTab("Checks");
   }, [router.query.tab]);
 
   const budgetCheckPendingRows = useMemo(
@@ -544,7 +716,7 @@ export default function BudgetPage() {
 
       try {
         setLoading(true);
-        const [avgRes, tripsRes, housingRes, ticketsRes, rosterMembers, checkRequests] =
+        const [avgRes, tripsRes, housingRes, ticketsRes, rosterMembers, checkRequests, onsiteExpensesRes] =
           await Promise.all([
             getBudgetAverages(),
             listTripsForCurrentUser(),
@@ -558,6 +730,10 @@ export default function BudgetPage() {
               console.warn("Budget check requests not loaded", err);
               return [];
             }),
+            listAllTripOnsiteExpenses().catch((err) => {
+              console.warn("On-site expenses not loaded", err);
+              return { rows: [], missingTable: true };
+            }),
           ]);
         if (cancelled) return;
         const rosterByTrip = {};
@@ -569,6 +745,10 @@ export default function BudgetPage() {
         }
         if (!cancelled) setTeamMembersByTripId(rosterByTrip);
         if (!cancelled) setBudgetCheckRows(checkRequests || []);
+        if (!cancelled) {
+          setOnsiteExpenseRows(onsiteExpensesRes?.rows || []);
+          setOnsiteExpensesMissingTable(!!onsiteExpensesRes?.missingTable);
+        }
         await syncTripTicketsFromTeamMembers(tripsRes || []);
         const refreshedTickets = await listAllTripTickets();
         if (cancelled) return;
@@ -741,12 +921,13 @@ export default function BudgetPage() {
     try {
       setStatus("Saving...");
       for (const row of housingRowsDraft) {
+        const trip = trips.find((t) => t.id === row.tripId);
         await saveTripBudget(row.tripId, {
-          teamName: row.teamName,
-          projectStartDate: row.projectStartDate,
-          projectEndDate: row.projectEndDate,
-          siteCountry: row.siteCountry,
-          siteCity: row.siteCity,
+          teamName: row.teamName || trip?.name || "",
+          projectStartDate: row.projectStartDate || trip?.startDate || "",
+          projectEndDate: row.projectEndDate || trip?.endDate || "",
+          siteCountry: row.siteCountry || trip?.location || "",
+          siteCity: row.siteCity || "",
           teamAccountant: row.teamAccountant,
           budgetAmount: row.budgetAmount,
           returnedAmount: row.returnedAmount,
@@ -1105,6 +1286,63 @@ export default function BudgetPage() {
     }
   }
 
+  async function updateOnsiteExpenseRow(expenseId, field, value) {
+    const row = onsiteExpenseRows.find((r) => r.id === expenseId);
+    if (!row) return;
+    const updated = { ...row, [field]: value };
+    setOnsiteExpenseRows((prev) => prev.map((r) => (r.id === expenseId ? updated : r)));
+    try {
+      setStatus("Saving...");
+      await saveTripOnsiteExpense(updated);
+      setStatus("Saved.");
+    } catch (e) {
+      const msg = e.message || "Error saving.";
+      setStatus(msg);
+      showToast(msg, "error");
+    }
+  }
+
+  async function handleAddOnsiteExpense() {
+    const tripId = newOnsiteExpenseTripId || tripsSortedForBudget[0]?.id;
+    if (!tripId) {
+      setStatus("No trip selected. Create a trip first.");
+      return;
+    }
+    if (onsiteExpensesMissingTable) {
+      showToast(
+        "On-site expenses need the Supabase table: run supabase/trip_onsite_expenses_install.sql.",
+        "warning"
+      );
+      return;
+    }
+    const trip = trips.find((t) => t.id === tripId);
+    try {
+      setStatus("Adding...");
+      const saved = await saveTripOnsiteExpense({
+        tripId,
+        description: "",
+        amount: "",
+        notes: "",
+      });
+      setOnsiteExpenseRows((prev) => [...prev, { ...saved, tripName: trip?.name || "" }]);
+      setStatus("On-site expense added.");
+    } catch (e) {
+      const msg = e.message || "Unable to add.";
+      setStatus(msg);
+      showToast(msg, "error");
+    }
+  }
+
+  async function removeOnsiteExpense(id) {
+    try {
+      await deleteTripOnsiteExpense(id);
+      setOnsiteExpenseRows((prev) => prev.filter((r) => r.id !== id));
+      setStatus("On-site expense removed.");
+    } catch (e) {
+      setStatus(e.message || "Error deleting.");
+    }
+  }
+
   if (!session || loading) {
     return (
       <Shell>
@@ -1130,6 +1368,19 @@ export default function BudgetPage() {
           setTicketToDeleteId(null);
         }}
         onCancel={() => setTicketToDeleteId(null)}
+      />
+      <ConfirmModal
+        open={!!onsiteExpenseToDeleteId}
+        title="Delete on-site expense?"
+        message="This expense row will be permanently removed."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          if (onsiteExpenseToDeleteId) void removeOnsiteExpense(onsiteExpenseToDeleteId);
+          setOnsiteExpenseToDeleteId(null);
+        }}
+        onCancel={() => setOnsiteExpenseToDeleteId(null)}
       />
       <ConfirmModal
         open={!!budgetRowDeleteTripId}
@@ -1224,14 +1475,21 @@ export default function BudgetPage() {
           <span>Budget</span>
         </h1>
         <p className="small" style={{ marginBottom: 24 }}>
-          Overview of housing and ticketing across all trips. Per-site materials notes are edited on{" "}
-          <Link href="/sites">Sites</Link> and each trip&apos;s Materials tab—not here. Travel forms stay per
-          team on each trip page.
+          Overview rolls up team budgets, airfare, housing, and on-site expenses across all trips. Per-site
+          materials notes are edited on <Link href="/sites">Sites</Link> and each trip&apos;s Materials tab—not
+          here. Travel forms stay per team on each trip page.
         </p>
 
         {status ? <div className="small" style={{ marginBottom: 12 }}>{status}</div> : null}
 
         <div className="tabs" style={{ marginBottom: 16 }}>
+          <button
+            type="button"
+            className={"tab " + (tab === "Overview" ? "tabActive" : "")}
+            onClick={() => setTab("Overview")}
+          >
+            Overview
+          </button>
           <button
             type="button"
             className={"tab " + (tab === "Housing" ? "tabActive" : "")}
@@ -1248,6 +1506,13 @@ export default function BudgetPage() {
           </button>
           <button
             type="button"
+            className={"tab " + (tab === "On-site expenses" ? "tabActive" : "")}
+            onClick={() => setTab("On-site expenses")}
+          >
+            On-site expenses
+          </button>
+          <button
+            type="button"
             className={"tab " + (tab === "Checks" ? "tabActive" : "")}
             onClick={() => setTab("Checks")}
           >
@@ -1255,7 +1520,7 @@ export default function BudgetPage() {
           </button>
         </div>
 
-        {averages && tab !== "Checks" && (
+        {averages && (tab === "Housing" || tab === "Ticketing") && (
           <div className="card pad" style={{ marginBottom: 24 }}>
             <div style={{ fontWeight: 900, marginBottom: 12 }}>Budget averages</div>
             <div
@@ -1354,6 +1619,122 @@ export default function BudgetPage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {tab === "Overview" && (
+          <div className="card pad" style={budgetSectionCardStyle}>
+            <div style={{ fontWeight: 900, marginBottom: 8 }}>Team budget overview</div>
+            <p className="small" style={{ color: "var(--muted)", margin: "0 0 16px" }}>
+              Airfare totals sum each team&apos;s ticket rows from Ticketing. Housing pulls each team&apos;s
+              housing amount. On-site expenses sum line items from the On-site expenses tab. Leftover is team
+              budget minus those three categories.
+            </p>
+
+            <div style={{ ...budgetSectionSummaryGridStyle, marginBottom: 18 }}>
+              {[
+                { label: "Total team budgets", value: budgetOverviewTotals.budgetTotal },
+                { label: "Total airfare", value: budgetOverviewTotals.airfareTotal },
+                { label: "Total housing", value: budgetOverviewTotals.housingTotal },
+                { label: "Total on-site", value: budgetOverviewTotals.onsiteTotal },
+                {
+                  label: "Total leftover",
+                  value: budgetOverviewTotals.leftover,
+                  color: budgetOverviewTotals.leftover < 0 ? "#dc2626" : undefined,
+                },
+              ].map((card) => (
+                <div key={card.label} style={budgetSectionSummaryCardStyle}>
+                  <div style={budgetSectionSummaryLabelStyle}>{card.label}</div>
+                  <div style={{ ...budgetSectionSummaryValueStyle, color: card.color || budgetSectionSummaryValueStyle.color }}>
+                    {formatUsdNumber(card.value)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="budgetTableScroller">
+              <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1480, fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th>Team Name</th>
+                    <th>Project Start</th>
+                    <th>Project End</th>
+                    <th>Site</th>
+                    <th>Workers</th>
+                    <th>Team Accountant</th>
+                    <th>Team Budget</th>
+                    <th>Airfare</th>
+                    <th>Housing</th>
+                    <th>On-site expenses</th>
+                    <th>Leftover</th>
+                    <th style={{ minWidth: 220 }}>Budget chart</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {budgetOverviewRows.map((row, rowIndex) => {
+                    const isArchived = archivedTripIds.has(row.tripId);
+                    return (
+                      <tr
+                        key={row.tripId}
+                        style={
+                          isArchived
+                            ? { opacity: 0.7, backgroundColor: "var(--border)" }
+                            : rowIndex % 2 === 0
+                              ? undefined
+                              : { backgroundColor: "rgba(15, 23, 42, 0.02)" }
+                        }
+                      >
+                        <td style={{ fontWeight: 700 }}>{row.teamName || "—"}</td>
+                        <td>{row.projectStartDate || "—"}</td>
+                        <td>{row.projectEndDate || "—"}</td>
+                        <td>{row.site || "—"}</td>
+                        <td style={{ textAlign: "center", fontWeight: 700 }}>{row.workers}</td>
+                        <td>{row.teamAccountant || "—"}</td>
+                        <td>{formatUsdNumber(row.budgetTotal)}</td>
+                        <td>{formatUsdNumber(row.airfareTotal)}</td>
+                        <td>{formatUsdNumber(row.housingTotal)}</td>
+                        <td>{formatUsdNumber(row.onsiteTotal)}</td>
+                        <td style={{ color: row.leftover < 0 ? "#dc2626" : "#15803d", fontWeight: 700 }}>
+                          {formatUsdNumber(row.leftover)}
+                        </td>
+                        <td>
+                          <BudgetOverviewStackedBar
+                            budgetTotal={row.budgetTotal}
+                            airfareTotal={row.airfareTotal}
+                            housingTotal={row.housingTotal}
+                            onsiteTotal={row.onsiteTotal}
+                            leftover={row.leftover}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                {budgetOverviewRows.length > 0 ? (
+                  <tfoot>
+                    <tr style={{ fontWeight: 800, background: "rgba(248, 250, 252, 0.95)" }}>
+                      <td colSpan={6}>Totals</td>
+                      <td>{formatUsdNumber(budgetOverviewTotals.budgetTotal)}</td>
+                      <td>{formatUsdNumber(budgetOverviewTotals.airfareTotal)}</td>
+                      <td>{formatUsdNumber(budgetOverviewTotals.housingTotal)}</td>
+                      <td>{formatUsdNumber(budgetOverviewTotals.onsiteTotal)}</td>
+                      <td style={{ color: budgetOverviewTotals.leftover < 0 ? "#dc2626" : "#15803d" }}>
+                        {formatUsdNumber(budgetOverviewTotals.leftover)}
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                ) : null}
+              </table>
+            </div>
+
+            {budgetOverviewRows.length === 0 ? (
+              <EmptyState
+                icon="empty"
+                title="No teams yet"
+                description="Trips appear here once they are created and visible on the Housing budget tab."
+              />
+            ) : null}
           </div>
         )}
 
@@ -2487,6 +2868,159 @@ export default function BudgetPage() {
             />
           )}
         </div>
+        )}
+
+        {tab === "On-site expenses" && (
+          <div className="card pad" style={budgetSectionCardStyle}>
+            <div
+              className="row appPolishToolbar mobileSectionHeader"
+              style={{ ...budgetSectionHeaderStyle, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
+            >
+              <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+                <div className="appSectionBadge" style={{ marginBottom: 8 }}>On-site expenses</div>
+                <div className="small" style={{ color: "var(--muted)" }}>
+                  Track meals, transport, supplies, and other on-site costs by team. Totals roll up on the Overview tab.
+                </div>
+                {onsiteExpensesMissingTable ? (
+                  <div className="small" style={{ marginTop: 10, color: "#b45309" }}>
+                    Database table missing. Run <code>supabase/trip_onsite_expenses_install.sql</code> in Supabase to
+                    enable saving.
+                  </div>
+                ) : null}
+                {trips.length > 0 ? (
+                  <div
+                    className="row"
+                    style={{ marginTop: 10, gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}
+                  >
+                    <div style={{ flex: "0 1 260px", minWidth: 0 }}>
+                      <label className="small" htmlFor="budget-new-onsite-trip" style={{ display: "block", marginBottom: 4, color: "var(--muted)" }}>
+                        Trip
+                      </label>
+                      <select
+                        id="budget-new-onsite-trip"
+                        className="input"
+                        value={newOnsiteExpenseTripId}
+                        onChange={(e) => setNewOnsiteExpenseTripId(e.target.value)}
+                      >
+                        {tripsSortedForBudget.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name || t.id}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      className="btn btnPrimary"
+                      type="button"
+                      disabled={onsiteExpensesMissingTable}
+                      onClick={() => void handleAddOnsiteExpense()}
+                    >
+                      Add expense
+                    </button>
+                    <button
+                      type="button"
+                      className={isEditingOnsiteExpenses ? "btn btnPrimary" : "btn"}
+                      onClick={() => setIsEditingOnsiteExpenses((current) => !current)}
+                    >
+                      {isEditingOnsiteExpenses ? "Done editing" : "Edit"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="budgetTableScroller">
+              <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 920, fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Notes</th>
+                    <th style={{ width: 88 }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {onsiteExpensesSorted.map((row, rowIndex) => {
+                    const isArchived = archivedTripIds.has(row.tripId);
+                    return (
+                      <tr
+                        key={row.id}
+                        style={
+                          isArchived
+                            ? { opacity: 0.7, backgroundColor: "var(--border)" }
+                            : rowIndex % 2 === 0
+                              ? undefined
+                              : { backgroundColor: "rgba(15, 23, 42, 0.02)" }
+                        }
+                      >
+                        <td style={{ fontWeight: 700 }}>{row.tripName || row.tripId?.slice(0, 8) || "—"}</td>
+                        {isEditingOnsiteExpenses ? (
+                          <>
+                            <td style={{ minWidth: 220 }}>
+                              <input
+                                className="input"
+                                value={row.description || ""}
+                                onChange={(e) => updateOnsiteExpenseRow(row.id, "description", e.target.value)}
+                                placeholder="Meals, transport, supplies…"
+                              />
+                            </td>
+                            <td style={{ minWidth: 112 }}>
+                              <input
+                                className="input"
+                                value={row.amount || ""}
+                                onChange={(e) => updateOnsiteExpenseRow(row.id, "amount", e.target.value)}
+                                onBlur={(e) => {
+                                  const next = normalizeMoneyInputToUsd(e.target.value);
+                                  if (next !== (row.amount || "")) {
+                                    updateOnsiteExpenseRow(row.id, "amount", next);
+                                  }
+                                }}
+                                inputMode="decimal"
+                                placeholder="$0.00"
+                              />
+                            </td>
+                            <td style={{ minWidth: 180 }}>
+                              <textarea
+                                className="input"
+                                rows={2}
+                                value={row.notes || ""}
+                                onChange={(e) => updateOnsiteExpenseRow(row.id, "notes", e.target.value)}
+                              />
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={() => setOnsiteExpenseToDeleteId(row.id)}
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td>{row.description || "—"}</td>
+                            <td>{formatUsdDisplay(row.amount)}</td>
+                            <td>{row.notes || "—"}</td>
+                            <td>—</td>
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {onsiteExpensesSorted.length === 0 ? (
+              <EmptyState
+                icon="empty"
+                title="No on-site expenses yet"
+                description="Add expense rows by team. Amounts appear on the Overview tab."
+              />
+            ) : null}
+          </div>
         )}
 
         {tab === "Checks" && (
