@@ -1159,6 +1159,84 @@ a.btn{
   color:var(--muted);
   margin-bottom:4px;
 }
+.budgetTeamEditorTopGrid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:16px;
+}
+.budgetTeamEditorSectionWide{
+  margin-top:0;
+}
+.budgetTeamEditorFormGrid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:12px 14px;
+}
+.budgetTeamEditorFieldWide{
+  grid-column:1 / -1;
+}
+.budgetTeamEditorFieldPair{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:12px;
+}
+.budgetTeamEditorHint{
+  margin:6px 0 0;
+  font-size:12px;
+  line-height:1.45;
+  color:var(--muted);
+}
+.budgetTeamEditorControl{
+  width:100%;
+  box-sizing:border-box;
+  min-height:42px;
+  padding:9px 12px;
+  font-size:14px;
+  line-height:1.35;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:#fff;
+}
+.budgetTeamEditorControl:focus{
+  outline:none;
+  border-color:rgba(60,170,225,.7);
+  box-shadow:0 0 0 4px rgba(60,170,225,.12);
+}
+.budgetTeamEditorTextarea{
+  min-height:72px;
+  resize:vertical;
+  padding-top:10px;
+  padding-bottom:10px;
+}
+.budgetTeamEditorControl[disabled]{
+  background:rgba(248,250,252,.95);
+  color:var(--muted);
+  cursor:not-allowed;
+}
+.budgetTeamEditorFileActions{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  min-height:42px;
+  padding:6px 10px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:#fff;
+}
+.budgetTeamEditorFileBtn{
+  cursor:pointer;
+  margin:0;
+}
+.budgetTeamEditorFileInput{
+  display:none;
+}
+.budgetTeamEditorFileLink{
+  font-weight:600;
+}
+.budgetTeamEditorFilePlaceholder{
+  color:var(--muted);
+}
 .budgetTeamEditorGrid{
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
@@ -1197,15 +1275,53 @@ a.btn{
   gap:12px;
 }
 .budgetTeamEditorTicketCard{
-  padding:12px;
+  padding:14px;
   border:1px solid rgba(15,23,42,.08);
-  border-radius:10px;
+  border-radius:12px;
   background:rgba(248,250,252,.72);
+}
+.budgetTeamEditorTicketCardHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+  padding-bottom:10px;
+  border-bottom:1px solid rgba(15,23,42,.08);
+}
+.budgetTeamEditorTicketCardTitle{
+  font-size:13px;
+  font-weight:800;
+  color:var(--text);
+}
+.budgetTeamEditorTicketCardActions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.budgetTeamEditorTicketForm{
+  grid-template-columns:repeat(4, minmax(0, 1fr));
 }
 .budgetTeamEditorTicketGrid{
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
   gap:10px;
+}
+@media (max-width: 860px){
+  .budgetTeamEditorTopGrid,
+  .budgetTeamEditorFormGrid,
+  .budgetTeamEditorFieldPair{
+    grid-template-columns:1fr;
+  }
+  .budgetTeamEditorTicketForm{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px){
+  .budgetTeamEditorTicketForm{
+    grid-template-columns:1fr;
+  }
 }
 .budgetOverviewRowClickable{
   cursor:pointer;

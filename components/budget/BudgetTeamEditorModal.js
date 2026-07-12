@@ -45,13 +45,25 @@ function buildDraftFromSources(trip, budget, teamMembers) {
   };
 }
 
-function Field({ label, children }) {
+function Field({ label, children, wide = false }) {
   return (
-    <label className="budgetTeamEditorField">
+    <label className={`budgetTeamEditorField${wide ? " budgetTeamEditorFieldWide" : ""}`}>
       <span className="budgetTeamEditorLabel">{label}</span>
       {children}
     </label>
   );
+}
+
+function EditorInput(props) {
+  return <input className="input budgetTeamEditorControl" {...props} />;
+}
+
+function EditorSelect(props) {
+  return <select className="input budgetTeamEditorControl" {...props} />;
+}
+
+function EditorTextarea(props) {
+  return <textarea className="input budgetTeamEditorControl budgetTeamEditorTextarea" {...props} />;
 }
 
 export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose, onSaved }) {
@@ -282,24 +294,34 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
               </div>
             </div>
 
-            <div className="budgetTeamEditorGrid">
+            <div className="budgetTeamEditorTopGrid">
               <section className="budgetTeamEditorSection">
                 <h3 className="budgetTeamEditorSectionTitle">Team details</h3>
                 <div className="budgetTeamEditorFields">
                   <Field label="Team name">
-                    <input className="input" value={draft.teamName} onChange={(e) => patchDraft({ teamName: e.target.value })} />
+                    <EditorInput value={draft.teamName} onChange={(e) => patchDraft({ teamName: e.target.value })} />
                   </Field>
-                  <Field label="Project start">
-                    <input className="input" type="date" value={draft.projectStartDate} onChange={(e) => patchDraft({ projectStartDate: e.target.value })} />
-                  </Field>
-                  <Field label="Project end">
-                    <input className="input" type="date" value={draft.projectEndDate} onChange={(e) => patchDraft({ projectEndDate: e.target.value })} />
-                  </Field>
+                  <div className="budgetTeamEditorFieldPair">
+                    <Field label="Project start">
+                      <EditorInput
+                        type="date"
+                        value={draft.projectStartDate}
+                        onChange={(e) => patchDraft({ projectStartDate: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Project end">
+                      <EditorInput
+                        type="date"
+                        value={draft.projectEndDate}
+                        onChange={(e) => patchDraft({ projectEndDate: e.target.value })}
+                      />
+                    </Field>
+                  </div>
                   <Field label="Site">
-                    <input className="input" value={draft.siteCountry} onChange={(e) => patchDraft({ siteCountry: e.target.value })} />
+                    <EditorInput value={draft.siteCountry} onChange={(e) => patchDraft({ siteCountry: e.target.value })} />
                   </Field>
                   <Field label="Team accountant">
-                    <select className="input" value={draft.teamAccountant} onChange={(e) => patchDraft({ teamAccountant: e.target.value })}>
+                    <EditorSelect value={draft.teamAccountant} onChange={(e) => patchDraft({ teamAccountant: e.target.value })}>
                       <option value="">— Select team member —</option>
                       {accountantNames.map((name) => (
                         <option key={name} value={name}>
@@ -309,7 +331,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
                       {draft.teamAccountant && !accountantNames.includes(draft.teamAccountant) ? (
                         <option value={draft.teamAccountant}>{draft.teamAccountant} (not on roster)</option>
                       ) : null}
-                    </select>
+                    </EditorSelect>
                   </Field>
                 </div>
               </section>
@@ -318,22 +340,20 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
                 <h3 className="budgetTeamEditorSectionTitle">Overview amounts</h3>
                 <div className="budgetTeamEditorFields">
                   <Field label="Team budget">
-                    <input
-                      className="input"
+                    <EditorInput
                       value={draft.budgetAmount}
                       onChange={(e) => patchDraft({ budgetAmount: e.target.value })}
                       onBlur={(e) => patchDraft({ budgetAmount: normalizeMoneyInputToUsd(e.target.value) })}
                       inputMode="decimal"
                       placeholder="$0.00"
                     />
-                    <p className="small" style={{ margin: "6px 0 0", color: "var(--muted)" }}>
+                    <p className="budgetTeamEditorHint">
                       Defaults to worker fundraising goals combined. Changing this only updates the team budget—not
                       individual fundraising goals.
                     </p>
                   </Field>
                   <Field label="On-site expenses">
-                    <input
-                      className="input"
+                    <EditorInput
                       value={draft.onsiteExpensesAmount}
                       onChange={(e) => patchDraft({ onsiteExpensesAmount: e.target.value })}
                       onBlur={(e) => patchDraft({ onsiteExpensesAmount: normalizeMoneyInputToUsd(e.target.value) })}
@@ -343,72 +363,71 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
                   </Field>
                 </div>
               </section>
-
-              <section className="budgetTeamEditorSection">
-                <h3 className="budgetTeamEditorSectionTitle">Housing</h3>
-                <div className="budgetTeamEditorFields">
-                  <Field label="Housing amount">
-                    <input
-                      className="input"
-                      value={draft.housingAmount}
-                      onChange={(e) => patchDraft({ housingAmount: e.target.value })}
-                      onBlur={(e) => patchDraft({ housingAmount: normalizeMoneyInputToUsd(e.target.value) })}
-                      inputMode="decimal"
-                      placeholder="$0.00"
-                    />
-                  </Field>
-                  <Field label="Returned amount">
-                    <input
-                      className="input"
-                      value={draft.returnedAmount}
-                      onChange={(e) => patchDraft({ returnedAmount: e.target.value })}
-                      onBlur={(e) => patchDraft({ returnedAmount: normalizeMoneyInputToUsd(e.target.value) })}
-                      inputMode="decimal"
-                      placeholder="$0.00"
-                    />
-                  </Field>
-                  <Field label="Housing link">
-                    <input
-                      className="input"
-                      value={draft.housingLink}
-                      onChange={(e) => patchDraft({ housingLink: e.target.value })}
-                      placeholder="https://…"
-                    />
-                  </Field>
-                  <Field label="Housing PDF">
-                    <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      <label className="btn" style={{ cursor: "pointer" }}>
-                        <input
-                          type="file"
-                          accept="application/pdf,.pdf"
-                          style={{ display: "none" }}
-                          disabled={pdfUploading}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            e.target.value = "";
-                            void handlePdfUpload(file);
-                          }}
-                        />
-                        {pdfUploading ? "Uploading…" : "Choose PDF"}
-                      </label>
-                      {draft.housingPdfUrl ? (
-                        <>
-                          <a className="small" href={draft.housingPdfUrl} target="_blank" rel="noreferrer">
-                            Open PDF
-                          </a>
-                          <button type="button" className="btn" onClick={() => patchDraft({ housingPdfUrl: "" })}>
-                            Clear
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
-                  </Field>
-                  <Field label="Notes">
-                    <textarea className="input" rows={3} value={draft.notes} onChange={(e) => patchDraft({ notes: e.target.value })} />
-                  </Field>
-                </div>
-              </section>
             </div>
+
+            <section className="budgetTeamEditorSection budgetTeamEditorSectionWide">
+              <h3 className="budgetTeamEditorSectionTitle">Housing</h3>
+              <div className="budgetTeamEditorFormGrid">
+                <Field label="Housing amount">
+                  <EditorInput
+                    value={draft.housingAmount}
+                    onChange={(e) => patchDraft({ housingAmount: e.target.value })}
+                    onBlur={(e) => patchDraft({ housingAmount: normalizeMoneyInputToUsd(e.target.value) })}
+                    inputMode="decimal"
+                    placeholder="$0.00"
+                  />
+                </Field>
+                <Field label="Returned amount">
+                  <EditorInput
+                    value={draft.returnedAmount}
+                    onChange={(e) => patchDraft({ returnedAmount: e.target.value })}
+                    onBlur={(e) => patchDraft({ returnedAmount: normalizeMoneyInputToUsd(e.target.value) })}
+                    inputMode="decimal"
+                    placeholder="$0.00"
+                  />
+                </Field>
+                <Field label="Housing link" wide>
+                  <EditorInput
+                    value={draft.housingLink}
+                    onChange={(e) => patchDraft({ housingLink: e.target.value })}
+                    placeholder="https://…"
+                  />
+                </Field>
+                <Field label="Housing PDF">
+                  <div className="budgetTeamEditorFileActions">
+                    <label className="btn budgetTeamEditorFileBtn">
+                      <input
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        className="budgetTeamEditorFileInput"
+                        disabled={pdfUploading}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          void handlePdfUpload(file);
+                        }}
+                      />
+                      {pdfUploading ? "Uploading…" : "Choose PDF"}
+                    </label>
+                    {draft.housingPdfUrl ? (
+                      <>
+                        <a className="small budgetTeamEditorFileLink" href={draft.housingPdfUrl} target="_blank" rel="noreferrer">
+                          Open PDF
+                        </a>
+                        <button type="button" className="btn" onClick={() => patchDraft({ housingPdfUrl: "" })}>
+                          Clear
+                        </button>
+                      </>
+                    ) : (
+                      <span className="small budgetTeamEditorFilePlaceholder">No PDF uploaded</span>
+                    )}
+                  </div>
+                </Field>
+                <Field label="Notes" wide>
+                  <EditorTextarea rows={2} value={draft.notes} onChange={(e) => patchDraft({ notes: e.target.value })} />
+                </Field>
+              </div>
+            </section>
 
             <section className="budgetTeamEditorSection budgetTeamEditorTickets">
               <div className="budgetTeamEditorSectionHeader">
@@ -423,67 +442,98 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
                 </p>
               ) : (
                 <div className="budgetTeamEditorTicketList">
-                  {tickets.map((ticket) => (
+                  {tickets.map((ticket, ticketIndex) => (
                     <div key={ticket.id} className="budgetTeamEditorTicketCard">
-                      <div className="budgetTeamEditorTicketGrid">
+                      <div className="budgetTeamEditorTicketCardHeader">
+                        <span className="budgetTeamEditorTicketCardTitle">
+                          Ticket {ticketIndex + 1}
+                          {ticket.workerName ? ` · ${ticket.workerName}` : ""}
+                        </span>
+                        {ticketDeleteId === ticket.id ? (
+                          <div className="budgetTeamEditorTicketCardActions">
+                            <button type="button" className="btn btnPrimary" onClick={() => void handleDeleteTicket(ticket.id)}>
+                              Confirm delete
+                            </button>
+                            <button type="button" className="btn" onClick={() => setTicketDeleteId("")}>
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button type="button" className="btn" onClick={() => setTicketDeleteId(ticket.id)}>
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                      <div className="budgetTeamEditorFormGrid budgetTeamEditorTicketForm">
                         <Field label="Worker">
-                          <input className="input" value={ticket.workerName || ""} onChange={(e) => updateTicket(ticket.id, "workerName", e.target.value)} />
-                        </Field>
-                        <Field label="Intl/Dom">
-                          <input className="input" value={ticket.intlDom || ""} onChange={(e) => updateTicket(ticket.id, "intlDom", e.target.value)} />
+                          <EditorInput
+                            value={ticket.workerName || ""}
+                            onChange={(e) => updateTicket(ticket.id, "workerName", e.target.value)}
+                          />
                         </Field>
                         <Field label="Departure">
-                          <input className="input" type="date" value={ticket.departureDate || ""} onChange={(e) => updateTicket(ticket.id, "departureDate", e.target.value)} />
+                          <EditorInput
+                            type="date"
+                            value={ticket.departureDate || ""}
+                            onChange={(e) => updateTicket(ticket.id, "departureDate", e.target.value)}
+                          />
                         </Field>
                         <Field label="Agency">
-                          <select className="input" value={ticket.ticketAgency || ""} onChange={(e) => updateTicket(ticket.id, "ticketAgency", e.target.value)}>
+                          <EditorSelect
+                            value={ticket.ticketAgency || ""}
+                            onChange={(e) => updateTicket(ticket.id, "ticketAgency", e.target.value)}
+                          >
                             <option value="">Select agency</option>
                             {TICKET_AGENCY_OPTIONS.map((option) => (
                               <option key={option} value={option}>
                                 {option}
                               </option>
                             ))}
-                          </select>
+                          </EditorSelect>
+                        </Field>
+                        <Field label="Intl/Dom">
+                          <EditorInput
+                            value={ticket.intlDom || ""}
+                            onChange={(e) => updateTicket(ticket.id, "intlDom", e.target.value)}
+                          />
                         </Field>
                         <Field label="Total ticket cost">
-                          <input
-                            className="input"
+                          <EditorInput
                             value={ticket.totalTicketCost || ""}
                             onChange={(e) => updateTicket(ticket.id, "totalTicketCost", e.target.value)}
-                            onBlur={(e) => updateTicket(ticket.id, "totalTicketCost", normalizeMoneyInputToUsd(e.target.value))}
+                            onBlur={(e) =>
+                              updateTicket(ticket.id, "totalTicketCost", normalizeMoneyInputToUsd(e.target.value))
+                            }
                             inputMode="decimal"
+                            placeholder="$0.00"
                           />
                         </Field>
                         <Field label="Worker paid">
-                          <input
-                            className="input"
+                          <EditorInput
                             value={ticket.amountWorkerPaid || ""}
                             onChange={(e) => updateTicket(ticket.id, "amountWorkerPaid", e.target.value)}
-                            onBlur={(e) => updateTicket(ticket.id, "amountWorkerPaid", normalizeMoneyInputToUsd(e.target.value))}
+                            onBlur={(e) =>
+                              updateTicket(ticket.id, "amountWorkerPaid", normalizeMoneyInputToUsd(e.target.value))
+                            }
                             inputMode="decimal"
+                            placeholder="$0.00"
                           />
                         </Field>
                         <Field label="Total LST cost">
-                          <input className="input" value={computeTotalLstCost(ticket.totalTicketCost, ticket.amountWorkerPaid)} readOnly disabled />
+                          <EditorInput
+                            value={computeTotalLstCost(ticket.totalTicketCost, ticket.amountWorkerPaid)}
+                            readOnly
+                            disabled
+                          />
                         </Field>
-                        <Field label="Notes">
-                          <input className="input" value={ticket.notes || ""} onChange={(e) => updateTicket(ticket.id, "notes", e.target.value)} />
+                        <Field label="Notes" wide>
+                          <EditorTextarea
+                            rows={2}
+                            value={ticket.notes || ""}
+                            onChange={(e) => updateTicket(ticket.id, "notes", e.target.value)}
+                          />
                         </Field>
                       </div>
-                      {ticketDeleteId === ticket.id ? (
-                        <div className="row" style={{ gap: 8, marginTop: 10 }}>
-                          <button type="button" className="btn btnPrimary" onClick={() => void handleDeleteTicket(ticket.id)}>
-                            Confirm delete
-                          </button>
-                          <button type="button" className="btn" onClick={() => setTicketDeleteId("")}>
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button type="button" className="btn" style={{ marginTop: 10 }} onClick={() => setTicketDeleteId(ticket.id)}>
-                          Delete ticket
-                        </button>
-                      )}
                     </div>
                   ))}
                 </div>
