@@ -2287,6 +2287,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-weight:900;
   margin:0 0 8px;
 }
+.collapsibleSectionDefaultToggle{
+  align-items:flex-start;
+}
 .tripTrainingPanel{
   margin-bottom:4px;
 }
