@@ -4126,6 +4126,44 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-size:14px;
   font-weight:700;
 }
+.trainingPrototypeEditSectionHeadingRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.trainingPrototypeEditAddRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.trainingPrototypeQuizEditor{
+  display:grid;
+  gap:12px;
+}
+.trainingPrototypeQuizEditorList{
+  display:grid;
+  gap:10px;
+}
+.trainingPrototypeQuizEditorCard{
+  display:grid;
+  gap:8px;
+  padding:12px;
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:10px;
+  background:rgba(248,250,252,.72);
+}
+.trainingPrototypeQuizEditorCardHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.trainingPrototypeQuizEditorRemoveBtn{
+  min-height:30px;
+  padding:4px 10px;
+  font-size:12px;
+}
 .trainingPrototypeEditField{
   display:grid;
   gap:6px;
@@ -4140,6 +4178,43 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   resize:vertical;
   line-height:1.5;
   font-family:inherit;
+}
+.trainingPrototypeRichTextEditor{
+  display:grid;
+  gap:8px;
+}
+.trainingPrototypeRichTextToolbar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.trainingPrototypeRichTextToolBtn{
+  min-height:32px;
+  padding:4px 10px;
+  font-size:13px;
+}
+.trainingPrototypeRichTextArea{
+  min-height:160px;
+}
+.trainingPrototypeEditCheckboxRow{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0;
+}
+.trainingPrototypeEditCheckboxRow .trainingPrototypeEditLabel{
+  margin:0;
+}
+.trainingPrototypeEditButtonPanel{
+  padding:12px;
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:10px;
+  background:rgba(248,250,252,.72);
+}
+.trainingPrototypeEditButtonFields{
+  display:grid;
+  gap:10px;
+  margin-top:10px;
 }
 .trainingPrototypeEditCardList{
   display:grid;

@@ -1,66 +1,205 @@
 import { useEffect, useState } from "react";
+import TrainingPrototypeRichTextEditor from "./TrainingPrototypeRichTextEditor";
+import TrainingPrototypeQuizEditor, {
+  createQuizQuestionDraft,
+} from "./TrainingPrototypeQuizEditor";
+import {
+  embedUrlToYoutubeUrl,
+  youtubeUrlToEmbedUrl,
+} from "@/lib/trainingPrototypeRichTextEditor";
+
+function createDraftSectionId(prefix = "section") {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function getEditableTextBlock(section) {
+  return (section?.fullSessionBlocks || []).find((block) => !block.card) || null;
+}
+
+function buildLinkButtonDraft(block) {
+  return {
+    enabled: !!block?.linkButton,
+    label: block?.linkButton?.label || "",
+    href: block?.linkButton?.href || "",
+  };
+}
+
+function buildLinkButton(linkButtonDraft) {
+  if (!linkButtonDraft?.enabled) return undefined;
+  const href = String(linkButtonDraft.href || "").trim();
+  if (!href) return undefined;
+
+  return {
+    label: String(linkButtonDraft.label || "").trim() || "Open link",
+    href,
+  };
+}
+
+function buildSectionDraft(section) {
+  const editableTextBlock = getEditableTextBlock(section);
+
+  return {
+    id: section.id,
+    title: section.title || "",
+    dueDate: section.dueDate || "",
+    body: section.body || "",
+    showVideo: !!section.showVideo,
+    videoUrl: section.showVideo ? embedUrlToYoutubeUrl(section.videoEmbedUrl) : "",
+    isQuiz: !!section.isQuiz,
+    quizQuestions: (section.quizQuestions || []).map((question) => ({
+      id: question.id,
+      prompt: question.prompt || "",
+      options: question.options?.length ? [...question.options] : ["Yes", "No"],
+    })),
+    linkButton: buildLinkButtonDraft(editableTextBlock),
+    cards: (section.fullSessionBlocks || [])
+      .filter((block) => block.card)
+      .map((block) => ({
+        heading: block.heading || "",
+        body: block.body || "",
+      })),
+    blockHeading:
+      section.fullSessionBlocks?.length === 1 && !section.fullSessionBlocks[0]?.card
+        ? section.fullSessionBlocks[0].heading || ""
+        : section.title || "",
+    hideHeading: !!section.fullSessionBlocks?.some((block) => block.hideHeading),
+    isNew: false,
+  };
+}
 
 function buildDraft(module) {
   return {
     title: module?.title || "",
-    sections: (module?.sections || []).map((section) => ({
-      id: section.id,
-      title: section.title || "",
-      dueDate: section.dueDate || "",
-      body: section.body || "",
-      cards: (section.fullSessionBlocks || [])
-        .filter((block) => block.card)
-        .map((block) => ({
-          heading: block.heading || "",
-          body: block.body || "",
-        })),
-      blockHeading:
-        section.fullSessionBlocks?.length === 1 && !section.fullSessionBlocks[0]?.card
-          ? section.fullSessionBlocks[0].heading || ""
-          : "",
-    })),
+    sections: (module?.sections || []).map((section) => buildSectionDraft(section)),
+  };
+}
+
+function createNewSectionDraft() {
+  const id = createDraftSectionId("section");
+  return {
+    id,
+    title: "New section",
+    dueDate: "",
+    body: "",
+    showVideo: false,
+    videoUrl: "",
+    isQuiz: false,
+    quizQuestions: [],
+    linkButton: { enabled: false, label: "", href: "" },
+    cards: [],
+    blockHeading: "New section",
+    hideHeading: false,
+    isNew: true,
+  };
+}
+
+function createNewQuizDraft() {
+  const id = createDraftSectionId("quiz");
+  return {
+    id,
+    title: "Module Quiz",
+    dueDate: "",
+    body: "",
+    showVideo: false,
+    videoUrl: "",
+    isQuiz: true,
+    quizQuestions: [createQuizQuestionDraft(`${id}-q1`)],
+    linkButton: { enabled: false, label: "", href: "" },
+    cards: [],
+    blockHeading: "",
+    hideHeading: false,
+    isNew: true,
+  };
+}
+
+function applySectionDraft(existingSection, sectionDraft) {
+  if (sectionDraft.isQuiz) {
+    return {
+      ...(existingSection || {}),
+      id: sectionDraft.id,
+      title: sectionDraft.title,
+      dueDate: sectionDraft.dueDate,
+      isQuiz: true,
+      quizQuestions: sectionDraft.quizQuestions
+        .map((question, index) => ({
+          id: question.id || `${sectionDraft.id}-q${index + 1}`,
+          prompt: String(question.prompt || "").trim(),
+          options: question.options?.length ? question.options : ["Yes", "No"],
+        }))
+        .filter((question) => question.prompt),
+    };
+  }
+
+  const videoEmbedUrl = sectionDraft.showVideo
+    ? youtubeUrlToEmbedUrl(sectionDraft.videoUrl)
+    : existingSection?.videoEmbedUrl;
+  const linkButton = buildLinkButton(sectionDraft.linkButton);
+
+  if (sectionDraft.isNew || !existingSection) {
+    return {
+      id: sectionDraft.id,
+      title: sectionDraft.title,
+      dueDate: sectionDraft.dueDate,
+      body: sectionDraft.body,
+      showVideo: sectionDraft.showVideo,
+      videoEmbedUrl: sectionDraft.showVideo ? videoEmbedUrl : undefined,
+      fullSessionBlocks: [
+        {
+          heading: sectionDraft.blockHeading || sectionDraft.title,
+          body: sectionDraft.body,
+          hideHeading: sectionDraft.hideHeading,
+          linkButton,
+        },
+      ],
+    };
+  }
+
+  let fullSessionBlocks = existingSection.fullSessionBlocks;
+  if (sectionDraft.cards.length > 0) {
+    fullSessionBlocks = sectionDraft.cards.map((card) => ({
+      heading: card.heading,
+      body: card.body,
+      card: true,
+    }));
+  } else if (existingSection.fullSessionBlocks?.length === 1 && !existingSection.fullSessionBlocks[0]?.card) {
+    fullSessionBlocks = [
+      {
+        ...existingSection.fullSessionBlocks[0],
+        heading: sectionDraft.blockHeading || existingSection.fullSessionBlocks[0].heading,
+        body: sectionDraft.body,
+        hideHeading: sectionDraft.hideHeading,
+        linkButton,
+      },
+    ];
+  } else if (
+    existingSection.fullSessionBlocks?.length > 1 &&
+    !existingSection.fullSessionBlocks.some((block) => block.card)
+  ) {
+    fullSessionBlocks = existingSection.fullSessionBlocks.map((block, index) =>
+      index === 0 ? { ...block, body: sectionDraft.body, linkButton } : block
+    );
+  }
+
+  return {
+    ...existingSection,
+    title: sectionDraft.title,
+    dueDate: sectionDraft.dueDate,
+    body: sectionDraft.body,
+    showVideo: sectionDraft.showVideo,
+    videoEmbedUrl: sectionDraft.showVideo ? videoEmbedUrl : existingSection.videoEmbedUrl,
+    fullSessionBlocks,
   };
 }
 
 function applyDraft(module, draft) {
-  const sections = (module.sections || []).map((section) => {
-    const sectionDraft = draft.sections.find((item) => item.id === section.id);
-    if (!sectionDraft) return section;
-
-    let fullSessionBlocks = section.fullSessionBlocks;
-    if (sectionDraft.cards.length > 0) {
-      fullSessionBlocks = sectionDraft.cards.map((card) => ({
-        heading: card.heading,
-        body: card.body,
-        card: true,
-      }));
-    } else if (section.fullSessionBlocks?.length === 1 && !section.fullSessionBlocks[0]?.card) {
-      fullSessionBlocks = [
-        {
-          ...section.fullSessionBlocks[0],
-          heading: sectionDraft.blockHeading || section.fullSessionBlocks[0].heading,
-          body: sectionDraft.body,
-        },
-      ];
-    } else if (section.fullSessionBlocks?.length > 1 && !section.fullSessionBlocks.some((block) => block.card)) {
-      fullSessionBlocks = section.fullSessionBlocks.map((block, index) =>
-        index === 0 ? { ...block, body: sectionDraft.body } : block
-      );
-    }
-
-    return {
-      ...section,
-      title: sectionDraft.title,
-      dueDate: sectionDraft.dueDate,
-      body: sectionDraft.body,
-      fullSessionBlocks,
-    };
-  });
+  const existingById = new Map((module.sections || []).map((section) => [section.id, section]));
 
   return {
     ...module,
     title: draft.title,
-    sections,
+    sections: draft.sections.map((sectionDraft) =>
+      applySectionDraft(existingById.get(sectionDraft.id), sectionDraft)
+    ),
   };
 }
 
@@ -91,6 +230,17 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
     }));
   }
 
+  function updateSectionLinkButton(sectionId, patch) {
+    setDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) =>
+        section.id === sectionId
+          ? { ...section, linkButton: { ...section.linkButton, ...patch } }
+          : section
+      ),
+    }));
+  }
+
   function updateCard(sectionId, cardIndex, patch) {
     setDraft((current) => ({
       ...current,
@@ -101,6 +251,72 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
         );
         return { ...section, cards };
       }),
+    }));
+  }
+
+  function updateQuizQuestion(sectionId, questionId, patch) {
+    setDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) => {
+        if (section.id !== sectionId) return section;
+        return {
+          ...section,
+          quizQuestions: section.quizQuestions.map((question) =>
+            question.id === questionId ? { ...question, ...patch } : question
+          ),
+        };
+      }),
+    }));
+  }
+
+  function addQuizQuestion(sectionId) {
+    setDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) => {
+        if (section.id !== sectionId) return section;
+        const nextIndex = section.quizQuestions.length + 1;
+        return {
+          ...section,
+          quizQuestions: [
+            ...section.quizQuestions,
+            createQuizQuestionDraft(`${section.id}-q${nextIndex}`),
+          ],
+        };
+      }),
+    }));
+  }
+
+  function removeQuizQuestion(sectionId, questionId) {
+    setDraft((current) => ({
+      ...current,
+      sections: current.sections.map((section) => {
+        if (section.id !== sectionId) return section;
+        return {
+          ...section,
+          quizQuestions: section.quizQuestions.filter((question) => question.id !== questionId),
+        };
+      }),
+    }));
+  }
+
+  function addSection() {
+    setDraft((current) => ({
+      ...current,
+      sections: [...current.sections, createNewSectionDraft()],
+    }));
+  }
+
+  function addQuiz() {
+    setDraft((current) => ({
+      ...current,
+      sections: [...current.sections, createNewQuizDraft()],
+    }));
+  }
+
+  function removeSection(sectionId) {
+    setDraft((current) => ({
+      ...current,
+      sections: current.sections.filter((section) => section.id !== sectionId),
     }));
   }
 
@@ -149,10 +365,21 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
         <div className="trainingPrototypeEditSectionList">
           {draft.sections.map((section, index) => (
             <div key={section.id} className="trainingPrototypeEditSectionCard">
-              <div className="trainingPrototypeEditSectionHeading">Section {index + 1}</div>
+              <div className="trainingPrototypeEditSectionHeadingRow">
+                <div className="trainingPrototypeEditSectionHeading">
+                  {section.isQuiz ? `Quiz ${index + 1}` : `Section ${index + 1}`}
+                </div>
+                {draft.sections.length > 1 ? (
+                  <button type="button" className="btn" onClick={() => removeSection(section.id)}>
+                    Remove
+                  </button>
+                ) : null}
+              </div>
 
               <label className="trainingPrototypeEditField">
-                <span className="trainingPrototypeEditLabel">Section title</span>
+                <span className="trainingPrototypeEditLabel">
+                  {section.isQuiz ? "Quiz title" : "Section title"}
+                </span>
                 <input
                   className="input"
                   value={section.title}
@@ -171,6 +398,37 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
                 />
               </label>
 
+              {!section.isQuiz ? (
+                <div className="trainingPrototypeEditField">
+                  <label className="trainingPrototypeEditCheckboxRow">
+                    <input
+                      type="checkbox"
+                      checked={section.showVideo}
+                      onChange={(event) =>
+                        updateSection(section.id, { showVideo: event.target.checked })
+                      }
+                    />
+                    <span className="trainingPrototypeEditLabel">Include embedded video</span>
+                  </label>
+                  {section.showVideo ? (
+                    <label className="trainingPrototypeEditField" style={{ marginTop: 10 }}>
+                      <span className="trainingPrototypeEditLabel">YouTube video URL</span>
+                      <input
+                        className="input"
+                        value={section.videoUrl}
+                        onChange={(event) =>
+                          updateSection(section.id, { videoUrl: event.target.value })
+                        }
+                        placeholder="https://youtu.be/..."
+                      />
+                      <span className="small trainingPrototypeMuted">
+                        Paste a YouTube link. The Hub converts it to an embedded player automatically.
+                      </span>
+                    </label>
+                  ) : null}
+                </div>
+              ) : null}
+
               {section.cards.length > 0 ? (
                 <div className="trainingPrototypeEditCardList">
                   {section.cards.map((card, cardIndex) => (
@@ -186,52 +444,101 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
                           required
                         />
                       </label>
-                      <label className="trainingPrototypeEditField">
+                      <div className="trainingPrototypeEditField">
                         <span className="trainingPrototypeEditLabel">Card content</span>
-                        <textarea
-                          className="input trainingPrototypeEditTextarea"
+                        <TrainingPrototypeRichTextEditor
                           value={card.body}
-                          onChange={(event) =>
-                            updateCard(section.id, cardIndex, { body: event.target.value })
+                          onChange={(nextValue) =>
+                            updateCard(section.id, cardIndex, { body: nextValue })
                           }
                           rows={8}
                           required
                         />
-                      </label>
+                      </div>
                     </div>
                   ))}
                 </div>
+              ) : section.isQuiz ? (
+                <TrainingPrototypeQuizEditor
+                  questions={section.quizQuestions}
+                  onAddQuestion={() => addQuizQuestion(section.id)}
+                  onRemoveQuestion={(questionId) => removeQuizQuestion(section.id, questionId)}
+                  onUpdateQuestion={(questionId, patch) =>
+                    updateQuizQuestion(section.id, questionId, patch)
+                  }
+                />
               ) : (
                 <>
-                  {section.blockHeading ? (
-                    <label className="trainingPrototypeEditField">
-                      <span className="trainingPrototypeEditLabel">Fullscreen heading</span>
-                      <input
-                        className="input"
-                        value={section.blockHeading}
-                        onChange={(event) =>
-                          updateSection(section.id, { blockHeading: event.target.value })
-                        }
-                      />
-                    </label>
-                  ) : null}
                   <label className="trainingPrototypeEditField">
+                    <span className="trainingPrototypeEditLabel">Fullscreen heading</span>
+                    <input
+                      className="input"
+                      value={section.blockHeading}
+                      onChange={(event) =>
+                        updateSection(section.id, { blockHeading: event.target.value })
+                      }
+                    />
+                  </label>
+                  <div className="trainingPrototypeEditField">
                     <span className="trainingPrototypeEditLabel">Content</span>
-                    <textarea
-                      className="input trainingPrototypeEditTextarea"
+                    <TrainingPrototypeRichTextEditor
                       value={section.body}
-                      onChange={(event) => updateSection(section.id, { body: event.target.value })}
+                      onChange={(nextValue) => updateSection(section.id, { body: nextValue })}
                       rows={10}
                       required
                     />
-                    <span className="small trainingPrototypeMuted">
-                      Use blank lines between paragraphs, **bold**, and lines starting with - for bullets.
-                    </span>
-                  </label>
+                  </div>
+                  <div className="trainingPrototypeEditField trainingPrototypeEditButtonPanel">
+                    <label className="trainingPrototypeEditCheckboxRow">
+                      <input
+                        type="checkbox"
+                        checked={section.linkButton?.enabled || false}
+                        onChange={(event) =>
+                          updateSectionLinkButton(section.id, { enabled: event.target.checked })
+                        }
+                      />
+                      <span className="trainingPrototypeEditLabel">Add button below this text</span>
+                    </label>
+                    {section.linkButton?.enabled ? (
+                      <div className="trainingPrototypeEditButtonFields">
+                        <label className="trainingPrototypeEditField">
+                          <span className="trainingPrototypeEditLabel">Button label</span>
+                          <input
+                            className="input"
+                            value={section.linkButton.label}
+                            onChange={(event) =>
+                              updateSectionLinkButton(section.id, { label: event.target.value })
+                            }
+                            placeholder="Open resource"
+                          />
+                        </label>
+                        <label className="trainingPrototypeEditField">
+                          <span className="trainingPrototypeEditLabel">Button URL</span>
+                          <input
+                            className="input"
+                            value={section.linkButton.href}
+                            onChange={(event) =>
+                              updateSectionLinkButton(section.id, { href: event.target.value })
+                            }
+                            placeholder="https://..."
+                          />
+                        </label>
+                      </div>
+                    ) : null}
+                  </div>
                 </>
               )}
             </div>
           ))}
+        </div>
+
+        <div className="trainingPrototypeEditAddRow">
+          <button type="button" className="btn" onClick={addSection}>
+            Add section
+          </button>
+          <button type="button" className="btn" onClick={addQuiz}>
+            Add quiz
+          </button>
         </div>
 
         <div className="trainingPrototypeEditModalFooter">

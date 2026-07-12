@@ -77,7 +77,7 @@ export default function TrainingPrototypeModuleBlock({
                 title={section.title}
                 subtitle={
                   section.isQuiz
-                    ? `3 questions · Due ${formatPrototypeDueDate(section.dueDate)}`
+                    ? `${(section.quizQuestions || getPrototypeSectionQuiz(section)).length} questions · Due ${formatPrototypeDueDate(section.dueDate)}`
                     : `Due ${formatPrototypeDueDate(section.dueDate)}`
                 }
                 defaultOpen={index === 0 && defaultOpen}
