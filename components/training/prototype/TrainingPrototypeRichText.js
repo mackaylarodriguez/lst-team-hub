@@ -1,11 +1,20 @@
 function renderPrototypeRichInline(text) {
-  const parts = String(text || "").split(/(\*\*.+?\*\*|_.+?_)/g);
+  const parts = String(text || "").split(/(\*\*.+?\*\*|_.+?_|\[.+?\]\(.+?\))/g);
   return parts.map((part, index) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return <strong key={index}>{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith("_") && part.endsWith("_")) {
       return <em key={index}>{part.slice(1, -1)}</em>;
+    }
+    const linkMatch = part.match(/^\[(.+?)\]\((.+?)\)$/);
+    if (linkMatch) {
+      const [, label, href] = linkMatch;
+      return (
+        <a key={index} href={href} target="_blank" rel="noopener noreferrer">
+          {label}
+        </a>
+      );
     }
     return part;
   });
