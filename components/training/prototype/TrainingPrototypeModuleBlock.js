@@ -18,6 +18,7 @@ export default function TrainingPrototypeModuleBlock({
   onEditModule,
   onOpenFullSession,
   onOpenQuiz,
+  onMarkSectionRead,
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const sections = module.sections || [];
@@ -115,6 +116,14 @@ export default function TrainingPrototypeModuleBlock({
                       )}
                       <div className="trainingPrototypeSectionActions">
                         <div className="trainingPrototypeSectionFooter">
+                          <button
+                            type="button"
+                            className={sectionComplete ? "btn" : "btn btnPrimary"}
+                            disabled={sectionComplete}
+                            onClick={() => onMarkSectionRead?.(section.id)}
+                          >
+                            {sectionComplete ? "Marked as read" : "Mark as read"}
+                          </button>
                           <TrainingPrototypeFullSessionButton
                             label="Open Quiz ↗"
                             onClick={() => onOpenQuiz(module.id)}
@@ -125,6 +134,14 @@ export default function TrainingPrototypeModuleBlock({
                   ) : (
                     <div className="trainingPrototypeSectionActions">
                       <div className="trainingPrototypeSectionFooter">
+                        <button
+                          type="button"
+                          className={sectionComplete ? "btn" : "btn btnPrimary"}
+                          disabled={sectionComplete}
+                          onClick={() => onMarkSectionRead?.(section.id)}
+                        >
+                          {sectionComplete ? "Marked as read" : "Mark as read"}
+                        </button>
                         <TrainingPrototypeFullSessionButton
                           label="Open Training Section ↗"
                           onClick={() => onOpenFullSession(module.id, section.id)}

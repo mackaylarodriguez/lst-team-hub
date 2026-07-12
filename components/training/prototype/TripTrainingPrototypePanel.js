@@ -134,6 +134,7 @@ export default function TripTrainingPrototypePanel() {
               onEditModule={setEditingModuleId}
               onOpenFullSession={openFullSession}
               onOpenQuiz={openQuiz}
+              onMarkSectionRead={markSectionComplete}
             />
           ))}
         </div>
