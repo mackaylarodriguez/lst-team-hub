@@ -224,6 +224,7 @@ export default function TripPage() {
     budgetCheckEditingId,
     budgetCheckModalOpen,
     budgetCheckNote,
+    budgetCheckPayeeSaving,
     budgetCheckSubmitting,
     canEditRosterTshirtInline,
     canEditTripReferenceEmails,
@@ -562,6 +563,7 @@ export default function TripPage() {
     handleDeleteAnnouncement,
     handleSaveAnnouncement,
     handleSaveTravelForm,
+    handleBudgetCheckPayeeChange,
     handleSubmitBudgetCheckFromTripMaterials,
     setAnnouncementDraft,
     setBudgetCheckAmount,
@@ -856,23 +858,39 @@ export default function TripPage() {
               </button>
             </div>
             <div style={{ display: "grid", gap: 10 }}>
-              <div>
-                <div className="small" style={{ marginBottom: 4 }}>
-                  Payee
-                </div>
-                <input
-                  className="input"
-                  readOnly
-                  value={String(materialsDraft?.teamAccountant || "").trim()}
-                  placeholder="Set team accountant on Materials"
-                  style={{
-                    backgroundColor: "rgba(15, 23, 42, 0.07)",
-                    color: "rgba(15, 23, 42, 0.55)",
-                    cursor: "not-allowed",
-                  }}
-                  aria-readonly="true"
-                />
-              </div>
+              {(() => {
+                const payeeVal = String(materialsDraft?.teamAccountant || "").trim();
+                const payeeRosterNames = [
+                  ...new Set(
+                    (workerDocumentParticipants || [])
+                      .map((p) => String(p?.name || p?.email || "").trim())
+                      .filter(Boolean)
+                  ),
+                ].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+                return (
+                  <div>
+                    <div className="small" style={{ marginBottom: 4 }}>
+                      Payee
+                    </div>
+                    <select
+                      className="input"
+                      value={payeeVal}
+                      onChange={(e) => void handleBudgetCheckPayeeChange(e.target.value)}
+                      disabled={budgetCheckPayeeSaving || !materialsDraft}
+                    >
+                      <option value="">— Select team member —</option>
+                      {payeeRosterNames.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                      {payeeVal && !payeeRosterNames.includes(payeeVal) ? (
+                        <option value={payeeVal}>{payeeVal} (not on roster)</option>
+                      ) : null}
+                    </select>
+                  </div>
+                );
+              })()}
               <div>
                 <div className="small" style={{ marginBottom: 4 }}>
                   Amount

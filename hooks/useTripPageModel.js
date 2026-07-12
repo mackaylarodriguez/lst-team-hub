@@ -380,6 +380,7 @@ export function useTripPageModel() {
   const [budgetCheckAmount, setBudgetCheckAmount] = useState("");
   const [budgetCheckNote, setBudgetCheckNote] = useState("");
   const [budgetCheckSubmitting, setBudgetCheckSubmitting] = useState(false);
+  const [budgetCheckPayeeSaving, setBudgetCheckPayeeSaving] = useState(false);
   const [tripBudgetCheckRequests, setTripBudgetCheckRequests] = useState([]);
   const [tripBudgetCheckDeleteId, setTripBudgetCheckDeleteId] = useState("");
   const [isEditingMaterialsGlance, setIsEditingMaterialsGlance] = useState(false);
@@ -7066,6 +7067,38 @@ normalizeEmail(participant.email) === activeParticipantEmail
     }
   }
 
+  async function handleBudgetCheckPayeeChange(teamAccountant) {
+    if (!trip?.id) return;
+    const prior = String(materialsDraft?.teamAccountant || "").trim();
+    const next = String(teamAccountant || "").trim();
+    if (next === prior) return;
+
+    setBudgetCheckPayeeSaving(true);
+    setMaterialsDraft((d) => (d ? { ...d, teamAccountant: next } : d));
+    try {
+      await saveTripBudget(trip.id, { teamAccountant: next });
+      materialsBudgetLoadGenRef.current += 1;
+      const refreshed = await getTripBudget(trip.id);
+      if (refreshed) {
+        setTripBudgetRow(refreshed);
+        setMaterialsDraft((d) =>
+          d
+            ? {
+                ...d,
+                teamAccountant: refreshed.teamAccountant || "",
+              }
+            : d
+        );
+      }
+      showToast("Team accountant saved.", "success");
+    } catch (e) {
+      setMaterialsDraft((d) => (d ? { ...d, teamAccountant: prior } : d));
+      showToast(e.message || "Could not save team accountant.", "error");
+    } finally {
+      setBudgetCheckPayeeSaving(false);
+    }
+  }
+
   async function handleSubmitBudgetCheckFromTripMaterials() {
     if (!trip?.id) return;
     const amt = String(budgetCheckAmount || "").trim();
@@ -7276,6 +7309,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     budgetCheckEditingId,
     budgetCheckModalOpen,
     budgetCheckNote,
+    budgetCheckPayeeSaving,
     budgetCheckSubmitting,
     canEditRosterTshirtInline,
     canEditTripReferenceEmails,
@@ -7646,6 +7680,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     handleSaveTeamLogisticsForTeamMember,
     handleSaveTravelForm,
     handleSaveTripMeeting,
+    handleBudgetCheckPayeeChange,
     handleSubmitBudgetCheckFromTripMaterials,
     handleToggleMaterialsPackingItem,
     handleUploadParticipantDocument,
