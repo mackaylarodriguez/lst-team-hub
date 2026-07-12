@@ -81,7 +81,7 @@ export default function CollapsibleSection({
         <button
           id={buttonId}
           type="button"
-          className={isSlim ? "collapsibleSectionSlimToggle" : "btn"}
+          className={isSlim ? "collapsibleSectionSlimToggle" : "btn collapsibleSectionDefaultToggle"}
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-controls={panelId}
@@ -92,7 +92,6 @@ export default function CollapsibleSection({
                   flex: 1,
                   textAlign: "left",
                   display: "flex",
-                  alignItems: "flex-start",
                   gap: 10,
                   border: "none",
                   background: "transparent",
