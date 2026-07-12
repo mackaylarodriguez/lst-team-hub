@@ -86,8 +86,27 @@ export default function SitesPage() {
   const [addSiteNameDraft, setAddSiteNameDraft] = useState("");
   const [addSiteLogisticsDraft, setAddSiteLogisticsDraft] = useState("");
   const [savingAddSite, setSavingAddSite] = useState(false);
+  const [tab, setTab] = useState("Workbooks");
 
   const siteLabelsOrdered = useMemo(() => buildSiteLabelsOrdered(siteNotes), [siteNotes]);
+
+  useEffect(() => {
+    const t = String(router.query.tab || "").toLowerCase();
+    if (t === "logistics" || t === "site-logistics") setTab("Site logistics");
+    else if (t === "workbooks") setTab("Workbooks");
+  }, [router.query.tab]);
+
+  function switchSitesTab(nextTab) {
+    setTab(nextTab);
+    setEditingLogisticsSite("");
+    setLogisticsUrlDraft("");
+    setEditingHousingNotesSite("");
+    setHousingNotesDraft("");
+    setEditingHostSite("");
+    setHostNameDraft("");
+    setEditingWorkbookSite("");
+    setWorkbookQtyDraft({});
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -456,33 +475,53 @@ export default function SitesPage() {
         </div>
       ) : null}
 
-      <div className="card pad" style={{ marginBottom: 24 }}>
-        <div
-          className="row"
-          style={{
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            flexWrap: "wrap",
-            gap: 12,
-            marginBottom: 8,
-          }}
-        >
-          <div>
-            <div className="appSectionBadge" style={{ marginBottom: 8 }}>Workbooks</div>
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>Workbook counts by site</div>
-          </div>
+      <div
+        className="row"
+        style={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div className="tabs">
           <button
             type="button"
-            className="btn btnPrimary"
-            style={{ fontSize: 13, padding: "8px 16px", borderRadius: 10, flexShrink: 0 }}
-            onClick={() => {
-              setAddSiteNameDraft("");
-              setAddSiteLogisticsDraft("");
-              setAddSiteOpen(true);
-            }}
+            className={"tab " + (tab === "Workbooks" ? "tabActive" : "")}
+            onClick={() => switchSitesTab("Workbooks")}
           >
-            Add site
+            Workbooks
           </button>
+          <button
+            type="button"
+            className={"tab " + (tab === "Site logistics" ? "tabActive" : "")}
+            onClick={() => switchSitesTab("Site logistics")}
+          >
+            Site logistics
+          </button>
+        </div>
+        <button
+          type="button"
+          className="btn btnPrimary"
+          style={{ fontSize: 13, padding: "8px 16px", borderRadius: 10, flexShrink: 0 }}
+          onClick={() => {
+            setAddSiteNameDraft("");
+            setAddSiteLogisticsDraft("");
+            setAddSiteOpen(true);
+          }}
+        >
+          Add site
+        </button>
+      </div>
+
+      {tab === "Workbooks" ? (
+      <div className="card pad" style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>Workbook counts by site</div>
+          <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.45 }}>
+            Inventory on hand at each mission site for shipping and materials planning.
+          </p>
         </div>
         <div className="sitesWorkbookScroller">
           <table
@@ -669,10 +708,16 @@ export default function SitesPage() {
           </table>
         </div>
       </div>
+      ) : null}
 
+      {tab === "Site logistics" ? (
       <div className="card pad" style={{ marginBottom: 24 }}>
-        <div className="appSectionBadge" style={{ marginBottom: 8 }}>Logistics</div>
-        <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics</div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics</div>
+          <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.45 }}>
+            Host contacts, logistics maps, and housing notes for each site.
+          </p>
+        </div>
         <div className="sitesLogisticsScroller">
           <table className="table sitesLogisticsTable dataTableStriped">
             <thead>
@@ -988,6 +1033,7 @@ export default function SitesPage() {
           </table>
         </div>
       </div>
+      ) : null}
 
       {addSiteOpen ? (
         <div
