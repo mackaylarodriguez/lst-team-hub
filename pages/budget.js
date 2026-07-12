@@ -1160,10 +1160,10 @@ export default function BudgetPage() {
       for (const row of housingRowsDraft) {
         const trip = trips.find((t) => t.id === row.tripId);
         await saveTripBudget(row.tripId, {
-          teamName: row.teamName || trip?.name || "",
-          projectStartDate: row.projectStartDate || trip?.startDate || "",
-          projectEndDate: row.projectEndDate || trip?.endDate || "",
-          siteCountry: row.siteCountry || trip?.location || "",
+          teamName: trip?.name || "",
+          projectStartDate: trip?.startDate || "",
+          projectEndDate: trip?.endDate || "",
+          siteCountry: trip?.location || "",
           siteCity: row.siteCity || "",
           teamAccountant: row.teamAccountant,
           housingBudgetAmount: row.housingBudgetAmount,
@@ -2465,41 +2465,19 @@ export default function BudgetPage() {
                   >
                     {isEditingHousing ? (
                       <>
-                        <td style={{ minWidth: 140, maxWidth: 260 }}>
-                          <span className="row" style={{ gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                            {isArchived && <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>Archived</span>}
-                            <input
-                              className="input"
-                              value={r.teamName || ""}
-                              onChange={(e) => updateHousingDraftRow(r.tripId, "teamName", e.target.value)}
-                              placeholder="Team name"
-                            />
+                        <td>
+                          <span className="row" style={{ gap: 6, alignItems: "center" }}>
+                            {isArchived && (
+                              <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>
+                                Archived
+                              </span>
+                            )}
+                            {r.teamName || "—"}
                           </span>
                         </td>
-                        <td style={{ minWidth: 118 }}>
-                          <input
-                            className="input"
-                            type="date"
-                            value={r.projectStartDate || ""}
-                            onChange={(e) => updateHousingDraftRow(r.tripId, "projectStartDate", e.target.value)}
-                          />
-                        </td>
-                        <td style={{ minWidth: 118 }}>
-                          <input
-                            className="input"
-                            type="date"
-                            value={r.projectEndDate || ""}
-                            onChange={(e) => updateHousingDraftRow(r.tripId, "projectEndDate", e.target.value)}
-                          />
-                        </td>
-                        <td style={{ minWidth: 120, maxWidth: 220 }}>
-                          <input
-                            className="input"
-                            value={r.siteCountry || ""}
-                            onChange={(e) => updateHousingDraftRow(r.tripId, "siteCountry", e.target.value)}
-                            placeholder="Site"
-                          />
-                        </td>
+                        <td>{r.projectStartDate || "—"}</td>
+                        <td>{r.projectEndDate || "—"}</td>
+                        <td>{r.siteCountry || "—"}</td>
                         <td
                           style={{
                             minWidth: 72,
@@ -3078,14 +3056,7 @@ export default function BudgetPage() {
                             placeholder="Worker name"
                           />
                         </td>
-                        <td style={{ minWidth: 140, maxWidth: 280 }}>
-                          <input
-                            className="input"
-                            value={siteDisplay}
-                            onChange={(e) => updateTicketRow(t.id, "projectCountry", e.target.value)}
-                            placeholder="Site / country"
-                          />
-                        </td>
+                        <td>{siteDisplay || "—"}</td>
                         <td style={{ minWidth: 118 }}>
                           <input
                             className="input"
