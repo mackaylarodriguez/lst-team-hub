@@ -8,17 +8,8 @@ export default function TrainingPrototypeQuizForm({
   onSubmit,
 }) {
   const formClassName = centered
-    ? "trainingPrototypeQuizForm trainingPrototypeQuizFormCentered"
+    ? "trainingPrototypeQuizForm trainingPrototypeQuizFormCards"
     : "trainingPrototypeQuizForm";
-  const questionClassName = centered
-    ? "trainingPrototypeQuizQuestion trainingPrototypeQuizQuestionCentered"
-    : "trainingPrototypeQuizQuestion";
-  const optionsClassName = centered
-    ? "trainingPrototypeQuizOptions trainingPrototypeQuizOptionsCentered"
-    : "trainingPrototypeQuizOptions";
-  const optionClassName = centered
-    ? "trainingPrototypeQuizOption trainingPrototypeQuizOptionCentered"
-    : "trainingPrototypeQuizOption";
 
   return (
     <form
@@ -29,26 +20,50 @@ export default function TrainingPrototypeQuizForm({
         onSubmit?.(event);
       }}
     >
-      {quizQuestions.map((question, index) => (
-        <fieldset key={question.id} className={questionClassName}>
-          <legend>{centered ? question.prompt : `${index + 1}. ${question.prompt}`}</legend>
-          <div className={optionsClassName}>
-            {question.options.map((option, optionIndex) => (
-              <label key={option} className={optionClassName}>
-                <input
-                  type="radio"
-                  name={question.id}
-                  value={String(optionIndex)}
-                  checked={answers[question.id] === String(optionIndex)}
-                  disabled={submitted}
-                  onChange={() => onAnswerChange?.(question.id, String(optionIndex))}
-                />
-                <span>{option}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      ))}
+      {quizQuestions.map((question, index) => {
+        const promptId = `${formId}-${question.id}-prompt`;
+        const options = question.options.map((option, optionIndex) => (
+          <label
+            key={option}
+            className={centered ? "trainingPrototypeQuizOption trainingPrototypeQuizOptionCentered" : "trainingPrototypeQuizOption"}
+          >
+            <input
+              type="radio"
+              name={question.id}
+              value={String(optionIndex)}
+              checked={answers[question.id] === String(optionIndex)}
+              disabled={submitted}
+              onChange={() => onAnswerChange?.(question.id, String(optionIndex))}
+            />
+            <span>{option}</span>
+          </label>
+        ));
+
+        if (centered) {
+          return (
+            <div
+              key={question.id}
+              className="trainingPrototypeQuizQuestionCard"
+              role="group"
+              aria-labelledby={promptId}
+            >
+              <p id={promptId} className="trainingPrototypeQuizQuestionPrompt">
+                {question.prompt}
+              </p>
+              <div className="trainingPrototypeQuizOptions trainingPrototypeQuizOptionsCentered">{options}</div>
+            </div>
+          );
+        }
+
+        return (
+          <fieldset key={question.id} className="trainingPrototypeQuizQuestion">
+            <legend className="trainingPrototypeQuizQuestionPrompt">
+              {`${index + 1}. ${question.prompt}`}
+            </legend>
+            <div className="trainingPrototypeQuizOptions">{options}</div>
+          </fieldset>
+        );
+      })}
     </form>
   );
 }

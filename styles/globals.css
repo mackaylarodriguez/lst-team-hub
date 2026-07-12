@@ -4435,7 +4435,6 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeQuizShell{
   max-width:640px;
   margin:0 auto;
-  text-align:center;
 }
 .trainingPrototypePage{
   display:grid;
@@ -4478,8 +4477,8 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:grid;
   gap:16px;
 }
-.trainingPrototypeQuizFormCentered{
-  text-align:center;
+.trainingPrototypeQuizFormCards{
+  gap:12px;
 }
 .trainingPrototypeQuizQuestion{
   margin:0;
@@ -4488,20 +4487,26 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:grid;
   gap:10px;
 }
-.trainingPrototypeQuizQuestionCentered{
-  gap:12px;
+.trainingPrototypeQuizQuestionCard{
+  display:grid;
+  gap:14px;
+  padding:16px 18px;
+  border:1px solid rgba(15,23,42,.1);
+  border-radius:12px;
+  background:#fff;
+  text-align:left;
 }
-.trainingPrototypeQuizQuestion legend{
-  font-weight:800;
-  font-size:14px;
-  margin-bottom:4px;
-}
-.trainingPrototypeQuizQuestionCentered legend{
-  margin:0 auto 4px;
-  padding:0;
-  text-align:center;
+.trainingPrototypeQuizQuestion legend,
+.trainingPrototypeQuizQuestionPrompt{
+  font-weight:700;
   font-size:15px;
   line-height:1.5;
+  margin:0;
+  padding:0;
+  text-align:left;
+}
+.trainingPrototypeQuizQuestionCard .trainingPrototypeQuizQuestionPrompt{
+  width:100%;
 }
 .trainingPrototypeQuizOptions{
   display:grid;
