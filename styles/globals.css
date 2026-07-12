@@ -4238,6 +4238,25 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-family:inherit;
   background:#fff;
 }
+.trainingPrototypeBlockLinkRow,
+.trainingPrototypeAddressCardWrap{
+  display:flex;
+  justify-content:center;
+  margin-top:16px;
+}
+.trainingPrototypeAddressCard{
+  width:100%;
+  max-width:280px;
+  padding:14px 20px;
+  border:1px solid rgba(15,23,42,.1);
+  border-radius:12px;
+  background:#eef0f3;
+  text-align:center;
+}
+.trainingPrototypeAddressCard p{
+  margin:0;
+  line-height:1.5;
+}
 .trainingPrototypeSectionRule{
   margin:0;
   font-size:12px;

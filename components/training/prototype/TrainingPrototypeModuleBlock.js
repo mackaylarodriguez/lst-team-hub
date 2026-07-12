@@ -1,6 +1,7 @@
 import { useState } from "react";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import TrainingPrototypeRichText from "./TrainingPrototypeRichText";
+import TrainingPrototypeWrittenBlocks from "./TrainingPrototypeWrittenBlocks";
 import TrainingPrototypeFullSessionButton from "./TrainingPrototypeFullSessionButton";
 import {
   PROTOTYPE_STATUS_META,
@@ -88,6 +89,8 @@ export default function TrainingPrototypeModuleBlock({
                         </div>
                       ))}
                     </div>
+                  ) : section.fullSessionBlocks?.length ? (
+                    <TrainingPrototypeWrittenBlocks blocks={section.fullSessionBlocks} />
                   ) : (
                     <TrainingPrototypeRichText text={section.body} />
                   )}

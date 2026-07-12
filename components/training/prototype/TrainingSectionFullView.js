@@ -1,7 +1,7 @@
 import { useState } from "react";
 import TrainingPrototypeFullscreenShell from "./TrainingPrototypeFullscreenShell";
-import TrainingPrototypeRichText from "./TrainingPrototypeRichText";
-import { TRAINING_CENTER_PROTOTYPE_VIDEO, resolvePrototypeSectionVideoEmbed } from "@/lib/trainingCenterPrototypeMock";
+import TrainingPrototypeWrittenBlocks from "./TrainingPrototypeWrittenBlocks";
+import { resolvePrototypeSectionVideoEmbed } from "@/lib/trainingCenterPrototypeMock";
 
 export default function TrainingSectionFullView({
   section,
@@ -18,7 +18,7 @@ export default function TrainingSectionFullView({
   const [videoWatched, setVideoWatched] = useState(false);
   const blocks = section?.fullSessionBlocks || [{ heading: section?.title, body: section?.body }];
   const videoEmbedUrl = resolvePrototypeSectionVideoEmbed(section);
-  const videoDescription = section?.videoDescription || TRAINING_CENTER_PROTOTYPE_VIDEO.description;
+  const isVideoSection = Boolean(section?.showVideo);
 
   return (
     <TrainingPrototypeFullscreenShell
@@ -47,39 +47,23 @@ export default function TrainingSectionFullView({
         </>
       }
     >
-      <div className="trainingPrototypeWrittenBody">
-        {blocks.map((block) => {
-          const sectionClassName = block.card
-            ? "trainingPrototypeWrittenSection trainingPrototypeTimelineCard"
-            : "trainingPrototypeWrittenSection";
+      <TrainingPrototypeWrittenBlocks blocks={blocks} />
 
-          return (
-            <div key={block.heading} className={sectionClassName}>
-              {block.card ? (
-                <p className="trainingPrototypeTimelineCardTitle">{block.heading}</p>
-              ) : (
-                <h3>{block.heading}</h3>
-              )}
-              <TrainingPrototypeRichText text={block.body} />
-            </div>
-          );
-        })}
-      </div>
+      {!isVideoSection ? (
+        <div className="trainingPrototypeMarkCompleteRow">
+          <button
+            type="button"
+            className={sectionComplete ? "btn" : "btn btnPrimary"}
+            disabled={sectionComplete}
+            onClick={onMarkAsRead}
+          >
+            {sectionComplete ? "Marked as completed" : "Mark as completed"}
+          </button>
+        </div>
+      ) : null}
 
-      <div className="trainingPrototypeMarkCompleteRow">
-        <button
-          type="button"
-          className={sectionComplete ? "btn" : "btn btnPrimary"}
-          disabled={sectionComplete}
-          onClick={onMarkAsRead}
-        >
-          {sectionComplete ? "Marked as completed" : "Mark as completed"}
-        </button>
-      </div>
-
-      {section?.showVideo ? (
+      {isVideoSection ? (
         <div>
-          <p className="small trainingPrototypeMuted">{videoDescription}</p>
           <div className="trainingPrototypeVideoWrap">
             <iframe
               title={section?.title || "Training video"}
