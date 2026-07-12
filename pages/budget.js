@@ -181,8 +181,6 @@ const TICKET_TRIP_BAND_STYLES = [
 
 /** Read-only computed airfare cell (Total LST Cost). */
 const ticketComputedFieldStyle = {
-  backgroundColor: "rgba(15, 23, 42, 0.07)",
-  color: "rgba(15, 23, 42, 0.55)",
   cursor: "not-allowed",
 };
 
@@ -2312,11 +2310,10 @@ export default function BudgetPage() {
                     {isEditingHousing ? (
                       <>
                         <td style={{ minWidth: 140, maxWidth: 260 }}>
-                          <span className="row" style={{ gap: 6, alignItems: "flex-start", flexWrap: "wrap" }}>
+                          <span className="row" style={{ gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                             {isArchived && <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>Archived</span>}
-                            <textarea
+                            <input
                               className="input"
-                              rows={3}
                               value={r.teamName || ""}
                               onChange={(e) => updateHousingDraftRow(r.tripId, "teamName", e.target.value)}
                               placeholder="Team name"
@@ -2340,9 +2337,8 @@ export default function BudgetPage() {
                           />
                         </td>
                         <td style={{ minWidth: 120, maxWidth: 220 }}>
-                          <textarea
+                          <input
                             className="input"
-                            rows={3}
                             value={r.siteCountry || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "siteCountry", e.target.value)}
                             placeholder="Site"
@@ -2434,63 +2430,57 @@ export default function BudgetPage() {
                             placeholder="$0.00"
                           />
                         </td>
-                        <td style={{ minWidth: 220, verticalAlign: "top", maxWidth: 360 }}>
-                          <textarea
-                            className="input"
-                            rows={3}
-                            inputMode="url"
-                            placeholder="https://… (optional if PDF)"
-                            value={r.housingLink || ""}
-                            onChange={(e) => updateHousingDraftRow(r.tripId, "housingLink", e.target.value)}
-                          />
-                          <div
-                            className="row"
-                            style={{ marginTop: 6, gap: 8, flexWrap: "wrap", alignItems: "center" }}
-                          >
-                            <label className="small" style={{ cursor: "pointer", fontWeight: 600 }}>
-                              <input
-                                type="file"
-                                accept="application/pdf,.pdf"
-                                style={{ display: "none" }}
-                                disabled={housingPdfUploadingTripId === r.tripId}
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0];
-                                  e.target.value = "";
-                                  void handleHousingPdfFile(r.tripId, f);
-                                }}
-                              />
-                              {housingPdfUploadingTripId === r.tripId ? "Uploading…" : "Choose PDF"}
-                            </label>
-                            {r.housingPdfUrl ? (
-                              <>
-                                <a
-                                  className="small"
-                                  href={r.housingPdfUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  Open PDF
-                                </a>
-                                <button
-                                  type="button"
-                                  className="btn"
-                                  style={{ padding: "2px 8px", fontSize: 11 }}
-                                  onClick={() => updateHousingDraftRow(r.tripId, "housingPdfUrl", "")}
-                                >
-                                  Clear PDF
-                                </button>
-                              </>
-                            ) : null}
-                          </div>
+                        <td style={{ minWidth: 220, maxWidth: 360 }}>
+                          <div className="budgetSheetCellStack">
+                            <input
+                              className="input"
+                              inputMode="url"
+                              placeholder="https://… (optional if PDF)"
+                              value={r.housingLink || ""}
+                              onChange={(e) => updateHousingDraftRow(r.tripId, "housingLink", e.target.value)}
+                            />
+                            <div className="budgetSheetFileRow">
+                              <label className="small budgetSheetFileBtn" style={{ cursor: "pointer", fontWeight: 600, margin: 0 }}>
+                                <input
+                                  type="file"
+                                  accept="application/pdf,.pdf"
+                                  style={{ display: "none" }}
+                                  disabled={housingPdfUploadingTripId === r.tripId}
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    e.target.value = "";
+                                    void handleHousingPdfFile(r.tripId, f);
+                                  }}
+                                />
+                                {housingPdfUploadingTripId === r.tripId ? "Uploading…" : "Choose PDF"}
+                              </label>
+                              {r.housingPdfUrl ? (
+                                <>
+                                  <a
+                                    className="small"
+                                    href={r.housingPdfUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    Open PDF
+                                  </a>
+                                  <button
+                                    type="button"
+                                    className="btn"
+                                    style={{ padding: "2px 8px", fontSize: 11 }}
+                                    onClick={() => updateHousingDraftRow(r.tripId, "housingPdfUrl", "")}
+                                  >
+                                    Clear PDF
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="small" style={{ color: "var(--muted)" }}>
+                                  No PDF
+                                </span>
+                              )}
+                            </div>
                           {housingExtrasList.map((ex, idx) => (
-                            <div
-                              key={ex.id || `extra-${r.tripId}-${idx}`}
-                              style={{
-                                marginTop: 12,
-                                paddingTop: 12,
-                                borderTop: "1px dashed var(--border)",
-                              }}
-                            >
+                            <div key={ex.id || `extra-${r.tripId}-${idx}`} className="budgetSheetExtraBlock">
                               <div
                                 className="row"
                                 style={{
@@ -2513,19 +2503,17 @@ export default function BudgetPage() {
                                   Delete line
                                 </button>
                               </div>
-                              <textarea
+                              <input
                                 className="input"
-                                rows={2}
-                                style={{ marginBottom: 6, width: "100%" }}
+                                style={{ marginBottom: 6 }}
                                 placeholder="Label (optional)"
                                 value={ex.label || ""}
                                 onChange={(e) =>
                                   updateHousingExtraDraft(r.tripId, idx, "label", e.target.value)
                                 }
                               />
-                              <textarea
+                              <input
                                 className="input"
-                                rows={3}
                                 inputMode="url"
                                 placeholder="https://…"
                                 value={ex.housingLink || ""}
@@ -2533,11 +2521,8 @@ export default function BudgetPage() {
                                   updateHousingExtraDraft(r.tripId, idx, "housingLink", e.target.value)
                                 }
                               />
-                              <div
-                                className="row"
-                                style={{ marginTop: 6, gap: 8, flexWrap: "wrap", alignItems: "center" }}
-                              >
-                                <label className="small" style={{ cursor: "pointer", fontWeight: 600 }}>
+                              <div className="budgetSheetFileRow" style={{ marginTop: 6 }}>
+                                <label className="small" style={{ cursor: "pointer", fontWeight: 600, margin: 0 }}>
                                   <input
                                     type="file"
                                     accept="application/pdf,.pdf"
@@ -2569,21 +2554,25 @@ export default function BudgetPage() {
                                       Clear PDF
                                     </button>
                                   </>
-                                ) : null}
+                                ) : (
+                                  <span className="small" style={{ color: "var(--muted)" }}>
+                                    No PDF
+                                  </span>
+                                )}
                               </div>
                             </div>
                           ))}
+                          </div>
                         </td>
                         <td style={{ minWidth: 160, maxWidth: 280 }}>
-                          <textarea
+                          <input
                             className="input"
-                            rows={3}
                             value={r.notes || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "notes", e.target.value)}
                             placeholder="Notes"
                           />
                         </td>
-                        <td style={{ verticalAlign: "top", whiteSpace: "nowrap" }}>
+                        <td style={{ whiteSpace: "nowrap" }}>
                           {r.id ? (
                             <button
                               type="button"
@@ -2926,18 +2915,16 @@ export default function BudgetPage() {
                           />
                         </td>
                         <td style={{ minWidth: 140, maxWidth: 280 }}>
-                          <textarea
+                          <input
                             className="input"
-                            rows={3}
                             value={t.workerName || ""}
                             onChange={(e) => updateTicketRow(t.id, "workerName", e.target.value)}
                             placeholder="Worker name"
                           />
                         </td>
                         <td style={{ minWidth: 140, maxWidth: 280 }}>
-                          <textarea
+                          <input
                             className="input"
-                            rows={3}
                             value={siteDisplay}
                             onChange={(e) => updateTicketRow(t.id, "projectCountry", e.target.value)}
                             placeholder="Site / country"
@@ -3002,7 +2989,7 @@ export default function BudgetPage() {
                         </td>
                         <td style={{ minWidth: 100 }}>
                           <input
-                            className="input"
+                            className="input budgetSheetReadonly"
                             value={computedTotalLstCost}
                             readOnly
                             tabIndex={-1}
@@ -3028,10 +3015,9 @@ export default function BudgetPage() {
                             onChange={(e) => updateTicketRow(t.id, "dateApprovedToWithdraw", e.target.value)}
                           />
                         </td>
-                        <td style={{ minWidth: 180, maxWidth: 320, verticalAlign: "top" }}>
-                          <textarea
+                        <td style={{ minWidth: 180, maxWidth: 320 }}>
+                          <input
                             className="input"
-                            rows={3}
                             value={t.notes || ""}
                             onChange={(e) => updateTicketRow(t.id, "notes", e.target.value)}
                             placeholder="Notes"

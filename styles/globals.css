@@ -1106,6 +1106,52 @@ a.btn{
   overflow:auto;
   -webkit-overflow-scrolling:touch;
 }
+.budgetTableScroller .input,
+.budgetTableScroller select.input{
+  width:100%;
+  box-sizing:border-box;
+  min-height:36px;
+  padding:7px 10px;
+  font-size:13px;
+  line-height:1.35;
+  border-radius:8px;
+  background:#fff;
+}
+.budgetTableScroller input[type="date"].input{
+  min-height:36px;
+}
+.budgetTableScroller td{
+  vertical-align:middle;
+  padding-top:8px;
+  padding-bottom:8px;
+}
+.budgetTableScroller .budgetSheetCellStack{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+}
+.budgetTableScroller .budgetSheetFileRow{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:6px;
+  min-height:36px;
+  padding:5px 8px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:#fff;
+}
+.budgetTableScroller .budgetSheetExtraBlock{
+  margin-top:8px;
+  padding-top:8px;
+  border-top:1px dashed var(--border);
+}
+.budgetTableScroller .budgetSheetReadonly{
+  background:rgba(248,250,252,.95);
+  color:var(--muted);
+  cursor:not-allowed;
+}
 .budgetTeamEditorOverlay{
   z-index:120;
 }
