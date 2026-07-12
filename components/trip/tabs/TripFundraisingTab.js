@@ -24,6 +24,7 @@ export default function TripFundraisingTab() {
     fundraisingDrafts,
     fundraisingFirstDeadlineAmount,
     fundraisingFirstDeadlineDate,
+    fundraisingDeadlineGoalAmount,
     fundraisingGoalAmount,
     fundraisingSecondDeadlineAmount,
     fundraisingSecondDeadlineDate,
@@ -126,9 +127,18 @@ export default function TripFundraisingTab() {
                     ) : null}
                   </div>
                   <div className="small" style={{ opacity: 0.78, marginTop: "auto", lineHeight: 1.45 }}>
-                    {fundraisingSecondDeadlineAmount > 0
-                      ? "The rest of the fundraising goal should be covered before this date."
-                      : "If your total goal matches the first milestone, there is no separate 30-day balance."}
+                    {fundraisingDeadlineGoalAmount > 0 ? (
+                      fundraisingSecondDeadlineAmount > 0 ? (
+                        <>
+                          {formatMoney(fundraisingDeadlineGoalAmount)} goal minus{" "}
+                          {formatMoney(fundraisingFirstDeadlineAmount)} first milestone.
+                        </>
+                      ) : (
+                        "If your total goal matches the first milestone, there is no separate 30-day balance."
+                      )
+                    ) : (
+                      "Add your fundraising goal on this trip to calculate the 30-day balance."
+                    )}
                   </div>
                 </div>
                 <div

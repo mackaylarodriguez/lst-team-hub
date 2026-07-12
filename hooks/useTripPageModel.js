@@ -5906,24 +5906,18 @@ normalizeEmail(participant.email) === activeParticipantEmail
       const participantEmails = new Set(
         (trip.participants || []).map((p) => normalizeEmail(p.email)).filter(Boolean)
       );
+      const tripDefaultGoal = parsePositiveFundraisingGoal(trip?.fundraisingGoalAmount);
       const rosterByEmail = new Map(
         (trip.teamMembers || []).filter((m) => m?.email).map((m) => [normalizeEmail(m.email), m])
       );
       const mergedParticipants = (trip.participants || []).map((p) => {
         const m = rosterByEmail.get(normalizeEmail(p.email));
-        const goalFromRoster =
-          m?.fundraisingGoalAmount != null && m.fundraisingGoalAmount !== ""
-            ? Number(m.fundraisingGoalAmount)
-            : undefined;
+        const participantGoal = parsePositiveFundraisingGoal(p.fundraisingGoalAmount);
+        const rosterGoal = parsePositiveFundraisingGoal(m?.fundraisingGoalAmount);
         return {
           ...p,
           tripTeamMemberId: p.tripTeamMemberId || m?.id || "",
-          fundraisingGoalAmount:
-            p.fundraisingGoalAmount != null &&
-            p.fundraisingGoalAmount !== "" &&
-            Number.isFinite(Number(p.fundraisingGoalAmount))
-              ? Number(p.fundraisingGoalAmount)
-              : goalFromRoster,
+          fundraisingGoalAmount: participantGoal ?? rosterGoal ?? tripDefaultGoal,
         };
       });
       const rosterOnly = (trip.teamMembers || [])
@@ -5938,7 +5932,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
           email: member.email || "",
           fundraisingUrl: member.fundraisingUrl || "",
           fundraisingGoalAmount:
-            member.fundraisingGoalAmount != null ? Number(member.fundraisingGoalAmount) : undefined,
+            parsePositiveFundraisingGoal(member.fundraisingGoalAmount) ?? tripDefaultGoal,
           rosterOnly: true,
         }));
       const merged = [...mergedParticipants, ...rosterOnly];
@@ -5958,7 +5952,13 @@ normalizeEmail(participant.email) === activeParticipantEmail
     );
 
     return (trip.participants || [])
-      .filter((participant) => String(participant.id) === String(currentParticipant?.id || ""))
+      .filter((participant) => {
+        const idMatch = String(participant.id) === String(currentParticipant?.id || "");
+        const emailMatch =
+          normalizeEmail(participant.email) &&
+          normalizeEmail(participant.email) === normalizeEmail(currentParticipant?.email);
+        return idMatch || emailMatch;
+      })
       .map((participant) => {
         const rosterGoalRaw = rosterGoalByEmail.get(normalizeEmail(participant.email));
         const participantGoal = parsePositiveFundraisingGoal(participant.fundraisingGoalAmount);
@@ -6077,11 +6077,30 @@ normalizeEmail(participant.email) === activeParticipantEmail
     return (trip.teamMembers || []).find((m) => normalizeEmail(m.email) === email) || null;
   }, [trip, currentParticipant, sessionTripRosterRow, session?.email]);
 
-  const currentParticipantFundraisingGoalAmount = resolveWorkerFundraisingGoalAmount({
-    participant: visibleFundraisingParticipants?.[0] || currentParticipant,
-    rosterMember: rosterMemberForWorker,
-    tripFundraisingGoalAmount: trip?.fundraisingGoalAmount,
-  });
+  const currentParticipantFundraisingGoalAmount = useMemo(() => {
+    const participantForGoal =
+      visibleFundraisingParticipants?.[0] ||
+      (currentParticipant && trip
+        ? (trip.participants || []).find((p) => {
+            const idMatch = String(p.id) === String(currentParticipant.id);
+            const emailMatch =
+              normalizeEmail(p.email) &&
+              normalizeEmail(p.email) === normalizeEmail(currentParticipant.email);
+            return idMatch || emailMatch;
+          }) || currentParticipant
+        : currentParticipant);
+    return resolveWorkerFundraisingGoalAmount({
+      participant: participantForGoal,
+      rosterMember: rosterMemberForWorker,
+      tripFundraisingGoalAmount: trip?.fundraisingGoalAmount,
+    });
+  }, [
+    visibleFundraisingParticipants,
+    currentParticipant,
+    trip,
+    rosterMemberForWorker,
+    trip?.fundraisingGoalAmount,
+  ]);
   const isTeamFundraisingMode = trip?.fundraisingMode === "team";
   const tripFundraisingGoal = Number(trip?.fundraisingGoalAmount || 0);
   const summedParticipantFundraisingGoal = useMemo(
@@ -6102,6 +6121,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
         : tripFundraisingGoal;
   const fundraisingGoalAmount =
     !canViewTeamDashboard ? workerSpecificFundraisingGoalAmount : staffTeamFundraisingGoalAmount;
+  const useTeamFundraisingDeadlineRollup = canViewFundraisingTeamDashboard;
+  const fundraisingDeadlineGoalAmount = useTeamFundraisingDeadlineRollup
+    ? staffTeamFundraisingGoalAmount
+    : workerSpecificFundraisingGoalAmount;
   const fundraisingWorkerCount = useMemo(() => {
     if (!trip) return 1;
     const roster = trip.teamMembers || [];
@@ -6136,15 +6159,15 @@ normalizeEmail(participant.email) === activeParticipantEmail
     }
     return Math.max(count, 1);
   }, [trip]);
-  const countForDeadlines = !canViewTeamDashboard
-    ? 1
-    : isTeamFundraisingMode
+  const countForDeadlines = useTeamFundraisingDeadlineRollup
+    ? isTeamFundraisingMode
       ? 1
-      : fundraisingWorkerCount;
+      : fundraisingWorkerCount
+    : 1;
   // Business rule: 90-day milestone is always $2,000 per applicable person.
   const fundraisingFirstDeadlineAmount = 2000 * countForDeadlines;
   const fundraisingSecondDeadlineTotalAmount = Math.max(
-    (fundraisingGoalAmount || 0) - fundraisingFirstDeadlineAmount,
+    (fundraisingDeadlineGoalAmount || 0) - fundraisingFirstDeadlineAmount,
     0
   );
   const fundraisingSecondDeadlineAmount = fundraisingSecondDeadlineTotalAmount;
@@ -7367,6 +7390,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     fundraisingDrafts,
     fundraisingFirstDeadlineAmount,
     fundraisingFirstDeadlineDate,
+    fundraisingDeadlineGoalAmount,
     fundraisingGoalAmount,
     fundraisingSecondDeadlineAmount,
     fundraisingSecondDeadlineDate,
