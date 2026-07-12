@@ -1,5 +1,6 @@
 import { useState } from "react";
 import CollapsibleSection from "@/components/CollapsibleSection";
+import TrainingPrototypeRichText from "./TrainingPrototypeRichText";
 import TrainingPrototypeFullSessionButton from "./TrainingPrototypeFullSessionButton";
 import {
   TRAINING_CENTER_PROTOTYPE_VIDEO,
@@ -82,7 +83,7 @@ export default function TrainingPrototypeModuleBlock({
                 badge={<span className={`badge ${sectionStatus.badge}`}>{sectionStatus.label}</span>}
               >
                 <div className="trainingPrototypeSectionInner">
-                  <p>{section.body}</p>
+                  <TrainingPrototypeRichText text={section.body} />
 
                   {section.showVideo ? (
                     <div className="trainingPrototypeVideoWrap trainingPrototypeVideoWrapCompact">

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import TrainingPrototypeFullscreenShell from "./TrainingPrototypeFullscreenShell";
+import TrainingPrototypeRichText from "./TrainingPrototypeRichText";
 import { TRAINING_CENTER_PROTOTYPE_VIDEO } from "@/lib/trainingCenterPrototypeMock";
 
 export default function TrainingSectionFullView({
@@ -44,7 +45,7 @@ export default function TrainingSectionFullView({
         {blocks.map((block) => (
           <div key={block.heading} className="trainingPrototypeWrittenSection">
             <h3>{block.heading}</h3>
-            <p>{block.body}</p>
+            <TrainingPrototypeRichText text={block.body} />
           </div>
         ))}
       </div>
