@@ -29,14 +29,6 @@ export default function TrainingSectionFullView({
             Previous
           </button>
           <div className="spacer" />
-          <button
-            type="button"
-            className={sectionComplete ? "btn" : "btn btnPrimary"}
-            disabled={sectionComplete}
-            onClick={onMarkAsRead}
-          >
-            {sectionComplete ? "Marked as read" : "Mark as read"}
-          </button>
           {section?.showVideo ? (
             <button
               type="button"
@@ -70,6 +62,17 @@ export default function TrainingSectionFullView({
             </div>
           );
         })}
+      </div>
+
+      <div className="trainingPrototypeMarkCompleteRow">
+        <button
+          type="button"
+          className={sectionComplete ? "btn" : "btn btnPrimary"}
+          disabled={sectionComplete}
+          onClick={onMarkAsRead}
+        >
+          {sectionComplete ? "Marked as completed" : "Mark as completed"}
+        </button>
       </div>
 
       {section?.showVideo ? (

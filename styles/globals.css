@@ -2239,25 +2239,13 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:16px;
 }
-.tripTrainingResourcesColumns{
+.tripTrainingResourcesStacked{
   display:grid;
-  grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
-  gap:20px;
-  align-items:start;
-}
-.tripTrainingResourcesColumn{
-  display:grid;
-  gap:10px;
-  min-width:0;
+  gap:18px;
 }
 .tripTrainingResourcesColumnHeading{
   font-weight:900;
-  margin:0;
-}
-.tripTrainingResourcesStack{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:12px;
+  margin:0 0 8px;
 }
 .tripTrainingPanel{
   margin-bottom:4px;
@@ -2656,7 +2644,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   transition:background .18s ease;
 }
 .tripTrainingResourceBtn:hover .tripTrainingResourceBtnIcon{
-  background:var(--primary2);
+  background:color-mix(in srgb, var(--training-accent) 82%, #0f172a);
 }
 .tripTrainingResourceBtnTitle{
   font-weight:900;
@@ -2827,10 +2815,6 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   }
   .tripTrainingResourceGrid{
     grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
-  }
-  .tripTrainingResourcesColumns{
-    grid-template-columns:1fr;
-    gap:18px;
   }
   .tabs{
     flex-wrap:nowrap;
@@ -3080,8 +3064,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   .tripTaskParticipantGrid,
   .tripTaskSummaryGrid,
   .tripTrainingOptionalGrid,
-  .tripTrainingResourceGrid,
-  .tripTrainingResourcesColumns{
+  .tripTrainingResourceGrid{
     grid-template-columns:1fr;
   }
   .tripMobileFormGrid{
@@ -3939,9 +3922,17 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   gap:10px;
   margin-top:4px;
 }
-.trainingPrototypeMarkReadRow{
+.trainingPrototypeMarkReadRow,
+.trainingPrototypeMarkCompleteRow{
   display:flex;
   justify-content:flex-start;
+  margin-top:16px;
+}
+.trainingPrototypeFullscreenBody .trainingPrototypeMarkCompleteRow{
+  max-width:760px;
+  margin-left:auto;
+  margin-right:auto;
+  padding-top:4px;
 }
 .trainingPrototypeFullSessionBtn{
   display:inline-flex;

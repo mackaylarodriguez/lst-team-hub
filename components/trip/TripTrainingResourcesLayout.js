@@ -5,19 +5,19 @@ export default function TripTrainingResourcesLayout({
   optionalTrainingResources = [],
 }) {
   return (
-    <div className="tripTrainingResourcesColumns">
-      <div className="tripTrainingResourcesColumn">
+    <div className="tripTrainingResourcesStacked">
+      <div>
         <div className="small tripTrainingResourcesColumnHeading">Required training</div>
-        <div className="tripTrainingResourcesStack">
+        <div className="tripTrainingResourceGrid">
           {requiredTrainingResources.map((resource) => (
             <TrainingResourceLink key={resource.id} resource={resource} />
           ))}
         </div>
       </div>
 
-      <div className="tripTrainingResourcesColumn">
+      <div>
         <div className="small tripTrainingResourcesColumnHeading">Optional</div>
-        <div className="tripTrainingResourcesStack">
+        <div className="tripTrainingOptionalGrid">
           {optionalTrainingResources.map((resource) => (
             <TrainingResourceLink key={resource.id} resource={resource} />
           ))}
