@@ -50,9 +50,6 @@ export default function TrainingPrototypeModuleBlock({
           </span>
           <div className="trainingPrototypeModuleHeadingContent">
             <h2 className="trainingPrototypeModuleHeading">{module.title}</h2>
-            <p className="small trainingPrototypeMuted" style={{ margin: "6px 0 0" }}>
-              {module.subtitle}
-            </p>
           </div>
         </button>
         <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
