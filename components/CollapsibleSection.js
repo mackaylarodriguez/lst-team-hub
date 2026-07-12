@@ -74,7 +74,7 @@ export default function CollapsibleSection({
                 alignItems: "center",
                 gap: 10,
                 padding: "10px 12px",
-                background: "rgba(245, 241, 234, 0.45)",
+                background: "var(--collapsible-header-bg, rgba(245, 241, 234, 0.45))",
               }
         }
       >

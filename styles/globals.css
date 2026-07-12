@@ -2236,12 +2236,15 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .tripTrainingResourceGrid{
   display:grid;
-  grid-template-columns:repeat(3, minmax(0, 1fr));
+  grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:16px;
 }
 .tripTrainingResourcesStacked{
   display:grid;
   gap:18px;
+}
+.tripTrainingResourcesDropdown{
+  --collapsible-header-bg:#eef7fc;
 }
 .tripTrainingResourcesColumnHeading{
   font-weight:900;

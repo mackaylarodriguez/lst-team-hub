@@ -43,7 +43,7 @@ export default function TripTrainingTab() {
 
   const currentTrainingContent = (
     <>
-              <CollapsibleSection defaultOpen>
+              <CollapsibleSection className="tripTrainingResourcesDropdown" defaultOpen>
               <div className="card pad">
                 <div className="cardSectionPill" style={{ marginBottom: 8 }}>Training resources</div>
 

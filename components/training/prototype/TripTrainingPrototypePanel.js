@@ -111,6 +111,7 @@ export default function TripTrainingPrototypePanel() {
         <TripTrainingProgressCard />
 
         <CollapsibleSection
+          className="tripTrainingResourcesDropdown"
           title="Training resources"
           subtitle="Required and optional training links"
           defaultOpen={false}
