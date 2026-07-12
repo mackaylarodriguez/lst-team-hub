@@ -1,3 +1,5 @@
+import { useState } from "react";
+import BudgetTeamEditorModal from "@/components/budget/BudgetTeamEditorModal";
 import { useTripPage } from "../TripPageContext";
 import {
   CollapsibleSection,
@@ -11,6 +13,7 @@ import {
 
 export default function TripFundraisingTab() {
     const {
+    canManageTrips,
     canManageTripFundraising,
     canViewFundraisingTeamDashboard,
     canViewTeamDashboard,
@@ -43,8 +46,11 @@ export default function TripFundraisingTab() {
     updateFundraisingDraft,
     visibleFundraisingParticipants,
   } = useTripPage();
+  const [staffFundraisingTool, setStaffFundraisingTool] = useState("");
+  const [teamBudgetEditorOpen, setTeamBudgetEditorOpen] = useState(false);
 
   return (
+    <>
     <div style={{ display: "grid", gap: 16 }}>
               <div
                 style={{
@@ -603,7 +609,61 @@ export default function TripFundraisingTab() {
                 )}
               </div>
               </CollapsibleSection>
+
+              {canManageTrips ? (
+                <CollapsibleSection title="Staff: Team budget & expenses" defaultOpen={false}>
+                  <div
+                    className="card pad"
+                    style={{
+                      boxShadow: "none",
+                      display: "grid",
+                      gap: 12,
+                    }}
+                  >
+                    <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
+                      Staff-only tools for this trip. Open the combined editor for team budget, housing,
+                      links, and tickets.
+                    </div>
+                    <div
+                      className="row"
+                      style={{ gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}
+                    >
+                      <label className="budgetTeamEditorField" style={{ flex: "1 1 260px", minWidth: 0 }}>
+                        <span className="budgetTeamEditorLabel">Staff tools</span>
+                        <select
+                          className="input"
+                          value={staffFundraisingTool}
+                          onChange={(event) => setStaffFundraisingTool(event.target.value)}
+                        >
+                          <option value="">Choose an action…</option>
+                          <option value="team-budget">Edit team budget, housing & tickets</option>
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        className="btn btnPrimary"
+                        disabled={staffFundraisingTool !== "team-budget" || !trip?.id}
+                        onClick={() => setTeamBudgetEditorOpen(true)}
+                      >
+                        Open
+                      </button>
+                    </div>
+                  </div>
+                </CollapsibleSection>
+              ) : null}
     
             </div>
+      {teamBudgetEditorOpen && trip?.id ? (
+        <BudgetTeamEditorModal
+          tripId={trip.id}
+          trip={trip}
+          tripName={trip.name || ""}
+          onClose={() => {
+            setTeamBudgetEditorOpen(false);
+            setStaffFundraisingTool("");
+          }}
+        />
+      ) : null}
+    </>
   );
 }

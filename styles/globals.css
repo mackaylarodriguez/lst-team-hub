@@ -1106,6 +1106,110 @@ a.btn{
   overflow:auto;
   -webkit-overflow-scrolling:touch;
 }
+.budgetTeamEditorOverlay{
+  z-index:120;
+}
+.budgetTeamEditorModal{
+  width:min(980px, 100%);
+  max-height:min(90vh, 960px);
+  overflow:auto;
+  display:grid;
+  gap:18px;
+}
+.budgetTeamEditorHeader,
+.budgetTeamEditorFooter,
+.budgetTeamEditorSectionHeader{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.budgetTeamEditorTitle{
+  margin:0;
+  font-size:22px;
+}
+.budgetTeamEditorSubtitle{
+  margin:6px 0 0;
+  color:var(--muted);
+}
+.budgetTeamEditorLoading{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  min-height:180px;
+  color:var(--muted);
+}
+.budgetTeamEditorSummary{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
+  gap:10px;
+  padding:12px;
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:12px;
+  background:rgba(248,250,252,.88);
+}
+.budgetTeamEditorSummaryLabel{
+  display:block;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin-bottom:4px;
+}
+.budgetTeamEditorGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+  gap:16px;
+}
+.budgetTeamEditorSection{
+  display:grid;
+  gap:12px;
+  padding:14px;
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:12px;
+  background:rgba(255,255,255,.76);
+}
+.budgetTeamEditorSectionTitle{
+  margin:0;
+  font-size:15px;
+}
+.budgetTeamEditorFields{
+  display:grid;
+  gap:12px;
+}
+.budgetTeamEditorField{
+  display:grid;
+  gap:6px;
+}
+.budgetTeamEditorLabel{
+  font-size:12px;
+  font-weight:700;
+  color:var(--muted);
+}
+.budgetTeamEditorTickets{
+  margin-top:4px;
+}
+.budgetTeamEditorTicketList{
+  display:grid;
+  gap:12px;
+}
+.budgetTeamEditorTicketCard{
+  padding:12px;
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:10px;
+  background:rgba(248,250,252,.72);
+}
+.budgetTeamEditorTicketGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  gap:10px;
+}
+.budgetOverviewRowClickable{
+  cursor:pointer;
+}
 .sitesWorkbookScroller{
   max-height:min(72vh,880px);
   overflow:auto;
