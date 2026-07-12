@@ -19,21 +19,27 @@ import {
 import { getPrototypeSectionQuiz } from "@/lib/trainingCenterPrototypeMock";
 
 export default function TripTrainingPrototypePanel() {
-  const { canManageTrips, optionalTrainingResources, requiredTrainingResources } = useTripPage();
+  const {
+    activeParticipantEmail,
+    canManageTrips,
+    completedPrototypeSectionIds,
+    markPrototypeSectionComplete,
+    optionalTrainingResources,
+    requiredTrainingResources,
+  } = useTripPage();
   const [modules, setModules] = useState(() => clonePrototypeModules());
   const [view, setView] = useState("center");
   const [activeModuleId, setActiveModuleId] = useState("");
   const [activeSectionId, setActiveSectionId] = useState("");
   const [editingModuleId, setEditingModuleId] = useState("");
-  const [completedSectionIds, setCompletedSectionIds] = useState({});
 
   useEffect(() => {
     setModules(loadPrototypeModules());
   }, []);
 
   function markSectionComplete(sectionId) {
-    if (!sectionId) return;
-    setCompletedSectionIds((current) => ({ ...current, [sectionId]: true }));
+    if (!sectionId || !activeParticipantEmail) return;
+    markPrototypeSectionComplete(sectionId, activeParticipantEmail);
   }
 
   function openFullSession(moduleId, sectionId) {
@@ -110,7 +116,7 @@ export default function TripTrainingPrototypePanel() {
   return (
     <>
       <div className="trainingPrototypeCenter">
-        <TripTrainingProgressCard />
+        <TripTrainingProgressCard variant="prototype" />
 
         <CollapsibleSection
           className="tripTrainingResourcesDropdown"
@@ -129,7 +135,7 @@ export default function TripTrainingPrototypePanel() {
             <TrainingPrototypeModuleBlock
               key={module.id}
               module={module}
-              completedSectionIds={completedSectionIds}
+              completedSectionIds={completedPrototypeSectionIds}
               defaultOpen={index === 0}
               canEdit={canManageTrips}
               onEditModule={setEditingModuleId}
@@ -158,7 +164,7 @@ export default function TripTrainingPrototypePanel() {
               ? "Continue to quiz"
               : "Next"
           }
-          sectionComplete={!!completedSectionIds[activeSection.id]}
+          sectionComplete={!!completedPrototypeSectionIds[activeSection.id]}
           onMarkAsRead={() => markSectionComplete(activeSection.id)}
         />
       ) : null}

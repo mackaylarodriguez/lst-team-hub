@@ -39,6 +39,17 @@ import {
   hydrateTrainingSessionDateFromDb,
   resolveTrainingSessionSelectValue,
 } from "@/lib/trainingSessionOptions";
+import {
+  findPrototypeModuleIdForSection,
+  getAllPrototypeSections,
+  getPrototypeModuleById,
+  TRAINING_PROTOTYPE_MODULE_TO_TRAINING_TITLE,
+} from "@/lib/trainingCenterPrototypeMock";
+import {
+  isTrainingSectionProgressTask,
+  parseTrainingSectionTaskName,
+  saveTrainingSectionProgress,
+} from "@/lib/trainingSectionProgress";
 import { saveFundraisingProfile } from "@/lib/fundraising";
 import {
   addLinkResource,
@@ -236,6 +247,7 @@ export function useTripPageModel() {
   const [tab, setTab] = useState("Overview");
   const [participantTaskStates, setParticipantTaskStates] = useState({});
   const [participantTrainingStates, setParticipantTrainingStates] = useState({});
+  const [participantSectionStates, setParticipantSectionStates] = useState({});
   const [session, setSession] = useState(null);
   const [trainingModules, setTrainingModules] = useState([]);
   const [docs, setDocs] = useState([]);
@@ -1165,6 +1177,7 @@ export function useTripPageModel() {
       );
       const nextTrainingStates = {};
       const nextTaskStates = {};
+      const nextSectionStates = {};
 
       const orphanProgressUserIds = [
         ...new Set(
@@ -1210,6 +1223,19 @@ export function useTripPageModel() {
 
         const taskEmailKey = normalizeEmail(email);
         if (!taskEmailKey) return;
+
+        if (isTrainingSectionProgressTask(row.taskName)) {
+          const sectionId = parseTrainingSectionTaskName(row.taskName);
+          if (!sectionId) return;
+          if (!nextSectionStates[taskEmailKey]) {
+            nextSectionStates[taskEmailKey] = {};
+          }
+          if (row.completed) {
+            nextSectionStates[taskEmailKey][sectionId] = true;
+          }
+          return;
+        }
+
         if (!nextTaskStates[taskEmailKey]) {
           nextTaskStates[taskEmailKey] = {};
         }
@@ -1219,6 +1245,7 @@ export function useTripPageModel() {
 
       setParticipantTrainingStates(nextTrainingStates);
       setParticipantTaskStates(nextTaskStates);
+      setParticipantSectionStates(nextSectionStates);
 
       const travelForms = getSettledValue(travelFormResult, [], "travel form responses");
       setTravelFormResponses(travelForms);
@@ -2972,6 +2999,93 @@ export function useTripPageModel() {
         pushRecentActivity(activityEntry);
       } catch (error) {
         console.error("Unable to save training progress", error);
+        showToast(error.message || "Unable to save training progress.", "error");
+      }
+    })();
+  }
+
+  function markPrototypeSectionComplete(sectionId, ownerEmail = activeParticipantEmail) {
+    if (!trip || !sectionId || !ownerEmail) return;
+
+    const emailKey = normalizeEmail(ownerEmail);
+    if (!emailKey) return;
+
+    void (async () => {
+      const userId = await resolveTrainingSubjectUserId(ownerEmail);
+      if (!userId) {
+        showToast(
+          "No profile found for this email. The worker needs an account (or matching roster email) before training can be saved.",
+          "error"
+        );
+        return;
+      }
+
+      const nextSectionState = {
+        ...(participantSectionStates[emailKey] || {}),
+        [sectionId]: true,
+      };
+
+      setParticipantSectionStates((prev) => ({
+        ...prev,
+        [emailKey]: nextSectionState,
+      }));
+
+      try {
+        await saveTrainingSectionProgress({
+          tripId: trip.id,
+          userId,
+          sectionId,
+          completed: true,
+        });
+
+        const prototypeModuleId = findPrototypeModuleIdForSection(sectionId);
+        if (!prototypeModuleId) return;
+
+        const protoModule = getPrototypeModuleById(prototypeModuleId);
+        if (!protoModule?.sections?.length) return;
+
+        const allSectionsComplete = protoModule.sections.every(
+          (section) => nextSectionState[section.id]
+        );
+        if (!allSectionsComplete) return;
+
+        const canonicalTitle = TRAINING_PROTOTYPE_MODULE_TO_TRAINING_TITLE[prototypeModuleId];
+        const dbModule = allTrainingModules.find((module) => module.title === canonicalTitle);
+        if (!dbModule) return;
+
+        const currentTrainingState = participantTrainingStates[emailKey] || {};
+        if (currentTrainingState[dbModule.id]) return;
+
+        const participant = participantDisplayForTrainingEmail(ownerEmail);
+        const completedAt = new Date().toISOString();
+
+        await saveTrainingProgress({
+          tripId: trip.id,
+          userId,
+          moduleId: dbModule.id,
+          completed: true,
+          completedAt,
+        });
+
+        setParticipantTrainingStates((prev) => ({
+          ...prev,
+          [emailKey]: {
+            ...(prev[emailKey] || {}),
+            [dbModule.id]: true,
+          },
+        }));
+
+        const activityEntry = await logTripActivity({
+          tripId: trip.id,
+          actorUserId: userId,
+          actorName: participant.name || session?.name || participant.email,
+          actorEmail: participant.email || session?.email || "",
+          eventType: "training_completed",
+          message: `${participant.name || participant.email || "Someone"} completed ${dbModule.title || protoModule.title || "training module"}`,
+        });
+        pushRecentActivity(activityEntry);
+      } catch (error) {
+        console.error("Unable to save prototype training section progress", error);
         showToast(error.message || "Unable to save training progress.", "error");
       }
     })();
@@ -6378,6 +6492,80 @@ normalizeEmail(participant.email) === activeParticipantEmail
     : currentTrainingProgress
       ? [currentTrainingProgress]
       : [];
+
+  const allPrototypeSections = useMemo(() => getAllPrototypeSections(), []);
+
+  const prototypeTrainingProgress = useMemo(() => {
+    if (!trip) return [];
+
+    const buildProgress = (participant) => {
+      const emailKey = normalizeEmail(participant.email);
+      const sectionState = participantSectionStates[emailKey] || {};
+      const total = allPrototypeSections.length;
+      const completed = allPrototypeSections.filter((section) => sectionState[section.id]).length;
+
+      return {
+        ...participant,
+        sectionState,
+        completed,
+        total,
+        percent: total ? Math.round((completed / total) * 100) : 0,
+      };
+    };
+
+    if (canViewTeamDashboard) {
+      return trainingProgress.map(buildProgress);
+    }
+
+    const current = currentTrainingProgress ? buildProgress(currentTrainingProgress) : null;
+    return current ? [current] : [];
+  }, [
+    trip,
+    canViewTeamDashboard,
+    trainingProgress,
+    currentTrainingProgress,
+    participantSectionStates,
+    allPrototypeSections,
+  ]);
+
+  const currentPrototypeTrainingProgress = useMemo(() => {
+    if (!activeParticipantEmail) return null;
+
+    return (
+      prototypeTrainingProgress.find(
+        (participant) => normalizeEmail(participant.email) === activeParticipantEmail
+      ) || null
+    );
+  }, [prototypeTrainingProgress, activeParticipantEmail]);
+
+  const completedPrototypeSectionIds = useMemo(() => {
+    if (!activeParticipantEmail) return {};
+    return participantSectionStates[normalizeEmail(activeParticipantEmail)] || {};
+  }, [participantSectionStates, activeParticipantEmail]);
+
+  const prototypeTrainingPct = useMemo(() => {
+    const totalPossible = prototypeTrainingProgress.reduce(
+      (sum, participant) => sum + participant.total,
+      0
+    );
+    const completed = prototypeTrainingProgress.reduce(
+      (sum, participant) => sum + participant.completed,
+      0
+    );
+
+    return totalPossible ? Math.round((completed / totalPossible) * 100) : 0;
+  }, [prototypeTrainingProgress]);
+
+  const overviewPrototypeTrainingPct = canViewTeamDashboard
+    ? prototypeTrainingPct
+    : currentPrototypeTrainingProgress?.percent || 0;
+
+  const visiblePrototypeTrainingParticipants = canViewTeamDashboard
+    ? prototypeTrainingProgress
+    : currentPrototypeTrainingProgress
+      ? [currentPrototypeTrainingProgress]
+      : [];
+
   const overviewUpcomingTasks = useMemo(() => {
     if (!trip) return [];
 
@@ -7078,6 +7266,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     clearPendingStaffTaskNoteSave,
     clearTripDocsUndoCompletely,
     completedCount,
+    completedPrototypeSectionIds,
     completionPct,
     confirmingParticipantDocumentDeleteId,
     countForDeadlines,
@@ -7085,6 +7274,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     currentParticipantFundraisingGoalAmount,
     currentParticipantProgress,
     currentTrainingProgress,
+    currentPrototypeTrainingProgress,
     customParticipantDocumentLabel,
     datedTrainingModuleIds,
     docDraft,
@@ -7164,6 +7354,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     handleJumpToOverviewItem,
     handleJumpToStaffTask,
     handlePrepareNewPdf,
+    markPrototypeSectionComplete,
     handlePrepareRequiredLink,
     handlePrepareRequiredPdf,
     handleRemoveRosterMember,
@@ -7247,6 +7438,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     overviewTaskPct,
     overviewTrainingLabel,
     overviewTrainingPct,
+    overviewPrototypeTrainingPct,
     overviewUpcomingTasks,
     upcomingMeetings,
     pastMeetings,
@@ -7270,6 +7462,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     pendingWorkerTaskJumpId,
     prependDocWithoutDuplicates,
     previewParticipantId,
+    prototypeTrainingProgress,
     pushRecentActivity,
     quickLinks,
     recentActivity,
@@ -7386,6 +7579,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     visibleSiteInfoDoc,
     visibleTaskParticipants,
     visibleTrainingParticipants,
+    visiblePrototypeTrainingParticipants,
     visibleTravelFormParticipants,
     withComputedStaffDueDates,
     workerAddStatus,
