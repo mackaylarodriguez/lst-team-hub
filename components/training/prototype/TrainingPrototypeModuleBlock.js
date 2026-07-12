@@ -31,7 +31,6 @@ export default function TrainingPrototypeModuleBlock({
   defaultOpen = true,
   onOpenFullSession,
   onOpenQuiz,
-  onMarkSectionRead,
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const sections = module.sections || [];
@@ -126,16 +125,6 @@ export default function TrainingPrototypeModuleBlock({
                             onClick={() => onOpenQuiz(module.id)}
                           />
                         </div>
-                        <div className="trainingPrototypeMarkReadRow">
-                          <button
-                            type="button"
-                            className={sectionComplete ? "btn" : "btn btnPrimary"}
-                            disabled={sectionComplete}
-                            onClick={() => onMarkSectionRead?.(section.id)}
-                          >
-                            {sectionComplete ? "Marked as read" : "Mark as read"}
-                          </button>
-                        </div>
                       </div>
                     </div>
                   ) : (
@@ -144,16 +133,6 @@ export default function TrainingPrototypeModuleBlock({
                         <TrainingPrototypeFullSessionButton
                           onClick={() => onOpenFullSession(module.id, section.id)}
                         />
-                      </div>
-                      <div className="trainingPrototypeMarkReadRow">
-                        <button
-                          type="button"
-                          className={sectionComplete ? "btn" : "btn btnPrimary"}
-                          disabled={sectionComplete}
-                          onClick={() => onMarkSectionRead?.(section.id)}
-                        >
-                          {sectionComplete ? "Marked as read" : "Mark as read"}
-                        </button>
                       </div>
                     </div>
                   )}

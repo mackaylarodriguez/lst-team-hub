@@ -12,6 +12,8 @@ export default function TrainingSectionFullView({
   onPrevious,
   onContinue,
   continueLabel = "Next",
+  sectionComplete = false,
+  onMarkAsRead,
 }) {
   const [videoWatched, setVideoWatched] = useState(false);
   const blocks = section?.fullSessionBlocks || [{ heading: section?.title, body: section?.body }];
@@ -27,6 +29,14 @@ export default function TrainingSectionFullView({
             Previous
           </button>
           <div className="spacer" />
+          <button
+            type="button"
+            className={sectionComplete ? "btn" : "btn btnPrimary"}
+            disabled={sectionComplete}
+            onClick={onMarkAsRead}
+          >
+            {sectionComplete ? "Marked as read" : "Mark as read"}
+          </button>
           {section?.showVideo ? (
             <button
               type="button"

@@ -97,7 +97,6 @@ export default function TripTrainingPrototypePanel() {
               defaultOpen={index === 0}
               onOpenFullSession={openFullSession}
               onOpenQuiz={openQuiz}
-              onMarkSectionRead={markSectionComplete}
             />
           ))}
         </div>
@@ -117,6 +116,8 @@ export default function TripTrainingPrototypePanel() {
               ? "Continue to quiz"
               : "Next"
           }
+          sectionComplete={!!completedSectionIds[activeSection.id]}
+          onMarkAsRead={() => markSectionComplete(activeSection.id)}
         />
       ) : null}
 
