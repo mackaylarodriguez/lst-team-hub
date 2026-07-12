@@ -11,12 +11,15 @@ import {
   resolvePrototypeSectionVideoEmbed,
 } from "@/lib/trainingCenterPrototypeMock";
 import TrainingPrototypeQuizForm from "./TrainingPrototypeQuizForm";
+import TrainingPrototypeSectionAckStatus from "./TrainingPrototypeSectionAckStatus";
 
 export default function TrainingPrototypeModuleBlock({
   module,
   completedSectionIds,
   defaultOpen = true,
   canEdit = false,
+  canViewSectionAckRoster = false,
+  sectionCompletionRosters = {},
   onEditModule,
   onOpenFullSession,
   onOpenQuiz,
@@ -105,6 +108,10 @@ export default function TrainingPrototypeModuleBlock({
                         allowFullScreen
                       />
                     </div>
+                  ) : null}
+
+                  {canViewSectionAckRoster ? (
+                    <TrainingPrototypeSectionAckStatus roster={sectionCompletionRosters[section.id]} />
                   ) : null}
 
                   {section.isQuiz ? (

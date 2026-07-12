@@ -6566,6 +6566,32 @@ normalizeEmail(participant.email) === activeParticipantEmail
       ? [currentPrototypeTrainingProgress]
       : [];
 
+  const prototypeSectionCompletionRosters = useMemo(() => {
+    if (!canViewTeamDashboard) return {};
+
+    const rosters = {};
+    for (const section of allPrototypeSections) {
+      const completed = [];
+      const missing = [];
+
+      for (const participant of prototypeTrainingProgress) {
+        if (participant.sectionState?.[section.id]) {
+          completed.push(participant);
+        } else {
+          missing.push(participant);
+        }
+      }
+
+      rosters[section.id] = {
+        completed,
+        missing,
+        total: prototypeTrainingProgress.length,
+      };
+    }
+
+    return rosters;
+  }, [canViewTeamDashboard, allPrototypeSections, prototypeTrainingProgress]);
+
   const overviewUpcomingTasks = useMemo(() => {
     if (!trip) return [];
 
@@ -7463,6 +7489,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     prependDocWithoutDuplicates,
     previewParticipantId,
     prototypeTrainingProgress,
+    prototypeSectionCompletionRosters,
     pushRecentActivity,
     quickLinks,
     recentActivity,

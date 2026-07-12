@@ -3973,6 +3973,37 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   flex-wrap:wrap;
   margin-top:2px;
 }
+.trainingPrototypeSectionAckStatus{
+  margin-top:16px;
+  padding-top:14px;
+  border-top:1px solid rgba(15,23,42,.08);
+}
+.trainingPrototypeSectionAckHeading{
+  font-size:13px;
+  font-weight:800;
+  margin-bottom:8px;
+}
+.trainingPrototypeSectionAckColumns{
+  display:grid;
+  gap:10px;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+}
+.trainingPrototypeSectionAckLabel{
+  font-size:12px;
+  font-weight:700;
+  margin-bottom:4px;
+}
+.trainingPrototypeSectionAckList{
+  margin:0;
+  padding-left:18px;
+  font-size:13px;
+  line-height:1.45;
+}
+.trainingPrototypeSectionAckEmpty{
+  list-style:none;
+  margin-left:-18px;
+  color:var(--muted);
+}
 .trainingPrototypeSectionActions{
   display:grid;
   gap:10px;

@@ -22,9 +22,11 @@ export default function TripTrainingPrototypePanel() {
   const {
     activeParticipantEmail,
     canManageTrips,
+    canViewTeamDashboard,
     completedPrototypeSectionIds,
     markPrototypeSectionComplete,
     optionalTrainingResources,
+    prototypeSectionCompletionRosters,
     requiredTrainingResources,
   } = useTripPage();
   const [modules, setModules] = useState(() => clonePrototypeModules());
@@ -138,6 +140,8 @@ export default function TripTrainingPrototypePanel() {
               completedSectionIds={completedPrototypeSectionIds}
               defaultOpen={index === 0}
               canEdit={canManageTrips}
+              canViewSectionAckRoster={canViewTeamDashboard}
+              sectionCompletionRosters={prototypeSectionCompletionRosters}
               onEditModule={setEditingModuleId}
               onOpenFullSession={openFullSession}
               onOpenQuiz={openQuiz}
