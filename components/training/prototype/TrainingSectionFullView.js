@@ -1,7 +1,7 @@
 import { useState } from "react";
 import TrainingPrototypeFullscreenShell from "./TrainingPrototypeFullscreenShell";
 import TrainingPrototypeRichText from "./TrainingPrototypeRichText";
-import { TRAINING_CENTER_PROTOTYPE_VIDEO } from "@/lib/trainingCenterPrototypeMock";
+import { TRAINING_CENTER_PROTOTYPE_VIDEO, resolvePrototypeSectionVideoEmbed } from "@/lib/trainingCenterPrototypeMock";
 
 export default function TrainingSectionFullView({
   section,
@@ -17,6 +17,8 @@ export default function TrainingSectionFullView({
 }) {
   const [videoWatched, setVideoWatched] = useState(false);
   const blocks = section?.fullSessionBlocks || [{ heading: section?.title, body: section?.body }];
+  const videoEmbedUrl = resolvePrototypeSectionVideoEmbed(section);
+  const videoDescription = section?.videoDescription || TRAINING_CENTER_PROTOTYPE_VIDEO.description;
 
   return (
     <TrainingPrototypeFullscreenShell
@@ -77,11 +79,11 @@ export default function TrainingSectionFullView({
 
       {section?.showVideo ? (
         <div>
-          <p className="small trainingPrototypeMuted">{TRAINING_CENTER_PROTOTYPE_VIDEO.description}</p>
+          <p className="small trainingPrototypeMuted">{videoDescription}</p>
           <div className="trainingPrototypeVideoWrap">
             <iframe
-              title="Prototype training video sample"
-              src={TRAINING_CENTER_PROTOTYPE_VIDEO.embedUrl}
+              title={section?.title || "Training video"}
+              src={videoEmbedUrl}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />

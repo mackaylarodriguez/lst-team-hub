@@ -3,10 +3,10 @@ import CollapsibleSection from "@/components/CollapsibleSection";
 import TrainingPrototypeRichText from "./TrainingPrototypeRichText";
 import TrainingPrototypeFullSessionButton from "./TrainingPrototypeFullSessionButton";
 import {
-  TRAINING_CENTER_PROTOTYPE_VIDEO,
   PROTOTYPE_STATUS_META,
   formatPrototypeDueDate,
   getPrototypeModuleStatus,
+  resolvePrototypeSectionVideoEmbed,
 } from "@/lib/trainingCenterPrototypeMock";
 
 export default function TrainingPrototypeModuleBlock({
@@ -95,8 +95,8 @@ export default function TrainingPrototypeModuleBlock({
                   {section.showVideo ? (
                     <div className="trainingPrototypeVideoWrap trainingPrototypeVideoWrapCompact">
                       <iframe
-                        title="Prototype embedded video preview"
-                        src={TRAINING_CENTER_PROTOTYPE_VIDEO.embedUrl}
+                        title={section.title || "Training video preview"}
+                        src={resolvePrototypeSectionVideoEmbed(section)}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
                       />
