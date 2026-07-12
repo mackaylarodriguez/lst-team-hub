@@ -1548,11 +1548,6 @@ export default function BudgetPage() {
           <AppIcon name="active" className="pageEyebrowIcon" />
           <span>Budget</span>
         </h1>
-        <p className="small" style={{ marginBottom: 24 }}>
-          Overview rolls up team budgets, airfare, housing, and on-site expenses across all trips. Per-site
-          materials notes are edited on <Link href="/sites">Sites</Link> and each trip&apos;s Materials tab—not
-          here. Travel forms stay per team on each trip page.
-        </p>
 
         {status ? <div className="small" style={{ marginBottom: 12 }}>{status}</div> : null}
 
@@ -1698,40 +1693,43 @@ export default function BudgetPage() {
 
         {tab === "Overview" && (
           <div className="card pad" style={budgetSectionCardStyle}>
-            <div
-              className="row"
-              style={{
-                gap: 12,
-                flexWrap: "wrap",
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-                marginBottom: 8,
-              }}
-            >
-              <div>
+            <div style={{ marginBottom: 8 }}>
+              <div
+                className="row mobileSectionHeader"
+                style={{ gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
+              >
                 <div style={{ fontWeight: 900 }}>Team budget overview</div>
-                <p className="small" style={{ color: "var(--muted)", margin: "6px 0 0" }}>
-                  Team budgets are entered here only. Airfare totals sum ticket rows from Ticketing. Housing
-                  pulls each team&apos;s housing amount. On-site expenses sum line items from the On-site
-                  expenses tab. Leftover is team budget minus those three categories.
-                </p>
-              </div>
-              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                {isEditingOverview ? (
-                  <>
-                    <button type="button" className="btn" onClick={cancelOverviewEdit}>
-                      Cancel
+                <div
+                  className="row mobileSectionHeaderActions"
+                  style={{
+                    gap: 8,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    marginLeft: "auto",
+                  }}
+                >
+                  {isEditingOverview ? (
+                    <>
+                      <button type="button" className="btn" onClick={cancelOverviewEdit}>
+                        Cancel
+                      </button>
+                      <button type="button" className="btn btnPrimary" onClick={() => void saveOverviewBudget()}>
+                        Save
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="btn btnPrimary" onClick={beginOverviewEdit}>
+                      Edit
                     </button>
-                    <button type="button" className="btn btnPrimary" onClick={() => void saveOverviewBudget()}>
-                      Save
-                    </button>
-                  </>
-                ) : (
-                  <button type="button" className="btn btnPrimary" onClick={beginOverviewEdit}>
-                    Edit
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
+              <p className="small" style={{ color: "var(--muted)", margin: "6px 0 0" }}>
+                Team budgets are entered here only. Airfare totals sum ticket rows from Ticketing. Housing
+                pulls each team&apos;s housing amount. On-site expenses sum line items from the On-site
+                expenses tab. Leftover is team budget minus those three categories.
+              </p>
             </div>
 
             <div style={{ ...budgetSectionSummaryGridStyle, marginBottom: 18 }}>
