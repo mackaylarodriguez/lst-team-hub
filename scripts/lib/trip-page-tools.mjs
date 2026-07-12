@@ -280,8 +280,10 @@ export function extractHookBindings(source) {
 
 export function extractReturnKeys(source) {
   const keys = new Set();
-  const match = source.match(/return \{([\s\S]*?)\n  \};\n\}/);
+  // Anchor on the main useTripPageModel return (pagePhase is always first).
+  const match = source.match(/return \{\n    pagePhase,([\s\S]*?)\n  \};\n\}/);
   if (!match) return keys;
+  keys.add("pagePhase");
   for (const line of match[1].split("\n")) {
     const m = line.match(/^\s+(\w+)(?::\s*\w+)?,/);
     if (m) keys.add(m[1]);
