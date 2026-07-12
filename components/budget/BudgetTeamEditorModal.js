@@ -39,6 +39,7 @@ function buildDraftFromSources(trip, budget, teamMembers, participants) {
     teamAccountant: budget?.teamAccountant || "",
     budgetAmount,
     onsiteExpensesAmount: budget?.onsiteExpensesAmount || "",
+    housingBudgetAmount: budget?.housingBudgetAmount || "",
     housingAmount: budget?.housingAmount || "",
     returnedAmount: budget?.returnedAmount || "",
     housingLink: budget?.housingLink || "",
@@ -210,6 +211,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
         teamAccountant: draft.teamAccountant,
         budgetAmount: draft.budgetAmount,
         onsiteExpensesAmount: draft.onsiteExpensesAmount,
+        housingBudgetAmount: draft.housingBudgetAmount,
         housingAmount: draft.housingAmount,
         returnedAmount: draft.returnedAmount,
         housingLink: draft.housingLink,
@@ -371,24 +373,35 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
             <section className="budgetTeamEditorSection budgetTeamEditorSectionWide">
               <h3 className="budgetTeamEditorSectionTitle">Housing</h3>
               <div className="budgetTeamEditorFormGrid">
-                <Field label="Housing amount">
-                  <EditorInput
-                    value={draft.housingAmount}
-                    onChange={(e) => patchDraft({ housingAmount: e.target.value })}
-                    onBlur={(e) => patchDraft({ housingAmount: normalizeMoneyInputToUsd(e.target.value) })}
-                    inputMode="decimal"
-                    placeholder="$0.00"
-                  />
-                </Field>
-                <Field label="Returned amount">
-                  <EditorInput
-                    value={draft.returnedAmount}
-                    onChange={(e) => patchDraft({ returnedAmount: e.target.value })}
-                    onBlur={(e) => patchDraft({ returnedAmount: normalizeMoneyInputToUsd(e.target.value) })}
-                    inputMode="decimal"
-                    placeholder="$0.00"
-                  />
-                </Field>
+                <div className="budgetTeamEditorHousingAmounts">
+                  <Field label="Housing budget">
+                    <EditorInput
+                      value={draft.housingBudgetAmount}
+                      onChange={(e) => patchDraft({ housingBudgetAmount: e.target.value })}
+                      onBlur={(e) => patchDraft({ housingBudgetAmount: normalizeMoneyInputToUsd(e.target.value) })}
+                      inputMode="decimal"
+                      placeholder="$0.00"
+                    />
+                  </Field>
+                  <Field label="Housing amount">
+                    <EditorInput
+                      value={draft.housingAmount}
+                      onChange={(e) => patchDraft({ housingAmount: e.target.value })}
+                      onBlur={(e) => patchDraft({ housingAmount: normalizeMoneyInputToUsd(e.target.value) })}
+                      inputMode="decimal"
+                      placeholder="$0.00"
+                    />
+                  </Field>
+                  <Field label="Returned amount">
+                    <EditorInput
+                      value={draft.returnedAmount}
+                      onChange={(e) => patchDraft({ returnedAmount: e.target.value })}
+                      onBlur={(e) => patchDraft({ returnedAmount: normalizeMoneyInputToUsd(e.target.value) })}
+                      inputMode="decimal"
+                      placeholder="$0.00"
+                    />
+                  </Field>
+                </div>
                 <Field label="Housing link" wide>
                   <EditorInput
                     value={draft.housingLink}

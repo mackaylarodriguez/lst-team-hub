@@ -305,6 +305,7 @@ function mergeHousingWithTrips(trips, budgets) {
         siteCity: "",
         teamAccountant: "",
         budgetAmount: "",
+        housingBudgetAmount: "",
         returnedAmount: "",
         housingAmount: "",
         onsiteExpensesAmount: "",
@@ -947,7 +948,7 @@ export default function BudgetPage() {
           siteCountry: row.siteCountry || trip?.location || "",
           siteCity: row.siteCity || "",
           teamAccountant: row.teamAccountant,
-          budgetAmount: row.budgetAmount,
+          housingBudgetAmount: row.housingBudgetAmount,
           returnedAmount: row.returnedAmount,
           housingAmount: row.housingAmount,
           housingLink: row.housingLink,
@@ -2185,7 +2186,7 @@ export default function BudgetPage() {
                         r.siteCountry || "",
                         String(countTripRosterMembers(teamMembersByTripId, r.tripId)),
                         r.teamAccountant || "",
-                        formatUsdDisplay(r.budgetAmount),
+                        formatUsdDisplay(r.housingBudgetAmount),
                         formatUsdDisplay(r.returnedAmount),
                         formatUsdDisplay(r.housingAmount),
                         r.housingLink || "",
@@ -2378,12 +2379,12 @@ export default function BudgetPage() {
                         <td style={{ minWidth: 112 }}>
                           <input
                             className="input"
-                            value={r.budgetAmount || ""}
-                            onChange={(e) => updateHousingDraftRow(r.tripId, "budgetAmount", e.target.value)}
+                            value={r.housingBudgetAmount || ""}
+                            onChange={(e) => updateHousingDraftRow(r.tripId, "housingBudgetAmount", e.target.value)}
                             onBlur={(e) => {
                               const next = normalizeMoneyInputToUsd(e.target.value);
-                              if (next !== (r.budgetAmount || "")) {
-                                updateHousingDraftRow(r.tripId, "budgetAmount", next);
+                              if (next !== (r.housingBudgetAmount || "")) {
+                                updateHousingDraftRow(r.tripId, "housingBudgetAmount", next);
                               }
                             }}
                             inputMode="decimal"
@@ -2599,7 +2600,7 @@ export default function BudgetPage() {
                           {countTripRosterMembers(teamMembersByTripId, r.tripId)}
                         </td>
                         <td>{r.teamAccountant || ""}</td>
-                        <td>{formatUsdDisplay(r.budgetAmount)}</td>
+                        <td>{formatUsdDisplay(r.housingBudgetAmount)}</td>
                         <td>{formatUsdDisplay(r.returnedAmount)}</td>
                         <td
                           style={{
