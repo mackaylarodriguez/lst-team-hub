@@ -3875,6 +3875,10 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeModuleShell{
   display:grid;
   gap:14px;
+  padding:16px 18px;
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:12px;
+  background:#fff;
 }
 .trainingPrototypeModuleList{
   display:grid;
@@ -4096,6 +4100,14 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:grid;
   gap:6px;
 }
+.trainingPrototypeSectionStack .collapsibleSectionSlim{
+  background:#f3f4f6;
+  border-color:rgba(15,23,42,.08);
+  box-shadow:none;
+}
+.trainingPrototypeSectionStack .collapsibleSectionSlimHeader{
+  background:rgba(15,23,42,.025);
+}
 .trainingPrototypeSectionInner{
   display:grid;
   gap:8px;
@@ -4154,7 +4166,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   border:1px solid rgba(15,23,42,.1);
   border-radius:12px;
   padding:14px 16px;
-  background:rgba(255,255,255,.72);
+  background:#eef0f3;
 }
 .trainingPrototypeTimelineCard .trainingPrototypeRichText{
   gap:10px;
