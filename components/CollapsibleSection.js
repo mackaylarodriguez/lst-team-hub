@@ -104,7 +104,7 @@ export default function CollapsibleSection({
           <span
             className={isSlim ? "collapsibleSectionSlimChevron" : "collapsibleSectionDefaultChevron"}
             aria-hidden
-            style={isSlim ? undefined : { fontSize: 12, marginTop: 3, flexShrink: 0 }}
+            style={isSlim ? undefined : { flexShrink: 0 }}
           >
             {open ? "\u25BC" : "\u25B6"}
           </span>
@@ -114,7 +114,6 @@ export default function CollapsibleSection({
           >
             <span
               className={isSlim ? "collapsibleSectionSlimTitle" : "collapsibleSectionDefaultTitle"}
-              style={isSlim ? undefined : { fontWeight: 800, display: "block" }}
             >
               {title}
             </span>

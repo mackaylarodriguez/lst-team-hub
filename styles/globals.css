@@ -2252,28 +2252,35 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .tripTrainingResourcesDropdown .collapsibleSectionDefaultHeader{
   background:#fff;
-  padding:14px 18px;
+  padding:16px 18px;
   border-bottom:1px solid transparent;
   align-items:center;
 }
 .tripTrainingResourcesDropdown:has(.collapsibleSectionDefaultPanel) .collapsibleSectionDefaultHeader{
   border-bottom-color:rgba(15,23,42,.06);
 }
-.tripTrainingResourcesDropdown .collapsibleSectionDefaultHeader > button{
+.tripTrainingResourcesDropdown .collapsibleSectionDefaultToggle,
+.trainingPrototypeModuleToggle{
   align-items:center;
 }
-.tripTrainingResourcesDropdown .collapsibleSectionDefaultChevron{
+.tripTrainingResourcesDropdown .collapsibleSectionDefaultChevron,
+.trainingPrototypeModuleChevron{
+  width:12px;
   font-size:12px;
   margin-top:0;
   flex-shrink:0;
   color:var(--primary);
   line-height:1;
+  text-align:center;
 }
 .tripTrainingResourcesDropdown .collapsibleSectionDefaultTitleWrap{
   display:flex;
   align-items:center;
+  min-width:0;
+  flex:1;
 }
-.tripTrainingResourcesDropdown .collapsibleSectionDefaultTitle{
+.tripTrainingResourcesDropdown .collapsibleSectionDefaultTitle,
+.trainingPrototypeModuleHeading{
   margin:0;
   font-size:22px;
   line-height:1.2;
@@ -2288,7 +2295,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   margin:0 0 8px;
 }
 .collapsibleSectionDefaultToggle{
-  align-items:flex-start;
+  align-items:center;
 }
 .tripTrainingPanel{
   margin-bottom:4px;
@@ -3927,7 +3934,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   flex:1;
   min-width:0;
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   gap:10px;
   padding:0;
   border:0;
@@ -3939,9 +3946,12 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .trainingPrototypeModuleChevron{
   font-size:12px;
-  margin-top:8px;
+  margin-top:0;
   flex-shrink:0;
   color:var(--primary);
+  width:12px;
+  line-height:1;
+  text-align:center;
 }
 .trainingPrototypeModuleHeadingContent{
   min-width:0;
@@ -3949,11 +3959,11 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .trainingPrototypeModuleHeadingRow{
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   justify-content:space-between;
   gap:12px;
   flex-wrap:wrap;
-  padding:0 2px;
+  padding:0;
 }
 .trainingPrototypeSectionFooter{
   display:flex;
@@ -4000,13 +4010,6 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   stroke-width:1.8;
   stroke-linecap:round;
   stroke-linejoin:round;
-}
-.trainingPrototypeModuleHeading{
-  margin:0;
-  font-size:22px;
-  line-height:1.2;
-  font-weight:900;
-  color:var(--primary);
 }
 .trainingPrototypeCanvasGrid{
   display:block;
