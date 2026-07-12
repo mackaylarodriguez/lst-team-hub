@@ -2252,17 +2252,26 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .tripTrainingResourcesDropdown .collapsibleSectionDefaultHeader{
   background:#fff;
-  padding:16px 18px 14px;
+  padding:14px 18px;
   border-bottom:1px solid transparent;
+  align-items:center;
 }
 .tripTrainingResourcesDropdown:has(.collapsibleSectionDefaultPanel) .collapsibleSectionDefaultHeader{
   border-bottom-color:rgba(15,23,42,.06);
 }
+.tripTrainingResourcesDropdown .collapsibleSectionDefaultHeader > button{
+  align-items:center;
+}
 .tripTrainingResourcesDropdown .collapsibleSectionDefaultChevron{
   font-size:12px;
-  margin-top:8px;
+  margin-top:0;
   flex-shrink:0;
   color:var(--primary);
+  line-height:1;
+}
+.tripTrainingResourcesDropdown .collapsibleSectionDefaultTitleWrap{
+  display:flex;
+  align-items:center;
 }
 .tripTrainingResourcesDropdown .collapsibleSectionDefaultTitle{
   margin:0;
