@@ -400,6 +400,22 @@ function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, t
   });
 }
 
+function BudgetCheckSectionPill({ label, count, tone = "primary", style }) {
+  const toneClass =
+    tone === "pending"
+      ? "budgetCheckSectionPillPending"
+      : tone === "processed"
+        ? "budgetCheckSectionPillProcessed"
+        : "budgetCheckSectionPillPrimary";
+
+  return (
+    <div className={`budgetCheckSectionPill ${toneClass}`} style={style}>
+      <span className="budgetCheckSectionPillLabel">{label}</span>
+      {count != null ? <span className="budgetCheckSectionPillCount">{count}</span> : null}
+    </div>
+  );
+}
+
 function BudgetOverviewStackedBar({ fundraisingTotal, airfareTotal, housingTotal, feeTotal, leftover }) {
   const spentTotal = airfareTotal + housingTotal + (feeTotal ?? 0);
   if (fundraisingTotal == null && spentTotal <= 0) {
@@ -3263,7 +3279,7 @@ export default function BudgetPage() {
 
         {tab === "Checks" && (
           <div className="card pad" style={budgetSectionCardStyle}>
-            <div style={{ fontWeight: 900, marginBottom: 16 }}>Printed checks</div>
+            <BudgetCheckSectionPill label="Printed checks" style={{ marginBottom: 16 }} />
 
             <div
               className="row"
@@ -3358,7 +3374,12 @@ export default function BudgetPage() {
               </button>
             </div>
 
-            <div style={{ fontWeight: 800, marginBottom: 10 }}>Pending</div>
+            <BudgetCheckSectionPill
+              label="Pending"
+              count={budgetCheckPendingRows.length}
+              tone="pending"
+              style={{ marginBottom: 10 }}
+            />
             {budgetCheckPendingRows.length === 0 ? (
               <p className="small" style={{ color: "var(--muted)", marginBottom: 24 }}>
                 No open requests.
@@ -3434,7 +3455,12 @@ export default function BudgetPage() {
               </div>
             )}
 
-            <div style={{ fontWeight: 800, marginBottom: 10 }}>Processed</div>
+            <BudgetCheckSectionPill
+              label="Processed"
+              count={budgetCheckProcessedRows.length}
+              tone="processed"
+              style={{ marginBottom: 10 }}
+            />
             {budgetCheckProcessedRows.length === 0 ? (
               <p className="small" style={{ color: "var(--muted)" }}>
                 No completed requests yet.
