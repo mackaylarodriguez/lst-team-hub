@@ -45,7 +45,6 @@ const tripStaffBudgetCardValueStyle = {
 
 export default function TripFundraisingTab() {
     const {
-    canManageTrips,
     canManageTripFundraising,
     canViewFundraisingTeamDashboard,
     canViewTeamDashboard,
@@ -72,6 +71,7 @@ export default function TripFundraisingTab() {
     setIsEditingTeamFundraising,
     setTeamFundraisingDraft,
     setTeamFundraisingStatus,
+    staffViewAllParticipants,
     tab,
     teamFundraisingDraft,
     teamFundraisingStatus,
@@ -106,7 +106,7 @@ export default function TripFundraisingTab() {
   return (
     <>
     <div style={{ display: "grid", gap: 16 }}>
-              {canManageTrips ? (
+              {staffViewAllParticipants ? (
                 <div
                   className="card pad"
                   style={{
@@ -725,7 +725,7 @@ export default function TripFundraisingTab() {
               </CollapsibleSection>
 
             </div>
-      {teamBudgetEditorOpen && trip?.id ? (
+      {staffViewAllParticipants && teamBudgetEditorOpen && trip?.id ? (
         <BudgetTeamEditorModal
           tripId={trip.id}
           trip={trip}
