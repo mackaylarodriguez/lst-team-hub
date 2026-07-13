@@ -26,6 +26,9 @@ const tripStaffBudgetCardStyle = {
   display: "grid",
   gap: 6,
   minWidth: 0,
+  textAlign: "center",
+  justifyItems: "center",
+  alignContent: "center",
 };
 
 const tripStaffBudgetCardLabelStyle = {
@@ -134,10 +137,6 @@ export default function TripFundraisingTab() {
                       <div className="cardSectionPill" style={{ marginBottom: 6 }}>
                         Staff: Team budget & expenses
                       </div>
-                      <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
-                        Total fundraising is the combined worker goals. Team budget, airfare, housing, and fees
-                        roll into leftover.
-                      </div>
                     </div>
                     <button
                       type="button"
@@ -158,7 +157,12 @@ export default function TripFundraisingTab() {
                         {card.detail ? (
                           <div
                             className="small"
-                            style={{ color: "var(--muted)", lineHeight: 1.35, marginTop: 2 }}
+                            style={{
+                              color: "var(--muted)",
+                              lineHeight: 1.35,
+                              marginTop: 2,
+                              textAlign: "center",
+                            }}
                           >
                             {card.detail}
                           </div>
