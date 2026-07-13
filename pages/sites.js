@@ -715,7 +715,7 @@ export default function SitesPage() {
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics</div>
           <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.45 }}>
-            Host contacts, logistics maps, and housing notes for each site.
+            Host contacts, logistics maps, and budget notes for each site.
           </p>
         </div>
         <div className="sitesLogisticsScroller">
@@ -726,7 +726,7 @@ export default function SitesPage() {
                 <th>Host</th>
                 <th>Map</th>
                 <th>Source</th>
-                <th>Housing notes</th>
+                <th>Budget Notes</th>
                 <th className="small" style={{ textAlign: "right", color: "var(--muted)", fontWeight: 700 }}>
                   Actions
                 </th>
@@ -927,7 +927,7 @@ export default function SitesPage() {
                       >
                         <div style={{ display: "grid", gap: 10, maxWidth: 720 }}>
                           <label className="small" style={{ fontWeight: 700, color: "var(--text)" }}>
-                            Housing / logistics note (same as Budget → Site housing notes)
+                            Budget Notes (same as Budget → Site housing notes)
                           </label>
                           <textarea
                             className="input"
