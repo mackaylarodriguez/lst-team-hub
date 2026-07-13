@@ -604,14 +604,15 @@ a.btn{
 }
 .tripDetailHeroSlimInner{
   display:flex;
-  flex-wrap:wrap;
+  flex-wrap:nowrap;
   align-items:center;
-  gap:8px 14px;
+  gap:10px 16px;
   position:relative;
   z-index:1;
+  width:100%;
 }
 .tripDetailHeroSlimTitleBlock{
-  flex:1 1 180px;
+  flex:0 1 220px;
   min-width:0;
 }
 .tripDetailHeroSlimTitle{
@@ -629,12 +630,11 @@ a.btn{
   color:var(--muted);
 }
 .tripDetailHeroSlimProgress{
-  flex:1 1 150px;
-  max-width:240px;
-  min-width:130px;
+  flex:1 1 auto;
+  min-width:0;
   display:flex;
   align-items:center;
-  gap:8px;
+  gap:10px;
 }
 .tripDetailHeroSlimProgressLabel{
   font-size:10px;
@@ -646,28 +646,29 @@ a.btn{
 }
 .tripDetailHeroSlimProgressBar{
   flex:1;
-  height:6px;
+  height:8px;
   margin:0;
-  min-width:48px;
+  min-width:0;
 }
 .tripDetailHeroSlimProgressPct{
-  font-size:12px;
+  font-size:13px;
   font-weight:800;
   color:var(--primary);
   white-space:nowrap;
-  min-width:2.2em;
+  min-width:2.4em;
   text-align:right;
 }
 .tripDetailHeroSlimCountdown{
-  flex:0 1 auto;
+  flex:0 0 auto;
   display:flex;
   flex-direction:column;
   gap:1px;
-  padding:4px 10px;
+  padding:6px 14px;
   border-radius:10px;
   border:1px solid rgba(249,157,42,.2);
   background:linear-gradient(180deg, rgba(255,244,223,.75), rgba(255,255,255,.92));
   min-width:0;
+  white-space:nowrap;
 }
 .tripDetailHeroSlimCountdownValue{
   font-size:13px;
@@ -687,8 +688,8 @@ a.btn{
   align-items:center;
   justify-content:flex-end;
   gap:6px;
-  flex:1 1 220px;
-  margin-left:auto;
+  flex:0 0 auto;
+  margin-left:0;
 }
 .tripDetailHeroCompact::after{
   width:4px;
@@ -3208,20 +3209,27 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
     width:100%;
   }
   .tripDetailHeroSlimInner{
+    flex-wrap:wrap;
     gap:8px 10px;
   }
-  .tripDetailHeroSlimProgress{
+  .tripDetailHeroSlimTitleBlock{
+    flex:1 1 100%;
     max-width:none;
+  }
+  .tripDetailHeroSlimProgress{
+    flex:1 1 100%;
     width:100%;
     order:3;
   }
   .tripDetailHeroSlimCountdown{
+    flex:1 1 auto;
     order:2;
   }
   .tripDetailHeroSlimActions{
     width:100%;
     margin-left:0;
     order:4;
+    justify-content:flex-start;
   }
   .table{
     display:block;
