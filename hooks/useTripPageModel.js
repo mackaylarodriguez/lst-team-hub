@@ -156,7 +156,7 @@ import {
   listSiteBudgetNotes,
   saveTripBudget,
   uploadTripHousingPdf,
-  computeTripBudgetOverviewSummary,
+  computeStaffTeamBudgetExpenseSummary,
 } from "@/lib/tripBudget";
 import {
   deleteBudgetCheckRequest,
@@ -1045,31 +1045,35 @@ export function useTripPageModel() {
 
   const tripStaffBudgetSummary = useMemo(() => {
     if (!trip?.id) return null;
-    const summary = computeTripBudgetOverviewSummary({
+    const fundraisingBudgetTotal = computeTeamFundraisingGoalTotal(trip);
+    return computeStaffTeamBudgetExpenseSummary({
       budgetRow: tripStaffBudgetSnapshot,
       ticketRows: tripStaffBudgetTickets,
       tripId: trip.id,
+      trip,
+      fundraisingTotal: fundraisingBudgetTotal,
+      isDomestic: isUsMassachusettsMissionSite(trip?.location),
     });
-    const fundraisingBudgetTotal = computeTeamFundraisingGoalTotal(trip);
-    const budgetTotal = fundraisingBudgetTotal > 0 ? fundraisingBudgetTotal : null;
-    if (budgetTotal == null) return { ...summary, budgetTotal: null, leftover: null };
-
-    const spentTotal =
-      summary.airfareTotal + summary.housingTotal + (summary.onsiteTotal ?? 0);
-    return {
-      ...summary,
-      budgetTotal,
-      leftover: budgetTotal - spentTotal,
-    };
   }, [
     trip,
     trip?.id,
+    trip?.location,
     trip?.teamMembers,
     trip?.participants,
     trip?.fundraisingGoalAmount,
+    trip?.tripFeeAmount,
+    trip?.materialsFeeAmount,
+    trip?.domesticProjectFeeAmount,
+    trip?.domesticFeeAmount,
+    trip?.domesticMaterialsFeeAmount,
     tripStaffBudgetSnapshot,
     tripStaffBudgetTickets,
   ]);
+
+  const mergeTripFields = useCallback((patch) => {
+    if (!patch || typeof patch !== "object") return;
+    setTrip((current) => (current ? { ...current, ...patch } : current));
+  }, []);
 
   useEffect(() => {
     if (!trip?.id || tab !== "Materials") return;
@@ -7766,6 +7770,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     handleUploadParticipantDocument,
     persistWorkerTaskDueDate,
     refreshTripStaffBudgetData,
+    mergeTripFields,
     restoreDismissedDefaultTripDocuments,
     runTripDocsUndoAction,
     saveStaffTasks: persistStaffTasks,

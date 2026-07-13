@@ -78,19 +78,18 @@ export default function TripFundraisingTab() {
     trip,
     tripStaffBudgetSummary,
     refreshTripStaffBudgetData,
+    mergeTripFields,
     updateFundraisingDraft,
     visibleFundraisingParticipants,
   } = useTripPage();
   const [teamBudgetEditorOpen, setTeamBudgetEditorOpen] = useState(false);
 
   const staffBudgetCards = [
+    { label: "Total fundraising", value: tripStaffBudgetSummary?.fundraisingTotal },
     { label: "Team budget", value: tripStaffBudgetSummary?.budgetTotal },
     { label: "Airfare", value: tripStaffBudgetSummary?.airfareTotal },
     { label: "Housing", value: tripStaffBudgetSummary?.housingTotal },
-    {
-      label: "On-site expenses",
-      value: tripStaffBudgetSummary?.onsiteTotal,
-    },
+    { label: "Fee", value: tripStaffBudgetSummary?.feeTotal },
     {
       label: "Leftover",
       value: tripStaffBudgetSummary?.leftover,
@@ -132,7 +131,8 @@ export default function TripFundraisingTab() {
                         Staff: Team budget & expenses
                       </div>
                       <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
-                        Team budget is the combined worker fundraising goals for this team.
+                        Total fundraising is the combined worker goals. Team budget, airfare, housing, and fees
+                        roll into leftover.
                       </div>
                     </div>
                     <button
@@ -731,7 +731,10 @@ export default function TripFundraisingTab() {
           trip={trip}
           tripName={trip.name || ""}
           onClose={() => setTeamBudgetEditorOpen(false)}
-          onSaved={() => void refreshTripStaffBudgetData()}
+          onSaved={(feePatch) => {
+            if (feePatch) mergeTripFields(feePatch);
+            void refreshTripStaffBudgetData();
+          }}
         />
       ) : null}
     </>
