@@ -1871,7 +1871,7 @@ export default function BudgetPage() {
           </button>
         </div>
 
-        {averages && tab === "Housing" && (
+        {averages && tab !== "Checks" && (
           <div className="card pad" style={{ marginBottom: 24 }}>
             <div style={{ fontWeight: 900, marginBottom: 12 }}>Budget averages</div>
             <div
@@ -1891,7 +1891,50 @@ export default function BudgetPage() {
                   maxWidth: 320,
                 }}
               >
-                <div className="small" style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: ".09em", marginBottom: 4, color: "#0f766e" }}>
+                <div
+                  className="small"
+                  style={{
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    letterSpacing: ".09em",
+                    marginBottom: 4,
+                    color: "#1d4ed8",
+                  }}
+                >
+                  Airfare
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
+                  {averages.airfare?.average != null
+                    ? formatUsdNumber(Number(averages.airfare.average))
+                    : "—"}
+                </div>
+                {averages.airfare?.count > 0 ? (
+                  <div className="small" style={{ color: "var(--muted)" }}>
+                    Average ticket cost ({averages.airfare.count} ticket
+                    {averages.airfare.count === 1 ? "" : "s"})
+                  </div>
+                ) : null}
+              </div>
+              <div
+                className="card pad"
+                style={{
+                  boxShadow: "none",
+                  background:
+                    "linear-gradient(180deg, rgba(240,249,255,1), rgba(255,255,255,1) 55%)",
+                  borderColor: "rgba(14,116,144,.25)",
+                  maxWidth: 320,
+                }}
+              >
+                <div
+                  className="small"
+                  style={{
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    letterSpacing: ".09em",
+                    marginBottom: 4,
+                    color: "#0f766e",
+                  }}
+                >
                   Housing
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
