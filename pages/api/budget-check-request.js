@@ -6,6 +6,7 @@
  *
  * Env (optional):
  * - BUDGET_CHECK_NOTIFY_EMAIL — notification recipient (use during testing so finance isn’t flooded).
+ * - BUDGET_CHECK_CC_EMAIL — CC list (defaults to mackayla.rodriguez@lst.org).
  * - BUDGET_CHECK_ASSIGNEE_EMAIL or DONNA_STAFF_EMAIL — optional override for the misc-task assignee (defaults to
  *   donna.tucker@lst.org so other “Donna” profiles are never picked by mistake).
  * - BUDGET_CHECK_ASSIGNEE_NAME — optional display name on the misc task (defaults to “Donna Tucker” for Donna’s email).
@@ -21,6 +22,7 @@ import {
   buildBudgetCheckStaffEmailHtml,
   buildBudgetCheckStaffEmailSubject,
 } from "@/lib/budgetCheckStaffEmail";
+import { parseNotifyEmailList } from "@/lib/resendMail";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -28,6 +30,13 @@ function normalizeText(value) {
 
 function normalizeEmail(value) {
   return normalizeText(value).toLowerCase();
+}
+
+/** Staff copied on every budget-check notification (override via BUDGET_CHECK_CC_EMAIL). */
+const DEFAULT_BUDGET_CHECK_CC_EMAIL = "mackayla.rodriguez@lst.org";
+
+function getBudgetCheckCcEmails() {
+  return parseNotifyEmailList(process.env.BUDGET_CHECK_CC_EMAIL || DEFAULT_BUDGET_CHECK_CC_EMAIL);
 }
 
 function getBearerToken(req) {
@@ -187,10 +196,14 @@ function resolveBudgetCheckTaskAssignee() {
   return { email, name: "Donna" };
 }
 
-async function sendNotifyEmail({ to, subject, html }) {
+async function sendNotifyEmail({ to, subject, html, cc }) {
   const key = normalizeText(process.env.RESEND_API_KEY);
   const from = normalizeText(process.env.BUDGET_CHECK_FROM_EMAIL);
   const toNorm = normalizeEmail(to);
+  const ccList = (Array.isArray(cc) ? cc : cc ? [cc] : [])
+    .map(normalizeEmail)
+    .filter(Boolean)
+    .filter((email) => email !== toNorm);
 
   if (!key) {
     return { sent: false, reason: "missing_resend_api_key" };
@@ -202,18 +215,23 @@ async function sendNotifyEmail({ to, subject, html }) {
     return { sent: false, reason: "missing_notify_to" };
   }
 
+  const payload = {
+    from,
+    to: [toNorm],
+    subject,
+    html,
+  };
+  if (ccList.length) {
+    payload.cc = ccList;
+  }
+
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      from,
-      to: [toNorm],
-      subject,
-      html,
-    }),
+    body: JSON.stringify(payload),
   });
 
   const json = await res.json().catch(() => ({}));
@@ -445,7 +463,12 @@ export default async function handler(req, res) {
       checksUrl: getBudgetChecksUrl(req),
     });
 
-    const emailResult = await sendNotifyEmail({ to: notifyTo, subject, html });
+    const emailResult = await sendNotifyEmail({
+      to: notifyTo,
+      subject,
+      html,
+      cc: getBudgetCheckCcEmails(),
+    });
     if (!emailResult.sent) {
       console.warn("[budget-check-request] notification email not sent:", emailResult.reason, emailResult.detail || "");
     }

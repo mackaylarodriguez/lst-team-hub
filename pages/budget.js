@@ -23,6 +23,8 @@ import {
   cleanupSiteBudgetNotesRows,
   saveSiteHousingNoteForSiteLabel,
   uploadTripHousingPdf,
+  housingAmountFromBudgetRow,
+  sumHousingAmountColumn,
 } from "@/lib/tripBudget";
 import {
   listAllTripTickets,
@@ -368,7 +370,7 @@ function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, t
     const savedBudgetTotal = parseBudgetAmountOrNull(row.budgetAmount);
     const budgetTotal = fundraisingBudgetTotal > 0 ? fundraisingBudgetTotal : savedBudgetTotal;
     const airfareTotal = sumTicketAirfareForTrip(ticketRows, row.tripId);
-    const housingTotal = parseCurrencyLike(row.housingAmount) ?? 0;
+    const housingTotal = housingAmountFromBudgetRow(row);
     const onsiteTotal = parseBudgetAmountOrNull(row.onsiteExpensesAmount);
     const spentTotal = airfareTotal + housingTotal + (onsiteTotal ?? 0);
     const leftover = budgetTotal == null ? null : budgetTotal - spentTotal;
@@ -479,6 +481,22 @@ function sumBudgetOverviewTotals(rows) {
     },
     { budgetTotal: 0, airfareTotal: 0, housingTotal: 0, onsiteTotal: 0, leftover: 0, teamsWithBudget: 0 }
   );
+}
+
+function budgetOverviewTotalsWithHousingColumn(baseTotals, housingRows, includeTripId) {
+  const housingTotal = sumHousingAmountColumn(
+    (housingRows || []).filter((row) => includeTripId(row.tripId))
+  );
+  const housingDelta = housingTotal - baseTotals.housingTotal;
+  if (!housingDelta) {
+    return { ...baseTotals, housingTotal };
+  }
+  return {
+    ...baseTotals,
+    housingTotal,
+    leftover:
+      baseTotals.teamsWithBudget > 0 ? baseTotals.leftover - housingDelta : baseTotals.leftover,
+  };
 }
 
 function BudgetOverviewTable({
@@ -769,10 +787,7 @@ export default function BudgetPage() {
             String(extra?.housingLink || "").trim() || String(extra?.housingPdfUrl || "").trim()
         ))
     ).length;
-    const totalHousingAmount = rows.reduce(
-      (sum, row) => sum + (parseCurrencyLike(row?.housingAmount) ?? 0),
-      0
-    );
+    const totalHousingAmount = sumHousingAmountColumn(rows);
     const totalExtraLines = rows.reduce(
       (sum, row) => sum + ((visibleHousingExtras[row.tripId] || []).length || 0),
       0
@@ -793,11 +808,12 @@ export default function BudgetPage() {
   }, [ticketsSortedWithBands.sorted]);
 
   const overviewHousingRows = useMemo(() => {
-    if (!isEditingOverview) return housingRows;
+    const baseRows = isEditingHousing ? housingRowsDraft : housingRows;
+    if (!isEditingOverview) return baseRows;
     const draftByTripId = new Map(
       (overviewBudgetDraft || []).map((row) => [String(row.tripId), row])
     );
-    return (housingRows || []).map((row) => {
+    return (baseRows || []).map((row) => {
       const draft = draftByTripId.get(String(row.tripId));
       if (!draft) return row;
       return {
@@ -806,7 +822,13 @@ export default function BudgetPage() {
         onsiteExpensesAmount: draft.onsiteExpensesAmount ?? row.onsiteExpensesAmount,
       };
     });
-  }, [housingRows, isEditingOverview, overviewBudgetDraft]);
+  }, [
+    housingRows,
+    housingRowsDraft,
+    isEditingHousing,
+    isEditingOverview,
+    overviewBudgetDraft,
+  ]);
 
   const tripsById = useMemo(() => {
     const map = new Map();
@@ -841,13 +863,23 @@ export default function BudgetPage() {
   }, [budgetOverviewRows, pastTripIds, tripsById]);
 
   const budgetOverviewTotals = useMemo(
-    () => sumBudgetOverviewTotals(currentBudgetOverviewRows),
-    [currentBudgetOverviewRows]
+    () =>
+      budgetOverviewTotalsWithHousingColumn(
+        sumBudgetOverviewTotals(currentBudgetOverviewRows),
+        overviewHousingRows,
+        (tripId) => !pastTripIds.has(tripId)
+      ),
+    [currentBudgetOverviewRows, overviewHousingRows, pastTripIds]
   );
 
   const pastBudgetOverviewTotals = useMemo(
-    () => sumBudgetOverviewTotals(pastBudgetOverviewRows),
-    [pastBudgetOverviewRows]
+    () =>
+      budgetOverviewTotalsWithHousingColumn(
+        sumBudgetOverviewTotals(pastBudgetOverviewRows),
+        overviewHousingRows,
+        (tripId) => pastTripIds.has(tripId)
+      ),
+    [pastBudgetOverviewRows, overviewHousingRows, pastTripIds]
   );
 
   const visibleOnsiteExpenseRows = useMemo(() => {
@@ -1831,7 +1863,7 @@ export default function BudgetPage() {
           </button>
         </div>
 
-        {averages && (tab === "Housing" || tab === "Ticketing") && (
+        {averages && tab === "Housing" && (
           <div className="card pad" style={{ marginBottom: 24 }}>
             <div style={{ fontWeight: 900, marginBottom: 12 }}>Budget averages</div>
             <div
@@ -1846,88 +1878,25 @@ export default function BudgetPage() {
                 style={{
                   boxShadow: "none",
                   background:
-                    "linear-gradient(180deg, rgba(239,246,255,1), rgba(255,255,255,1) 55%)",
-                  borderColor: "rgba(37,99,235,.25)",
-                }}
-              >
-                <div className="small" style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: ".09em", marginBottom: 4, color: "#1d4ed8" }}>
-                  Airfare
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
-                  {averages.airfare.average != null
-                    ? formatUsdNumber(Number(averages.airfare.average))
-                    : "—"}
-                </div>
-                <div className="small" style={{ color: "var(--muted)" }}>
-                  Average of <strong>Total ticket cost</strong> only (Ticketing tab). Worker paid, Total
-                  LST cost, Total charge, and other columns are not used. Skips blanks and $0.
-                  {averages.airfare.count > 0 ? (
-                    <span> ({averages.airfare.count} ticket row{averages.airfare.count === 1 ? "" : "s"})</span>
-                  ) : null}
-                </div>
-              </div>
-
-              <div
-                className="card pad"
-                style={{
-                  boxShadow: "none",
-                  background:
                     "linear-gradient(180deg, rgba(240,249,255,1), rgba(255,255,255,1) 55%)",
                   borderColor: "rgba(14,116,144,.25)",
+                  maxWidth: 320,
                 }}
               >
                 <div className="small" style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: ".09em", marginBottom: 4, color: "#0f766e" }}>
-                  Housing 1
+                  Housing
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
-                  {averages.housing1.average != null
-                    ? formatUsdNumber(Number(averages.housing1.average))
+                  {averages.housing.average != null
+                    ? formatUsdNumber(Number(averages.housing.average))
                     : "—"}
                 </div>
-                <div className="small" style={{ color: "var(--muted)" }}>
-                  Average of <strong>Housing amount</strong> only (Housing budget table). Other amount
-                  columns are not included. Non‑blank, above $0. Cap{" "}
-                  {formatUsdNumber(Number(averages.housing1.budgetPerTeam))} per team — each trip’s{" "}
-                  <strong>Housing amount</strong> in the grid below is{" "}
-                  <span style={{ color: "#15803d", fontWeight: 700 }}>green</span> at or under that cap,{" "}
-                  <span style={{ color: "#ca8a04", fontWeight: 700 }}>amber</span> if over.
-                  {averages.housing1.count > 0 ? (
-                    <span>
-                      {" "}
-                      ({averages.housing1.count} team{averages.housing1.count === 1 ? "" : "s"})
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-
-              <div
-                className="card pad"
-                style={{
-                  boxShadow: "none",
-                  background:
-                    "linear-gradient(180deg, rgba(255,247,237,1), rgba(255,255,255,1) 55%)",
-                  borderColor: "rgba(234,88,12,.25)",
-                }}
-              >
-                <div className="small" style={{ fontWeight: 900, textTransform: "uppercase", letterSpacing: ".09em", marginBottom: 4, color: "#c2410c" }}>
-                  Housing 2
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
-                  {averages.housing2.average != null
-                    ? formatUsdNumber(Number(averages.housing2.average))
-                    : "—"}
-                </div>
-                <div className="small" style={{ color: "var(--muted)" }}>
-                  Same <strong>Housing amount</strong> column only. Non‑YF teams; blank housing counts
-                  as $0 in this average. Same {formatUsdNumber(Number(averages.housing2.budgetPerTeam))}{" "}
-                  per-team cap for line colors in the grid.
-                  {averages.housing2.count > 0 ? (
-                    <span>
-                      {" "}
-                      ({averages.housing2.count} team{averages.housing2.count === 1 ? "" : "s"})
-                    </span>
-                  ) : null}
-                </div>
+                {averages.housing.count > 0 ? (
+                  <div className="small" style={{ color: "var(--muted)" }}>
+                    Average Housing amount ({averages.housing.count} team
+                    {averages.housing.count === 1 ? "" : "s"})
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -1970,8 +1939,9 @@ export default function BudgetPage() {
               </div>
               <p className="small" style={{ color: "var(--muted)", margin: "6px 0 0" }}>
                 Use <strong>Edit</strong> to update team budgets and on-site expenses inline, or click a row to
-                open the full team editor for housing, tickets, and more. Airfare and housing totals update from
-                saved ticket and housing amounts.
+                open the full team editor for housing, tickets, and more. Airfare totals come from saved ticket
+                costs; <strong>Total housing</strong> is the sum of each team&apos;s <strong>Housing Amount</strong>{" "}
+                on the Housing budget tab.
               </p>
             </div>
 
@@ -2394,6 +2364,28 @@ export default function BudgetPage() {
               </div>
               <div className="small" style={{ color: "var(--muted)" }}>
                 Housing budget amount, housing amount, links, and PDFs for each trip.
+              </div>
+              <div style={{ ...budgetSectionSummaryGridStyle, marginTop: 14 }}>
+                {[
+                  { label: "Teams", value: housingSummary.totalTeams },
+                  { label: "Housing docs ready", value: housingSummary.docsReadyCount },
+                  {
+                    label: "Total housing amount",
+                    value: housingSummary.totalHousingAmount,
+                  },
+                  { label: "Extra housing lines", value: housingSummary.totalExtraLines },
+                ].map((card) => (
+                  <div key={card.label} style={budgetSectionSummaryCardStyle}>
+                    <div style={budgetSectionSummaryLabelStyle}>{card.label}</div>
+                    <div style={budgetSectionSummaryValueStyle}>
+                      {card.label === "Teams" ||
+                      card.label === "Housing docs ready" ||
+                      card.label === "Extra housing lines"
+                        ? card.value
+                        : formatUsdNumberOrDash(card.value)}
+                    </div>
+                  </div>
+                ))}
               </div>
               {tripsSortedForBudget.length > 0 ? (
                 <div

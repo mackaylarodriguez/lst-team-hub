@@ -8,7 +8,7 @@ import {
   normalizeMoneyInputToUsd,
   parseCurrencyLike,
 } from "@/lib/budgetMoney";
-import { getTripBudget, saveTripBudget, uploadTripHousingPdf } from "@/lib/tripBudget";
+import { getTripBudget, housingAmountFromBudgetRow, saveTripBudget, uploadTripHousingPdf } from "@/lib/tripBudget";
 import {
   deleteTripTicket,
   listTripTickets,
@@ -140,7 +140,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
       (sum, row) => sum + (parseCurrencyLike(row.totalTicketCost) ?? 0),
       0
     );
-    const housingTotal = parseCurrencyLike(draft?.housingAmount) ?? 0;
+    const housingTotal = housingAmountFromBudgetRow(draft);
     const onsiteTotal = parseCurrencyLike(draft?.onsiteExpensesAmount);
     const spent = airfareTotal + housingTotal + (onsiteTotal ?? 0);
     const leftover = budgetTotal == null ? null : budgetTotal - spent;
