@@ -321,7 +321,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
 
   return (
     <div
-      className="budgetTeamEditorOverlay"
+      className="appModalOverlay budgetTeamEditorOverlay"
       role="presentation"
       onClick={() => {
         if (!saving) onClose?.();
