@@ -89,7 +89,11 @@ export default function TripFundraisingTab() {
     { label: "Team budget", value: tripStaffBudgetSummary?.budgetTotal },
     { label: "Airfare", value: tripStaffBudgetSummary?.airfareTotal },
     { label: "Housing", value: tripStaffBudgetSummary?.housingTotal },
-    { label: "Fee", value: tripStaffBudgetSummary?.feeTotal },
+    {
+      label: "Fee",
+      value: tripStaffBudgetSummary?.feeTotal,
+      detail: tripStaffBudgetSummary?.feeDetail || "",
+    },
     {
       label: "Leftover",
       value: tripStaffBudgetSummary?.leftover,
@@ -151,6 +155,14 @@ export default function TripFundraisingTab() {
                         <div style={{ ...tripStaffBudgetCardValueStyle, color: card.color }}>
                           {formatTripBudgetSummaryUsd(card.value)}
                         </div>
+                        {card.detail ? (
+                          <div
+                            className="small"
+                            style={{ color: "var(--muted)", lineHeight: 1.35, marginTop: 2 }}
+                          >
+                            {card.detail}
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>

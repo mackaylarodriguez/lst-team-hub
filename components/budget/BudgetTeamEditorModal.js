@@ -10,9 +10,10 @@ import {
 } from "@/lib/budgetMoney";
 import {
   getTripBudget,
+  getTripBudgetFeeBreakdown,
+  formatTripBudgetFeeBreakdownDetail,
   housingAmountFromBudgetRow,
   saveTripBudget,
-  sumTripBudgetFeeAmount,
   uploadTripHousingPdf,
 } from "@/lib/tripBudget";
 import {
@@ -175,7 +176,8 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
       domesticFeeAmount: draft?.domesticFeeAmount,
       domesticMaterialsFeeAmount: draft?.domesticMaterialsFeeAmount,
     };
-    const feeTotal = sumTripBudgetFeeAmount(feeTripLike, { isDomestic: isDomesticProject });
+    const feeBreakdown = getTripBudgetFeeBreakdown(feeTripLike, { isDomestic: isDomesticProject });
+    const feeTotal = feeBreakdown.total;
     const fundraising = fundraisingTotal > 0 ? fundraisingTotal : null;
     const spent = airfareTotal + housingTotal + feeTotal;
     const leftover = fundraising == null ? null : fundraising - spent;
@@ -185,6 +187,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
       airfareTotal,
       housingTotal,
       feeTotal,
+      feeDetail: formatTripBudgetFeeBreakdownDetail(feeBreakdown),
       leftover,
     };
   }, [draft, tickets, fundraisingTotal, isDomesticProject, trip?.location]);
@@ -379,6 +382,11 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
               <div>
                 <span className="budgetTeamEditorSummaryLabel">Fee</span>
                 <strong>{formatUsdNumber(summary.feeTotal)}</strong>
+                {summary.feeDetail ? (
+                  <div className="small" style={{ color: "var(--muted)", marginTop: 4, lineHeight: 1.35 }}>
+                    {summary.feeDetail}
+                  </div>
+                ) : null}
               </div>
               <div>
                 <span className="budgetTeamEditorSummaryLabel">Leftover</span>
