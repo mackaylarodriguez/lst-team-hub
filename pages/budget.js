@@ -3040,22 +3040,8 @@ export default function BudgetPage() {
                     </td>
                     {isEditingTickets ? (
                       <>
-                        <td style={{ minWidth: 72, maxWidth: 100 }}>
-                          <input
-                            className="input"
-                            value={t.intlDom || ""}
-                            onChange={(e) => updateTicketRow(t.id, "intlDom", e.target.value)}
-                            aria-label="Intl or domestic"
-                          />
-                        </td>
-                        <td style={{ minWidth: 140, maxWidth: 280 }}>
-                          <input
-                            className="input"
-                            value={t.workerName || ""}
-                            onChange={(e) => updateTicketRow(t.id, "workerName", e.target.value)}
-                            placeholder="Worker name"
-                          />
-                        </td>
+                        <td>{t.intlDom || "—"}</td>
+                        <td>{t.workerName || "—"}</td>
                         <td>{siteDisplay || "—"}</td>
                         <td style={{ minWidth: 118 }}>
                           <input
