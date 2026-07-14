@@ -497,7 +497,6 @@ export default function StaffAssignments() {
         <div className="row" style={{ marginBottom: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
           <div>
             <div className="appSectionBadge" style={{ marginBottom: 6 }}>Search</div>
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>Search Workers</div>
             <div className="small">
               Search by worker name, email, or trip.
             </div>
@@ -829,7 +828,6 @@ function WorkerDirectorySection({
       <div className="row" style={{ marginBottom: 10 }}>
         <div>
           <div className="appSectionBadge" style={{ marginBottom: 6 }}>{title}</div>
-          <div style={{ fontWeight: 900 }}>{title}</div>
           <div className="small">{description}</div>
         </div>
         <div className="spacer" />
