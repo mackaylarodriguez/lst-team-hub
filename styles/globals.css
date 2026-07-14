@@ -5527,6 +5527,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   max-width:960px;
   margin:20px auto 0;
 }
+.trainingPrototypeSectionInner .trainingPrototypeVideoWrap{
+  margin-top:20px;
+}
 .trainingPrototypeFullscreenFooter{
   display:flex;
   align-items:center;
