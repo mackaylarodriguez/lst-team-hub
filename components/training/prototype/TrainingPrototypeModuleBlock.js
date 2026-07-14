@@ -84,16 +84,7 @@ export default function TrainingPrototypeModuleBlock({
                 badge={<span className={`badge ${sectionStatus.badge}`}>{sectionStatus.label}</span>}
               >
                 <div className="trainingPrototypeSectionInner">
-                  {section.fullSessionBlocks?.some((block) => block.card) ? (
-                    <div className="trainingPrototypeTimelineCardStack">
-                      {section.fullSessionBlocks.map((block) => (
-                        <div key={block.heading} className="trainingPrototypeTimelineCard">
-                          <p className="trainingPrototypeTimelineCardTitle">{block.heading}</p>
-                          <TrainingPrototypeRichText text={block.body} />
-                        </div>
-                      ))}
-                    </div>
-                  ) : section.fullSessionBlocks?.length ? (
+                  {section.fullSessionBlocks?.length ? (
                     <TrainingPrototypeWrittenBlocks
                       blocks={section.fullSessionBlocks}
                       sectionTitle={section.title}

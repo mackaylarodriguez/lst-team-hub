@@ -17,11 +17,27 @@ function shouldShowBlockHeading(block, sectionTitle) {
 export default function TrainingPrototypeWrittenBlocks({ blocks = [], sectionTitle }) {
   if (!blocks.length) return null;
 
+  const hasCards = blocks.some((block) => block.card);
+
   return (
-    <div className="trainingPrototypeWrittenBody">
+    <div
+      className={
+        hasCards
+          ? "trainingPrototypeWrittenBody trainingPrototypeTimelineCardStack"
+          : "trainingPrototypeWrittenBody"
+      }
+    >
       {blocks.map((block, blockIndex) => {
+        const toneClass =
+          block.cardTone === "discuss"
+            ? " trainingPrototypeContentCardToneDiscuss"
+            : block.cardTone === "scripture"
+              ? " trainingPrototypeContentCardToneScripture"
+              : block.cardTone === "reminder"
+                ? " trainingPrototypeContentCardToneReminder"
+                : "";
         const sectionClassName = block.card
-          ? "trainingPrototypeWrittenSection trainingPrototypeTimelineCard"
+          ? `trainingPrototypeWrittenSection trainingPrototypeTimelineCard${toneClass}`
           : "trainingPrototypeWrittenSection";
         const showHeading = shouldShowBlockHeading(block, sectionTitle);
 

@@ -5373,41 +5373,80 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .trainingPrototypeRichTitle,
 .trainingPrototypeTimelineCardTitle{
-  margin:0 0 12px;
-  font-size:inherit;
-  font-weight:700;
-  text-decoration:underline;
+  margin:0 0 10px;
+  font-size:14px;
+  font-weight:800;
+  letter-spacing:.01em;
+  text-decoration:none;
   font-family:inherit;
-  line-height:inherit;
+  line-height:1.35;
+  color:var(--primary);
 }
 .trainingPrototypeTimelineCardStack{
   display:grid;
   gap:12px;
 }
 .trainingPrototypeTimelineCard{
-  border:1px solid rgba(15,23,42,.1);
-  border-radius:12px;
+  border:1px solid rgba(50,84,163,.12);
+  border-radius:14px;
   padding:14px 16px;
-  background:#eef0f3;
+  background:linear-gradient(180deg, #fff, rgba(248,250,252,.96));
+  box-shadow:0 4px 14px rgba(15,23,42,.04);
+  position:relative;
+  overflow:hidden;
+}
+.trainingPrototypeTimelineCard::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:3px;
+  background:linear-gradient(180deg, var(--primary), var(--primary2));
 }
 .trainingPrototypeTimelineCard .trainingPrototypeRichText{
   gap:10px;
 }
 .trainingPrototypeWrittenSection.trainingPrototypeTimelineCard{
-  border:1px solid rgba(15,23,42,.1);
-  border-radius:12px;
+  border:1px solid rgba(50,84,163,.12);
+  border-radius:14px;
   padding:16px 18px;
-  background:rgba(255,255,255,.72);
+  background:linear-gradient(180deg, #fff, rgba(248,250,252,.96));
+  box-shadow:0 4px 14px rgba(15,23,42,.04);
 }
 .trainingPrototypeWrittenSection.trainingPrototypeTimelineCard h3,
 .trainingPrototypeWrittenSection.trainingPrototypeTimelineCard .trainingPrototypeTimelineCardTitle{
-  margin:0 0 12px;
+  margin:0 0 10px;
 }
 .trainingPrototypeSectionInner .trainingPrototypeTimelineCard{
   font-size:inherit;
   line-height:inherit;
   font-family:inherit;
-  background:#fff;
+  background:linear-gradient(180deg, #fff, rgba(248,250,252,.96));
+}
+.trainingPrototypeContentCardToneReminder{
+  background:linear-gradient(180deg, #fff, rgba(67,164,213,.07));
+}
+.trainingPrototypeContentCardToneReminder::before{
+  background:linear-gradient(180deg, #43a4d5, #2563eb);
+}
+.trainingPrototypeContentCardToneReminder .trainingPrototypeTimelineCardTitle{
+  color:#0f6e91;
+}
+.trainingPrototypeContentCardToneScripture{
+  background:linear-gradient(180deg, #fff, rgba(50,84,163,.06));
+}
+.trainingPrototypeContentCardToneScripture::before{
+  background:linear-gradient(180deg, #3254a3, #43a4d5);
+}
+.trainingPrototypeContentCardToneDiscuss{
+  background:linear-gradient(180deg, #fff, rgba(234,88,12,.06));
+}
+.trainingPrototypeContentCardToneDiscuss::before{
+  background:linear-gradient(180deg, #ea580c, #f99a1b);
+}
+.trainingPrototypeContentCardToneDiscuss .trainingPrototypeTimelineCardTitle{
+  color:#9a3412;
 }
 .trainingPrototypeBlockLinkRow,
 .trainingPrototypeAddressCardWrap{
