@@ -10,8 +10,8 @@ export default function TrainingPrototypeDeadlineRulesCard() {
         Sample due dates (Prototype)
       </div>
       <p className="small trainingPrototypeMuted" style={{ marginTop: 0, marginBottom: 12 }}>
-        These dates are hardcoded for layout review. Later, the Hub can calculate deadlines from trip start
-        dates using rules like 90 / 60 / 30 days before departure.
+        These dates follow the Hub training deadline rules from this trip’s start date
+        (90 / 60 / 30 days before departure, or the college-timeline anchors).
       </p>
       <div className="trainingPrototypeDeadlineRulesList">
         {TRAINING_PROTOTYPE_DEADLINE_RULES_PREVIEW.map((row) => (

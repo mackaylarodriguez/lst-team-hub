@@ -8,13 +8,13 @@ import TrainingPrototypeModuleEditModal from "./TrainingPrototypeModuleEditModal
 import TrainingSectionFullView from "./TrainingSectionFullView";
 import TrainingQuizModuleView from "./TrainingQuizModuleView";
 import {
-  clonePrototypeModules,
   findPrototypeModuleById,
   findPrototypeSectionById,
   getNextPrototypeSectionIdFromModules,
   getPreviousPrototypeSectionIdFromModules,
   loadPrototypeModules,
   savePrototypeModules,
+  applyPrototypeTrainingDeadlines,
 } from "@/lib/trainingPrototypeStorage";
 import { getPrototypeSectionQuiz } from "@/lib/trainingCenterPrototypeMock";
 
@@ -28,16 +28,22 @@ export default function TripTrainingPrototypePanel() {
     optionalTrainingResources,
     prototypeSectionCompletionRosters,
     requiredTrainingResources,
+    trip,
   } = useTripPage();
-  const [modules, setModules] = useState(() => clonePrototypeModules());
+  const tripDeadlineContext = {
+    startDate: trip?.startDate,
+    endDate: trip?.endDate,
+    trainingTimelineType: trip?.trainingTimelineType,
+  };
+  const [modules, setModules] = useState(() => loadPrototypeModules());
   const [view, setView] = useState("center");
   const [activeModuleId, setActiveModuleId] = useState("");
   const [activeSectionId, setActiveSectionId] = useState("");
   const [editingModuleId, setEditingModuleId] = useState("");
 
   useEffect(() => {
-    setModules(loadPrototypeModules());
-  }, []);
+    setModules(loadPrototypeModules(tripDeadlineContext));
+  }, [trip?.startDate, trip?.endDate, trip?.trainingTimelineType]);
 
   function markSectionComplete(sectionId) {
     if (!sectionId || !activeParticipantEmail) return;
@@ -67,7 +73,10 @@ export default function TripTrainingPrototypePanel() {
 
   function handleSaveModule(updatedModule) {
     setModules((current) => {
-      const next = current.map((module) => (module.id === updatedModule.id ? updatedModule : module));
+      const next = applyPrototypeTrainingDeadlines(
+        current.map((module) => (module.id === updatedModule.id ? updatedModule : module)),
+        tripDeadlineContext
+      );
       savePrototypeModules(next);
       return next;
     });

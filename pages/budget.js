@@ -556,12 +556,12 @@ function BudgetOverviewTable({
 
   return (
     <div className="budgetTableScroller">
-      <table className="table dataTableStriped budgetStickyTable budgetOverviewTable" style={{ minWidth: 1960, fontSize: 12 }}>
+      <table className="table dataTableStriped budgetStickyTable budgetOverviewTable" style={{ minWidth: 2100, fontSize: 12 }}>
         <thead>
           <tr>
-            <th>Team Name</th>
-            <th>Project Start</th>
-            <th>Project End</th>
+            <th style={{ minWidth: 200, whiteSpace: "nowrap" }}>Team Name</th>
+            <th style={{ minWidth: 120, whiteSpace: "nowrap" }}>Project Start</th>
+            <th style={{ minWidth: 120, whiteSpace: "nowrap" }}>Project End</th>
             <th>Site</th>
             <th>Workers</th>
             <th>Team Accountant</th>
@@ -599,9 +599,9 @@ function BudgetOverviewTable({
                     : "Click to edit this team's budget, housing, and tickets"
                 }
               >
-                <td style={{ fontWeight: 700 }}>{row.teamName || "—"}</td>
-                <td>{row.projectStartDate || "—"}</td>
-                <td>{row.projectEndDate || "—"}</td>
+                <td style={{ fontWeight: 700, minWidth: 200, whiteSpace: "nowrap" }}>{row.teamName || "—"}</td>
+                <td style={{ minWidth: 120, whiteSpace: "nowrap" }}>{row.projectStartDate || "—"}</td>
+                <td style={{ minWidth: 120, whiteSpace: "nowrap" }}>{row.projectEndDate || "—"}</td>
                 <td>{row.site || "—"}</td>
                 <td style={{ textAlign: "center", fontWeight: 700 }}>{row.workers}</td>
                 <td style={{ minWidth: 160, maxWidth: 240 }}>
@@ -2428,12 +2428,12 @@ export default function BudgetPage() {
             </div>
           </div>
           <div className="budgetTableScroller">
-            <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1500, fontSize: 13 }}>
+            <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1620, fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th>Team Name</th>
-                  <th>Project Start</th>
-                  <th>Project End</th>
+                  <th style={{ minWidth: 200, whiteSpace: "nowrap" }}>Team Name</th>
+                  <th style={{ minWidth: 120, whiteSpace: "nowrap" }}>Project Start</th>
+                  <th style={{ minWidth: 120, whiteSpace: "nowrap" }}>Project End</th>
                   <th>Site</th>
                   <th style={{ width: 72, textAlign: "center" }}>Workers</th>
                   <th>Team Accountant</th>
@@ -2462,7 +2462,7 @@ export default function BudgetPage() {
                   >
                     {isEditingHousing ? (
                       <>
-                        <td>
+                        <td style={{ minWidth: 200, whiteSpace: "nowrap" }}>
                           <span className="row" style={{ gap: 6, alignItems: "center" }}>
                             {isArchived && (
                               <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>
@@ -2472,8 +2472,8 @@ export default function BudgetPage() {
                             {r.teamName || "—"}
                           </span>
                         </td>
-                        <td>{r.projectStartDate || "—"}</td>
-                        <td>{r.projectEndDate || "—"}</td>
+                        <td style={{ minWidth: 120, whiteSpace: "nowrap" }}>{r.projectStartDate || "—"}</td>
+                        <td style={{ minWidth: 120, whiteSpace: "nowrap" }}>{r.projectEndDate || "—"}</td>
                         <td>{r.siteCountry || "—"}</td>
                         <td
                           style={{
@@ -2698,14 +2698,14 @@ export default function BudgetPage() {
                       </>
                     ) : (
                       <>
-                        <td>
+                        <td style={{ minWidth: 200, whiteSpace: "nowrap" }}>
                           <span className="row" style={{ gap: 6, alignItems: "center" }}>
                             {isArchived && <span className="small" style={{ color: "var(--muted)", fontWeight: 600 }}>Archived</span>}
                             {r.teamName || ""}
                           </span>
                         </td>
-                        <td>{r.projectStartDate || ""}</td>
-                        <td>{r.projectEndDate || ""}</td>
+                        <td style={{ minWidth: 120, whiteSpace: "nowrap" }}>{r.projectStartDate || ""}</td>
+                        <td style={{ minWidth: 120, whiteSpace: "nowrap" }}>{r.projectEndDate || ""}</td>
                         <td>{r.siteCountry || ""}</td>
                         <td
                           style={{ textAlign: "center", fontWeight: 700 }}
