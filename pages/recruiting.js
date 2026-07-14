@@ -4404,7 +4404,7 @@ export default function RecruitingPage() {
                 ) : null}
                 {(activeTab === "potential" || activeTab === "outreach") && !selectedRecord.isConvertedToTeam ? (
                       <>
-                        <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
+                        <div className="small recruitingFormModalLead">
                           Same fields as <strong>Lock Team</strong>. Saving updates this recruiting row only (does not
                           create a trip).
                         </div>
