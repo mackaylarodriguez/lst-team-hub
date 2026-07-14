@@ -868,11 +868,20 @@ function TaskSection({
   onRequestDeleteTask,
   personalTaskCategoryOptions,
 }) {
+  const pillToneClass =
+    title === "Past Due"
+      ? "budgetCheckSectionPillPending"
+      : title === "Completed"
+        ? "budgetCheckSectionPillProcessed"
+        : "budgetCheckSectionPillPrimary";
+
   return (
     <div className="card pad" style={{ marginBottom: 16 }}>
       <div className="row" style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 900 }}>{title}</div>
-        <span className="badge">{tasks.length}</span>
+        <div className={`budgetCheckSectionPill ${pillToneClass}`}>
+          <span className="budgetCheckSectionPillLabel">{title}</span>
+          <span className="budgetCheckSectionPillCount">{tasks.length}</span>
+        </div>
       </div>
 
       {tasks.length === 0 ? (
