@@ -359,6 +359,7 @@ function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, t
       budgetAmount: row.budgetAmount || "",
       onsiteExpensesAmount: row.onsiteExpensesAmount || "",
       returnedAmount: row.returnedAmount || "",
+      notes: row.notes || "",
       fundraisingTotal,
       teamBudgetTotal,
       airfareTotal,
@@ -542,7 +543,7 @@ function BudgetOverviewTable({
 
   return (
     <div className="budgetTableScroller">
-      <table className="table dataTableStriped budgetStickyTable budgetOverviewTable" style={{ minWidth: 1580, fontSize: 12 }}>
+      <table className="table dataTableStriped budgetStickyTable budgetOverviewTable" style={{ minWidth: 1840, fontSize: 12 }}>
         <thead>
           <tr>
             <th>Team Name</th>
@@ -559,6 +560,7 @@ function BudgetOverviewTable({
             <th>Leftover</th>
             <th>Returned amount</th>
             <th style={{ minWidth: 220 }}>Budget chart</th>
+            <th style={{ minWidth: 240 }}>Notes</th>
           </tr>
         </thead>
         <tbody>
@@ -677,6 +679,35 @@ function BudgetOverviewTable({
                     leftover={row.leftover}
                   />
                 </td>
+                <td style={{ minWidth: 240, maxWidth: 360 }}>
+                  {isEditingOverview ? (
+                    <textarea
+                      className="input"
+                      rows={3}
+                      value={row.notes || ""}
+                      onChange={(e) => onUpdateDraft(row.tripId, { notes: e.target.value })}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Notes"
+                      style={{
+                        width: "100%",
+                        minHeight: 64,
+                        resize: "vertical",
+                        lineHeight: 1.4,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className="small"
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {String(row.notes || "").trim() || "—"}
+                    </div>
+                  )}
+                </td>
               </tr>
             );
           })}
@@ -713,6 +744,7 @@ function BudgetOverviewTable({
                   totals.teamsWithReturned > 0 ? totals.returnedTotal : null
                 )}
               </td>
+              <td />
               <td />
             </tr>
           </tfoot>
@@ -859,6 +891,7 @@ export default function BudgetPage() {
         onsiteExpensesAmount: draft.onsiteExpensesAmount ?? row.onsiteExpensesAmount,
         teamAccountant: draft.teamAccountant ?? row.teamAccountant,
         returnedAmount: draft.returnedAmount ?? row.returnedAmount,
+        notes: draft.notes ?? row.notes,
       };
     });
   }, [
@@ -1709,6 +1742,7 @@ export default function BudgetPage() {
         onsiteExpensesAmount: row.onsiteExpensesAmount || "",
         teamAccountant: row.teamAccountant || "",
         returnedAmount: row.returnedAmount || "",
+        notes: row.notes || "",
       }))
     );
     setIsEditingOverview(true);
@@ -1733,6 +1767,7 @@ export default function BudgetPage() {
           onsiteExpensesAmount: row.onsiteExpensesAmount ?? "",
           teamAccountant: row.teamAccountant ?? "",
           returnedAmount: row.returnedAmount ?? "",
+          notes: row.notes ?? "",
         });
       }
       const housingRes = await listAllTripBudgets();
@@ -1747,6 +1782,7 @@ export default function BudgetPage() {
               onsiteExpensesAmount: draft.onsiteExpensesAmount ?? row.onsiteExpensesAmount,
               teamAccountant: draft.teamAccountant ?? row.teamAccountant,
               returnedAmount: draft.returnedAmount ?? row.returnedAmount,
+              notes: draft.notes ?? row.notes,
             };
           })
         );
