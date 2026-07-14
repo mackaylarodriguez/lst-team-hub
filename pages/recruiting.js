@@ -118,17 +118,17 @@ const RECRUITING_BOARD_SORT = ["Potential Teams", "Locked Teams"];
 
 const CURRENT_RECRUITING_YEAR = new Date().getFullYear();
 
-const RECRUITING_POTENTIAL_COL_PCT = {
-  select: "3%",
-  team: "7%",
-  roster: "12%",
-  projectDates: "7%",
-  site: "6%",
-  weeks: "6%",
-  fundraising: "9%",
-  mackayla: "22%",
-  leslee: "22%",
-  actions: "6%",
+const RECRUITING_POTENTIAL_COL = {
+  select: 44,
+  team: 168,
+  roster: 210,
+  projectDates: 150,
+  site: 170,
+  weeks: 88,
+  fundraising: 130,
+  mackayla: 230,
+  leslee: 230,
+  actions: 190,
 };
 const RECRUITING_CONVERTED_COL_PCT = {
   team: "8%",
@@ -3056,6 +3056,22 @@ export default function RecruitingPage() {
     );
   }
 
+  function updatePendingLockField(recordId, field, value) {
+    setRecords((current) =>
+      current.map((record) => {
+        if (record.id !== recordId) return record;
+        const prior =
+          record.pendingLockTeamSetup && typeof record.pendingLockTeamSetup === "object"
+            ? record.pendingLockTeamSetup
+            : {};
+        return {
+          ...record,
+          pendingLockTeamSetup: { ...prior, [field]: value },
+        };
+      })
+    );
+  }
+
   function updateRecordOwner(recordId, owner) {
     updateRecordField(recordId, "assignedTo", owner);
   }
@@ -3669,14 +3685,26 @@ export default function RecruitingPage() {
     }
 
     return (
-      <div className="recruitingBoardTableHost">
+      <div className="recruitingBoardTableHost recruitingPotentialSheetHost">
         <DraggableTable>
         <table
-          className={`table recruitingCompactTable recruitingBoardSlimTable recruitingBoardTable recruitingPotentialBoardTable recruitingFont-${tableFontSize}`}
+          className={`table recruitingCompactTable recruitingBoardWideTable recruitingBoardTable recruitingPotentialBoardTable recruitingFont-${tableFontSize}`}
         >
+          <colgroup>
+            <col style={{ width: RECRUITING_POTENTIAL_COL.select }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.team }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.roster }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.projectDates }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.site }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.weeks }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.fundraising }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.mackayla }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.leslee }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.actions }} />
+          </colgroup>
           <thead>
             <tr>
-              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.select }}>
+              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.select }}>
                 <input
                   ref={bulkSelectAllRef}
                   className="recruitingOutreachSelectInput"
@@ -3686,19 +3714,19 @@ export default function RecruitingPage() {
                   onChange={toggleSelectAllVisibleBulk}
                 />
               </th>
-              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.team }}>Team</th>
-              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.roster }}>Team roster</th>
-              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.projectDates }}>Project dates</th>
-              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.site }}>Site</th>
-              <th className="recruitingPotentialWeeksTh" style={{ width: RECRUITING_POTENTIAL_COL_PCT.weeks }}>
+              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.team }}>Team</th>
+              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.roster }}>Team roster</th>
+              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.projectDates }}>Project dates</th>
+              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.site }}>Site</th>
+              <th className="recruitingPotentialWeeksTh" style={{ minWidth: RECRUITING_POTENTIAL_COL.weeks }}>
                 Weeks
               </th>
-              <th className="recruitingPotentialFundraisingTh" style={{ width: RECRUITING_POTENTIAL_COL_PCT.fundraising }}>
+              <th className="recruitingPotentialFundraisingTh" style={{ minWidth: RECRUITING_POTENTIAL_COL.fundraising }}>
                 Fundraising
               </th>
-              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.mackayla }}>Mackayla notes</th>
-              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.leslee }}>Leslee notes</th>
-              <th style={{ width: RECRUITING_POTENTIAL_COL_PCT.actions }}>Actions</th>
+              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.mackayla }}>Mackayla notes</th>
+              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.leslee }}>Leslee notes</th>
+              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.actions }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -3708,6 +3736,10 @@ export default function RecruitingPage() {
               const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
               const d = buildTeamFormDraft(record);
               const isSelected = selectedBulkRecordIds.includes(record.id);
+              const fundraisingValue =
+                record?.pendingLockTeamSetup?.fundraisingGoalAmount ??
+                d.fundraisingGoalAmount ??
+                "";
 
               return (
                 <tr
@@ -3716,10 +3748,7 @@ export default function RecruitingPage() {
                   onDoubleClick={(event) => handleRecruitingTableRowDoubleClick(event, record.id)}
                   style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
-                  <td
-                    style={{ width: RECRUITING_POTENTIAL_COL_PCT.select, verticalAlign: "top" }}
-                    onClick={(event) => event.stopPropagation()}
-                  >
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.select, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <input
                       className="recruitingOutreachSelectInput"
                       type="checkbox"
@@ -3728,12 +3757,16 @@ export default function RecruitingPage() {
                       onChange={() => toggleBulkRecordSelected(record.id)}
                     />
                   </td>
-                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.team, verticalAlign: "middle" }}>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.team, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="recruitingTeamCellRow">
                       <div className="recruitingTeamCellMain">
-                        <span className="recruitingTeamNamePill" title={record.teamName || formatContactName(record)}>
-                          {record.teamName || formatContactName(record) || "—"}
-                        </span>
+                        <input
+                          className="input recruitingPotentialSheetInput"
+                          value={record.teamName || ""}
+                          onChange={(event) => updateRecordField(record.id, "teamName", event.target.value)}
+                          onBlur={() => void handleSaveRecord(record.id)}
+                          placeholder="Team name"
+                        />
                         {attention ? (
                           <div style={{ marginTop: 6 }}>
                             <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
@@ -3744,42 +3777,79 @@ export default function RecruitingPage() {
                       <RecruitingBoardCopyRowButton record={record} />
                     </div>
                   </td>
-                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} showGender={false} /></td>
-                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.projectDates, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.roster, verticalAlign: "top" }}>
+                    <RecruitingRosterBoardColumn record={record} showGender={false} />
                   </td>
-                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.site, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(d.location)}</div>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.projectDates, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    <input
+                      className="input recruitingPotentialSheetInput"
+                      value={record.projectDates || ""}
+                      onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      placeholder="Dates or season"
+                    />
                   </td>
-                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.weeks, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(recruitingBoardWeeksLabel(record))}</div>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.site, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    <select
+                      className="input recruitingPotentialSheetInput"
+                      value={record.site || d.location || ""}
+                      onChange={(event) => updateRecordField(record.id, "site", event.target.value)}
+                      onBlur={() => void handleSaveRecord(record.id)}
+                    >
+                      <option value="">Select site</option>
+                      {mergeSiteOptionListWithCurrent(sitePickerLabels, record.site || d.location).map((siteOption) => (
+                        <option key={siteOption} value={siteOption}>
+                          {siteOption}
+                        </option>
+                      ))}
+                    </select>
                   </td>
-                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.fundraising, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell recruitingPotentialFundraisingCell">
-                      {chartDashText(recruitingBoardFundraisingGoalLabel(record))}
-                    </div>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.weeks, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    <input
+                      className="input recruitingPotentialSheetInput"
+                      type="number"
+                      min="0"
+                      value={record.weeks ?? ""}
+                      onChange={(event) => updateRecordField(record.id, "weeks", event.target.value)}
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      placeholder="Weeks"
+                    />
                   </td>
-                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.mackayla, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.fundraising, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    <input
+                      className="input recruitingPotentialSheetInput recruitingFundingInput"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={fundraisingValue}
+                      onChange={(event) =>
+                        updatePendingLockField(record.id, "fundraisingGoalAmount", event.target.value)
+                      }
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      placeholder="Goal $"
+                    />
+                  </td>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.mackayla, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
-                      rows={4}
+                      rows={3}
                       value={stripHandoffSummary(record.mackaylaNotes)}
                       onChange={(event) => updateRecordMackaylaNotes(record.id, event.target.value)}
                       onBlur={() => void handleSaveRecord(record.id)}
                       placeholder="Add Mackayla notes"
                     />
                   </td>
-                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.leslee, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.leslee, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <textarea
                       className="input recruitingInlineNoteInput"
-                      rows={4}
+                      rows={3}
                       value={record.lesleeNotes || ""}
                       onChange={(event) => updateRecordLesleeNotes(record.id, event.target.value)}
                       onBlur={() => void handleSaveRecord(record.id)}
                       placeholder="Add Leslee notes"
                     />
                   </td>
-                  <td style={{ width: RECRUITING_POTENTIAL_COL_PCT.actions, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.actions, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="row recruitingActionRow recruitingFitActionRow">
                       <button className="btn" type="button" onClick={() => void openRecordDetails(record.id)}>
                         Edit
@@ -3860,11 +3930,57 @@ export default function RecruitingPage() {
                 <strong>Team roster</strong>
               </div>
               <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} showGender={false} /></div>
-              <div className="recruitingMobileMeta">
-                <span title="Project dates">{chartDashText(recruitingBoardProjectDatesLabel(record))}</span>
-                <span title="Site">{chartDashText(d.location)}</span>
-                <span title="Weeks">{chartDashText(recruitingBoardWeeksLabel(record))}</span>
-                <span title="Fundraising goal">{chartDashText(recruitingBoardFundraisingGoalLabel(record))}</span>
+              <div className="recruitingMobileMeta" onClick={(event) => event.stopPropagation()} style={{ display: "grid", gap: 8 }}>
+                <input
+                  className="input recruitingPotentialSheetInput"
+                  value={record.teamName || ""}
+                  onChange={(event) => updateRecordField(record.id, "teamName", event.target.value)}
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  placeholder="Team name"
+                />
+                <input
+                  className="input recruitingPotentialSheetInput"
+                  value={record.projectDates || ""}
+                  onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  placeholder="Project dates"
+                />
+                <select
+                  className="input recruitingPotentialSheetInput"
+                  value={record.site || d.location || ""}
+                  onChange={(event) => updateRecordField(record.id, "site", event.target.value)}
+                  onBlur={() => void handleSaveRecord(record.id)}
+                >
+                  <option value="">Select site</option>
+                  {mergeSiteOptionListWithCurrent(sitePickerLabels, record.site || d.location).map((siteOption) => (
+                    <option key={siteOption} value={siteOption}>
+                      {siteOption}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="input recruitingPotentialSheetInput"
+                  type="number"
+                  min="0"
+                  value={record.weeks ?? ""}
+                  onChange={(event) => updateRecordField(record.id, "weeks", event.target.value)}
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  placeholder="Weeks"
+                />
+                <input
+                  className="input recruitingPotentialSheetInput recruitingFundingInput"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={
+                    record?.pendingLockTeamSetup?.fundraisingGoalAmount ?? d.fundraisingGoalAmount ?? ""
+                  }
+                  onChange={(event) =>
+                    updatePendingLockField(record.id, "fundraisingGoalAmount", event.target.value)
+                  }
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  placeholder="Fundraising goal $"
+                />
               </div>
               <div className="recruitingMobileNotes">
                 <textarea

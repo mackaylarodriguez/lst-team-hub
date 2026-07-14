@@ -2403,13 +2403,24 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .recruitingBoardTable tbody tr.recruitingRowSelected:hover td{
   background-color:rgba(47,73,147,.14);
 }
-/* Potential Teams sheet: align left; narrow team column uses full cell width for pill text */
+/* Potential Teams sheet: wide spreadsheet layout with all fill-in columns visible */
+.recruitingPotentialSheetHost{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
 .recruitingPotentialBoardTable{
   text-align:left;
+}
+.table.recruitingPotentialBoardTable.recruitingBoardWideTable{
+  width:max-content;
+  min-width:100%;
+  table-layout:auto;
 }
 .recruitingPotentialBoardTable th,
 .recruitingPotentialBoardTable td{
   text-align:left;
+  vertical-align:top;
+  white-space:normal;
 }
 .recruitingBoardTable td:first-child .recruitingTeamNamePill{
   max-width:100%;
@@ -2419,16 +2430,17 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   white-space:normal;
   overflow-wrap:anywhere;
 }
-/* Keep Potential sheet within the card: long nowrap labels were widening scrollWidth past 100%. */
-.recruitingPotentialBoardTable td:nth-child(3),
-.recruitingPotentialBoardTable td:nth-child(4),
-.recruitingPotentialBoardTable td:nth-child(5),
-.recruitingPotentialBoardTable td:nth-child(6){
-  overflow-x:hidden;
+.recruitingPotentialSheetInput{
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+  min-height:36px;
+  padding:7px 9px;
+  font-size:13px;
 }
-.recruitingPotentialBoardTable td:nth-child(3) .recruitingChartCell{
-  font-size:12px;
-  line-height:1.35;
+.recruitingPotentialBoardTable textarea.recruitingInlineNoteInput{
+  min-height:72px;
 }
 .recruitingPotentialFundraisingTh,
 .recruitingPotentialWeeksTh{
