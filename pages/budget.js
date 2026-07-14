@@ -22,6 +22,7 @@ import {
   updateSiteBudgetNote,
   cleanupSiteBudgetNotesRows,
   saveSiteHousingNoteForSiteLabel,
+  deleteSiteBudgetNote,
   uploadTripHousingPdf,
   housingAmountFromBudgetRow,
   sumHousingAmountColumn,
@@ -711,6 +712,7 @@ export default function BudgetPage() {
   const [housingExtraPdfUploadKey, setHousingExtraPdfUploadKey] = useState(null);
   const [editingSiteNoteId, setEditingSiteNoteId] = useState("");
   const [editingSiteNoteDraft, setEditingSiteNoteDraft] = useState("");
+  const [siteNoteDeleteId, setSiteNoteDeleteId] = useState("");
   const [newSiteHousingSelect, setNewSiteHousingSelect] = useState("");
   const [newSiteHousingActiveLabel, setNewSiteHousingActiveLabel] = useState(null);
   const [newSiteHousingDraft, setNewSiteHousingDraft] = useState("");
@@ -1359,6 +1361,25 @@ export default function BudgetPage() {
     }
   }
 
+  async function handleDeleteSiteHousingNote() {
+    const id = String(siteNoteDeleteId || "").trim();
+    if (!id) return;
+    const note = (siteHousingNotes || []).find((row) => String(row.id) === id);
+    try {
+      setStatus("Deleting site note...");
+      await deleteSiteBudgetNote(id);
+      setSiteHousingNotes((prev) => prev.filter((row) => String(row.id) !== id));
+      if (String(editingSiteNoteId) === id) cancelEditSiteHousingNote();
+      setSiteNoteDeleteId("");
+      setStatus("Deleted.");
+      showToast(`Deleted note for ${note?.siteName || "site"}`, "success");
+    } catch (e) {
+      const msg = e.message || "Unable to delete site note.";
+      setStatus(msg);
+      showToast(msg, "error");
+    }
+  }
+
   function beginAddSiteHousingNote() {
     const pick = String(newSiteHousingSelect || "").trim();
     if (!pick) {
@@ -1751,6 +1772,16 @@ export default function BudgetPage() {
         onCancel={() => setBudgetRowDeleteTripId(null)}
       />
       <ConfirmModal
+        open={!!siteNoteDeleteId}
+        title="Delete team budget note?"
+        message="This permanently removes the note for this site. Workbook and logistics data on Sites are not changed."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => void handleDeleteSiteHousingNote()}
+        onCancel={() => setSiteNoteDeleteId("")}
+      />
+      <ConfirmModal
         open={!!budgetCheckDeleteId}
         title="Delete check request?"
         message="This removes the request and deletes the linked personal accounting task if one exists. This cannot be undone."
@@ -1842,228 +1873,88 @@ export default function BudgetPage() {
         </div>
       ) : null}
       <div className="budgetPage">
-        <h1 className="h1" style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
-          <AppIcon name="active" className="pageEyebrowIcon" />
-          <span>Budget</span>
-        </h1>
+        <div className="budgetPageHeader">
+          <div className="budgetPageHeaderMain">
+            <h1 className="h1" style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 10 }}>
+              <AppIcon name="active" className="pageEyebrowIcon" />
+              <span>Budget</span>
+            </h1>
 
-        {status ? <div className="small" style={{ marginBottom: 12 }}>{status}</div> : null}
+            {status ? <div className="small" style={{ marginBottom: 12 }}>{status}</div> : null}
 
-        <div className="tabs" style={{ marginBottom: 16 }}>
-          <button
-            type="button"
-            className={"tab " + (tab === "Overview" ? "tabActive" : "")}
-            onClick={() => setTab("Overview")}
-          >
-            Overview
-          </button>
-          <button
-            type="button"
-            className={"tab " + (tab === "Housing" ? "tabActive" : "")}
-            onClick={() => setTab("Housing")}
-          >
-            Housing budget
-          </button>
-          <button
-            type="button"
-            className={"tab " + (tab === "Ticketing" ? "tabActive" : "")}
-            onClick={() => setTab("Ticketing")}
-          >
-            Ticketing
-          </button>
-          <button
-            type="button"
-            className={"tab " + (tab === "On-site expenses" ? "tabActive" : "")}
-            onClick={() => setTab("On-site expenses")}
-          >
-            On-site expenses
-          </button>
-          <button
-            type="button"
-            className={"tab " + (tab === "Checks" ? "tabActive" : "")}
-            onClick={() => setTab("Checks")}
-          >
-            Checks
-          </button>
-        </div>
-
-        {averages && tab !== "Checks" && (
-          <div className="card pad" style={{ marginBottom: 24 }}>
-            <div style={{ fontWeight: 900, marginBottom: 12 }}>Budget averages</div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: 16,
-              }}
-            >
-              <div
-                className="card pad"
-                style={{
-                  boxShadow: "none",
-                  background:
-                    "linear-gradient(180deg, rgba(240,249,255,1), rgba(255,255,255,1) 55%)",
-                  borderColor: "rgba(14,116,144,.25)",
-                  maxWidth: 320,
-                }}
+            <div className="tabs" style={{ marginBottom: 0 }}>
+              <button
+                type="button"
+                className={"tab " + (tab === "Overview" ? "tabActive" : "")}
+                onClick={() => setTab("Overview")}
               >
-                <div
-                  className="small"
-                  style={{
-                    fontWeight: 900,
-                    textTransform: "uppercase",
-                    letterSpacing: ".09em",
-                    marginBottom: 4,
-                    color: "#1d4ed8",
-                  }}
-                >
-                  Airfare
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
-                  {averages.airfare?.average != null
-                    ? formatUsdNumber(Number(averages.airfare.average))
-                    : "—"}
-                </div>
-                {averages.airfare?.count > 0 ? (
-                  <div className="small" style={{ color: "var(--muted)" }}>
-                    Average ticket cost ({averages.airfare.count} ticket
-                    {averages.airfare.count === 1 ? "" : "s"})
-                  </div>
-                ) : null}
-              </div>
-              <div
-                className="card pad"
-                style={{
-                  boxShadow: "none",
-                  background:
-                    "linear-gradient(180deg, rgba(240,249,255,1), rgba(255,255,255,1) 55%)",
-                  borderColor: "rgba(14,116,144,.25)",
-                  maxWidth: 320,
-                }}
+                Overview
+              </button>
+              <button
+                type="button"
+                className={"tab " + (tab === "Housing" ? "tabActive" : "")}
+                onClick={() => setTab("Housing")}
               >
-                <div
-                  className="small"
-                  style={{
-                    fontWeight: 900,
-                    textTransform: "uppercase",
-                    letterSpacing: ".09em",
-                    marginBottom: 4,
-                    color: "#0f766e",
-                  }}
-                >
-                  Housing
-                </div>
-                <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>
-                  {averages.housing.average != null
-                    ? formatUsdNumber(Number(averages.housing.average))
-                    : "—"}
-                </div>
-                {averages.housing.count > 0 ? (
-                  <div className="small" style={{ color: "var(--muted)" }}>
-                    Average Housing amount ({averages.housing.count} team
-                    {averages.housing.count === 1 ? "" : "s"})
-                  </div>
-                ) : null}
-              </div>
+                Housing budget
+              </button>
+              <button
+                type="button"
+                className={"tab " + (tab === "Ticketing" ? "tabActive" : "")}
+                onClick={() => setTab("Ticketing")}
+              >
+                Ticketing
+              </button>
+              <button
+                type="button"
+                className={"tab " + (tab === "On-site expenses" ? "tabActive" : "")}
+                onClick={() => setTab("On-site expenses")}
+              >
+                On-site expenses
+              </button>
+              <button
+                type="button"
+                className={"tab " + (tab === "Checks" ? "tabActive" : "")}
+                onClick={() => setTab("Checks")}
+              >
+                Checks
+              </button>
             </div>
           </div>
-        )}
 
-        {tab === "Overview" && (
-          <>
-          <div className="card pad" style={budgetSectionCardStyle}>
-            <div style={{ marginBottom: 8 }}>
-              <div
-                className="row mobileSectionHeader"
-                style={{ gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
-              >
-                <div style={{ fontWeight: 900 }}>Team budget overview</div>
-                <div
-                  className="row mobileSectionHeaderActions"
-                  style={{
-                    gap: 8,
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    justifyContent: "flex-end",
-                    marginLeft: "auto",
-                  }}
-                >
-                  {isEditingOverview ? (
-                    <>
-                      <button type="button" className="btn" onClick={cancelOverviewEdit}>
-                        Cancel
-                      </button>
-                      <button type="button" className="btn btnPrimary" onClick={() => void saveOverviewBudget()}>
-                        Save
-                      </button>
-                    </>
-                  ) : (
-                    <button type="button" className="btn btnPrimary" onClick={beginOverviewEdit}>
-                      Edit
-                    </button>
-                  )}
+          {averages && tab !== "Checks" ? (
+            <div className="budgetAveragesHeader" aria-label="Budget averages">
+              <div className="budgetAveragesHeaderTitle">Budget averages</div>
+              <div className="budgetAveragesHeaderCards">
+                <div className="budgetAveragesHeaderCard budgetAveragesHeaderCardAirfare">
+                  <div className="budgetAveragesHeaderCardLabel">Airfare</div>
+                  <div className="budgetAveragesHeaderCardValue">
+                    {averages.airfare?.average != null
+                      ? formatUsdNumber(Number(averages.airfare.average))
+                      : "—"}
+                  </div>
+                  {averages.airfare?.count > 0 ? (
+                    <div className="budgetAveragesHeaderCardMeta">
+                      {averages.airfare.count} ticket{averages.airfare.count === 1 ? "" : "s"}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="budgetAveragesHeaderCard budgetAveragesHeaderCardHousing">
+                  <div className="budgetAveragesHeaderCardLabel">Housing</div>
+                  <div className="budgetAveragesHeaderCardValue">
+                    {averages.housing.average != null
+                      ? formatUsdNumber(Number(averages.housing.average))
+                      : "—"}
+                  </div>
+                  {averages.housing.count > 0 ? (
+                    <div className="budgetAveragesHeaderCardMeta">
+                      {averages.housing.count} team{averages.housing.count === 1 ? "" : "s"}
+                    </div>
+                  ) : null}
                 </div>
               </div>
-            </div>
-
-            <BudgetOverviewTable
-              rows={currentBudgetOverviewRows}
-              totals={budgetOverviewTotals}
-              isEditingOverview={isEditingOverview}
-              archivedTripIds={archivedTripIds}
-              pastTripIds={pastTripIds}
-              onSelectTrip={setTeamEditorTripId}
-              onUpdateDraft={updateOverviewBudgetDraft}
-            />
-
-            {currentBudgetOverviewRows.length === 0 && pastBudgetOverviewRows.length === 0 ? (
-              <EmptyState
-                icon="empty"
-                title="No teams yet"
-                description="Trips appear here once they are created and visible on the Housing budget tab."
-              />
-            ) : currentBudgetOverviewRows.length === 0 ? (
-              <EmptyState
-                icon="empty"
-                title="No current teams"
-                description="All budget teams are in the past trips section below."
-              />
-            ) : null}
-          </div>
-
-          {pastBudgetOverviewRows.length > 0 ? (
-            <div
-              className="card pad"
-              style={{
-                ...budgetSectionCardStyle,
-                marginTop: 24,
-                background:
-                  "linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))",
-              }}
-            >
-              <div style={{ marginBottom: 16 }}>
-                <div
-                  className="row"
-                  style={{ alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}
-                >
-                  <div style={{ fontWeight: 900 }}>Past trips</div>
-                  <span className="badge">{pastBudgetOverviewRows.length}</span>
-                </div>
-              </div>
-
-              <BudgetOverviewTable
-                rows={pastBudgetOverviewRows}
-                totals={pastBudgetOverviewTotals}
-                isEditingOverview={isEditingOverview}
-                archivedTripIds={archivedTripIds}
-                pastTripIds={pastTripIds}
-                onSelectTrip={setTeamEditorTripId}
-                onUpdateDraft={updateOverviewBudgetDraft}
-              />
             </div>
           ) : null}
-          </>
-        )}
+        </div>
 
         {tab !== "Checks" ? (
         <CollapsibleSection
@@ -2197,12 +2088,20 @@ export default function BudgetPage() {
                             onChange={(e) => setEditingSiteNoteDraft(e.target.value)}
                             placeholder="Enter site housing note"
                           />
-                          <div className="row" style={{ gap: 8 }}>
+                          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                             <button className="btn btnPrimary" type="button" onClick={() => void saveSiteHousingNote(n)}>
                               Save
                             </button>
                             <button className="btn" type="button" onClick={cancelEditSiteHousingNote}>
                               Cancel
+                            </button>
+                            <button
+                              className="btn"
+                              type="button"
+                              style={{ color: "var(--danger)" }}
+                              onClick={() => setSiteNoteDeleteId(String(n.id))}
+                            >
+                              Delete
                             </button>
                           </div>
                         </div>
@@ -2233,6 +2132,102 @@ export default function BudgetPage() {
           ) : null}
         </CollapsibleSection>
         ) : null}
+
+        {tab === "Overview" && (
+          <>
+          <div className="card pad" style={budgetSectionCardStyle}>
+            <div style={{ marginBottom: 8 }}>
+              <div
+                className="row mobileSectionHeader"
+                style={{ gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
+              >
+                <div style={{ fontWeight: 900 }}>Team budget overview</div>
+                <div
+                  className="row mobileSectionHeaderActions"
+                  style={{
+                    gap: 8,
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    marginLeft: "auto",
+                  }}
+                >
+                  {isEditingOverview ? (
+                    <>
+                      <button type="button" className="btn" onClick={cancelOverviewEdit}>
+                        Cancel
+                      </button>
+                      <button type="button" className="btn btnPrimary" onClick={() => void saveOverviewBudget()}>
+                        Save
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="btn btnPrimary" onClick={beginOverviewEdit}>
+                      Edit
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <BudgetOverviewTable
+              rows={currentBudgetOverviewRows}
+              totals={budgetOverviewTotals}
+              isEditingOverview={isEditingOverview}
+              archivedTripIds={archivedTripIds}
+              pastTripIds={pastTripIds}
+              onSelectTrip={setTeamEditorTripId}
+              onUpdateDraft={updateOverviewBudgetDraft}
+            />
+
+            {currentBudgetOverviewRows.length === 0 && pastBudgetOverviewRows.length === 0 ? (
+              <EmptyState
+                icon="empty"
+                title="No teams yet"
+                description="Trips appear here once they are created and visible on the Housing budget tab."
+              />
+            ) : currentBudgetOverviewRows.length === 0 ? (
+              <EmptyState
+                icon="empty"
+                title="No current teams"
+                description="All budget teams are in the past trips section below."
+              />
+            ) : null}
+          </div>
+
+          {pastBudgetOverviewRows.length > 0 ? (
+            <div
+              className="card pad"
+              style={{
+                ...budgetSectionCardStyle,
+                marginTop: 24,
+                background:
+                  "linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))",
+              }}
+            >
+              <div style={{ marginBottom: 16 }}>
+                <div
+                  className="row"
+                  style={{ alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}
+                >
+                  <div style={{ fontWeight: 900 }}>Past trips</div>
+                  <span className="badge">{pastBudgetOverviewRows.length}</span>
+                </div>
+              </div>
+
+              <BudgetOverviewTable
+                rows={pastBudgetOverviewRows}
+                totals={pastBudgetOverviewTotals}
+                isEditingOverview={isEditingOverview}
+                archivedTripIds={archivedTripIds}
+                pastTripIds={pastTripIds}
+                onSelectTrip={setTeamEditorTripId}
+                onUpdateDraft={updateOverviewBudgetDraft}
+              />
+            </div>
+          ) : null}
+          </>
+        )}
 
         {tab === "Housing" && (
         <>
