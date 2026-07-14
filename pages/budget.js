@@ -2268,13 +2268,10 @@ export default function BudgetPage() {
               }}
             >
               <div style={{ marginBottom: 16 }}>
-                <div
-                  className="row"
-                  style={{ alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}
-                >
-                  <div style={{ fontWeight: 900 }}>Past trips</div>
-                  <span className="badge">{pastBudgetOverviewRows.length}</span>
-                </div>
+                <BudgetCheckSectionPill
+                  label="Past trips"
+                  count={pastBudgetOverviewRows.length}
+                />
               </div>
 
               <BudgetOverviewTable
