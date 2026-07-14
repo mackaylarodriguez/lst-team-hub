@@ -2365,7 +2365,6 @@ export default function BudgetPage() {
                         "Site",
                         "Workers (roster)",
                         "Team Accountant",
-                        "Housing budget amount",
                         "Returned Amount",
                         "Housing Amount",
                         "Housing Link",
@@ -2380,7 +2379,6 @@ export default function BudgetPage() {
                         r.siteCountry || "",
                         String(countTripRosterMembers(teamMembersByTripId, r.tripId)),
                         r.teamAccountant || "",
-                        formatUsdDisplay(r.housingBudgetAmount),
                         formatUsdDisplay(r.returnedAmount),
                         formatUsdDisplay(r.housingAmount),
                         r.housingLink || "",
@@ -2465,7 +2463,6 @@ export default function BudgetPage() {
                   <th>Site</th>
                   <th style={{ width: 72, textAlign: "center" }}>Workers</th>
                   <th>Team Accountant</th>
-                  <th>Housing budget amount</th>
                   <th>Returned Amount</th>
                   <th>Housing Amount</th>
                   <th>Housing link / PDF</th>
@@ -2546,21 +2543,6 @@ export default function BudgetPage() {
                         <td style={{ minWidth: 112 }}>
                           <input
                             className="input"
-                            value={r.housingBudgetAmount || ""}
-                            onChange={(e) => updateHousingDraftRow(r.tripId, "housingBudgetAmount", e.target.value)}
-                            onBlur={(e) => {
-                              const next = normalizeMoneyInputToUsd(e.target.value);
-                              if (next !== (r.housingBudgetAmount || "")) {
-                                updateHousingDraftRow(r.tripId, "housingBudgetAmount", next);
-                              }
-                            }}
-                            inputMode="decimal"
-                            placeholder="$0.00"
-                          />
-                        </td>
-                        <td style={{ minWidth: 112 }}>
-                          <input
-                            className="input"
                             value={r.returnedAmount || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "returnedAmount", e.target.value)}
                             onBlur={(e) => {
@@ -2576,9 +2558,6 @@ export default function BudgetPage() {
                         <td style={{ minWidth: 112 }}>
                           <input
                             className="input"
-                            style={{
-                              color: housingLineAmountVsBudgetColor(r.housingAmount, HOUSING1_BUDGET_PER_TEAM),
-                            }}
                             value={r.housingAmount || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "housingAmount", e.target.value)}
                             onBlur={(e) => {
@@ -2589,6 +2568,9 @@ export default function BudgetPage() {
                             }}
                             inputMode="decimal"
                             placeholder="$0.00"
+                            style={{
+                              color: housingLineAmountVsBudgetColor(r.housingAmount, HOUSING1_BUDGET_PER_TEAM),
+                            }}
                           />
                         </td>
                         <td style={{ minWidth: 220, maxWidth: 360 }}>
@@ -2774,7 +2756,6 @@ export default function BudgetPage() {
                           {countTripRosterMembers(teamMembersByTripId, r.tripId)}
                         </td>
                         <td>{r.teamAccountant || ""}</td>
-                        <td>{formatUsdDisplay(r.housingBudgetAmount)}</td>
                         <td>{formatUsdDisplay(r.returnedAmount)}</td>
                         <td
                           style={{
