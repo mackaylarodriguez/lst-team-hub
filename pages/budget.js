@@ -2184,7 +2184,7 @@ export default function BudgetPage() {
                 className="row mobileSectionHeader"
                 style={{ gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
               >
-                <div style={{ fontWeight: 900 }}>Team budget overview</div>
+                <div className="appSectionBadge" style={{ marginBottom: 0 }}>Team budget overview</div>
                 <div
                   className="row mobileSectionHeaderActions"
                   style={{
