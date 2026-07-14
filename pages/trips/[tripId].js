@@ -609,7 +609,7 @@ export default function TripPage() {
         <nav className="breadcrumb" aria-label="Breadcrumb" style={{ marginBottom: 6 }}>
           <Link href="/trips">Trips</Link>
           <span className="small" style={{ color: "var(--muted)", margin: "0 6px" }}>/</span>
-          <span className="small" style={{ color: "var(--text)" }}>{trip.name}</span>
+          <span className="small" style={{ color: "var(--text)" }}>{trip?.name || "Trip"}</span>
         </nav>
 
         <TripDetailHeroBar />

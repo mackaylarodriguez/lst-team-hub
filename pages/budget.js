@@ -4,11 +4,12 @@ import AppIcon from "@/components/AppIcon";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import Spinner from "@/components/Spinner";
 import ConfirmModal from "@/components/ConfirmModal";
+import BusyOverlay from "@/components/BusyOverlay";
 import BudgetTeamEditorModal from "@/components/budget/BudgetTeamEditorModal";
 import EmptyState from "@/components/EmptyState";
 import { showToast } from "@/components/Toast";
 import { useRouter } from "next/router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
@@ -359,7 +360,7 @@ function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, t
       budgetAmount: row.budgetAmount || "",
       onsiteExpensesAmount: row.onsiteExpensesAmount || "",
       returnedAmount: row.returnedAmount || "",
-      notes: row.notes || "",
+      notes: row.notes == null ? "" : String(row.notes),
       fundraisingTotal,
       teamBudgetTotal,
       airfareTotal,
@@ -565,9 +566,10 @@ function BudgetOverviewTable({
         </thead>
         <tbody>
           {rows.map((row) => {
-            const isArchived = archivedTripIds.has(row.tripId);
-            const isPast = pastTripIds.has(row.tripId);
-            const accountantNames = getAccountantNames?.(row.tripId) || [];
+            const isArchived = Boolean(archivedTripIds?.has?.(row.tripId));
+            const isPast = Boolean(pastTripIds?.has?.(row.tripId));
+            const accountantNames =
+              typeof getAccountantNames === "function" ? getAccountantNames(row.tripId) || [] : [];
             return (
               <tr
                 key={row.tripId}
@@ -741,7 +743,7 @@ function BudgetOverviewTable({
               </td>
               <td>
                 {formatUsdNumberOrDash(
-                  totals.teamsWithReturned > 0 ? totals.returnedTotal : null
+                  totals?.teamsWithReturned > 0 ? totals.returnedTotal : null
                 )}
               </td>
               <td />
@@ -761,8 +763,55 @@ export default function BudgetPage() {
   const [trips, setTrips] = useState([]);
   const [housingRows, setHousingRows] = useState([]);
   const [ticketRows, setTicketRows] = useState([]);
-  const [status, setStatus] = useState("");
+  const [busyOverlay, setBusyOverlay] = useState(null);
+  const busyOverlayTimeoutRef = useRef(null);
   const [loading, setLoading] = useState(true);
+
+  const clearBusyOverlay = useCallback(() => {
+    if (busyOverlayTimeoutRef.current) {
+      clearTimeout(busyOverlayTimeoutRef.current);
+      busyOverlayTimeoutRef.current = null;
+    }
+    setBusyOverlay(null);
+  }, []);
+
+  const showBusyOverlay = useCallback((message = "Saving…") => {
+    if (busyOverlayTimeoutRef.current) {
+      clearTimeout(busyOverlayTimeoutRef.current);
+      busyOverlayTimeoutRef.current = null;
+    }
+    setBusyOverlay({ mode: "busy", message });
+  }, []);
+
+  const showBusyOverlayDone = useCallback(
+    (message = "Saved") => {
+      if (busyOverlayTimeoutRef.current) {
+        clearTimeout(busyOverlayTimeoutRef.current);
+        busyOverlayTimeoutRef.current = null;
+      }
+      setBusyOverlay({ mode: "done", message });
+      busyOverlayTimeoutRef.current = setTimeout(() => {
+        setBusyOverlay(null);
+        busyOverlayTimeoutRef.current = null;
+      }, 1000);
+    },
+    []
+  );
+
+  const showBusyOverlayError = useCallback((message) => {
+    if (busyOverlayTimeoutRef.current) {
+      clearTimeout(busyOverlayTimeoutRef.current);
+      busyOverlayTimeoutRef.current = null;
+    }
+    setBusyOverlay(null);
+    if (message) showToast(message, "error");
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (busyOverlayTimeoutRef.current) clearTimeout(busyOverlayTimeoutRef.current);
+    };
+  }, []);
   const [newTicketTripId, setNewTicketTripId] = useState("");
   const [tab, setTab] = useState("Overview");
   const [isEditingHousing, setIsEditingHousing] = useState(false);
@@ -1136,8 +1185,7 @@ export default function BudgetPage() {
       } catch (e) {
         if (!cancelled) {
           const msg = e.message || "Error loading budget data.";
-          setStatus(msg);
-          showToast(msg, "error");
+          showBusyOverlayError(msg);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -1250,7 +1298,6 @@ export default function BudgetPage() {
   function handleToolbarAddHousingSlot() {
     const tripId = newHousingSlotTripId || tripsSortedForBudget[0]?.id;
     if (!tripId) {
-      setStatus("No trip to attach housing to.");
       showToast("Create a trip first.", "error");
       return;
     }
@@ -1260,7 +1307,7 @@ export default function BudgetPage() {
 
   async function saveHousingBudget() {
     try {
-      setStatus("Saving...");
+      showBusyOverlay("Saving…");
       for (const row of housingRowsDraft) {
         const trip = trips.find((t) => t.id === row.tripId);
         await saveTripBudget(row.tripId, {
@@ -1296,7 +1343,7 @@ export default function BudgetPage() {
       const extraRows = await listAllTripHousingEntries();
       setHousingExtrasByTripId(groupHousingExtrasByTripId(extraRows));
       setIsEditingHousing(false);
-      setStatus("Saved.");
+      showBusyOverlayDone("Saved");
       if (extrasSkippedMissingTable && hadAnyExtraLines) {
         showToast(
           "Main housing saved, but extra housing lines need the Supabase table: run supabase/trip_housing_entries_install.sql (or trip_housing_entries.sql + trip_housing_entries_rls.sql).",
@@ -1305,8 +1352,7 @@ export default function BudgetPage() {
       }
     } catch (e) {
       const msg = e.message || "Error saving.";
-      setStatus(msg);
-      showToast(msg, "error");
+      showBusyOverlayError(msg);
     }
   }
 
@@ -1320,13 +1366,12 @@ export default function BudgetPage() {
       prev.map((r) => (r.id === ticketId ? updated : r))
     );
     try {
-      setStatus("Saving...");
+      showBusyOverlay("Saving…");
       await saveTripTicket(updated);
-      setStatus("Saved.");
+      showBusyOverlayDone("Saved");
     } catch (e) {
       const msg = e.message || "Error saving.";
-      setStatus(msg);
-      showToast(msg, "error");
+      showBusyOverlayError(msg);
     }
   }
 
@@ -1334,16 +1379,16 @@ export default function BudgetPage() {
     try {
       await deleteTripTicket(id);
       setTicketRows((prev) => prev.filter((r) => r.id !== id));
-      setStatus("Ticket removed.");
+      showBusyOverlayDone("Deleted");
     } catch (e) {
-      setStatus(e.message || "Error deleting.");
+      showBusyOverlayError(e.message || "Error deleting.");
     }
   }
 
   async function removeBudgetRowForTrip(tripId) {
     if (!tripId) return;
     try {
-      setStatus("Deleting budget row...");
+      showBusyOverlay("Deleting…");
       await deleteTripBudget(tripId);
       try {
         await syncTripHousingExtras(tripId, []);
@@ -1363,12 +1408,11 @@ export default function BudgetPage() {
       }
       const extraRows = await listAllTripHousingEntries();
       setHousingExtrasByTripId(groupHousingExtrasByTripId(extraRows));
-      setStatus("Budget row removed.");
+      showBusyOverlayDone("Deleted");
       showToast("Budget row removed. Trip still exists; you can add a new row by saving from Edit.", "success");
     } catch (e) {
       const msg = e.message || "Error deleting budget row.";
-      setStatus(msg);
-      showToast(msg, "error");
+      showBusyOverlayError(msg);
     }
   }
 
@@ -1385,7 +1429,7 @@ export default function BudgetPage() {
   async function saveSiteHousingNote(note) {
     if (!note?.id) return;
     try {
-      setStatus("Saving site note...");
+      showBusyOverlay("Saving…");
       const saved = await updateSiteBudgetNote(note.id, {
         siteName: note.siteName || "",
         effectiveDate: note.effectiveDate || null,
@@ -1396,12 +1440,11 @@ export default function BudgetPage() {
       });
       setSiteHousingNotes((prev) => prev.map((row) => (row.id === saved.id ? saved : row)));
       cancelEditSiteHousingNote();
-      setStatus("Saved.");
+      showBusyOverlayDone("Saved");
       showToast(`Saved note for ${note.siteName || "site"}`, "success");
     } catch (e) {
       const msg = e.message || "Unable to save site note.";
-      setStatus(msg);
-      showToast(msg, "error");
+      showBusyOverlayError(msg);
     }
   }
 
@@ -1410,17 +1453,16 @@ export default function BudgetPage() {
     if (!id) return;
     const note = (siteHousingNotes || []).find((row) => String(row.id) === id);
     try {
-      setStatus("Deleting site note...");
+      showBusyOverlay("Deleting…");
       await deleteSiteBudgetNote(id);
       setSiteHousingNotes((prev) => prev.filter((row) => String(row.id) !== id));
       if (String(editingSiteNoteId) === id) cancelEditSiteHousingNote();
       setSiteNoteDeleteId("");
-      setStatus("Deleted.");
+      showBusyOverlayDone("Deleted");
       showToast(`Deleted note for ${note?.siteName || "site"}`, "success");
     } catch (e) {
       const msg = e.message || "Unable to delete site note.";
-      setStatus(msg);
-      showToast(msg, "error");
+      showBusyOverlayError(msg);
     }
   }
 
@@ -1451,17 +1493,16 @@ export default function BudgetPage() {
       return;
     }
     try {
-      setStatus("Saving site note...");
+      showBusyOverlay("Saving…");
       const saved = await saveSiteHousingNoteForSiteLabel(label, newSiteHousingDraft);
       const fresh = await listSiteBudgetNotes();
       setSiteHousingNotes(fresh);
       cancelAddSiteHousingNote();
-      setStatus("Saved.");
+      showBusyOverlayDone("Saved");
       showToast(`Saved housing note for ${saved.siteName || label}`, "success");
     } catch (e) {
       const msg = e.message || "Unable to save site note.";
-      setStatus(msg);
-      showToast(msg, "error");
+      showBusyOverlayError(msg);
     }
   }
 
@@ -1660,12 +1701,11 @@ export default function BudgetPage() {
   async function handleAddTicket() {
     const tripId = newTicketTripId || trips[0]?.id;
     if (!tripId) {
-      setStatus("No trip selected. Create a trip first.");
-      return;
+            return;
     }
     const trip = trips.find((t) => t.id === tripId);
     try {
-      setStatus("Adding...");
+      showBusyOverlay("Adding…");
       const saved = await saveTripTicket({
         tripId,
         intlDom: defaultIntlDomForLocation(trip?.location),
@@ -1682,11 +1722,10 @@ export default function BudgetPage() {
         notes: "",
       });
       setTicketRows((prev) => [...prev, { ...saved, tripName: trip?.name || "" }]);
-      setStatus("Ticket added.");
+      showBusyOverlayDone("Added");
     } catch (e) {
       const msg = e.message || "Unable to add.";
-      setStatus(msg);
-      showToast(msg, "error");
+      showBusyOverlayError(msg);
     }
   }
 
@@ -1708,7 +1747,7 @@ export default function BudgetPage() {
 
   async function saveOnsiteExpenses() {
     try {
-      setStatus("Saving...");
+      showBusyOverlay("Saving…");
       for (const row of onsiteExpensesDraft) {
         await saveTripBudget(row.tripId, {
           onsiteExpensesAmount: row.onsiteExpensesAmount ?? "",
@@ -1718,12 +1757,11 @@ export default function BudgetPage() {
       setHousingRows(mergeHousingWithTrips(trips, housingRes));
       setIsEditingOnsiteExpenses(false);
       setOnsiteExpensesDraft([]);
-      setStatus("Saved.");
+      showBusyOverlayDone("Saved");
       showToast("On-site expenses saved.", "success");
     } catch (e) {
       const msg = e.message || "Error saving.";
-      setStatus(msg);
-      showToast(msg, "error");
+      showBusyOverlayError(msg);
     }
   }
 
@@ -1761,7 +1799,7 @@ export default function BudgetPage() {
 
   async function saveOverviewBudget() {
     try {
-      setStatus("Saving...");
+      showBusyOverlay("Saving…");
       for (const row of overviewBudgetDraft) {
         await saveTripBudget(row.tripId, {
           onsiteExpensesAmount: row.onsiteExpensesAmount ?? "",
@@ -1789,12 +1827,11 @@ export default function BudgetPage() {
       }
       setIsEditingOverview(false);
       setOverviewBudgetDraft([]);
-      setStatus("Saved.");
+      showBusyOverlayDone("Saved");
       showToast("Overview amounts saved.", "success");
     } catch (e) {
       const msg = e.message || "Error saving.";
-      setStatus(msg);
-      showToast(msg, "error");
+      showBusyOverlayError(msg);
     }
   }
 
@@ -1813,6 +1850,11 @@ export default function BudgetPage() {
 
   return (
     <Shell>
+      <BusyOverlay
+        open={!!busyOverlay}
+        mode={busyOverlay?.mode || "busy"}
+        message={busyOverlay?.message || "Saving…"}
+      />
       <ConfirmModal
         open={!!ticketToDeleteId}
         title="Delete ticket?"
@@ -1948,8 +1990,6 @@ export default function BudgetPage() {
               <span>Budget</span>
             </h1>
 
-            {status ? <div className="small" style={{ marginBottom: 12 }}>{status}</div> : null}
-
             <div className="tabs" style={{ marginBottom: 0 }}>
               <button
                 type="button"
@@ -2009,13 +2049,13 @@ export default function BudgetPage() {
                 <div className="budgetAveragesHeaderCard budgetAveragesHeaderCardHousing">
                   <div className="budgetAveragesHeaderCardLabel">Housing</div>
                   <div className="budgetAveragesHeaderCardValue">
-                    {averages.housing.average != null
-                      ? formatUsdNumber(Number(averages.housing.average))
+                    {averages.housing?.average != null
+                      ? formatUsdNumber(Number(averages.housing?.average))
                       : "—"}
                   </div>
-                  {averages.housing.count > 0 ? (
+                  {averages.housing?.count > 0 ? (
                     <div className="budgetAveragesHeaderCardMeta">
-                      {averages.housing.count} team{averages.housing.count === 1 ? "" : "s"}
+                      {averages.housing?.count} team{averages.housing?.count === 1 ? "" : "s"}
                     </div>
                   ) : null}
                 </div>
@@ -2390,8 +2430,6 @@ export default function BudgetPage() {
                       link.click();
                       document.body.removeChild(link);
                       URL.revokeObjectURL(url);
-                      setStatus(`Exported ${housingFilename}`);
-                      setTimeout(() => setStatus(""), 4000);
                       showToast(`Exported ${housingFilename}`);
                     }}
                   >
@@ -2951,8 +2989,6 @@ export default function BudgetPage() {
                       link.click();
                       document.body.removeChild(link);
                       URL.revokeObjectURL(url);
-                      setStatus(`Exported ${airfareFilename}`);
-                      setTimeout(() => setStatus(""), 4000);
                       showToast(`Exported ${airfareFilename}`);
                     }}
                   >

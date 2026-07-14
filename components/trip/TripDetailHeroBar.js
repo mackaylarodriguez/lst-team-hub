@@ -29,17 +29,17 @@ export default function TripDetailHeroBar() {
           </div>
         </div>
 
-        <div className="tripDetailHeroSlimProgress" aria-label={`Trip completion ${pct}%`}>
+        <div className="tripDetailHeroSlimProgress" aria-label={`Trip completion ${Number(pct) || 0}%`}>
           <span className="tripDetailHeroSlimProgressLabel">Completion</span>
           <div className="progress tripDetailHeroSlimProgressBar">
-            <div style={{ width: `${pct}%` }} />
+            <div style={{ width: `${Math.min(100, Math.max(0, Number(pct) || 0))}%` }} />
           </div>
-          <span className="tripDetailHeroSlimProgressPct">{pct}%</span>
+          <span className="tripDetailHeroSlimProgressPct">{Number(pct) || 0}%</span>
         </div>
 
-        <div className="tripDetailHeroSlimCountdown" title={countdownSummary.detail || undefined}>
-          <span className="tripDetailHeroSlimCountdownValue">{countdownSummary.label}</span>
-          {countdownSummary.detail ? (
+        <div className="tripDetailHeroSlimCountdown" title={countdownSummary?.detail || undefined}>
+          <span className="tripDetailHeroSlimCountdownValue">{countdownSummary?.label || "—"}</span>
+          {countdownSummary?.detail ? (
             <span className="tripDetailHeroSlimCountdownDetail">{countdownSummary.detail}</span>
           ) : null}
         </div>
