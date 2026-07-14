@@ -794,6 +794,7 @@ export default function BudgetPage() {
   const [isEditingHousing, setIsEditingHousing] = useState(false);
   const [housingRowsDraft, setHousingRowsDraft] = useState([]);
   const [isEditingTickets, setIsEditingTickets] = useState(false);
+  const [ticketRowsBaseline, setTicketRowsBaseline] = useState(null);
   const [isEditingOverview, setIsEditingOverview] = useState(false);
   const [overviewBudgetDraft, setOverviewBudgetDraft] = useState([]);
   const [teamEditorTripId, setTeamEditorTripId] = useState("");
@@ -1318,19 +1319,47 @@ export default function BudgetPage() {
     }
   }
 
-  async function updateTicketRow(ticketId, field, value) {
-    const row = ticketRows.find((r) => r.id === ticketId);
-    if (!row) return;
-    const updated = { ...row, [field]: value };
-    const computedCost = computeTotalLstCost(updated.totalTicketCost, updated.amountWorkerPaid);
-    updated.totalLstCost = computedCost;
+  function beginTicketsEdit() {
+    setTicketRowsBaseline((ticketRows || []).map((row) => ({ ...row })));
+    setIsEditingTickets(true);
+  }
+
+  function cancelTicketsEdit() {
+    if (ticketRowsBaseline) {
+      setTicketRows(ticketRowsBaseline.map((row) => ({ ...row })));
+    }
+    setTicketRowsBaseline(null);
+    setIsEditingTickets(false);
+  }
+
+  function updateTicketRow(ticketId, field, value) {
     setTicketRows((prev) =>
-      prev.map((r) => (r.id === ticketId ? updated : r))
+      prev.map((row) => {
+        if (row.id !== ticketId) return row;
+        const updated = { ...row, [field]: value };
+        updated.totalLstCost = computeTotalLstCost(updated.totalTicketCost, updated.amountWorkerPaid);
+        return updated;
+      })
     );
+  }
+
+  async function saveTicketsEdit() {
     try {
       showBusyOverlay("Saving…");
-      await saveTripTicket(updated);
+      const rows = ticketRows || [];
+      for (const row of rows) {
+        await saveTripTicket({
+          ...row,
+          totalLstCost: computeTotalLstCost(row.totalTicketCost, row.amountWorkerPaid),
+        });
+      }
+      const refreshedTickets = await listAllTripTickets();
+      setTicketRows(refreshedTickets);
+      setTicketRowsBaseline(null);
+      setIsEditingTickets(false);
+      setAverages(await getBudgetAverages());
       showBusyOverlayDone("Saved");
+      showToast("Ticketing saved.", "success");
     } catch (e) {
       const msg = e.message || "Error saving.";
       showBusyOverlayError(msg);
@@ -2804,10 +2833,18 @@ export default function BudgetPage() {
                   <button
                     type="button"
                     className={isEditingTickets ? "btn btnPrimary" : "btn"}
-                    onClick={() => setIsEditingTickets((current) => !current)}
+                    onClick={() => {
+                      if (isEditingTickets) void saveTicketsEdit();
+                      else beginTicketsEdit();
+                    }}
                   >
                     {isEditingTickets ? "Save" : "Edit"}
                   </button>
+                  {isEditingTickets ? (
+                    <button type="button" className="btn" onClick={cancelTicketsEdit}>
+                      Cancel
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="btn"
