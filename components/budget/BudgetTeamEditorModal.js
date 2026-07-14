@@ -24,7 +24,8 @@ import {
 } from "@/lib/tripTickets";
 import { listTripTeamMembers } from "@/lib/tripTeamMembers";
 import { listTripParticipants, updateTripForCurrentUser } from "@/lib/trips";
-import { computeTeamFundraisingGoalTotal } from "@/lib/tripFundraising";
+import { computeTeamFundraisingGoalTotal, buildTeamFundraisingWorkerRows } from "@/lib/tripFundraising";
+import FundraisingWorkerGoalList from "@/components/budget/FundraisingWorkerGoalList";
 import { isUsMassachusettsMissionSite } from "@/lib/usMassachusettsSite";
 
 function formatFeeDraftAmount(value) {
@@ -141,6 +142,16 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
   const isDomesticProject = useMemo(
     () => isUsMassachusettsMissionSite(draft?.siteCountry || trip?.location),
     [draft?.siteCountry, trip?.location]
+  );
+
+  const fundraisingWorkers = useMemo(
+    () =>
+      buildTeamFundraisingWorkerRows({
+        ...trip,
+        teamMembers,
+        participants,
+      }),
+    [trip, teamMembers, participants]
   );
 
   const fundraisingTotal = useMemo(
@@ -354,6 +365,9 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
                 <strong>
                   {summary.fundraisingTotal != null ? formatUsdNumber(summary.fundraisingTotal) : "—"}
                 </strong>
+                <div className="budgetTeamEditorSummaryWorkers">
+                  <FundraisingWorkerGoalList workers={fundraisingWorkers} />
+                </div>
               </div>
               <div>
                 <span className="budgetTeamEditorSummaryLabel">Team budget</span>
@@ -451,6 +465,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
                     <p className="budgetTeamEditorHint">
                       Combined worker fundraising goals from the roster (read-only).
                     </p>
+                    <FundraisingWorkerGoalList workers={fundraisingWorkers} />
                   </Field>
                   <Field label="Budget">
                     <EditorInput

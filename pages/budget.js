@@ -43,7 +43,8 @@ import {
 } from "@/lib/tripHousingEntries";
 import { listAllTripTeamMembers } from "@/lib/tripTeamMembers";
 import { listTripsForCurrentUser } from "@/lib/trips";
-import { computeTeamFundraisingGoalTotal } from "@/lib/tripFundraising";
+import { computeTeamFundraisingGoalTotal, buildTeamFundraisingWorkerRows } from "@/lib/tripFundraising";
+import FundraisingWorkerGoalList from "@/components/budget/FundraisingWorkerGoalList";
 import {
   deleteBudgetCheckRequest,
   listBudgetCheckRequests,
@@ -333,12 +334,14 @@ function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, t
   return (housingRows || []).map((row) => {
     const tripMeta = tripsById?.get(String(row.tripId)) || {};
     const teamMembers = teamMembersByTripId[String(row.tripId)] || [];
-    const fundraisingComputed = computeTeamFundraisingGoalTotal({
+    const tripLike = {
       ...tripMeta,
       id: row.tripId,
       teamMembers,
       participants: [],
-    });
+    };
+    const fundraisingWorkers = buildTeamFundraisingWorkerRows(tripLike);
+    const fundraisingComputed = computeTeamFundraisingGoalTotal(tripLike);
     const fundraisingTotal = fundraisingComputed > 0 ? fundraisingComputed : null;
     const airfareTotal = sumTicketAirfareForTrip(ticketRows, row.tripId);
     const housingTotal = housingAmountFromBudgetRow(row);
@@ -362,6 +365,7 @@ function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, t
       returnedAmount: row.returnedAmount || "",
       notes: row.notes == null ? "" : String(row.notes),
       fundraisingTotal,
+      fundraisingWorkers,
       teamBudgetTotal,
       airfareTotal,
       housingTotal,
@@ -544,7 +548,7 @@ function BudgetOverviewTable({
 
   return (
     <div className="budgetTableScroller">
-      <table className="table dataTableStriped budgetStickyTable budgetOverviewTable" style={{ minWidth: 1840, fontSize: 12 }}>
+      <table className="table dataTableStriped budgetStickyTable budgetOverviewTable" style={{ minWidth: 1960, fontSize: 12 }}>
         <thead>
           <tr>
             <th>Team Name</th>
@@ -616,7 +620,14 @@ function BudgetOverviewTable({
                     row.teamAccountant || "—"
                   )}
                 </td>
-                <td>{formatUsdNumberOrDash(row.fundraisingTotal)}</td>
+                <td className="budgetOverviewFundraisingCell">
+                  <div className="budgetOverviewFundraisingTotal">
+                    {formatUsdNumberOrDash(row.fundraisingTotal)}
+                  </div>
+                  {(row.fundraisingWorkers || []).length > 0 ? (
+                    <FundraisingWorkerGoalList workers={row.fundraisingWorkers} />
+                  ) : null}
+                </td>
                 <td style={{ minWidth: 112 }}>
                   {isEditingOverview ? (
                     <input
@@ -783,8 +794,6 @@ export default function BudgetPage() {
   const [isEditingHousing, setIsEditingHousing] = useState(false);
   const [housingRowsDraft, setHousingRowsDraft] = useState([]);
   const [isEditingTickets, setIsEditingTickets] = useState(false);
-  const [isEditingOnsiteExpenses, setIsEditingOnsiteExpenses] = useState(false);
-  const [onsiteExpensesDraft, setOnsiteExpensesDraft] = useState([]);
   const [isEditingOverview, setIsEditingOverview] = useState(false);
   const [overviewBudgetDraft, setOverviewBudgetDraft] = useState([]);
   const [teamEditorTripId, setTeamEditorTripId] = useState("");
@@ -969,19 +978,6 @@ export default function BudgetPage() {
     [pastBudgetOverviewRows, overviewHousingRows, pastTripIds]
   );
 
-  const visibleOnsiteExpenseRows = useMemo(() => {
-    if (!isEditingOnsiteExpenses) return housingRows;
-    const draftByTripId = new Map(
-      (onsiteExpensesDraft || []).map((row) => [String(row.tripId), row.onsiteExpensesAmount ?? ""])
-    );
-    return (housingRows || []).map((row) => ({
-      ...row,
-      onsiteExpensesAmount: draftByTripId.has(String(row.tripId))
-        ? draftByTripId.get(String(row.tripId))
-        : row.onsiteExpensesAmount,
-    }));
-  }, [housingRows, isEditingOnsiteExpenses, onsiteExpensesDraft]);
-
   const siteHousingNotesForDisplay = useMemo(() => {
     const byCanonicalSite = new Map();
     for (const note of siteHousingNotes || []) {
@@ -1039,7 +1035,7 @@ export default function BudgetPage() {
     if (t === "overview") setTab("Overview");
     else if (t === "housing") setTab("Housing");
     else if (t === "ticketing") setTab("Ticketing");
-    else if (t === "onsite" || t === "on-site" || t === "onsite-expenses") setTab("On-site expenses");
+    else if (t === "onsite" || t === "on-site" || t === "onsite-expenses") setTab("Overview");
     else if (t === "checks") setTab("Checks");
   }, [router.query.tab]);
 
@@ -1695,42 +1691,6 @@ export default function BudgetPage() {
     }
   }
 
-  function beginOnsiteExpensesEdit() {
-    setOnsiteExpensesDraft(
-      housingRows.map((row) => ({
-        tripId: row.tripId,
-        onsiteExpensesAmount: row.onsiteExpensesAmount || "",
-      }))
-    );
-    setIsEditingOnsiteExpenses(true);
-  }
-
-  function updateOnsiteExpensesDraftRow(tripId, onsiteExpensesAmount) {
-    setOnsiteExpensesDraft((prev) =>
-      prev.map((row) => (row.tripId === tripId ? { ...row, onsiteExpensesAmount } : row))
-    );
-  }
-
-  async function saveOnsiteExpenses() {
-    try {
-      showBusyOverlay("Saving…");
-      for (const row of onsiteExpensesDraft) {
-        await saveTripBudget(row.tripId, {
-          onsiteExpensesAmount: row.onsiteExpensesAmount ?? "",
-        });
-      }
-      const housingRes = await listAllTripBudgets();
-      setHousingRows(mergeHousingWithTrips(trips, housingRes));
-      setIsEditingOnsiteExpenses(false);
-      setOnsiteExpensesDraft([]);
-      showBusyOverlayDone("Saved");
-      showToast("On-site expenses saved.", "success");
-    } catch (e) {
-      const msg = e.message || "Error saving.";
-      showBusyOverlayError(msg);
-    }
-  }
-
   async function refreshBudgetTeamData() {
     const housingRes = await listAllTripBudgets();
     setHousingRows(mergeHousingWithTrips(trips, housingRes));
@@ -1972,13 +1932,6 @@ export default function BudgetPage() {
                 onClick={() => setTab("Ticketing")}
               >
                 Ticketing
-              </button>
-              <button
-                type="button"
-                className={"tab " + (tab === "On-site expenses" ? "tabActive" : "")}
-                onClick={() => setTab("On-site expenses")}
-              >
-                On-site expenses
               </button>
               <button
                 type="button"
@@ -3162,117 +3115,6 @@ export default function BudgetPage() {
             />
           )}
         </div>
-        )}
-
-        {tab === "On-site expenses" && (
-          <div className="card pad" style={budgetSectionCardStyle}>
-            <div
-              className="row appPolishToolbar mobileSectionHeader"
-              style={{ ...budgetSectionHeaderStyle, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}
-            >
-              <div style={{ flex: "1 1 280px", minWidth: 0 }}>
-                <div
-                  className="row mobileSectionHeader"
-                  style={{ gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
-                >
-                  <div className="appSectionBadge" style={{ marginBottom: 0 }}>On-site expenses</div>
-                  <div
-                    className="row mobileSectionHeaderActions"
-                    style={{
-                      gap: 8,
-                      flexWrap: "wrap",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      marginLeft: "auto",
-                    }}
-                  >
-                    {isEditingOnsiteExpenses ? (
-                      <>
-                        <button type="button" className="btn" onClick={() => setIsEditingOnsiteExpenses(false)}>
-                          Cancel
-                        </button>
-                        <button type="button" className="btn btnPrimary" onClick={() => void saveOnsiteExpenses()}>
-                          Save
-                        </button>
-                      </>
-                    ) : (
-                      <button type="button" className="btn btnPrimary" onClick={beginOnsiteExpensesEdit}>
-                        Edit
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="small" style={{ color: "var(--muted)", marginTop: 8 }}>
-                  Enter one on-site expense total per team. Amounts also appear on the Overview tab.
-                </div>
-              </div>
-            </div>
-
-            <div className="budgetTableScroller">
-              <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 920, fontSize: 12 }}>
-                <thead>
-                  <tr>
-                    <th>Team Name</th>
-                    <th>Project Start</th>
-                    <th>Project End</th>
-                    <th>Site</th>
-                    <th>On-site amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleOnsiteExpenseRows.map((row, rowIndex) => {
-                    const isArchived = archivedTripIds.has(row.tripId);
-                    return (
-                      <tr
-                        key={row.tripId}
-                        style={
-                          isArchived
-                            ? { opacity: 0.7, backgroundColor: "var(--border)" }
-                            : rowIndex % 2 === 0
-                              ? undefined
-                              : { backgroundColor: "rgba(15, 23, 42, 0.02)" }
-                        }
-                      >
-                        <td style={{ fontWeight: 700 }}>{row.teamName || row.tripName || "—"}</td>
-                        <td>{row.projectStartDate || "—"}</td>
-                        <td>{row.projectEndDate || "—"}</td>
-                        <td>{row.siteCountry || "—"}</td>
-                        <td style={{ minWidth: 112 }}>
-                          {isEditingOnsiteExpenses ? (
-                            <input
-                              className="input"
-                              value={row.onsiteExpensesAmount || ""}
-                              onChange={(e) =>
-                                updateOnsiteExpensesDraftRow(row.tripId, e.target.value)
-                              }
-                              onBlur={(e) => {
-                                const next = normalizeMoneyInputToUsd(e.target.value);
-                                if (next !== (row.onsiteExpensesAmount || "")) {
-                                  updateOnsiteExpensesDraftRow(row.tripId, next);
-                                }
-                              }}
-                              inputMode="decimal"
-                              placeholder="$0.00"
-                            />
-                          ) : (
-                            formatUsdDisplay(row.onsiteExpensesAmount) || "—"
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {visibleOnsiteExpenseRows.length === 0 ? (
-              <EmptyState
-                icon="empty"
-                title="No teams yet"
-                description="Trips appear here once they are created."
-              />
-            ) : null}
-          </div>
         )}
 
         {tab === "Checks" && (

@@ -190,14 +190,31 @@ a.btn{
   to{transform:rotate(360deg)}
 }
 .busyOverlay{
+  display:none;
+}
+.saveFeedbackChip{
   position:fixed;
-  inset:0;
-  display:grid;
-  place-items:center;
-  padding:20px;
-  background:rgba(15,23,42,.28);
+  right:16px;
+  bottom:16px;
   z-index:1200;
-  backdrop-filter:blur(2px);
+  pointer-events:none;
+  max-width:min(240px, calc(100vw - 32px));
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid rgba(15,23,42,.1);
+  background:rgba(255,255,255,.96);
+  box-shadow:0 8px 24px rgba(15,23,42,.12);
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:-.01em;
+  color:var(--text);
+}
+.saveFeedbackChipBusy{
+  border-color:rgba(37,99,235,.22);
+}
+.saveFeedbackChipDone{
+  border-color:rgba(22,163,74,.28);
+  color:#15803d;
 }
 .busyOverlayCard{
   min-width:160px;
@@ -1427,6 +1444,51 @@ a.btn{
   font-size:12px;
   line-height:1.45;
   color:var(--muted);
+}
+.fundraisingWorkerGoalList{
+  list-style:none;
+  margin:8px 0 0;
+  padding:0;
+  display:grid;
+  gap:4px;
+  width:100%;
+}
+.fundraisingWorkerGoalListEmpty{
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.35;
+}
+.fundraisingWorkerGoalRow{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+  font-size:12px;
+  line-height:1.35;
+}
+.fundraisingWorkerGoalName{
+  color:var(--text);
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.fundraisingWorkerGoalAmount{
+  font-variant-numeric:tabular-nums;
+  font-weight:700;
+  color:var(--muted);
+  white-space:nowrap;
+}
+.budgetOverviewFundraisingCell{
+  min-width:140px;
+  vertical-align:top;
+}
+.budgetOverviewFundraisingTotal{
+  font-weight:700;
+}
+.budgetTeamEditorSummaryWorkers{
+  margin-top:8px;
+  text-align:left;
 }
 .budgetTeamEditorControl{
   width:100%;
@@ -2771,6 +2833,15 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .collapsibleSectionDefaultToggle{
   align-items:center;
+}
+.collapsibleSectionDefaultChevron{
+  color:var(--primary);
+  font-weight:900;
+}
+.collapsibleSectionDefaultTitle{
+  font-weight:900;
+  color:var(--primary);
+  letter-spacing:-.01em;
 }
 .tripTrainingPanel{
   margin-bottom:4px;
@@ -4938,7 +5009,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-size:10px;
   margin-top:5px;
   flex-shrink:0;
-  color:var(--muted);
+  color:var(--primary);
   line-height:1;
 }
 .collapsibleSectionSlimTitleWrap{
@@ -4947,9 +5018,11 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .collapsibleSectionSlimTitle{
   display:block;
-  font-weight:700;
+  font-weight:900;
   font-size:14px;
   line-height:1.35;
+  color:var(--primary);
+  letter-spacing:-.01em;
 }
 .collapsibleSectionSlimSubtitle{
   display:block;
