@@ -14,9 +14,20 @@ export default function TrainingQuizModuleView({
 }) {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+
+  const answeredCount = quizQuestions.filter((question) => {
+    const value = answers[question.id];
+    return value !== undefined && value !== null && value !== "";
+  }).length;
+  const allAnswered = quizQuestions.length > 0 && answeredCount === quizQuestions.length;
 
   function handleSubmit(event) {
     event.preventDefault();
+    if (!allAnswered) {
+      setAttemptedSubmit(true);
+      return;
+    }
     setSubmitted(true);
     onSubmitSuccess?.();
   }
@@ -32,17 +43,42 @@ export default function TrainingQuizModuleView({
             Previous
           </button>
           <div className="spacer" />
-          <button type="submit" className="btn btnPrimary" form="trainingPrototypeQuizForm" disabled={submitted}>
-            Submit
+          <button
+            type="submit"
+            className="btn btnPrimary"
+            form="trainingPrototypeQuizForm"
+            disabled={submitted || !allAnswered}
+          >
+            {submitted ? "Submitted" : "Submit"}
           </button>
         </>
       }
     >
       <div className="trainingPrototypeQuizShell">
+        <div className="trainingPrototypeQuizIntroCard">
+          <p className="trainingPrototypeTimelineCardTitle">Before you submit</p>
+          <p>
+            Answer every question below. This confirms you finished this module&apos;s content with
+            your team.
+          </p>
+        </div>
+
         {submitted ? (
           <div className="trainingPrototypeSuccessBox" role="status">
             Success! Your answers were submitted.
           </div>
+        ) : null}
+
+        {!submitted && attemptedSubmit && !allAnswered ? (
+          <div className="trainingPrototypeQuizRequiredNote" role="status">
+            Please answer all questions before submitting.
+          </div>
+        ) : null}
+
+        {!submitted && !allAnswered ? (
+          <p className="trainingPrototypeQuizProgressNote">
+            {answeredCount} of {quizQuestions.length} answered
+          </p>
         ) : null}
 
         <TrainingPrototypeQuizForm

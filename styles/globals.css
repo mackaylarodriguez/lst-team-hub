@@ -5651,6 +5651,50 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeQuizShell{
   max-width:640px;
   margin:0 auto;
+  display:grid;
+  gap:14px;
+}
+.trainingPrototypeQuizIntroCard{
+  position:relative;
+  overflow:hidden;
+  padding:16px 18px 16px 20px;
+  border:1px solid rgba(50,84,163,.12);
+  border-radius:14px;
+  background:linear-gradient(180deg, #fff, rgba(67,164,213,.07));
+  box-shadow:0 4px 14px rgba(15,23,42,.04);
+}
+.trainingPrototypeQuizIntroCard::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:3px;
+  background:linear-gradient(180deg, #43a4d5, #2563eb);
+}
+.trainingPrototypeQuizIntroCard p{
+  margin:0;
+  font-size:14px;
+  line-height:1.5;
+}
+.trainingPrototypeQuizIntroCard .trainingPrototypeTimelineCardTitle{
+  margin:0 0 8px;
+  color:#0f6e91;
+}
+.trainingPrototypeQuizProgressNote{
+  margin:0;
+  font-size:13px;
+  font-weight:700;
+  color:var(--muted);
+}
+.trainingPrototypeQuizRequiredNote{
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid rgba(234,88,12,.28);
+  background:rgba(234,88,12,.1);
+  color:#9a3412;
+  font-size:13px;
+  line-height:1.45;
 }
 .trainingPrototypePage{
   display:grid;
@@ -5704,13 +5748,46 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   gap:10px;
 }
 .trainingPrototypeQuizQuestionCard{
+  position:relative;
+  overflow:hidden;
   display:grid;
   gap:14px;
-  padding:16px 18px;
-  border:1px solid rgba(15,23,42,.1);
-  border-radius:12px;
-  background:#fff;
+  padding:16px 18px 16px 20px;
+  border:1px solid rgba(50,84,163,.12);
+  border-radius:14px;
+  background:linear-gradient(180deg, #fff, rgba(248,250,252,.96));
+  box-shadow:0 4px 14px rgba(15,23,42,.04);
   text-align:left;
+}
+.trainingPrototypeQuizQuestionCard::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:3px;
+  background:linear-gradient(180deg, var(--primary), var(--primary2));
+}
+.trainingPrototypeQuizQuestionCardAnswered::before{
+  background:linear-gradient(180deg, #22c55e, #16a34a);
+}
+.trainingPrototypeQuizQuestionHeader{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+}
+.trainingPrototypeQuizQuestionNumber{
+  flex:0 0 auto;
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:13px;
+  font-weight:800;
+  color:var(--primary);
+  background:rgba(50,84,163,.1);
 }
 .trainingPrototypeQuizQuestion legend,
 .trainingPrototypeQuizQuestionPrompt{
@@ -5723,6 +5800,7 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 }
 .trainingPrototypeQuizQuestionCard .trainingPrototypeQuizQuestionPrompt{
   width:100%;
+  padding-top:3px;
 }
 .trainingPrototypeQuizOptions{
   display:grid;
@@ -5745,14 +5823,28 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-size:14px;
   line-height:1.45;
   cursor:pointer;
+  transition:border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
 .trainingPrototypeQuizOptionCentered{
+  position:relative;
   min-width:120px;
   justify-content:center;
   align-items:center;
+  font-weight:700;
+}
+.trainingPrototypeQuizOptionSelected{
+  border-color:rgba(50,84,163,.35);
+  background:rgba(50,84,163,.08);
+  box-shadow:0 0 0 1px rgba(50,84,163,.12);
+  color:var(--primary);
 }
 .trainingPrototypeQuizOption input{
   margin-top:3px;
+}
+.trainingPrototypeQuizOptionCentered input{
+  position:absolute;
+  opacity:0;
+  pointer-events:none;
 }
 .trainingPrototypeOverviewCard{
   overflow:auto;

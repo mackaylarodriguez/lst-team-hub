@@ -22,35 +22,55 @@ export default function TrainingPrototypeQuizForm({
     >
       {quizQuestions.map((question, index) => {
         const promptId = `${formId}-${question.id}-prompt`;
-        const options = question.options.map((option, optionIndex) => (
-          <label
-            key={option}
-            className={centered ? "trainingPrototypeQuizOption trainingPrototypeQuizOptionCentered" : "trainingPrototypeQuizOption"}
-          >
-            <input
-              type="radio"
-              name={question.id}
-              value={String(optionIndex)}
-              checked={answers[question.id] === String(optionIndex)}
-              disabled={submitted}
-              onChange={() => onAnswerChange?.(question.id, String(optionIndex))}
-            />
-            <span>{option}</span>
-          </label>
-        ));
+        const answered = answers[question.id] !== undefined && answers[question.id] !== "";
+        const options = question.options.map((option, optionIndex) => {
+          const selected = answers[question.id] === String(optionIndex);
+          const optionClassName = [
+            "trainingPrototypeQuizOption",
+            centered ? "trainingPrototypeQuizOptionCentered" : "",
+            selected ? "trainingPrototypeQuizOptionSelected" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          return (
+            <label key={option} className={optionClassName}>
+              <input
+                type="radio"
+                name={question.id}
+                value={String(optionIndex)}
+                checked={selected}
+                disabled={submitted}
+                required={centered}
+                onChange={() => onAnswerChange?.(question.id, String(optionIndex))}
+              />
+              <span>{option}</span>
+            </label>
+          );
+        });
 
         if (centered) {
           return (
             <div
               key={question.id}
-              className="trainingPrototypeQuizQuestionCard"
+              className={
+                "trainingPrototypeQuizQuestionCard" +
+                (answered ? " trainingPrototypeQuizQuestionCardAnswered" : "")
+              }
               role="group"
               aria-labelledby={promptId}
             >
-              <p id={promptId} className="trainingPrototypeQuizQuestionPrompt">
-                {question.prompt}
-              </p>
-              <div className="trainingPrototypeQuizOptions trainingPrototypeQuizOptionsCentered">{options}</div>
+              <div className="trainingPrototypeQuizQuestionHeader">
+                <span className="trainingPrototypeQuizQuestionNumber" aria-hidden="true">
+                  {index + 1}
+                </span>
+                <p id={promptId} className="trainingPrototypeQuizQuestionPrompt">
+                  {question.prompt}
+                </p>
+              </div>
+              <div className="trainingPrototypeQuizOptions trainingPrototypeQuizOptionsCentered">
+                {options}
+              </div>
             </div>
           );
         }
