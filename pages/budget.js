@@ -207,37 +207,6 @@ const budgetSectionHeaderStyle = {
   background: "rgba(255,255,255,0.76)",
 };
 
-const budgetSectionSummaryGridStyle = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-  gap: 10,
-};
-
-const budgetSectionSummaryCardStyle = {
-  borderRadius: 12,
-  border: "1px solid rgba(15, 23, 42, 0.08)",
-  background: "rgba(248, 250, 252, 0.88)",
-  padding: "12px 14px",
-  display: "grid",
-  gap: 6,
-  minWidth: 0,
-};
-
-const budgetSectionSummaryLabelStyle = {
-  fontSize: 10,
-  fontWeight: 800,
-  letterSpacing: ".12em",
-  textTransform: "uppercase",
-  color: "var(--muted)",
-};
-
-const budgetSectionSummaryValueStyle = {
-  fontSize: 24,
-  lineHeight: 1,
-  fontWeight: 900,
-  color: "var(--text)",
-};
-
 function createDraftHousingExtraId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `draft-${crypto.randomUUID()}`;
@@ -804,37 +773,6 @@ export default function BudgetPage() {
 
   const visibleHousingRows = isEditingHousing ? housingRowsDraft : housingRows;
   const visibleHousingExtras = isEditingHousing ? housingExtrasDraft : housingExtrasByTripId;
-  const housingSummary = useMemo(() => {
-    const rows = visibleHousingRows || [];
-    const totalTeams = rows.length;
-    const docsReadyCount = rows.filter(
-      (row) =>
-        String(row?.housingLink || "").trim() ||
-        String(row?.housingPdfUrl || "").trim() ||
-        ((visibleHousingExtras[row.tripId] || []).some(
-          (extra) =>
-            String(extra?.housingLink || "").trim() || String(extra?.housingPdfUrl || "").trim()
-        ))
-    ).length;
-    const totalHousingAmount = sumHousingAmountColumn(rows);
-    const totalExtraLines = rows.reduce(
-      (sum, row) => sum + ((visibleHousingExtras[row.tripId] || []).length || 0),
-      0
-    );
-    return { totalTeams, docsReadyCount, totalHousingAmount, totalExtraLines };
-  }, [visibleHousingExtras, visibleHousingRows]);
-
-  const ticketingSummary = useMemo(() => {
-    const rows = ticketsSortedWithBands.sorted || [];
-    const totalRows = rows.length;
-    const teamCount = new Set(rows.map((row) => String(row.tripId || "")).filter(Boolean)).size;
-    const avgTicketCost =
-      totalRows > 0
-        ? rows.reduce((sum, row) => sum + (parseCurrencyLike(row.totalTicketCost) ?? 0), 0) / totalRows
-        : null;
-    const workerPaidCount = rows.filter((row) => (parseCurrencyLike(row.amountWorkerPaid) ?? 0) > 0).length;
-    return { totalRows, teamCount, avgTicketCost, workerPaidCount };
-  }, [ticketsSortedWithBands.sorted]);
 
   const overviewHousingRows = useMemo(() => {
     const baseRows = isEditingHousing ? housingRowsDraft : housingRows;
@@ -2336,31 +2274,6 @@ export default function BudgetPage() {
                     Export CSV
                   </button>
                 </div>
-              </div>
-              <div className="small" style={{ color: "var(--muted)" }}>
-                Housing budget amount, housing amount, links, and PDFs for each trip.
-              </div>
-              <div style={{ ...budgetSectionSummaryGridStyle, marginTop: 14 }}>
-                {[
-                  { label: "Teams", value: housingSummary.totalTeams },
-                  { label: "Housing docs ready", value: housingSummary.docsReadyCount },
-                  {
-                    label: "Total housing amount",
-                    value: housingSummary.totalHousingAmount,
-                  },
-                  { label: "Extra housing lines", value: housingSummary.totalExtraLines },
-                ].map((card) => (
-                  <div key={card.label} style={budgetSectionSummaryCardStyle}>
-                    <div style={budgetSectionSummaryLabelStyle}>{card.label}</div>
-                    <div style={budgetSectionSummaryValueStyle}>
-                      {card.label === "Teams" ||
-                      card.label === "Housing docs ready" ||
-                      card.label === "Extra housing lines"
-                        ? card.value
-                        : formatUsdNumberOrDash(card.value)}
-                    </div>
-                  </div>
-                ))}
               </div>
               {tripsSortedForBudget.length > 0 ? (
                 <div
