@@ -260,41 +260,44 @@ export default function Shell({ children }) {
       <aside
         className={`sidebar ${isSidebarCollapsed ? "sidebarCollapsed" : ""} ${isMobileNavOpen ? "sidebarMobileOpen" : ""}`}
       >
-        <div className="sidebarToggleRow">
-          <button
-            className="sidebarToggleButton"
-            type="button"
-            onClick={() => {
-              if (typeof window !== "undefined" && window.innerWidth <= 980) {
-                setIsMobileNavOpen((current) => !current);
-                return;
-              }
+        <div className="sidebarMobileHeader">
+          <div className="sidebarToggleRow">
+            <button
+              className="sidebarToggleButton"
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.innerWidth <= 980) {
+                  setIsMobileNavOpen((current) => !current);
+                  return;
+                }
 
-              setIsSidebarCollapsed((current) => !current);
-            }}
-            aria-label={isMobileNavOpen ? "Close navigation" : isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={isMobileNavOpen ? "Close navigation" : isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <span className="sidebarToggleIcon" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </span>
-          </button>
+                setIsSidebarCollapsed((current) => !current);
+              }}
+              aria-label={isMobileNavOpen ? "Close navigation" : isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={isMobileNavOpen ? "Close navigation" : isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <span className="sidebarToggleIcon" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+            </button>
+          </div>
+          <div className="brand">
+            <img
+              className="logoImage"
+              src="/logos/Lets-Start-Talking-LOGO-CMYK.png"
+              alt="LST logo"
+            />
+            {!isSidebarCollapsed ? (
+              <div className="brandTitle">
+                <div className="brandTitleFull">LST International Projects Hub</div>
+                <div className="brandTitleShort">LST Hub</div>
+              </div>
+            ) : null}
+          </div>
         </div>
-        <div className="brand">
-          <img
-            className="logoImage"
-            src="/logos/Lets-Start-Talking-LOGO-CMYK.png"
-            alt="LST logo"
-          />
-          {!isSidebarCollapsed ? (
-            <div>
-              <div style={{ fontWeight: 900, letterSpacing: "-.02em" }}>LST International Projects Hub</div>
-            </div>
-          ) : null}
-        </div>
-        <div style={{ height: 14 }} />
+        <div className="sidebarBodySpacer" style={{ height: 14 }} />
         <nav className="nav">
           {navItems.map((item) => (
             <Link
@@ -334,9 +337,9 @@ export default function Shell({ children }) {
           </a>
         </nav>
 
-        <div style={{ height: 14 }} />
+        <div className="sidebarBodySpacer" style={{ height: 14 }} />
         {!isSidebarCollapsed ? (
-          <div className="small">
+          <div className="small sidebarSignedInMeta">
             Signed in as <b>{session?.name || "-"}</b><br />
             <span className="badge" style={{ marginTop: 8 }}>
               {session?.role || "unknown"}
@@ -355,8 +358,8 @@ export default function Shell({ children }) {
 
         {isAdminUser && !isSidebarCollapsed && (
           <>
-            <div style={{ height: 14 }} />
-            <div className="card pad" style={{ boxShadow: "none", background: "rgba(255,255,255,.75)" }}>
+            <div className="sidebarBodySpacer" style={{ height: 14 }} />
+            <div className="card pad sidebarAdminSwitch" style={{ boxShadow: "none", background: "rgba(255,255,255,.75)" }}>
               <div className="small" style={{ marginBottom: 8 }}>Switch Profile</div>
               <select
                 className="input"

@@ -323,58 +323,69 @@ export default function Login() {
           ) : null}
           {message && <div className="small" style={{ color:"var(--success)" }}>{message}</div>}
           {err && <div className="small" style={{ color:"var(--danger)" }}>{err}</div>}
-          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            <button
-              className={mode === "signin" ? "btn btnPrimary" : "btn"}
-              type="submit"
-              disabled={submitting}
-              onClick={() => {
-                setMode("signin");
-                setErr("");
-                setMessage("");
-              }}
-            >
-              {submitting && mode === "signin" ? "Signing In..." : "Sign In"}
-            </button>
-            <button
-              className={mode === "signup" ? "btn btnPrimary" : "btn"}
-              type="submit"
-              disabled={submitting}
-              onClick={() => {
-                setMode("signup");
-                setErr("");
-                setMessage("");
-              }}
-            >
-              {submitting && mode === "signup" ? "Creating Account..." : "Create Account"}
-            </button>
-            <button
-              className={mode === "forgot" ? "btn btnPrimary" : "btn"}
-              type="submit"
-              disabled={submitting}
-              onClick={() => {
-                setMode("forgot");
-                setErr("");
-                setMessage("");
-              }}
-            >
-              {submitting && mode === "forgot" ? "Sending..." : "Forgot Password"}
-            </button>
-            {mode === "reset" ? (
+          {mode !== "reset" ? (
+            <div className="loginModeTabs" role="tablist" aria-label="Account options">
               <button
-                className="btn btnPrimary"
-                type="submit"
+                className={mode === "signin" ? "btn btnPrimary loginModeTab" : "btn loginModeTab"}
+                type="button"
+                role="tab"
+                aria-selected={mode === "signin"}
                 disabled={submitting}
                 onClick={() => {
-                  setMode("reset");
+                  setMode("signin");
                   setErr("");
                   setMessage("");
                 }}
               >
-                {submitting ? "Updating Password..." : "Save New Password"}
+                Sign In
               </button>
-            ) : null}
-          </div>
+              <button
+                className={mode === "signup" ? "btn btnPrimary loginModeTab" : "btn loginModeTab"}
+                type="button"
+                role="tab"
+                aria-selected={mode === "signup"}
+                disabled={submitting}
+                onClick={() => {
+                  setMode("signup");
+                  setErr("");
+                  setMessage("");
+                }}
+              >
+                Create Account
+              </button>
+              <button
+                className={mode === "forgot" ? "btn btnPrimary loginModeTab" : "btn loginModeTab"}
+                type="button"
+                role="tab"
+                aria-selected={mode === "forgot"}
+                disabled={submitting}
+                onClick={() => {
+                  setMode("forgot");
+                  setErr("");
+                  setMessage("");
+                }}
+              >
+                Forgot Password
+              </button>
+            </div>
+          ) : null}
+          <button className="btn btnPrimary loginSubmitBtn" type="submit" disabled={submitting}>
+            {submitting
+              ? mode === "signup"
+                ? "Creating Account..."
+                : mode === "forgot"
+                  ? "Sending..."
+                  : mode === "reset"
+                    ? "Updating Password..."
+                    : "Signing In..."
+              : mode === "signup"
+                ? "Create Account"
+                : mode === "forgot"
+                  ? "Send Reset Link"
+                  : mode === "reset"
+                    ? "Save New Password"
+                    : "Sign In"}
+          </button>
         </form>
       </div>
     </div>
