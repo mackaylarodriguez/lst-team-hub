@@ -346,6 +346,7 @@ function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, t
     const spentTotal =
       (teamBudgetTotal ?? 0) + airfareTotal + housingTotal + feeTotal;
     const leftover = fundraisingTotal == null ? null : fundraisingTotal - spentTotal;
+    const returnedTotal = parseBudgetAmountOrNull(row.returnedAmount);
 
     return {
       tripId: row.tripId,
@@ -357,12 +358,14 @@ function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, t
       teamAccountant: row.teamAccountant || "",
       budgetAmount: row.budgetAmount || "",
       onsiteExpensesAmount: row.onsiteExpensesAmount || "",
+      returnedAmount: row.returnedAmount || "",
       fundraisingTotal,
       teamBudgetTotal,
       airfareTotal,
       housingTotal,
       feeTotal,
       leftover,
+      returnedTotal,
       spentTotal,
       // Aliases used by older totals/chart helpers
       budgetTotal: fundraisingTotal,
@@ -481,6 +484,10 @@ function sumBudgetOverviewTotals(rows) {
       acc.housingTotal += row.housingTotal;
       acc.feeTotal += row.feeTotal || 0;
       if (row.leftover != null) acc.leftover += row.leftover;
+      if (row.returnedTotal != null) {
+        acc.returnedTotal += row.returnedTotal;
+        acc.teamsWithReturned += 1;
+      }
       // Legacy aliases for helpers still reading these
       acc.budgetTotal = acc.fundraisingTotal;
       acc.onsiteTotal = acc.teamBudgetTotal;
@@ -494,7 +501,9 @@ function sumBudgetOverviewTotals(rows) {
       housingTotal: 0,
       feeTotal: 0,
       leftover: 0,
+      returnedTotal: 0,
       teamsWithFundraising: 0,
+      teamsWithReturned: 0,
       budgetTotal: 0,
       onsiteTotal: 0,
       teamsWithBudget: 0,
@@ -533,7 +542,7 @@ function BudgetOverviewTable({
 
   return (
     <div className="budgetTableScroller">
-      <table className="table dataTableStriped budgetStickyTable budgetOverviewTable" style={{ minWidth: 1480, fontSize: 12 }}>
+      <table className="table dataTableStriped budgetStickyTable budgetOverviewTable" style={{ minWidth: 1580, fontSize: 12 }}>
         <thead>
           <tr>
             <th>Team Name</th>
@@ -548,6 +557,7 @@ function BudgetOverviewTable({
             <th>Housing</th>
             <th>Fee</th>
             <th>Leftover</th>
+            <th>Returned amount</th>
             <th style={{ minWidth: 220 }}>Budget chart</th>
           </tr>
         </thead>
@@ -637,6 +647,26 @@ function BudgetOverviewTable({
                 >
                   {formatUsdNumberOrDash(row.leftover)}
                 </td>
+                <td style={{ minWidth: 112 }}>
+                  {isEditingOverview ? (
+                    <input
+                      className="input"
+                      value={row.returnedAmount || ""}
+                      onChange={(e) => onUpdateDraft(row.tripId, { returnedAmount: e.target.value })}
+                      onBlur={(e) => {
+                        const next = normalizeMoneyInputToUsd(e.target.value);
+                        if (next !== (row.returnedAmount || "")) {
+                          onUpdateDraft(row.tripId, { returnedAmount: next });
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      inputMode="decimal"
+                      placeholder="$0.00"
+                    />
+                  ) : (
+                    formatUsdNumberOrDash(row.returnedTotal)
+                  )}
+                </td>
                 <td>
                   <BudgetOverviewStackedBar
                     fundraisingTotal={row.fundraisingTotal}
@@ -677,6 +707,11 @@ function BudgetOverviewTable({
                 }}
               >
                 {formatUsdNumberOrDash(totals.teamsWithFundraising > 0 ? totals.leftover : null)}
+              </td>
+              <td>
+                {formatUsdNumberOrDash(
+                  totals.teamsWithReturned > 0 ? totals.returnedTotal : null
+                )}
               </td>
               <td />
             </tr>
@@ -823,6 +858,7 @@ export default function BudgetPage() {
         ...row,
         onsiteExpensesAmount: draft.onsiteExpensesAmount ?? row.onsiteExpensesAmount,
         teamAccountant: draft.teamAccountant ?? row.teamAccountant,
+        returnedAmount: draft.returnedAmount ?? row.returnedAmount,
       };
     });
   }, [
@@ -1356,23 +1392,27 @@ export default function BudgetPage() {
   }
 
   function beginAddSiteHousingNote() {
-    const pick = String(newSiteHousingSelect || "").trim();
-    if (!pick) {
-      showToast("Choose a site first.", "error");
+    if (!siteLabelsForNewHousingNote.length) {
+      showToast("All sites already have a budget note.", "error");
       return;
     }
-    setNewSiteHousingActiveLabel(pick);
+    setNewSiteHousingSelect("");
     setNewSiteHousingDraft("");
+    setIsAddingSiteNote(true);
   }
 
   function cancelAddSiteHousingNote() {
-    setNewSiteHousingActiveLabel(null);
+    setIsAddingSiteNote(false);
+    setNewSiteHousingSelect("");
     setNewSiteHousingDraft("");
   }
 
   async function saveNewSiteHousingNote() {
-    const label = String(newSiteHousingActiveLabel || "").trim();
-    if (!label) return;
+    const label = String(newSiteHousingSelect || "").trim();
+    if (!label) {
+      showToast("Choose a site first.", "error");
+      return;
+    }
     if (!String(newSiteHousingDraft || "").trim()) {
       showToast("Add note text before saving.", "error");
       return;
@@ -1383,7 +1423,6 @@ export default function BudgetPage() {
       const fresh = await listSiteBudgetNotes();
       setSiteHousingNotes(fresh);
       cancelAddSiteHousingNote();
-      setNewSiteHousingSelect("");
       setStatus("Saved.");
       showToast(`Saved housing note for ${saved.siteName || label}`, "success");
     } catch (e) {
@@ -1669,6 +1708,7 @@ export default function BudgetPage() {
         tripId: row.tripId,
         onsiteExpensesAmount: row.onsiteExpensesAmount || "",
         teamAccountant: row.teamAccountant || "",
+        returnedAmount: row.returnedAmount || "",
       }))
     );
     setIsEditingOverview(true);
@@ -1692,6 +1732,7 @@ export default function BudgetPage() {
         await saveTripBudget(row.tripId, {
           onsiteExpensesAmount: row.onsiteExpensesAmount ?? "",
           teamAccountant: row.teamAccountant ?? "",
+          returnedAmount: row.returnedAmount ?? "",
         });
       }
       const housingRes = await listAllTripBudgets();
@@ -1705,6 +1746,7 @@ export default function BudgetPage() {
               ...row,
               onsiteExpensesAmount: draft.onsiteExpensesAmount ?? row.onsiteExpensesAmount,
               teamAccountant: draft.teamAccountant ?? row.teamAccountant,
+              returnedAmount: draft.returnedAmount ?? row.returnedAmount,
             };
           })
         );
@@ -1950,57 +1992,28 @@ export default function BudgetPage() {
         <CollapsibleSection
           title="Team budget notes"
           defaultOpen={false}
+          forceOpen={isAddingSiteNote}
           style={{ marginBottom: 24 }}
+          rightSlot={
+            <button
+              className="btn btnPrimary"
+              type="button"
+              disabled={!siteLabelsForNewHousingNote.length || isAddingSiteNote}
+              onClick={(e) => {
+                e.stopPropagation();
+                beginAddSiteHousingNote();
+              }}
+            >
+              Add site note
+            </button>
+          }
         >
           <p className="small" style={{ margin: "0 0 12px", color: "var(--muted)" }}>
             Per-site logistics and workbook data stay on{" "}
             <Link href="/sites">Sites</Link>. Here you only see sites with budget note text. Empty and duplicate
             rows are cleaned when this page loads.
           </p>
-          <div
-            className="row"
-            style={{
-              flexWrap: "wrap",
-              gap: 10,
-              alignItems: "flex-end",
-              marginBottom: 16,
-            }}
-          >
-            <div style={{ flex: "1 1 220px", minWidth: 0 }}>
-              <label
-                className="small"
-                htmlFor="budget-add-site-housing-note"
-                style={{ display: "block", marginBottom: 4, color: "var(--muted)" }}
-              >
-                Site
-              </label>
-              <select
-                id="budget-add-site-housing-note"
-                className="input"
-                value={newSiteHousingSelect}
-                onChange={(e) => setNewSiteHousingSelect(e.target.value)}
-                disabled={!siteLabelsForNewHousingNote.length}
-              >
-                <option value="">
-                  {siteLabelsForNewHousingNote.length ? "Choose site…" : "All sites have a housing note"}
-                </option>
-                {siteLabelsForNewHousingNote.map((lbl) => (
-                  <option key={lbl} value={lbl}>
-                    {lbl}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              className="btn btnPrimary"
-              type="button"
-              disabled={!siteLabelsForNewHousingNote.length}
-              onClick={beginAddSiteHousingNote}
-            >
-              Add site note
-            </button>
-          </div>
-          {newSiteHousingActiveLabel ? (
+          {isAddingSiteNote ? (
             <div
               style={{
                 border: "1px solid rgba(14, 116, 144, 0.35)",
@@ -2010,13 +2023,34 @@ export default function BudgetPage() {
                 background: "rgba(240, 249, 255, 0.6)",
               }}
             >
-              <div style={{ fontWeight: 800, fontSize: 12, marginBottom: 8 }}>{newSiteHousingActiveLabel}</div>
+              <div style={{ marginBottom: 10 }}>
+                <label
+                  className="small"
+                  htmlFor="budget-add-site-housing-note"
+                  style={{ display: "block", marginBottom: 4, color: "var(--muted)" }}
+                >
+                  Site
+                </label>
+                <select
+                  id="budget-add-site-housing-note"
+                  className="input"
+                  value={newSiteHousingSelect}
+                  onChange={(e) => setNewSiteHousingSelect(e.target.value)}
+                >
+                  <option value="">Choose site…</option>
+                  {siteLabelsForNewHousingNote.map((lbl) => (
+                    <option key={lbl} value={lbl}>
+                      {lbl}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <textarea
                 className="input"
                 rows={5}
                 value={newSiteHousingDraft}
                 onChange={(e) => setNewSiteHousingDraft(e.target.value)}
-                placeholder="Enter housing / logistics note for this site"
+                placeholder="Enter budget note for this site"
               />
               <div className="row" style={{ gap: 8, marginTop: 8 }}>
                 <button className="btn btnPrimary" type="button" onClick={() => void saveNewSiteHousingNote()}>
@@ -2028,9 +2062,9 @@ export default function BudgetPage() {
               </div>
             </div>
           ) : null}
-          {siteHousingNotesForDisplay.length === 0 && !newSiteHousingActiveLabel ? (
+          {siteHousingNotesForDisplay.length === 0 && !isAddingSiteNote ? (
             <p className="small" style={{ margin: 0, color: "var(--muted)" }}>
-              No housing notes yet. Use <strong>Add site note</strong> above, or edit workbook counts on{" "}
+              No budget notes yet. Use <strong>Add site note</strong>, or edit workbook counts on{" "}
               <Link href="/sites">Sites</Link>.
             </p>
           ) : siteHousingNotesForDisplay.length > 0 ? (
@@ -2363,7 +2397,7 @@ export default function BudgetPage() {
             </div>
           </div>
           <div className="budgetTableScroller">
-            <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1440, fontSize: 13 }}>
+            <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1640, fontSize: 13 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
@@ -2376,7 +2410,7 @@ export default function BudgetPage() {
                   <th>Returned Amount</th>
                   <th>Housing Amount</th>
                   <th>Housing link / PDF</th>
-                  <th>Notes</th>
+                  <th style={{ minWidth: 280 }}>Notes</th>
                   <th style={{ width: 88 }}>Actions</th>
                 </tr>
               </thead>
@@ -2632,12 +2666,19 @@ export default function BudgetPage() {
                           ))}
                           </div>
                         </td>
-                        <td style={{ minWidth: 160, maxWidth: 280 }}>
-                          <input
+                        <td style={{ minWidth: 280, width: 320 }}>
+                          <textarea
                             className="input"
+                            rows={4}
                             value={r.notes || ""}
                             onChange={(e) => updateHousingDraftRow(r.tripId, "notes", e.target.value)}
                             placeholder="Notes"
+                            style={{
+                              width: "100%",
+                              minHeight: 88,
+                              resize: "vertical",
+                              lineHeight: 1.4,
+                            }}
                           />
                         </td>
                         <td style={{ whiteSpace: "nowrap" }}>

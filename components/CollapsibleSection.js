@@ -12,6 +12,7 @@ import { useEffect, useId, useState } from "react";
  * @param {import("react").ReactNode} props.children
  * @param {string} [props.className]
  * @param {object} [props.style]
+ * @param {boolean} [props.forceOpen] when true, keeps the panel open (e.g. while adding content)
  * @param {"default" | "slim"} [props.variant]
  */
 export default function CollapsibleSection({
@@ -19,6 +20,7 @@ export default function CollapsibleSection({
   subtitle,
   defaultOpen = false,
   persistOpenKey,
+  forceOpen = false,
   badge,
   rightSlot,
   children,
@@ -38,12 +40,17 @@ export default function CollapsibleSection({
   });
 
   useEffect(() => {
+    if (forceOpen) setOpen(true);
+  }, [forceOpen]);
+
+  useEffect(() => {
     if (!persistOpenKey || typeof window === "undefined") return;
     window.localStorage.setItem(persistOpenKey, open ? "1" : "0");
   }, [open, persistOpenKey]);
   const id = useId();
   const panelId = `${id}-panel`;
   const buttonId = `${id}-button`;
+  const isOpen = forceOpen || open;
 
   const rootClassName = [className, isSlim ? "collapsibleSection collapsibleSectionSlim" : ""]
     .filter(Boolean)
@@ -83,7 +90,7 @@ export default function CollapsibleSection({
           type="button"
           className={isSlim ? "collapsibleSectionSlimToggle" : "btn collapsibleSectionDefaultToggle"}
           onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
+          aria-expanded={isOpen}
           aria-controls={panelId}
           style={
             isSlim
@@ -106,7 +113,7 @@ export default function CollapsibleSection({
             aria-hidden
             style={isSlim ? undefined : { flexShrink: 0 }}
           >
-            {open ? "\u25BC" : "\u25B6"}
+            {isOpen ? "\u25BC" : "\u25B6"}
           </span>
           <span
             className={isSlim ? "collapsibleSectionSlimTitleWrap" : "collapsibleSectionDefaultTitleWrap"}
@@ -134,7 +141,7 @@ export default function CollapsibleSection({
         </button>
         {rightSlot ? <div style={{ flexShrink: 0 }}>{rightSlot}</div> : null}
       </div>
-      {open ? (
+      {isOpen ? (
         <div
           id={panelId}
           role="region"
