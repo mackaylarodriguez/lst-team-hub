@@ -316,29 +316,23 @@ function renderDuplicateNotice(duplicateInfo, options = {}) {
   );
 }
 
-function RecruitingFormCard({ title, subtitle, children }) {
+function RecruitingFormCard({ title, subtitle, children, tone = "team" }) {
+  const toneClass =
+    tone === "site"
+      ? "recruitingFormCardToneSite"
+      : tone === "funding"
+        ? "recruitingFormCardToneFunding"
+        : tone === "past"
+          ? "recruitingFormCardTonePast"
+          : "recruitingFormCardToneTeam";
+
   return (
-    <section
-      className="recruitingFormCard"
-      style={{
-        border: "1px solid rgba(15, 23, 42, 0.1)",
-        borderRadius: 14,
-        padding: "16px 18px",
-        background: "rgba(255, 255, 255, 0.96)",
-        boxShadow: "0 1px 3px rgba(15, 23, 42, 0.06)",
-        display: "grid",
-        gap: 14,
-      }}
-    >
-      <header>
-        <div style={{ fontWeight: 800, fontSize: "1.05rem", letterSpacing: "-0.02em" }}>{title}</div>
-        {subtitle ? (
-          <div className="small" style={{ marginTop: 4, color: "var(--muted)", lineHeight: 1.45 }}>
-            {subtitle}
-          </div>
-        ) : null}
+    <section className={`recruitingFormCard ${toneClass}`}>
+      <header className="recruitingFormCardHeader">
+        <div className="recruitingFormCardTitle">{title}</div>
+        {subtitle ? <div className="recruitingFormCardSubtitle small">{subtitle}</div> : null}
       </header>
-      <div style={{ display: "grid", gap: 12 }}>{children}</div>
+      <div className="recruitingFormCardBody">{children}</div>
     </section>
   );
 }
@@ -541,8 +535,12 @@ function LockTeamFormCards({
   mergeSiteOptionListWithCurrent,
 }) {
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <RecruitingFormCard title="Site & logistics" subtitle="Project dates, location, and trip logistics.">
+    <div className="recruitingFormStack">
+      <RecruitingFormCard
+        tone="site"
+        title="Site & logistics"
+        subtitle="Project dates, location, and trip logistics."
+      >
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
           <div>
             <div className="small" style={{ marginBottom: 6 }}>Project Leave Date</div>
@@ -649,6 +647,7 @@ function LockTeamFormCards({
       </RecruitingFormCard>
 
       <RecruitingFormCard
+        tone="team"
         title="Team name & members"
         subtitle="Search for registered workers by name or email to link them instead of creating a duplicate profile. Email and phone are optional. Use Different Trip Dates when someone’s leave/return differs from the project."
       >
@@ -661,8 +660,8 @@ function LockTeamFormCards({
             placeholder="2026 Brazil Team"
           />
         </div>
-        <div className="row" style={{ flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-          <div style={{ fontWeight: 800 }}>Team Members</div>
+        <div className="row recruitingFormMembersToolbar" style={{ flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+          <div className="recruitingFormMembersHeading">Team Members</div>
           <div className="spacer" />
           <button className="btn" type="button" onClick={onToggleMemberTripDates}>
             {showMemberTripDates ? "Hide different trip dates" : "Different Trip Dates?"}
@@ -673,17 +672,9 @@ function LockTeamFormCards({
             Leave member dates blank to use the main project dates.
           </div>
         ) : null}
-        <div style={{ display: "grid", gap: 10 }}>
+        <div className="recruitingFormMemberList">
           {draft.teamMembers.map((member, index) => (
-            <div
-              key={`${memberKeyPrefix}-${index}`}
-              style={{
-                border: "1px solid rgba(18, 16, 12, 0.08)",
-                borderRadius: 14,
-                padding: 12,
-                background: "rgba(255,255,255,.72)",
-              }}
-            >
+            <div key={`${memberKeyPrefix}-${index}`} className="recruitingFormMemberCard">
               <div style={{ display: "grid", gap: 10 }}>
                 <RecruitingTeamMemberFields
                   member={member}
@@ -705,7 +696,11 @@ function LockTeamFormCards({
         </button>
       </RecruitingFormCard>
 
-      <RecruitingFormCard title="Funding & Fees" subtitle="Defaults match typical trip fee settings; adjust as needed.">
+      <RecruitingFormCard
+        tone="funding"
+        title="Funding & Fees"
+        subtitle="Defaults match typical trip fee settings; adjust as needed."
+      >
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
           <div>
             <div className="small" style={{ marginBottom: 6 }}>Fundraising Goal</div>
@@ -806,6 +801,7 @@ function LockTeamFormCards({
       </RecruitingFormCard>
 
       <RecruitingFormCard
+        tone="past"
         title="Past recruiting details"
         subtitle="Loose dates and notes from the recruiting row; edit here if something should carry into the trip record."
       >
@@ -4361,14 +4357,14 @@ export default function RecruitingPage() {
           }}
         >
           <div
-            className="card pad appModalCard"
+            className="card pad appModalCard recruitingFormModal"
             role="dialog"
             aria-modal="true"
             onClick={(event) => event.stopPropagation()}
             style={{ width: "min(920px, 100%)", maxHeight: "85vh", overflow: "auto" }}
           >
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>Edit team & recruiting</div>
+            <div className="row recruitingFormModalHeader" style={{ marginBottom: 10 }}>
+              <div className="recruitingFormModalTitle">Edit team & recruiting</div>
               <div className="spacer" />
               {selectedRecord ? (
                 <button
@@ -5476,15 +5472,15 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad appModalCard" style={{ width: "min(980px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>Lock Team</div>
+          <div className="card pad appModalCard recruitingFormModal" style={{ width: "min(980px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
+            <div className="row recruitingFormModalHeader" style={{ marginBottom: 10 }}>
+              <div className="recruitingFormModalTitle">Lock Team</div>
               <div className="spacer" />
               <button className="btn" type="button" onClick={() => setFormTeamModalOpen(false)}>
                 Close
               </button>
             </div>
-            <div className="small" style={{ marginBottom: 14 }}>
+            <div className="small recruitingFormModalLead" style={{ marginBottom: 14 }}>
               This uses the full trip-creation setup and prefills anything we already know from recruiting.
             </div>
             {error ? (
