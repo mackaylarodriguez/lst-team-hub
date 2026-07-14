@@ -767,50 +767,35 @@ export default function BudgetPage() {
   const busyOverlayTimeoutRef = useRef(null);
   const [loading, setLoading] = useState(true);
 
-  const clearBusyOverlay = useCallback(() => {
+  const clearBusyOverlayTimer = () => {
     if (busyOverlayTimeoutRef.current) {
       clearTimeout(busyOverlayTimeoutRef.current);
       busyOverlayTimeoutRef.current = null;
     }
-    setBusyOverlay(null);
-  }, []);
+  };
 
   const showBusyOverlay = useCallback((message = "Saving…") => {
-    if (busyOverlayTimeoutRef.current) {
-      clearTimeout(busyOverlayTimeoutRef.current);
-      busyOverlayTimeoutRef.current = null;
-    }
+    clearBusyOverlayTimer();
     setBusyOverlay({ mode: "busy", message });
   }, []);
 
-  const showBusyOverlayDone = useCallback(
-    (message = "Saved") => {
-      if (busyOverlayTimeoutRef.current) {
-        clearTimeout(busyOverlayTimeoutRef.current);
-        busyOverlayTimeoutRef.current = null;
-      }
-      setBusyOverlay({ mode: "done", message });
-      busyOverlayTimeoutRef.current = setTimeout(() => {
-        setBusyOverlay(null);
-        busyOverlayTimeoutRef.current = null;
-      }, 1000);
-    },
-    []
-  );
+  const showBusyOverlayDone = useCallback((message = "Saved") => {
+    clearBusyOverlayTimer();
+    setBusyOverlay({ mode: "done", message });
+    busyOverlayTimeoutRef.current = setTimeout(() => {
+      setBusyOverlay(null);
+      busyOverlayTimeoutRef.current = null;
+    }, 1000);
+  }, []);
 
   const showBusyOverlayError = useCallback((message) => {
-    if (busyOverlayTimeoutRef.current) {
-      clearTimeout(busyOverlayTimeoutRef.current);
-      busyOverlayTimeoutRef.current = null;
-    }
+    clearBusyOverlayTimer();
     setBusyOverlay(null);
     if (message) showToast(message, "error");
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (busyOverlayTimeoutRef.current) clearTimeout(busyOverlayTimeoutRef.current);
-    };
+    return () => clearBusyOverlayTimer();
   }, []);
   const [newTicketTripId, setNewTicketTripId] = useState("");
   const [tab, setTab] = useState("Overview");
