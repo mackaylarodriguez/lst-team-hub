@@ -171,7 +171,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
     const feeBreakdown = getTripBudgetFeeBreakdown(feeTripLike, { isDomestic: isDomesticProject });
     const feeTotal = feeBreakdown.total;
     const fundraising = fundraisingTotal > 0 ? fundraisingTotal : null;
-    const spent = airfareTotal + housingTotal + feeTotal;
+    const spent = (teamBudget ?? 0) + airfareTotal + housingTotal + feeTotal;
     const leftover = fundraising == null ? null : fundraising - spent;
     return {
       fundraisingTotal: fundraising,

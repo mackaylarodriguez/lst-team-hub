@@ -701,6 +701,15 @@ a.btn{
   font-weight:600;
   line-height:1.3;
   color:var(--muted);
+  display:grid;
+  gap:1px;
+}
+.tripDetailHeroSlimMetaLocation{
+  font-weight:700;
+  color:var(--text);
+}
+.tripDetailHeroSlimMetaDates{
+  font-weight:600;
 }
 .tripDetailHeroSlimProgress{
   flex:1 1 auto;

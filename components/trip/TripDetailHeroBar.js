@@ -24,7 +24,8 @@ export default function TripDetailHeroBar() {
         <div className="tripDetailHeroSlimTitleBlock">
           <h1 className="tripDetailHeroSlimTitle">{trip.name}</h1>
           <div className="tripDetailHeroSlimMeta">
-            {trip.location} • {trip.dates}
+            <div className="tripDetailHeroSlimMetaLocation">{trip.location || "Site TBD"}</div>
+            <div className="tripDetailHeroSlimMetaDates">{trip.dates || "Dates to be confirmed"}</div>
           </div>
         </div>
 

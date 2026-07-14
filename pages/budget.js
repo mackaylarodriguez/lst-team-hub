@@ -343,7 +343,8 @@ function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, t
     const housingTotal = housingAmountFromBudgetRow(row);
     const teamBudgetTotal = parseBudgetAmountOrNull(row.onsiteExpensesAmount);
     const feeTotal = sumTripBudgetFeeAmount(tripMeta);
-    const spentTotal = airfareTotal + housingTotal + feeTotal;
+    const spentTotal =
+      (teamBudgetTotal ?? 0) + airfareTotal + housingTotal + feeTotal;
     const leftover = fundraisingTotal == null ? null : fundraisingTotal - spentTotal;
 
     return {
@@ -386,14 +387,23 @@ function BudgetCheckSectionPill({ label, count, tone = "primary", style }) {
   );
 }
 
-function BudgetOverviewStackedBar({ fundraisingTotal, airfareTotal, housingTotal, feeTotal, leftover }) {
-  const spentTotal = airfareTotal + housingTotal + (feeTotal ?? 0);
+function BudgetOverviewStackedBar({
+  fundraisingTotal,
+  teamBudgetTotal,
+  airfareTotal,
+  housingTotal,
+  feeTotal,
+  leftover,
+}) {
+  const spentTotal =
+    (teamBudgetTotal ?? 0) + airfareTotal + housingTotal + (feeTotal ?? 0);
   if (fundraisingTotal == null && spentTotal <= 0) {
     return <div className="small" style={{ color: "var(--muted)" }}>No budget data yet</div>;
   }
 
   const total = Math.max(fundraisingTotal ?? spentTotal, spentTotal, 1);
   const segments = [
+    { key: "teamBudget", value: teamBudgetTotal ?? 0, color: "#7c3aed", label: "Team Budget" },
     { key: "airfare", value: airfareTotal, color: "#2563eb", label: "Airfare" },
     { key: "housing", value: housingTotal, color: "#16a34a", label: "Housing" },
     { key: "fee", value: feeTotal, color: "#ea580c", label: "Fee" },
@@ -516,6 +526,7 @@ function BudgetOverviewTable({
   pastTripIds,
   onSelectTrip,
   onUpdateDraft,
+  getAccountantNames,
   showFooter = true,
 }) {
   if (!rows.length) return null;
@@ -544,6 +555,7 @@ function BudgetOverviewTable({
           {rows.map((row) => {
             const isArchived = archivedTripIds.has(row.tripId);
             const isPast = pastTripIds.has(row.tripId);
+            const accountantNames = getAccountantNames?.(row.tripId) || [];
             return (
               <tr
                 key={row.tripId}
@@ -566,7 +578,30 @@ function BudgetOverviewTable({
                 <td>{row.projectEndDate || "—"}</td>
                 <td>{row.site || "—"}</td>
                 <td style={{ textAlign: "center", fontWeight: 700 }}>{row.workers}</td>
-                <td>{row.teamAccountant || "—"}</td>
+                <td style={{ minWidth: 160, maxWidth: 240 }}>
+                  {isEditingOverview ? (
+                    <select
+                      className="input"
+                      value={row.teamAccountant || ""}
+                      onChange={(e) => onUpdateDraft(row.tripId, { teamAccountant: e.target.value })}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <option value="">— Select team member —</option>
+                      {accountantNames.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                      {row.teamAccountant && !accountantNames.includes(row.teamAccountant) ? (
+                        <option value={row.teamAccountant}>
+                          {row.teamAccountant} (not on roster)
+                        </option>
+                      ) : null}
+                    </select>
+                  ) : (
+                    row.teamAccountant || "—"
+                  )}
+                </td>
                 <td>{formatUsdNumberOrDash(row.fundraisingTotal)}</td>
                 <td style={{ minWidth: 112 }}>
                   {isEditingOverview ? (
@@ -605,6 +640,7 @@ function BudgetOverviewTable({
                 <td>
                   <BudgetOverviewStackedBar
                     fundraisingTotal={row.fundraisingTotal}
+                    teamBudgetTotal={row.teamBudgetTotal}
                     airfareTotal={row.airfareTotal}
                     housingTotal={row.housingTotal}
                     feeTotal={row.feeTotal}
@@ -683,7 +719,7 @@ export default function BudgetPage() {
   const [editingSiteNoteDraft, setEditingSiteNoteDraft] = useState("");
   const [siteNoteDeleteId, setSiteNoteDeleteId] = useState("");
   const [newSiteHousingSelect, setNewSiteHousingSelect] = useState("");
-  const [newSiteHousingActiveLabel, setNewSiteHousingActiveLabel] = useState(null);
+  const [isAddingSiteNote, setIsAddingSiteNote] = useState(false);
   const [newSiteHousingDraft, setNewSiteHousingDraft] = useState("");
   const [budgetCheckRows, setBudgetCheckRows] = useState([]);
   const [newBudgetCheckTripId, setNewBudgetCheckTripId] = useState("");
@@ -786,6 +822,7 @@ export default function BudgetPage() {
       return {
         ...row,
         onsiteExpensesAmount: draft.onsiteExpensesAmount ?? row.onsiteExpensesAmount,
+        teamAccountant: draft.teamAccountant ?? row.teamAccountant,
       };
     });
   }, [
@@ -1631,6 +1668,7 @@ export default function BudgetPage() {
       housingRows.map((row) => ({
         tripId: row.tripId,
         onsiteExpensesAmount: row.onsiteExpensesAmount || "",
+        teamAccountant: row.teamAccountant || "",
       }))
     );
     setIsEditingOverview(true);
@@ -1653,10 +1691,24 @@ export default function BudgetPage() {
       for (const row of overviewBudgetDraft) {
         await saveTripBudget(row.tripId, {
           onsiteExpensesAmount: row.onsiteExpensesAmount ?? "",
+          teamAccountant: row.teamAccountant ?? "",
         });
       }
       const housingRes = await listAllTripBudgets();
       setHousingRows(mergeHousingWithTrips(trips, housingRes));
+      if (isEditingHousing) {
+        setHousingRowsDraft((prev) =>
+          (prev || []).map((row) => {
+            const draft = overviewBudgetDraft.find((d) => String(d.tripId) === String(row.tripId));
+            if (!draft) return row;
+            return {
+              ...row,
+              onsiteExpensesAmount: draft.onsiteExpensesAmount ?? row.onsiteExpensesAmount,
+              teamAccountant: draft.teamAccountant ?? row.teamAccountant,
+            };
+          })
+        );
+      }
       setIsEditingOverview(false);
       setOverviewBudgetDraft([]);
       setStatus("Saved.");
@@ -2116,6 +2168,7 @@ export default function BudgetPage() {
               pastTripIds={pastTripIds}
               onSelectTrip={setTeamEditorTripId}
               onUpdateDraft={updateOverviewBudgetDraft}
+              getAccountantNames={sortedAccountantNamesForTrip}
             />
 
             {currentBudgetOverviewRows.length === 0 && pastBudgetOverviewRows.length === 0 ? (
@@ -2161,6 +2214,7 @@ export default function BudgetPage() {
                 pastTripIds={pastTripIds}
                 onSelectTrip={setTeamEditorTripId}
                 onUpdateDraft={updateOverviewBudgetDraft}
+                getAccountantNames={sortedAccountantNamesForTrip}
               />
             </div>
           ) : null}
