@@ -104,12 +104,12 @@ a:hover{text-decoration:underline}
 .appSectionBadge{
   display:inline-flex;
   align-items:center;
-  gap:6px;
-  padding:4px 10px;
+  gap:8px;
+  padding:8px 16px;
   border-radius:999px;
-  font-size:11px;
-  font-weight:800;
-  letter-spacing:.04em;
+  font-size:15px;
+  font-weight:900;
+  letter-spacing:.03em;
   color:var(--primary);
   background:var(--primarySoft);
   border:1px solid rgba(50,84,163,.18);
@@ -1263,7 +1263,7 @@ a.btn{
   line-height:1.2;
 }
 .budgetCheckSectionPillLabel{
-  font-size:13px;
+  font-size:15px;
 }
 .budgetCheckSectionPillCount{
   display:inline-flex;
@@ -1356,6 +1356,11 @@ a.btn{
   overflow:auto;
   display:grid;
   gap:18px;
+  border:1px solid rgba(50,84,163,.14);
+  background:
+    radial-gradient(circle at top right, rgba(67,164,213,.12), transparent 34%),
+    linear-gradient(180deg, #fff 0%, #f7fbff 100%);
+  box-shadow:0 24px 48px rgba(15,23,42,.14);
 }
 .budgetTeamEditorHeader,
 .budgetTeamEditorFooter,
@@ -1369,6 +1374,8 @@ a.btn{
 .budgetTeamEditorTitle{
   margin:0;
   font-size:22px;
+  color:var(--primary);
+  letter-spacing:-.02em;
 }
 .budgetTeamEditorSubtitle{
   margin:6px 0 0;
@@ -1633,11 +1640,11 @@ a.btn{
 .budgetTeamEditorSectionTitle{
   margin:0;
   width:fit-content;
-  padding:6px 12px;
+  padding:8px 14px;
   border-radius:999px;
-  font-size:12px;
+  font-size:14px;
   font-weight:900;
-  letter-spacing:.08em;
+  letter-spacing:.06em;
   text-transform:uppercase;
   color:var(--primary);
   background:var(--primarySoft);
@@ -1705,8 +1712,14 @@ a.btn{
 }
 .budgetTeamEditorTickets{
   gap:14px;
+  margin-top:4px;
+}
+.budgetTeamEditorTicketList{
+  display:grid;
+  gap:12px;
 }
 .budgetTeamEditorTicketCard{
+  padding:14px;
   border:1px solid rgba(37,99,235,.14);
   border-radius:14px;
   background:linear-gradient(165deg, #fff, rgba(239,246,255,.9));
@@ -1717,18 +1730,6 @@ a.btn{
   transform:translateY(-1px);
   box-shadow:0 10px 18px rgba(37,99,235,.1);
 }
-  margin-top:4px;
-}
-.budgetTeamEditorTicketList{
-  display:grid;
-  gap:12px;
-}
-.budgetTeamEditorTicketCard{
-  padding:14px;
-  border:1px solid rgba(15,23,42,.08);
-  border-radius:12px;
-  background:rgba(248,250,252,.72);
-}
 .budgetTeamEditorTicketCardHeader{
   display:flex;
   align-items:center;
@@ -1737,12 +1738,12 @@ a.btn{
   flex-wrap:wrap;
   margin-bottom:12px;
   padding-bottom:10px;
-  border-bottom:1px solid rgba(15,23,42,.08);
+  border-bottom:1px solid rgba(37,99,235,.12);
 }
 .budgetTeamEditorTicketCardTitle{
   font-size:13px;
   font-weight:800;
-  color:var(--text);
+  color:var(--primary);
 }
 .budgetTeamEditorTicketCardActions{
   display:flex;
@@ -4275,14 +4276,14 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   width:fit-content;
   max-width:100%;
   margin-bottom:12px;
-  padding:7px 12px;
+  padding:8px 14px;
   border-radius:999px;
   border:1px solid rgba(47,73,147,.16);
   background:var(--primarySoft);
   color:var(--primary);
-  font-size:12px;
+  font-size:14px;
   font-weight:900;
-  letter-spacing:.08em;
+  letter-spacing:.06em;
   text-transform:uppercase;
 }
 .tripDocumentsPageSectionPill{
