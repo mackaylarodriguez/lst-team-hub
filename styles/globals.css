@@ -3189,10 +3189,10 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   width:100%;
 }
 .tripTrainingTaskCheckbox{
-  margin-top:3px;
+  margin-top:2px;
   flex-shrink:0;
-  width:16px;
-  height:16px;
+  width:22px;
+  height:22px;
   accent-color:var(--primary);
 }
 .tripTrainingTaskRowContent{
@@ -3206,7 +3206,8 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
-  gap:12px;
+  gap:8px 12px;
+  flex-wrap:wrap;
 }
 .tripTrainingTaskTitle{
   font-size:14px;
@@ -3981,7 +3982,62 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   }
   .tripPageTabs{
     position:sticky;
-    top:72px;
+    top:var(--app-shell-sticky-offset, 106px);
+  }
+  .tripTrainingTaskCheckbox{
+    width:24px;
+    height:24px;
+  }
+  .tripChecklistTaskActions{
+    width:100%;
+    gap:8px;
+  }
+  .tripChecklistTaskLink{
+    min-height:44px;
+    width:100%;
+    justify-content:center;
+    padding:10px 14px;
+    border-radius:12px;
+    border:1px solid rgba(50,84,163,.22);
+    background:var(--primarySoft);
+    font-size:14px;
+    text-decoration:none;
+  }
+  .tripChecklistTaskLink:hover{
+    text-decoration:none;
+    background:var(--skySoft);
+  }
+  .trainingPrototypeFullscreenTop{
+    padding:max(12px, env(safe-area-inset-top, 0px)) 14px 10px;
+  }
+  .trainingPrototypeFullscreenClose{
+    min-height:44px;
+    padding:10px 14px;
+  }
+  .trainingPrototypeFullscreenBody{
+    padding:14px 14px 20px;
+  }
+  .trainingPrototypeFullscreenFooter{
+    flex-direction:column;
+    align-items:stretch;
+    padding:10px 14px max(14px, env(safe-area-inset-bottom, 0px));
+  }
+  .trainingPrototypeFullscreenFooter .spacer{
+    display:none;
+  }
+  .trainingPrototypeFullscreenFooter .btn{
+    width:100%;
+  }
+  .trainingPrototypeQuizOptionsCentered{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .trainingPrototypeQuizOption{
+    min-height:44px;
+  }
+  .trainingPrototypeQuizOptionCentered{
+    min-width:0;
+    width:100%;
   }
 }
 /* Trip → Staff Tasks tab: match Checklists / My Tasks copy (13px) and compact controls */
