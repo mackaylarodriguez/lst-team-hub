@@ -123,7 +123,7 @@ const RECRUITING_POTENTIAL_COL = {
   team: 168,
   roster: 210,
   projectDates: 150,
-  site: 170,
+  site: 280,
   weeks: 88,
   fundraising: 130,
   mackayla: 230,

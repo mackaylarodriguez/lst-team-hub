@@ -2422,6 +2422,10 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   vertical-align:top;
   white-space:normal;
 }
+.recruitingPotentialBoardTable thead th{
+  text-align:center;
+  vertical-align:middle;
+}
 .recruitingBoardTable td:first-child .recruitingTeamNamePill{
   max-width:100%;
 }
