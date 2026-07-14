@@ -33,13 +33,8 @@ function formatFeeDraftAmount(value) {
   return parsed != null ? formatUsdNumber(parsed) : String(value);
 }
 
-function buildDraftFromSources(trip, budget, teamMembers, participants) {
+function buildDraftFromSources(trip, budget) {
   const tripName = trip?.name || "";
-  const fundraisingTotal = computeTeamFundraisingGoalTotal({
-    ...trip,
-    teamMembers,
-    participants,
-  });
   return {
     teamName: budget?.teamName || tripName,
     projectStartDate: budget?.projectStartDate || trip?.startDate || "",
@@ -48,11 +43,8 @@ function buildDraftFromSources(trip, budget, teamMembers, participants) {
     teamAccountant: budget?.teamAccountant || "",
     // Budget field (formerly on-site expenses)
     onsiteExpensesAmount: budget?.onsiteExpensesAmount || "",
-    // Keep team budget amount synced to fundraising for Overview page compatibility
-    budgetAmount:
-      fundraisingTotal > 0
-        ? formatUsdNumber(fundraisingTotal)
-        : String(budget?.budgetAmount ?? "").trim() || "",
+    // Do not store fundraising here — Housing budget amount is staff-entered only
+    budgetAmount: String(budget?.budgetAmount ?? "").trim() || "",
     housingBudgetAmount: budget?.housingBudgetAmount || "",
     housingAmount: budget?.housingAmount || "",
     returnedAmount: budget?.returnedAmount || "",
@@ -112,7 +104,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
           listTripParticipants(tripId).catch(() => []),
         ]);
         if (cancelled) return;
-        setDraft(buildDraftFromSources(trip, budget, roster, participantRows));
+        setDraft(buildDraftFromSources(trip, budget));
         setTickets(ticketRows || []);
         setTeamMembers(roster || []);
         setParticipants(participantRows || []);
@@ -257,15 +249,13 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
     if (!tripId || !draft) return;
     try {
       setSaving(true);
-      const fundraisingAmount =
-        fundraisingTotal > 0 ? formatUsdNumber(fundraisingTotal) : draft.budgetAmount;
       await saveTripBudget(tripId, {
         teamName: draft.teamName,
         projectStartDate: draft.projectStartDate,
         projectEndDate: draft.projectEndDate,
         siteCountry: draft.siteCountry,
         teamAccountant: draft.teamAccountant,
-        budgetAmount: fundraisingAmount,
+        budgetAmount: draft.budgetAmount,
         onsiteExpensesAmount: draft.onsiteExpensesAmount,
         housingBudgetAmount: draft.housingBudgetAmount,
         housingAmount: draft.housingAmount,
