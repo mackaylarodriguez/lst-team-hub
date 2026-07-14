@@ -360,52 +360,49 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
         ) : (
           <>
             <div className="budgetTeamEditorSummary">
-              <div>
+              <div className="budgetTeamEditorSummaryMetric budgetTeamEditorSummaryMetricFundraising">
                 <span className="budgetTeamEditorSummaryLabel">Total fundraising</span>
                 <strong>
                   {summary.fundraisingTotal != null ? formatUsdNumber(summary.fundraisingTotal) : "—"}
                 </strong>
-                <div className="budgetTeamEditorSummaryWorkers">
-                  <FundraisingWorkerGoalList workers={fundraisingWorkers} />
-                </div>
               </div>
-              <div>
+              <div className="budgetTeamEditorSummaryMetric budgetTeamEditorSummaryMetricBudget">
                 <span className="budgetTeamEditorSummaryLabel">Team budget</span>
                 <strong>
                   {summary.budgetTotal != null ? formatUsdNumber(summary.budgetTotal) : "—"}
                 </strong>
               </div>
-              <div>
+              <div className="budgetTeamEditorSummaryMetric budgetTeamEditorSummaryMetricAirfare">
                 <span className="budgetTeamEditorSummaryLabel">Airfare</span>
                 <strong>{formatUsdNumber(summary.airfareTotal)}</strong>
               </div>
-              <div>
+              <div className="budgetTeamEditorSummaryMetric budgetTeamEditorSummaryMetricHousing">
                 <span className="budgetTeamEditorSummaryLabel">Housing</span>
                 <strong>{formatUsdNumber(summary.housingTotal)}</strong>
               </div>
-              <div>
+              <div className="budgetTeamEditorSummaryMetric budgetTeamEditorSummaryMetricFee">
                 <span className="budgetTeamEditorSummaryLabel">Fee</span>
                 <strong>{formatUsdNumber(summary.feeTotal)}</strong>
                 {summary.feeDetail ? (
-                  <div className="small" style={{ color: "var(--muted)", marginTop: 4, lineHeight: 1.35 }}>
-                    {summary.feeDetail}
-                  </div>
+                  <div className="small budgetTeamEditorSummaryDetail">{summary.feeDetail}</div>
                 ) : null}
               </div>
-              <div>
+              <div
+                className={`budgetTeamEditorSummaryMetric budgetTeamEditorSummaryMetricLeftover${
+                  summary.leftover != null && summary.leftover < 0
+                    ? " budgetTeamEditorSummaryMetricLeftoverNeg"
+                    : ""
+                }`}
+              >
                 <span className="budgetTeamEditorSummaryLabel">Leftover</span>
-                <strong
-                  style={{
-                    color: summary.leftover != null && summary.leftover < 0 ? "#dc2626" : "#15803d",
-                  }}
-                >
+                <strong>
                   {summary.leftover != null ? formatUsdNumber(summary.leftover) : "—"}
                 </strong>
               </div>
             </div>
 
             <div className="budgetTeamEditorTopGrid">
-              <section className="budgetTeamEditorSection">
+              <section className="budgetTeamEditorSection budgetTeamEditorSectionToneTeam">
                 <h3 className="budgetTeamEditorSectionTitle">Team details</h3>
                 <div className="budgetTeamEditorFields">
                   <Field label="Team name">
@@ -452,7 +449,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
                 </div>
               </section>
 
-              <section className="budgetTeamEditorSection">
+              <section className="budgetTeamEditorSection budgetTeamEditorSectionToneOverview">
                 <h3 className="budgetTeamEditorSectionTitle">Overview amounts</h3>
                 <div className="budgetTeamEditorFields">
                   <Field label="Fundraising">
@@ -482,7 +479,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
               </section>
             </div>
 
-            <section className="budgetTeamEditorSection budgetTeamEditorSectionWide">
+            <section className="budgetTeamEditorSection budgetTeamEditorSectionWide budgetTeamEditorSectionToneFees">
               <h3 className="budgetTeamEditorSectionTitle">Fees</h3>
               <div className="budgetTeamEditorFormGrid">
                 <div className="budgetTeamEditorHousingAmounts">
@@ -551,7 +548,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
               </div>
             </section>
 
-            <section className="budgetTeamEditorSection budgetTeamEditorSectionWide">
+            <section className="budgetTeamEditorSection budgetTeamEditorSectionWide budgetTeamEditorSectionToneHousing">
               <h3 className="budgetTeamEditorSectionTitle">Housing</h3>
               <div className="budgetTeamEditorFormGrid">
                 <div className="budgetTeamEditorHousingAmounts">
@@ -639,7 +636,7 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
               </div>
             </section>
 
-            <section className="budgetTeamEditorSection budgetTeamEditorTickets">
+            <section className="budgetTeamEditorSection budgetTeamEditorTickets budgetTeamEditorSectionToneTickets">
               <div className="budgetTeamEditorSectionHeader">
                 <h3 className="budgetTeamEditorSectionTitle">Tickets</h3>
                 <button type="button" className="btn" onClick={() => void handleAddTicket()}>

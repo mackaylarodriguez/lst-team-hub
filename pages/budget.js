@@ -41,10 +41,9 @@ import {
   syncTripHousingExtras,
   uploadTripHousingExtraPdf,
 } from "@/lib/tripHousingEntries";
-import { listAllTripTeamMembers } from "@/lib/tripTeamMembers";
-import { listTripsForCurrentUser } from "@/lib/trips";
-import { computeTeamFundraisingGoalTotal, buildTeamFundraisingWorkerRows } from "@/lib/tripFundraising";
-import FundraisingWorkerGoalList from "@/components/budget/FundraisingWorkerGoalList";
+import { countTravelingRosterMembers, listAllTripTeamMembers } from "@/lib/tripTeamMembers";
+import { listTripAssignmentCountsByTripId, listTripsForCurrentUser } from "@/lib/trips";
+import { computeTeamFundraisingGoalTotal } from "@/lib/tripFundraising";
 import {
   deleteBudgetCheckRequest,
   listBudgetCheckRequests,
@@ -259,8 +258,12 @@ function defaultIntlDomForLocation(location) {
   return text.includes("massachusetts") ? "Dom" : "Intl";
 }
 
-function countTripRosterMembers(teamMembersByTripId, tripId) {
-  return (teamMembersByTripId[String(tripId || "")] || []).length;
+function countTripRosterMembers(teamMembersByTripId, assignmentCountsByTripId, tripId) {
+  const key = String(tripId || "");
+  const rosterCount = countTravelingRosterMembers(teamMembersByTripId[key] || []);
+  const assignedCount = Number(assignmentCountsByTripId?.[key] || 0) || 0;
+  // Same rollup as trip card Workers / Team Plan: largest of traveling roster vs assignments.
+  return Math.max(rosterCount, assignedCount);
 }
 
 function mergeHousingWithTrips(trips, budgets) {
@@ -330,7 +333,13 @@ function formatUsdNumberOrDash(value) {
   return formatUsdNumber(value);
 }
 
-function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, tripsById) {
+function buildBudgetOverviewRows(
+  housingRows,
+  ticketRows,
+  teamMembersByTripId,
+  tripsById,
+  assignmentCountsByTripId
+) {
   return (housingRows || []).map((row) => {
     const tripMeta = tripsById?.get(String(row.tripId)) || {};
     const teamMembers = teamMembersByTripId[String(row.tripId)] || [];
@@ -340,7 +349,6 @@ function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, t
       teamMembers,
       participants: [],
     };
-    const fundraisingWorkers = buildTeamFundraisingWorkerRows(tripLike);
     const fundraisingComputed = computeTeamFundraisingGoalTotal(tripLike);
     const fundraisingTotal = fundraisingComputed > 0 ? fundraisingComputed : null;
     const airfareTotal = sumTicketAirfareForTrip(ticketRows, row.tripId);
@@ -358,14 +366,13 @@ function buildBudgetOverviewRows(housingRows, ticketRows, teamMembersByTripId, t
       projectStartDate: row.projectStartDate || "",
       projectEndDate: row.projectEndDate || "",
       site: row.siteCountry || "",
-      workers: countTripRosterMembers(teamMembersByTripId, row.tripId),
+      workers: countTripRosterMembers(teamMembersByTripId, assignmentCountsByTripId, row.tripId),
       teamAccountant: row.teamAccountant || "",
       budgetAmount: row.budgetAmount || "",
       onsiteExpensesAmount: row.onsiteExpensesAmount || "",
       returnedAmount: row.returnedAmount || "",
       notes: row.notes == null ? "" : String(row.notes),
       fundraisingTotal,
-      fundraisingWorkers,
       teamBudgetTotal,
       airfareTotal,
       housingTotal,
@@ -624,9 +631,6 @@ function BudgetOverviewTable({
                   <div className="budgetOverviewFundraisingTotal">
                     {formatUsdNumberOrDash(row.fundraisingTotal)}
                   </div>
-                  {(row.fundraisingWorkers || []).length > 0 ? (
-                    <FundraisingWorkerGoalList workers={row.fundraisingWorkers} />
-                  ) : null}
                 </td>
                 <td style={{ minWidth: 112 }}>
                   {isEditingOverview ? (
@@ -801,6 +805,7 @@ export default function BudgetPage() {
   const [ticketToDeleteId, setTicketToDeleteId] = useState(null);
   const [budgetRowDeleteTripId, setBudgetRowDeleteTripId] = useState(null);
   const [teamMembersByTripId, setTeamMembersByTripId] = useState({});
+  const [assignmentCountsByTripId, setAssignmentCountsByTripId] = useState({});
   const [siteHousingNotes, setSiteHousingNotes] = useState([]);
   const [housingPdfUploadingTripId, setHousingPdfUploadingTripId] = useState(null);
   const [housingExtrasByTripId, setHousingExtrasByTripId] = useState({});
@@ -936,8 +941,15 @@ export default function BudgetPage() {
   }, [trips]);
 
   const budgetOverviewRows = useMemo(
-    () => buildBudgetOverviewRows(overviewHousingRows, ticketRows, teamMembersByTripId, tripsById),
-    [overviewHousingRows, ticketRows, teamMembersByTripId, tripsById]
+    () =>
+      buildBudgetOverviewRows(
+        overviewHousingRows,
+        ticketRows,
+        teamMembersByTripId,
+        tripsById,
+        assignmentCountsByTripId
+      ),
+    [overviewHousingRows, ticketRows, teamMembersByTripId, tripsById, assignmentCountsByTripId]
   );
 
   const currentBudgetOverviewRows = useMemo(
@@ -1077,7 +1089,7 @@ export default function BudgetPage() {
 
       try {
         setLoading(true);
-        const [avgRes, tripsRes, housingRes, ticketsRes, rosterMembers, checkRequests] =
+        const [avgRes, tripsRes, housingRes, ticketsRes, rosterMembers, checkRequests, assignmentCounts] =
           await Promise.all([
             getBudgetAverages(),
             listTripsForCurrentUser(),
@@ -1091,6 +1103,10 @@ export default function BudgetPage() {
               console.warn("Budget check requests not loaded", err);
               return [];
             }),
+            listTripAssignmentCountsByTripId().catch((err) => {
+              console.warn("Could not load trip assignment counts", err);
+              return {};
+            }),
           ]);
         if (cancelled) return;
         const rosterByTrip = {};
@@ -1101,6 +1117,7 @@ export default function BudgetPage() {
           rosterByTrip[tid].push(mem);
         }
         if (!cancelled) setTeamMembersByTripId(rosterByTrip);
+        if (!cancelled) setAssignmentCountsByTripId(assignmentCounts || {});
         if (!cancelled) setBudgetCheckRows(checkRequests || []);
         await syncTripTicketsFromTeamMembers(tripsRes || []);
         const refreshedTickets = await listAllTripTickets();
@@ -2334,7 +2351,7 @@ export default function BudgetPage() {
                         r.projectStartDate || "",
                         r.projectEndDate || "",
                         r.siteCountry || "",
-                        String(countTripRosterMembers(teamMembersByTripId, r.tripId)),
+                        String(countTripRosterMembers(teamMembersByTripId, assignmentCountsByTripId, r.tripId)),
                         r.teamAccountant || "",
                         formatUsdDisplay(r.housingAmount),
                         r.housingLink || "",
@@ -2466,7 +2483,7 @@ export default function BudgetPage() {
                           }}
                           title="Count of people on this trip’s roster (Trip → Team)"
                         >
-                          {countTripRosterMembers(teamMembersByTripId, r.tripId)}
+                          {countTripRosterMembers(teamMembersByTripId, assignmentCountsByTripId, r.tripId)}
                         </td>
                         <td style={{ minWidth: 160, maxWidth: 240 }}>
                           <select
@@ -2693,7 +2710,7 @@ export default function BudgetPage() {
                           style={{ textAlign: "center", fontWeight: 700 }}
                           title="Count of people on this trip’s roster (Trip → Team)"
                         >
-                          {countTripRosterMembers(teamMembersByTripId, r.tripId)}
+                          {countTripRosterMembers(teamMembersByTripId, assignmentCountsByTripId, r.tripId)}
                         </td>
                         <td>{r.teamAccountant || ""}</td>
                         <td
