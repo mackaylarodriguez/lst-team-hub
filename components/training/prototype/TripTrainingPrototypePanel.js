@@ -75,7 +75,6 @@ export default function TripTrainingPrototypePanel() {
   }
 
   function handleSectionContinue(sectionId, moduleId) {
-    markSectionComplete(sectionId);
     const nextSectionId = getNextPrototypeSectionIdFromModules(modules, sectionId, moduleId);
     if (!nextSectionId) {
       closeOverlay();
