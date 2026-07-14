@@ -475,6 +475,17 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
                       placeholder="$0.00"
                     />
                   </Field>
+                  <Field label="Returned amount">
+                    <EditorInput
+                      value={draft.returnedAmount}
+                      onChange={(e) => patchDraft({ returnedAmount: e.target.value })}
+                      onBlur={(e) =>
+                        patchDraft({ returnedAmount: normalizeMoneyInputToUsd(e.target.value) })
+                      }
+                      inputMode="decimal"
+                      placeholder="$0.00"
+                    />
+                  </Field>
                 </div>
               </section>
             </div>
@@ -552,33 +563,11 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
               <h3 className="budgetTeamEditorSectionTitle">Housing</h3>
               <div className="budgetTeamEditorFormGrid">
                 <div className="budgetTeamEditorHousingAmounts">
-                  <Field label="Housing budget">
-                    <EditorInput
-                      value={draft.housingBudgetAmount}
-                      onChange={(e) => patchDraft({ housingBudgetAmount: e.target.value })}
-                      onBlur={(e) =>
-                        patchDraft({ housingBudgetAmount: normalizeMoneyInputToUsd(e.target.value) })
-                      }
-                      inputMode="decimal"
-                      placeholder="$0.00"
-                    />
-                  </Field>
                   <Field label="Housing amount">
                     <EditorInput
                       value={draft.housingAmount}
                       onChange={(e) => patchDraft({ housingAmount: e.target.value })}
                       onBlur={(e) => patchDraft({ housingAmount: normalizeMoneyInputToUsd(e.target.value) })}
-                      inputMode="decimal"
-                      placeholder="$0.00"
-                    />
-                  </Field>
-                  <Field label="Returned amount">
-                    <EditorInput
-                      value={draft.returnedAmount}
-                      onChange={(e) => patchDraft({ returnedAmount: e.target.value })}
-                      onBlur={(e) =>
-                        patchDraft({ returnedAmount: normalizeMoneyInputToUsd(e.target.value) })
-                      }
                       inputMode="decimal"
                       placeholder="$0.00"
                     />
