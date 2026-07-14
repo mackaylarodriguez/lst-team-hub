@@ -2,7 +2,7 @@ import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import Spinner from "@/components/Spinner";
 import { useRouter } from "next/router";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
@@ -70,21 +70,16 @@ export default function SitesPage() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [siteNotes, setSiteNotes] = useState([]);
-  const [editingLogisticsSite, setEditingLogisticsSite] = useState("");
-  const [logisticsUrlDraft, setLogisticsUrlDraft] = useState("");
-  const [savingLogisticsFor, setSavingLogisticsFor] = useState("");
-  const [editingHousingNotesSite, setEditingHousingNotesSite] = useState("");
-  const [housingNotesDraft, setHousingNotesDraft] = useState("");
-  const [savingHousingNotesFor, setSavingHousingNotesFor] = useState("");
-  const [editingHostSite, setEditingHostSite] = useState("");
-  const [hostNameDraft, setHostNameDraft] = useState("");
-  const [savingHostFor, setSavingHostFor] = useState("");
+  const [isEditingLogistics, setIsEditingLogistics] = useState(false);
+  const [logisticsDraftBySite, setLogisticsDraftBySite] = useState({});
+  const [savingLogistics, setSavingLogistics] = useState(false);
   const [editingWorkbookSite, setEditingWorkbookSite] = useState("");
   const [workbookQtyDraft, setWorkbookQtyDraft] = useState({});
   const [savingWorkbookFor, setSavingWorkbookFor] = useState("");
   const [addSiteOpen, setAddSiteOpen] = useState(false);
   const [addSiteNameDraft, setAddSiteNameDraft] = useState("");
   const [addSiteLogisticsDraft, setAddSiteLogisticsDraft] = useState("");
+  const [addSiteBudgetNotesDraft, setAddSiteBudgetNotesDraft] = useState("");
   const [savingAddSite, setSavingAddSite] = useState(false);
   const [tab, setTab] = useState("Workbooks");
 
@@ -98,12 +93,8 @@ export default function SitesPage() {
 
   function switchSitesTab(nextTab) {
     setTab(nextTab);
-    setEditingLogisticsSite("");
-    setLogisticsUrlDraft("");
-    setEditingHousingNotesSite("");
-    setHousingNotesDraft("");
-    setEditingHostSite("");
-    setHostNameDraft("");
+    setIsEditingLogistics(false);
+    setLogisticsDraftBySite({});
     setEditingWorkbookSite("");
     setWorkbookQtyDraft({});
   }
@@ -209,131 +200,92 @@ export default function SitesPage() {
     return site + n * workbookQty + totalBooks + lastEdited + workbookActions;
   }, [workbookCountsMatrix.columns.length]);
 
-  async function saveSiteLogisticsUrl(siteOption) {
-    const url = logisticsUrlDraft.trim();
-    const matched = findSiteBudgetNoteForOption(siteOption, siteNotes);
-    try {
-      setSavingLogisticsFor(siteOption);
-      setStatus("");
-      let saved;
-      if (matched) {
-        saved = await updateSiteBudgetNote(matched.id, {
-          siteName: siteOption,
-          workbookNotes: matched.workbookNotes ?? "",
-          notes: matched.notes ?? "",
-          effectiveDate: matched.effectiveDate || null,
-          logisticsUrl: url || null,
-          hostName: matched.hostName ?? "",
-        });
-      } else {
-        saved = await upsertSiteBudgetNote({
-          siteName: siteOption,
-          workbookNotes: "",
-          notes: "",
-          logisticsUrl: url || null,
-          hostName: null,
-        });
-      }
-      setSiteNotes((prev) => {
-        const others = prev.filter((r) => r.id !== saved.id);
-        return [...others, saved].sort((a, b) =>
-          a.siteName.localeCompare(b.siteName, undefined, { sensitivity: "base" })
-        );
-      });
-      setEditingLogisticsSite("");
-      setLogisticsUrlDraft("");
-      showToast(`Saved logistics link for ${siteOption}`, "success");
-    } catch (e) {
-      const msg = e.message || "Save failed.";
-      setStatus(msg);
-      showToast(msg, "error");
-    } finally {
-      setSavingLogisticsFor("");
+  function beginLogisticsEdit() {
+    const drafts = {};
+    for (const row of workbookCountsMatrix.rows) {
+      drafts[row.siteLabel] = {
+        hostName: row.hostOverride || "",
+        logisticsUrl: row.customLogisticsUrl || "",
+        housingNotes: row.housingNotes || "",
+      };
     }
+    setLogisticsDraftBySite(drafts);
+    setIsEditingLogistics(true);
   }
 
-  async function saveSiteHousingNotes(siteOption) {
-    const matched = findSiteBudgetNoteForOption(siteOption, siteNotes);
-    try {
-      setSavingHousingNotesFor(siteOption);
-      setStatus("");
-      let saved;
-      if (matched) {
-        saved = await updateSiteBudgetNote(matched.id, {
-          siteName: siteOption,
-          workbookNotes: matched.workbookNotes ?? "",
-          notes: housingNotesDraft,
-          effectiveDate: matched.effectiveDate || null,
-          logisticsUrl: matched.logisticsUrl ?? "",
-          hostName: matched.hostName ?? "",
-        });
-      } else {
-        saved = await upsertSiteBudgetNote({
-          siteName: siteOption,
-          workbookNotes: "",
-          notes: housingNotesDraft,
-          logisticsUrl: null,
-          hostName: null,
-        });
-      }
-      setSiteNotes((prev) => {
-        const others = prev.filter((r) => r.id !== saved.id);
-        return [...others, saved].sort((a, b) =>
-          a.siteName.localeCompare(b.siteName, undefined, { sensitivity: "base" })
-        );
-      });
-      setEditingHousingNotesSite("");
-      setHousingNotesDraft("");
-      showToast(`Saved housing note for ${siteOption}`, "success");
-    } catch (e) {
-      const msg = e.message || "Save failed.";
-      setStatus(msg);
-      showToast(msg, "error");
-    } finally {
-      setSavingHousingNotesFor("");
-    }
+  function cancelLogisticsEdit() {
+    setIsEditingLogistics(false);
+    setLogisticsDraftBySite({});
   }
 
-  async function saveSiteHostOverride(siteOption) {
-    const hostVal = hostNameDraft.trim();
-    const matched = findSiteBudgetNoteForOption(siteOption, siteNotes);
+  function updateLogisticsDraft(siteLabel, patch) {
+    setLogisticsDraftBySite((current) => ({
+      ...current,
+      [siteLabel]: {
+        ...(current[siteLabel] || { hostName: "", logisticsUrl: "", housingNotes: "" }),
+        ...patch,
+      },
+    }));
+  }
+
+  async function saveAllLogisticsEdits() {
     try {
-      setSavingHostFor(siteOption);
+      setSavingLogistics(true);
       setStatus("");
-      let saved;
-      if (matched) {
-        saved = await updateSiteBudgetNote(matched.id, {
-          siteName: siteOption,
-          workbookNotes: matched.workbookNotes ?? "",
-          notes: matched.notes ?? "",
-          effectiveDate: matched.effectiveDate || null,
-          logisticsUrl: matched.logisticsUrl ?? "",
-          hostName: hostVal || null,
-        });
-      } else {
-        saved = await upsertSiteBudgetNote({
-          siteName: siteOption,
-          workbookNotes: "",
-          notes: "",
-          logisticsUrl: null,
-          hostName: hostVal || null,
-        });
-      }
-      setSiteNotes((prev) => {
-        const others = prev.filter((r) => r.id !== saved.id);
-        return [...others, saved].sort((a, b) =>
+      let nextNotes = siteNotes;
+      let savedCount = 0;
+
+      for (const row of workbookCountsMatrix.rows) {
+        const draft = logisticsDraftBySite[row.siteLabel];
+        if (!draft) continue;
+        const nextHost = String(draft.hostName || "").trim();
+        const nextUrl = String(draft.logisticsUrl || "").trim();
+        const nextHousingNotes = String(draft.housingNotes || "");
+        const changed =
+          nextHost !== String(row.hostOverride || "").trim() ||
+          nextUrl !== String(row.customLogisticsUrl || "").trim() ||
+          nextHousingNotes !== String(row.housingNotes || "");
+        if (!changed) continue;
+
+        const matched = findSiteBudgetNoteForOption(row.siteLabel, nextNotes);
+        let saved;
+        if (matched) {
+          saved = await updateSiteBudgetNote(matched.id, {
+            siteName: row.siteLabel,
+            workbookNotes: matched.workbookNotes ?? "",
+            notes: nextHousingNotes,
+            effectiveDate: matched.effectiveDate || null,
+            logisticsUrl: nextUrl || null,
+            hostName: nextHost || null,
+          });
+        } else {
+          saved = await upsertSiteBudgetNote({
+            siteName: row.siteLabel,
+            workbookNotes: "",
+            notes: nextHousingNotes,
+            logisticsUrl: nextUrl || null,
+            hostName: nextHost || null,
+          });
+        }
+        nextNotes = [...nextNotes.filter((r) => r.id !== saved.id), saved].sort((a, b) =>
           a.siteName.localeCompare(b.siteName, undefined, { sensitivity: "base" })
         );
-      });
-      setEditingHostSite("");
-      setHostNameDraft("");
-      showToast(`Saved host for ${siteOption}`, "success");
+        savedCount += 1;
+      }
+
+      setSiteNotes(nextNotes);
+      setIsEditingLogistics(false);
+      setLogisticsDraftBySite({});
+      showToast(
+        savedCount > 0 ? `Saved logistics for ${savedCount} site${savedCount === 1 ? "" : "s"}` : "No logistics changes to save",
+        "success"
+      );
     } catch (e) {
       const msg = e.message || "Save failed.";
       setStatus(msg);
       showToast(msg, "error");
     } finally {
-      setSavingHostFor("");
+      setSavingLogistics(false);
     }
   }
 
@@ -351,11 +303,13 @@ export default function SitesPage() {
     setAddSiteOpen(false);
     setAddSiteNameDraft("");
     setAddSiteLogisticsDraft("");
+    setAddSiteBudgetNotesDraft("");
   }
 
   async function submitAddSite() {
     const name = normalizeSiteOptionLabel(addSiteNameDraft);
     const url = String(addSiteLogisticsDraft || "").trim();
+    const budgetNotes = String(addSiteBudgetNotesDraft || "");
     if (!name) {
       showToast("Enter a site name.", "error");
       return;
@@ -374,7 +328,7 @@ export default function SitesPage() {
       setStatus("");
       const saved = await upsertSiteBudgetNote({
         siteName: name,
-        notes: "",
+        notes: budgetNotes,
         workbookNotes: "",
         logisticsUrl: url || null,
         hostName: null,
@@ -508,6 +462,7 @@ export default function SitesPage() {
           onClick={() => {
             setAddSiteNameDraft("");
             setAddSiteLogisticsDraft("");
+            setAddSiteBudgetNotesDraft("");
             setAddSiteOpen(true);
           }}
         >
@@ -712,11 +667,48 @@ export default function SitesPage() {
 
       {tab === "Site logistics" ? (
       <div className="card pad" style={{ marginBottom: 24 }}>
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics</div>
-          <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.45 }}>
-            Host contacts, logistics maps, and budget notes for each site.
-          </p>
+        <div
+          className="row"
+          style={{
+            marginBottom: 8,
+            gap: 12,
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics</div>
+            <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.45 }}>
+              Host contacts, logistics maps, and budget notes for each site.
+            </p>
+          </div>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap", marginLeft: "auto" }}>
+            {isEditingLogistics ? (
+              <>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={savingLogistics}
+                  onClick={cancelLogisticsEdit}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btnPrimary"
+                  disabled={savingLogistics}
+                  onClick={() => void saveAllLogisticsEdits()}
+                >
+                  {savingLogistics ? "Saving…" : "Save"}
+                </button>
+              </>
+            ) : (
+              <button type="button" className="btn btnPrimary" onClick={beginLogisticsEdit}>
+                Edit
+              </button>
+            )}
+          </div>
         </div>
         <div className="sitesLogisticsScroller">
           <table className="table sitesLogisticsTable dataTableStriped">
@@ -725,53 +717,69 @@ export default function SitesPage() {
                 <th>Site</th>
                 <th>Host</th>
                 <th>Map</th>
-                <th>Source</th>
                 <th>Budget Notes</th>
-                <th className="small" style={{ textAlign: "right", color: "var(--muted)", fontWeight: 700 }}>
-                  Actions
-                </th>
               </tr>
             </thead>
             <tbody>
-              {workbookCountsMatrix.rows.map((row) => (
-                <Fragment key={row.siteLabel}>
-                  <tr>
+              {workbookCountsMatrix.rows.map((row) => {
+                const draft = logisticsDraftBySite[row.siteLabel] || {
+                  hostName: "",
+                  logisticsUrl: "",
+                  housingNotes: "",
+                };
+                return (
+                  <tr key={row.siteLabel}>
                     <td className="sitesLogisticsSiteCell">{row.siteLabel}</td>
                     <td className="sitesLogisticsHostCell">
-                      {row.effectiveHostName ? (
+                      {isEditingLogistics ? (
+                        <input
+                          className="input"
+                          type="text"
+                          autoComplete="off"
+                          disabled={savingLogistics}
+                          placeholder={
+                            row.defaultHostHint
+                              ? `Default: ${row.defaultHostHint}`
+                              : "Host name (optional)"
+                          }
+                          value={draft.hostName}
+                          onChange={(e) =>
+                            updateLogisticsDraft(row.siteLabel, { hostName: e.target.value })
+                          }
+                        />
+                      ) : row.effectiveHostName ? (
                         <span style={{ fontWeight: 600 }}>{row.effectiveHostName}</span>
                       ) : (
                         <span className="small" style={{ color: "var(--muted)" }}>
                           —
                         </span>
                       )}
-                      <div style={{ marginTop: 8 }}>
-                        <button
-                          type="button"
-                          className="sitesBtnGhost"
-                          disabled={
-                            !!savingLogisticsFor || !!savingHousingNotesFor || !!savingHostFor
-                          }
-                          onClick={() => {
-                            setEditingLogisticsSite("");
-                            setLogisticsUrlDraft("");
-                            setEditingHousingNotesSite("");
-                            setHousingNotesDraft("");
-                            if (editingHostSite === row.siteLabel) {
-                              setEditingHostSite("");
-                              setHostNameDraft("");
-                            } else {
-                              setEditingHostSite(row.siteLabel);
-                              setHostNameDraft(row.hostOverride || "");
-                            }
-                          }}
-                        >
-                          {editingHostSite === row.siteLabel ? "Close" : "Edit host"}
-                        </button>
-                      </div>
                     </td>
                     <td className="sitesLogisticsLinkCell">
-                      {row.effectiveLogisticsUrl ? (
+                      {isEditingLogistics ? (
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <input
+                            className="input"
+                            type="url"
+                            disabled={savingLogistics}
+                            placeholder="https://… (optional custom map URL)"
+                            value={draft.logisticsUrl}
+                            onChange={(e) =>
+                              updateLogisticsDraft(row.siteLabel, { logisticsUrl: e.target.value })
+                            }
+                          />
+                          {row.effectiveLogisticsUrl && !String(draft.logisticsUrl || "").trim() ? (
+                            <a
+                              className="sitesLogisticsOpenLink small"
+                              href={row.effectiveLogisticsUrl}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                            >
+                              Open built-in map ↗
+                            </a>
+                          ) : null}
+                        </div>
+                      ) : row.effectiveLogisticsUrl ? (
                         <a
                           className="sitesLogisticsOpenLink"
                           href={row.effectiveLogisticsUrl}
@@ -782,19 +790,23 @@ export default function SitesPage() {
                         </a>
                       ) : (
                         <span className="small" style={{ color: "var(--muted)" }}>
-                          No map matched — set a custom URL
+                          No map yet
                         </span>
                       )}
                     </td>
-                    <td className="sitesLogisticsMetaCell">
-                      {row.customLogisticsUrl
-                        ? "Custom URL"
-                        : row.effectiveLogisticsUrl
-                          ? "Built-in directory"
-                          : "—"}
-                    </td>
                     <td className="sitesLogisticsHousingCell">
-                      {row.housingNotes ? (
+                      {isEditingLogistics ? (
+                        <textarea
+                          className="input"
+                          rows={3}
+                          disabled={savingLogistics}
+                          placeholder="Costs, contacts, utilities, shuttles, etc."
+                          value={draft.housingNotes}
+                          onChange={(e) =>
+                            updateLogisticsDraft(row.siteLabel, { housingNotes: e.target.value })
+                          }
+                        />
+                      ) : row.housingNotes ? (
                         <div
                           className="small"
                           style={{
@@ -812,223 +824,13 @@ export default function SitesPage() {
                         </div>
                       ) : (
                         <span className="small" style={{ color: "var(--muted)" }}>
-                          No housing note yet
+                          No budget note yet
                         </span>
                       )}
-                      <div style={{ marginTop: 8 }}>
-                        <button
-                          type="button"
-                          className="sitesBtnGhost"
-                          disabled={
-                            !!savingLogisticsFor || !!savingHousingNotesFor || !!savingHostFor
-                          }
-                          onClick={() => {
-                            setEditingLogisticsSite("");
-                            setLogisticsUrlDraft("");
-                            setEditingHostSite("");
-                            setHostNameDraft("");
-                            if (editingHousingNotesSite === row.siteLabel) {
-                              setEditingHousingNotesSite("");
-                              setHousingNotesDraft("");
-                            } else {
-                              setEditingHousingNotesSite(row.siteLabel);
-                              setHousingNotesDraft(row.housingNotes || "");
-                            }
-                          }}
-                        >
-                          {editingHousingNotesSite === row.siteLabel ? "Close" : "Edit note"}
-                        </button>
-                      </div>
-                    </td>
-                    <td className="sitesLogisticsActionCell">
-                      <button
-                        type="button"
-                        className="sitesBtnGhost"
-                        disabled={
-                          !!savingLogisticsFor || !!savingHousingNotesFor || !!savingHostFor
-                        }
-                        onClick={() => {
-                          setEditingHousingNotesSite("");
-                          setHousingNotesDraft("");
-                          setEditingHostSite("");
-                          setHostNameDraft("");
-                          if (editingLogisticsSite === row.siteLabel) {
-                            setEditingLogisticsSite("");
-                            setLogisticsUrlDraft("");
-                          } else {
-                            setEditingLogisticsSite(row.siteLabel);
-                            setLogisticsUrlDraft(row.customLogisticsUrl || "");
-                          }
-                        }}
-                      >
-                        {editingLogisticsSite === row.siteLabel ? "Close" : "Edit URL"}
-                      </button>
                     </td>
                   </tr>
-                  {editingLogisticsSite === row.siteLabel ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        style={{
-                          background: "var(--skySoft)",
-                          padding: "14px 16px",
-                          borderBottom: "1px solid var(--border)",
-                        }}
-                      >
-                        <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
-                          <label className="small" style={{ fontWeight: 700, color: "var(--text)" }}>
-                            Custom logistics URL (optional)
-                          </label>
-                          <input
-                            className="input"
-                            type="url"
-                            placeholder="https://…"
-                            value={logisticsUrlDraft}
-                            onChange={(e) => setLogisticsUrlDraft(e.target.value)}
-                          />
-                          <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
-                            Leave empty to use only the built-in SharePoint link when one matches this site.
-                          </div>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                            <button
-                              type="button"
-                              className="btn btnPrimary"
-                              style={{ fontSize: 12, padding: "6px 14px", borderRadius: 10 }}
-                              disabled={savingLogisticsFor === row.siteLabel}
-                              onClick={() => void saveSiteLogisticsUrl(row.siteLabel)}
-                            >
-                              {savingLogisticsFor === row.siteLabel ? "Saving…" : "Save URL"}
-                            </button>
-                            <button
-                              type="button"
-                              className="sitesBtnGhost"
-                              disabled={savingLogisticsFor === row.siteLabel}
-                              onClick={() => {
-                                setEditingLogisticsSite("");
-                                setLogisticsUrlDraft("");
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : null}
-                  {editingHousingNotesSite === row.siteLabel ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        style={{
-                          background: "var(--skySoft)",
-                          padding: "14px 16px",
-                          borderBottom: "1px solid var(--border)",
-                        }}
-                      >
-                        <div style={{ display: "grid", gap: 10, maxWidth: 720 }}>
-                          <label className="small" style={{ fontWeight: 700, color: "var(--text)" }}>
-                            Budget Notes (same as Budget → Site housing notes)
-                          </label>
-                          <textarea
-                            className="input"
-                            rows={6}
-                            placeholder="Costs, contacts, utilities, shuttles, etc."
-                            value={housingNotesDraft}
-                            onChange={(e) => setHousingNotesDraft(e.target.value)}
-                          />
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                            <button
-                              type="button"
-                              className="btn btnPrimary"
-                              style={{ fontSize: 12, padding: "6px 14px", borderRadius: 10 }}
-                              disabled={savingHousingNotesFor === row.siteLabel}
-                              onClick={() => void saveSiteHousingNotes(row.siteLabel)}
-                            >
-                              {savingHousingNotesFor === row.siteLabel ? "Saving…" : "Save note"}
-                            </button>
-                            <button
-                              type="button"
-                              className="sitesBtnGhost"
-                              disabled={savingHousingNotesFor === row.siteLabel}
-                              onClick={() => {
-                                setEditingHousingNotesSite("");
-                                setHousingNotesDraft("");
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : null}
-                  {editingHostSite === row.siteLabel ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        style={{
-                          background: "var(--skySoft)",
-                          padding: "14px 16px",
-                          borderBottom: "1px solid var(--border)",
-                        }}
-                      >
-                        <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
-                          <label className="small" style={{ fontWeight: 700, color: "var(--text)" }}>
-                            Host name override (optional)
-                          </label>
-                          <input
-                            className="input"
-                            type="text"
-                            autoComplete="off"
-                            placeholder={
-                              row.defaultHostHint
-                                ? `Default: ${row.defaultHostHint}`
-                                : "e.g. local coordinator"
-                            }
-                            value={hostNameDraft}
-                            onChange={(e) => setHostNameDraft(e.target.value)}
-                          />
-                          <div className="small" style={{ color: "var(--muted)", lineHeight: 1.45 }}>
-                            {row.defaultHostHint ? (
-                              <>
-                                Leave empty to use the built-in default (<strong>{row.defaultHostHint}</strong>) for
-                                this site in recruiting and trip setup.
-                              </>
-                            ) : (
-                              <>
-                                No built-in default host is defined for this site. Leave empty to keep the host field
-                                blank when staff pick this site.
-                              </>
-                            )}
-                          </div>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                            <button
-                              type="button"
-                              className="btn btnPrimary"
-                              style={{ fontSize: 12, padding: "6px 14px", borderRadius: 10 }}
-                              disabled={savingHostFor === row.siteLabel}
-                              onClick={() => void saveSiteHostOverride(row.siteLabel)}
-                            >
-                              {savingHostFor === row.siteLabel ? "Saving…" : "Save host"}
-                            </button>
-                            <button
-                              type="button"
-                              className="sitesBtnGhost"
-                              disabled={savingHostFor === row.siteLabel}
-                              onClick={() => {
-                                setEditingHostSite("");
-                                setHostNameDraft("");
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : null}
-                </Fragment>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1089,6 +891,19 @@ export default function SitesPage() {
                   placeholder="https://…"
                   value={addSiteLogisticsDraft}
                   onChange={(e) => setAddSiteLogisticsDraft(e.target.value)}
+                  disabled={savingAddSite}
+                />
+              </div>
+              <div>
+                <label className="small" style={{ display: "block", marginBottom: 4, fontWeight: 700 }}>
+                  Budget notes
+                </label>
+                <textarea
+                  className="input"
+                  rows={4}
+                  placeholder="Costs, contacts, utilities, shuttles, etc."
+                  value={addSiteBudgetNotesDraft}
+                  onChange={(e) => setAddSiteBudgetNotesDraft(e.target.value)}
                   disabled={savingAddSite}
                 />
               </div>
