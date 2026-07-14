@@ -188,17 +188,17 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="card pad" style={{ boxShadow:"none", borderStyle:"dashed", marginBottom: 14, background:"rgba(255,255,255,.75)" }}>
-          <div className="small">
-            {mode === "signin"
-              ? "Sign in with your LST app account."
-              : mode === "forgot"
+        {mode !== "signin" ? (
+          <div className="card pad" style={{ boxShadow:"none", borderStyle:"dashed", marginBottom: 14, background:"rgba(255,255,255,.75)" }}>
+            <div className="small">
+              {mode === "forgot"
                 ? "Enter your email and we'll send a password reset link from your custom email setup."
                 : mode === "reset"
                   ? "Set a new password for your LST app account."
                   : "Create your LST app account here. If your email already matches a worker on a trip, we will link it automatically."}
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <form onSubmit={onSubmit} style={{ display:"grid", gap: 12 }}>
           {mode === "signup" ? (
@@ -327,7 +327,7 @@ export default function Login() {
             <div className="loginModeTabs" role="tablist" aria-label="Account options">
               <button
                 className={mode === "signin" ? "btn btnPrimary loginModeTab" : "btn loginModeTab"}
-                type="button"
+                type={mode === "signin" ? "submit" : "button"}
                 role="tab"
                 aria-selected={mode === "signin"}
                 disabled={submitting}
@@ -337,11 +337,11 @@ export default function Login() {
                   setMessage("");
                 }}
               >
-                Sign In
+                {submitting && mode === "signin" ? "Signing In..." : "Sign In"}
               </button>
               <button
                 className={mode === "signup" ? "btn btnPrimary loginModeTab" : "btn loginModeTab"}
-                type="button"
+                type={mode === "signup" ? "submit" : "button"}
                 role="tab"
                 aria-selected={mode === "signup"}
                 disabled={submitting}
@@ -351,11 +351,11 @@ export default function Login() {
                   setMessage("");
                 }}
               >
-                Create Account
+                {submitting && mode === "signup" ? "Creating Account..." : "Create Account"}
               </button>
               <button
                 className={mode === "forgot" ? "btn btnPrimary loginModeTab" : "btn loginModeTab"}
-                type="button"
+                type={mode === "forgot" ? "submit" : "button"}
                 role="tab"
                 aria-selected={mode === "forgot"}
                 disabled={submitting}
@@ -365,27 +365,14 @@ export default function Login() {
                   setMessage("");
                 }}
               >
-                Forgot Password
+                {submitting && mode === "forgot" ? "Sending..." : "Forgot Password"}
               </button>
             </div>
-          ) : null}
-          <button className="btn btnPrimary loginSubmitBtn" type="submit" disabled={submitting}>
-            {submitting
-              ? mode === "signup"
-                ? "Creating Account..."
-                : mode === "forgot"
-                  ? "Sending..."
-                  : mode === "reset"
-                    ? "Updating Password..."
-                    : "Signing In..."
-              : mode === "signup"
-                ? "Create Account"
-                : mode === "forgot"
-                  ? "Send Reset Link"
-                  : mode === "reset"
-                    ? "Save New Password"
-                    : "Sign In"}
-          </button>
+          ) : (
+            <button className="btn btnPrimary loginSubmitBtn" type="submit" disabled={submitting}>
+              {submitting ? "Updating Password..." : "Save New Password"}
+            </button>
+          )}
         </form>
       </div>
     </div>
