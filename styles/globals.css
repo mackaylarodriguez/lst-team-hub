@@ -2655,6 +2655,12 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-weight:800;
   color:var(--primary);
 }
+.recruitingFormLinkedTrip{
+  padding:12px 14px;
+  border:1px solid rgba(50,84,163,.14);
+  border-radius:14px;
+  background:linear-gradient(165deg, #fff, rgba(67,164,213,.08));
+}
 .recruitingFormMemberList{
   display:grid;
   gap:10px;

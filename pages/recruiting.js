@@ -4497,13 +4497,13 @@ export default function RecruitingPage() {
                       </>
                     ) : (
                       <>
-                    <div style={{ display: "grid", gap: 12 }}>
-                      <div className="small" style={{ color: "var(--muted)" }}>
+                    <div className="recruitingFormStack">
+                      <div className="small recruitingFormModalLead">
                         Same order as <strong>Lock team</strong> (site & logistics first, then team name & members, then
                         fees and past recruiting details) so values carry over cleanly.
                       </div>
                       {selectedRecord.convertedTeamId ? (
-                        <div>
+                        <div className="recruitingFormLinkedTrip">
                           <button
                             className="btn btnPrimary"
                             type="button"
@@ -4518,22 +4518,22 @@ export default function RecruitingPage() {
                           </div>
                         </div>
                       ) : null}
-                      <div>
-                        <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
-                        <input
-                          className="input"
-                          value={selectedRecord.teamName || ""}
-                          onChange={(event) => updateSelectedRecord("teamName", event.target.value)}
-                          placeholder="2026 Brazil Team"
-                        />
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 900, marginBottom: 6 }}>Team Members</div>
-                        <div className="small" style={{ marginBottom: 10 }}>
-                          Add the roster here. ★ is the primary recruiting contact (first member when you lock). Phone
-                          and gender stay on this roster until the trip exists.
+                      <RecruitingFormCard
+                        tone="team"
+                        title="Team name & members"
+                        subtitle="★ is the primary recruiting contact (first member when you lock). Phone and gender stay on this roster until the trip exists."
+                      >
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
+                          <input
+                            className="input"
+                            value={selectedRecord.teamName || ""}
+                            onChange={(event) => updateSelectedRecord("teamName", event.target.value)}
+                            placeholder="2026 Brazil Team"
+                          />
                         </div>
-                        <div style={{ display: "grid", gap: 10 }}>
+                        <div className="recruitingFormMembersHeading">Team Members</div>
+                        <div className="recruitingFormMemberList">
                           {selectedRosterRows.map((person, index) => {
                             const isPrimary = index === 0;
                             const duplicateInfo = person.email
@@ -4545,12 +4545,7 @@ export default function RecruitingPage() {
                             return (
                               <div
                                 key={`${selectedRecord.id}-roster-${index}`}
-                                style={{
-                                  border: "1px solid rgba(18, 16, 12, 0.08)",
-                                  borderRadius: 14,
-                                  padding: 12,
-                                  background: "rgba(255,255,255,.72)",
-                                }}
+                                className="recruitingFormMemberCard"
                               >
                                 <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                                   <div
@@ -4685,12 +4680,16 @@ export default function RecruitingPage() {
                             );
                           })}
                         </div>
-                        <div className="row" style={{ marginTop: 10 }}>
-                          <button className="btn" type="button" onClick={addRosterRowForSelectedRecord}>
-                            Add Team Member
-                          </button>
-                        </div>
-                      </div>
+                        <button className="btn" type="button" onClick={addRosterRowForSelectedRecord}>
+                          Add Team Member
+                        </button>
+                      </RecruitingFormCard>
+
+                      <RecruitingFormCard
+                        tone="site"
+                        title="Site, stage & timing"
+                        subtitle="Site and timing for the recruiting chart. Full trip logistics live in Lock Team."
+                      >
                       <div
                         style={{
                           display: "grid",
@@ -4775,9 +4774,10 @@ export default function RecruitingPage() {
                         Project leave and return, host, site type, training, fees, and extra travel are set in the Lock
                         team dialog.
                       </div>
-                    </div>
+                      </RecruitingFormCard>
 
                     <RecruitingFormCard
+                      tone="funding"
                       title="Fundraising & pipeline"
                       subtitle="Interest, follow-up, and handoff for Leslee."
                     >
@@ -4846,6 +4846,7 @@ export default function RecruitingPage() {
                     </RecruitingFormCard>
 
                     <RecruitingFormCard
+                      tone="past"
                       title="Recruiting notes"
                       subtitle="Staff notes for Mackayla and Leslee."
                     >
@@ -4896,6 +4897,7 @@ export default function RecruitingPage() {
                           {unlockingLockedTeamRecordId === selectedRecord.id ? "Unlocking…" : "Unlock team"}
                         </button>
                       ) : null}
+                    </div>
                     </div>
                     </>
                     )}
@@ -5133,9 +5135,9 @@ export default function RecruitingPage() {
             zIndex: 50,
           }}
         >
-          <div className="card pad appModalCard" style={{ width: "min(920px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
-            <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>Add team & recruiting</div>
+          <div className="card pad appModalCard recruitingFormModal" style={{ width: "min(920px, 100%)", maxHeight: "85vh", overflow: "auto" }}>
+            <div className="row recruitingFormModalHeader" style={{ marginBottom: 10 }}>
+              <div className="recruitingFormModalTitle">Add team & recruiting</div>
               <div className="spacer" />
               <button
                 className="btn"
@@ -5148,7 +5150,7 @@ export default function RecruitingPage() {
                 Close
               </button>
             </div>
-            <div className="small" style={{ marginBottom: 14, color: "var(--muted)" }}>
+            <div className="small recruitingFormModalLead" style={{ marginBottom: 14 }}>
               Same layout as Edit. First and last name are required on the starred primary row; everything else is optional.
               Search for registered workers on each roster row to link an existing profile.
             </div>
@@ -5157,8 +5159,9 @@ export default function RecruitingPage() {
                 {error}
               </div>
             ) : null}
-            <div style={{ display: "grid", gap: 16 }}>
+            <div className="recruitingFormStack">
               <RecruitingFormCard
+                tone="site"
                 title="Site, stage & timing"
                 subtitle="Fill site, stage, owner, and timing."
               >
@@ -5257,6 +5260,7 @@ export default function RecruitingPage() {
               </RecruitingFormCard>
 
               <RecruitingFormCard
+                tone="team"
                 title="Team name & roster"
                 subtitle="Star (★) is the primary contact. Search for registered workers to link existing profiles. Everyone is on one roster row with first, last, email, phone, gender."
               >
@@ -5271,10 +5275,10 @@ export default function RecruitingPage() {
                     placeholder="Team name"
                   />
                 </div>
-                <div className="small" style={{ fontWeight: 700, marginBottom: 8 }}>
+                <div className="recruitingFormMembersHeading">
                   Roster — click ☆ to choose the primary contact
                 </div>
-                <div style={{ display: "grid", gap: 10 }}>
+                <div className="recruitingFormMemberList">
                   {(newContactDraft.rosterRows?.length ? newContactDraft.rosterRows : [emptyRosterPerson()]).map(
                     (person, index) => {
                       const isPrimary = index === 0;
@@ -5283,14 +5287,8 @@ export default function RecruitingPage() {
                       return (
                         <div
                           key={`new-roster-${index}`}
-                          style={{
-                            padding: "10px 12px",
-                            borderRadius: 12,
-                            border: "1px solid rgba(15, 23, 42, 0.1)",
-                            background: "rgba(248, 250, 252, 0.85)",
-                            display: "grid",
-                            gap: 10,
-                          }}
+                          className="recruitingFormMemberCard"
+                          style={{ display: "grid", gap: 10 }}
                         >
                           <RecruitingWorkerLookupSearch
                             person={person}
@@ -5420,6 +5418,7 @@ export default function RecruitingPage() {
               </RecruitingFormCard>
 
               <RecruitingFormCard
+                tone="past"
                 title="Recruiting notes"
                 subtitle="Internal notes for Mackayla and Leslee."
               >
