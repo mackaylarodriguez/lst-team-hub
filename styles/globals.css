@@ -508,7 +508,12 @@ a.btn{
   border:1px solid var(--border);
   border-radius:12px;
   font-size:16px;
+  font-family:inherit;
   min-height:44px;
+}
+textarea,
+textarea.input{
+  font-family:inherit;
 }
 .input:focus{outline:none; border-color:rgba(60,170,225,.7); box-shadow:0 0 0 4px rgba(60,170,225,.12)}
 
@@ -1560,6 +1565,7 @@ a.btn{
   min-height:42px;
   padding:9px 12px;
   font-size:14px;
+  font-family:inherit;
   line-height:1.35;
   border:1px solid var(--border);
   border-radius:10px;
@@ -1639,12 +1645,17 @@ a.btn{
 }
 .budgetTeamEditorSectionTitle{
   margin:0;
+  display:inline-flex;
+  align-items:center;
   width:fit-content;
-  padding:8px 14px;
+  max-width:100%;
+  padding:5px 12px;
   border-radius:999px;
-  font-size:14px;
+  font-size:12px;
   font-weight:900;
-  letter-spacing:.06em;
+  letter-spacing:.04em;
+  line-height:1.2;
+  white-space:nowrap;
   text-transform:uppercase;
   color:var(--primary);
   background:var(--primarySoft);

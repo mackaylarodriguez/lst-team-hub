@@ -357,8 +357,9 @@ function buildBudgetOverviewRows(
     const feeTotal = sumTripBudgetFeeAmount(tripMeta);
     const spentTotal =
       (teamBudgetTotal ?? 0) + airfareTotal + housingTotal + feeTotal;
-    const leftover = fundraisingTotal == null ? null : fundraisingTotal - spentTotal;
     const returnedTotal = parseBudgetAmountOrNull(row.returnedAmount);
+    const leftover =
+      fundraisingTotal == null ? null : fundraisingTotal - spentTotal + (returnedTotal ?? 0);
 
     return {
       tripId: row.tripId,
