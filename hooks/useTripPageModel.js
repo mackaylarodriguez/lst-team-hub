@@ -144,6 +144,7 @@ import {
 } from "@/lib/travelFormExport";
 import * as XLSX from "xlsx";
 import { showToast } from "@/components/Toast";
+import { hideBusy, isBusyActive, showBusyDone } from "@/components/BusyOverlay";
 import { formatPhoneNumber, toPhoneHref } from "@/lib/phone";
 import ExpandableCollapsibleSection from "@/components/CollapsibleSection";
 import TripTravelSafetySection from "@/components/TripTravelSafetySection";
@@ -180,6 +181,12 @@ import {
 } from "@/lib/workbookInventory";
 import { resolveSiteLogisticsUrl } from "@/lib/siteInfoLinks";
 import * as TripPageShared from "@/components/trip/tripPageShared";
+
+function finishBusySave(ok = true, label = "Saved") {
+  if (!isBusyActive()) return;
+  if (ok) showBusyDone(label);
+  else hideBusy();
+}
 
 const {
   CollapsibleSection,
@@ -2496,7 +2503,9 @@ export function useTripPageModel() {
       );
       setIsEditingTeamFundraising(false);
       setTeamFundraisingStatus("Saved.");
+      finishBusySave(true);
     } catch (error) {
+      finishBusySave(false);
       console.error("Unable to save team fundraising settings", error);
       setTeamFundraisingStatus(error.message || "Unable to save team fundraising.");
     }
@@ -2890,8 +2899,10 @@ export function useTripPageModel() {
           : current
       );
       setGroupLeaderContactSaveStatus("Saved.");
+      finishBusySave(true);
       showToast("Group leader contact saved.");
     } catch (error) {
+      finishBusySave(false);
       const msg = error?.message || "Unable to save group leader contact.";
       setGroupLeaderContactSaveStatus(msg);
       showToast(msg, "error");
@@ -2926,6 +2937,7 @@ export function useTripPageModel() {
       const updated = await listTravelFormResponsesForTrip(trip.id);
       setTravelFormResponses(updated);
       setTravelFormStatus("Saved.");
+      finishBusySave(true);
       showToast("Travel form saved.");
       const travelFormTask = (trip.tasks || []).find((t) => t.title === "Fill out Travel Form");
       const tfState = ownerEmail ? participantTaskStates[ownerEmail] || {} : {};
@@ -2940,6 +2952,7 @@ export function useTripPageModel() {
       setTravelFormTargetRefKey("");
       setTravelFormStatus("");
     } catch (error) {
+      finishBusySave(false);
       const errMsg = error.message || "Unable to save.";
       setTravelFormStatus(errMsg);
       showToast(errMsg, "error");
@@ -3261,9 +3274,11 @@ export function useTripPageModel() {
       setEditableStaffTasks(savedTasks);
       editableStaffTasksRef.current = savedTasks;
       setStaffTaskStatus("Saved.");
+      finishBusySave(true);
       showToast("Staff tasks saved.");
       return savedTasks;
     } catch (error) {
+      finishBusySave(false);
       console.error("Unable to save staff tasks", error);
       if (latestStaffTaskSaveRef.current !== requestId) return;
       const errMsg = "Could not save task changes.";
@@ -4214,7 +4229,9 @@ function parseDateSafe(dateStr) {
       setEditingOverviewNoteId("");
       setIsEditingOverviewNote(false);
       setOverviewNoteStatus("Saved.");
+      finishBusySave(true);
     } catch (error) {
+      finishBusySave(false);
       console.error("Unable to save trip overview note", error);
       setOverviewNoteStatus(error.message || "Unable to save note.");
     }
@@ -4287,7 +4304,9 @@ function parseDateSafe(dateStr) {
       setEditingMeetingId("");
       setMeetingAddFormOpen(false);
       setMeetingStatus("Saved.");
+      finishBusySave(true);
     } catch (error) {
+      finishBusySave(false);
       console.error("Unable to save meeting", error);
       setMeetingStatus(error.message || "Unable to save meeting.");
     }
@@ -4328,6 +4347,7 @@ function parseDateSafe(dateStr) {
       setEditingAnnouncementId("");
       setIsEditingAnnouncement(false);
       setAnnouncementStatus("Saved.");
+      finishBusySave(true);
       const activityEntry = await logTripActivity({
         tripId: trip.id,
         actorUserId: session?.profileId || session?.id || "",
@@ -4340,6 +4360,7 @@ function parseDateSafe(dateStr) {
       });
       pushRecentActivity(activityEntry);
     } catch (error) {
+      finishBusySave(false);
       console.error("Unable to save trip announcement", error);
       setAnnouncementStatus(error.message || "Unable to save announcement.");
     }
@@ -4585,8 +4606,10 @@ function parseDateSafe(dateStr) {
       setIsCustomSiteInput(false);
       setIsConfirmingTripDelete(false);
       setTripSetupStatus("Saved.");
+      finishBusySave(true);
       showToast("Trip details saved.", "success");
     } catch (error) {
+      finishBusySave(false);
       console.error("Unable to save trip details", error);
       const errMsg = error.message || "Unable to save trip details.";
       setTripSetupStatus(errMsg);
@@ -4783,7 +4806,9 @@ function parseDateSafe(dateStr) {
       setRosterDraft(savedMembers);
       setIsEditingRoster(false);
       setRosterStatus("Saved.");
+      finishBusySave(true);
     } catch (error) {
+      finishBusySave(false);
       console.error("Unable to save team roster", error);
       setRosterStatus(error.message || "Unable to save team roster.");
     }
@@ -7038,12 +7063,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
         );
       }
       setTeamLogisticsSaveStatus("Saved.");
+      finishBusySave(true);
       showToast("Team logistics saved.", "success");
       if (next) {
         void syncMaterialsPageWorkerTasksFromLogistics(next);
       }
       return true;
     } catch (e) {
+      finishBusySave(false);
       const msg = e.message || "Error saving.";
       setTeamLogisticsSaveStatus(msg);
       showToast(msg, "error");
@@ -7059,9 +7086,11 @@ normalizeEmail(participant.email) === activeParticipantEmail
       const row = await getTripTeamLogisticsForViewer(trip.id);
       setTeamLogisticsDraft(row);
       setTeamLogisticsSaveStatus("Saved.");
+      finishBusySave(true);
       showToast("Team logistics saved.", "success");
       void syncMaterialsPageWorkerTasksFromLogistics(row);
     } catch (e) {
+      finishBusySave(false);
       const msg = e.message || "Save failed.";
       setTeamLogisticsSaveStatus(msg);
       showToast(msg, "error");
@@ -7110,12 +7139,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
         });
       }
       setMaterialsSaveStatus("Saved.");
+      finishBusySave(true);
       showToast("Materials saved.", "success");
       if (next) {
         void syncMaterialsPageWorkerTasksFromLogistics(next);
       }
       return true;
     } catch (e) {
+      finishBusySave(false);
       const msg = e.message || "Error saving.";
       setMaterialsSaveStatus(msg);
       showToast(msg, "error");

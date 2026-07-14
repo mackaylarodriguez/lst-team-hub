@@ -3,6 +3,7 @@ import AppIcon from "@/components/AppIcon";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
+import { hideBusy, isBusyActive, showBusyDone } from "@/components/BusyOverlay";
 import { requireSession } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { isManagerRole, ROLE_WORKER } from "@/lib/roles";
@@ -375,6 +376,7 @@ export default function Profile() {
     const trimmedNote = String(noteDraft || "").trim();
     if (!trimmedNote) {
       setNoteStatus("Note cannot be empty.");
+      hideBusy();
       return;
     }
 
@@ -400,9 +402,11 @@ export default function Profile() {
       setEditingNoteId("");
       setNoteDraft("");
       setNoteStatus("Saved.");
+      if (isBusyActive()) showBusyDone("Saved");
     } catch (error) {
       console.error("Unable to save profile staff note", error);
       setNoteStatus(error.message || "Unable to save note.");
+      hideBusy();
     }
   }
 
@@ -434,6 +438,7 @@ export default function Profile() {
     const trimmedEmail = String(workerEmailDraft || "").trim();
     if (!trimmedEmail) {
       setProfileFieldsSaveStatus("Email cannot be empty.");
+      hideBusy();
       return;
     }
 
@@ -515,9 +520,11 @@ export default function Profile() {
 
       setEditingProfileFields(false);
       setProfileFieldsSaveStatus("Saved.");
+      if (isBusyActive()) showBusyDone("Saved");
     } catch (error) {
       console.error("Unable to save profile fields", error);
       setProfileFieldsSaveStatus(error.message || "Unable to save.");
+      hideBusy();
     }
   }
 

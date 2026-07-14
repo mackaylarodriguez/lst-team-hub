@@ -3,12 +3,19 @@ import Spinner from "@/components/Spinner";
 
 const BUSY_EVENT = "lst-busy-overlay";
 
+let busyActive = false;
+
+export function isBusyActive() {
+  return busyActive;
+}
+
 /**
  * Show the centered busy overlay (spinner).
  * @param {string} [message]
  */
 export function showBusy(message = "Saving…") {
   if (typeof window === "undefined") return;
+  busyActive = true;
   window.dispatchEvent(
     new CustomEvent(BUSY_EVENT, { detail: { mode: "busy", message: String(message || "Saving…") } })
   );
@@ -21,6 +28,7 @@ export function showBusy(message = "Saving…") {
  */
 export function showBusyDone(message = "Saved", durationMs = 1000) {
   if (typeof window === "undefined") return;
+  busyActive = false;
   window.dispatchEvent(
     new CustomEvent(BUSY_EVENT, {
       detail: {
@@ -35,6 +43,7 @@ export function showBusyDone(message = "Saved", durationMs = 1000) {
 /** Hide the overlay immediately. */
 export function hideBusy() {
   if (typeof window === "undefined") return;
+  busyActive = false;
   window.dispatchEvent(new CustomEvent(BUSY_EVENT, { detail: { mode: "hide" } }));
 }
 
@@ -99,6 +108,7 @@ export default function BusyOverlay() {
     function armFailsafe() {
       if (failsafeTimeoutId) clearTimeout(failsafeTimeoutId);
       failsafeTimeoutId = setTimeout(() => {
+        busyActive = false;
         setState(null);
         failsafeTimeoutId = null;
       }, 25000);

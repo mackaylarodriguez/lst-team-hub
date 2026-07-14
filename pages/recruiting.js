@@ -2,6 +2,7 @@ import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import EmptyState from "@/components/EmptyState";
 import { showToast } from "@/components/Toast";
+import { hideBusy, isBusyActive, showBusyDone } from "@/components/BusyOverlay";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
@@ -2953,6 +2954,7 @@ export default function RecruitingPage() {
     const recordToSave = records.find((record) => record.id === recordId);
     if (!recordToSave) return;
     if (notifyDuplicateTeamName(recordToSave.teamName, { excludeRecordId: recordToSave.id })) {
+      hideBusy();
       return;
     }
 
@@ -2962,9 +2964,11 @@ export default function RecruitingPage() {
       await refreshCurrentYear();
       closeRecordDetailsModal();
       setPageStatus("Saved.");
+      if (isBusyActive()) showBusyDone("Saved");
     } catch (saveError) {
       console.error("Unable to save recruiting record", saveError);
       setError(saveError.message || "Unable to save record.");
+      hideBusy();
     } finally {
       setIsSavingNotes(false);
     }
@@ -2972,14 +2976,19 @@ export default function RecruitingPage() {
 
   async function handleSavePotentialTeamDetails() {
     const record = records.find((item) => item.id === selectedRecordId);
-    if (!record) return;
+    if (!record) {
+      hideBusy();
+      return;
+    }
     const d = potentialTeamEditDraft;
     if (notifyDuplicateTeamName(d.name, { excludeRecordId: record.id })) {
+      hideBusy();
       return;
     }
     const primary = d.teamMembers[0] || createEmptyTripTeamMember();
     if (!String(primary.firstName || "").trim() || !String(primary.lastName || "").trim()) {
       setError("First and last name are required for the first team member.");
+      hideBusy();
       return;
     }
     const rosterRows = d.teamMembers.map((m) => ({
@@ -3017,11 +3026,13 @@ export default function RecruitingPage() {
       await refreshCurrentYear();
       closeRecordDetailsModal();
       setPageStatus("Saved.");
+      if (isBusyActive()) showBusyDone("Saved");
       potentialEditSnapshotKey.current = "";
     } catch (saveError) {
       console.error("Unable to save recruiting record", saveError);
       setError(saveError.message || "Unable to save record.");
       setPageStatus("");
+      hideBusy();
     } finally {
       setIsSavingNotes(false);
     }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { hideBusy, showBusyDone } from "@/components/BusyOverlay";
+import { hideBusy, isBusyActive, showBusyDone } from "@/components/BusyOverlay";
 
 const TOAST_EVENT = "lst-toast";
 
@@ -18,6 +18,7 @@ export function showToast(message, type = "success") {
     hideBusy();
     return;
   }
+  if (!isBusyActive()) return;
   const doneLabel = busyDoneLabelFromToast(message);
   if (doneLabel) showBusyDone(doneLabel);
 }
