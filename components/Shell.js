@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
+import BusyOverlay from "@/components/BusyOverlay";
 import Toast from "@/components/Toast";
 import {
   clearImpersonatedProfile,
@@ -398,6 +399,7 @@ export default function Shell({ children }) {
         {children}
       </main>
       <Toast />
+      <BusyOverlay />
     </div>
   );
 }

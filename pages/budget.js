@@ -4,7 +4,7 @@ import AppIcon from "@/components/AppIcon";
 import CollapsibleSection from "@/components/CollapsibleSection";
 import Spinner from "@/components/Spinner";
 import ConfirmModal from "@/components/ConfirmModal";
-import BusyOverlay from "@/components/BusyOverlay";
+import { hideBusy, showBusy, showBusyDone } from "@/components/BusyOverlay";
 import BudgetTeamEditorModal from "@/components/budget/BudgetTeamEditorModal";
 import EmptyState from "@/components/EmptyState";
 import { showToast } from "@/components/Toast";
@@ -763,40 +763,21 @@ export default function BudgetPage() {
   const [trips, setTrips] = useState([]);
   const [housingRows, setHousingRows] = useState([]);
   const [ticketRows, setTicketRows] = useState([]);
-  const [busyOverlay, setBusyOverlay] = useState(null);
-  const busyOverlayTimeoutRef = useRef(null);
   const [loading, setLoading] = useState(true);
 
-  const clearBusyOverlayTimer = () => {
-    if (busyOverlayTimeoutRef.current) {
-      clearTimeout(busyOverlayTimeoutRef.current);
-      busyOverlayTimeoutRef.current = null;
-    }
-  };
-
   const showBusyOverlay = useCallback((message = "Saving…") => {
-    clearBusyOverlayTimer();
-    setBusyOverlay({ mode: "busy", message });
+    showBusy(message);
   }, []);
 
   const showBusyOverlayDone = useCallback((message = "Saved") => {
-    clearBusyOverlayTimer();
-    setBusyOverlay({ mode: "done", message });
-    busyOverlayTimeoutRef.current = setTimeout(() => {
-      setBusyOverlay(null);
-      busyOverlayTimeoutRef.current = null;
-    }, 1000);
+    showBusyDone(message);
   }, []);
 
   const showBusyOverlayError = useCallback((message) => {
-    clearBusyOverlayTimer();
-    setBusyOverlay(null);
+    hideBusy();
     if (message) showToast(message, "error");
   }, []);
 
-  useEffect(() => {
-    return () => clearBusyOverlayTimer();
-  }, []);
   const [newTicketTripId, setNewTicketTripId] = useState("");
   const [tab, setTab] = useState("Overview");
   const [isEditingHousing, setIsEditingHousing] = useState(false);
@@ -1835,11 +1816,6 @@ export default function BudgetPage() {
 
   return (
     <Shell>
-      <BusyOverlay
-        open={!!busyOverlay}
-        mode={busyOverlay?.mode || "busy"}
-        message={busyOverlay?.message || "Saving…"}
-      />
       <ConfirmModal
         open={!!ticketToDeleteId}
         title="Delete ticket?"
@@ -2365,7 +2341,6 @@ export default function BudgetPage() {
                         "Site",
                         "Workers (roster)",
                         "Team Accountant",
-                        "Returned Amount",
                         "Housing Amount",
                         "Housing Link",
                         "Housing PDF URL",
@@ -2379,7 +2354,6 @@ export default function BudgetPage() {
                         r.siteCountry || "",
                         String(countTripRosterMembers(teamMembersByTripId, r.tripId)),
                         r.teamAccountant || "",
-                        formatUsdDisplay(r.returnedAmount),
                         formatUsdDisplay(r.housingAmount),
                         r.housingLink || "",
                         r.housingPdfUrl || "",
@@ -2454,7 +2428,7 @@ export default function BudgetPage() {
             </div>
           </div>
           <div className="budgetTableScroller">
-            <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1640, fontSize: 13 }}>
+            <table className="table dataTableStriped budgetStickyTable" style={{ minWidth: 1500, fontSize: 13 }}>
               <thead>
                 <tr>
                   <th>Team Name</th>
@@ -2463,7 +2437,6 @@ export default function BudgetPage() {
                   <th>Site</th>
                   <th style={{ width: 72, textAlign: "center" }}>Workers</th>
                   <th>Team Accountant</th>
-                  <th>Returned Amount</th>
                   <th>Housing Amount</th>
                   <th>Housing link / PDF</th>
                   <th style={{ minWidth: 280 }}>Notes</th>
@@ -2539,21 +2512,6 @@ export default function BudgetPage() {
                               No roster members yet for this trip.
                             </div>
                           ) : null}
-                        </td>
-                        <td style={{ minWidth: 112 }}>
-                          <input
-                            className="input"
-                            value={r.returnedAmount || ""}
-                            onChange={(e) => updateHousingDraftRow(r.tripId, "returnedAmount", e.target.value)}
-                            onBlur={(e) => {
-                              const next = normalizeMoneyInputToUsd(e.target.value);
-                              if (next !== (r.returnedAmount || "")) {
-                                updateHousingDraftRow(r.tripId, "returnedAmount", next);
-                              }
-                            }}
-                            inputMode="decimal"
-                            placeholder="$0.00"
-                          />
                         </td>
                         <td style={{ minWidth: 112 }}>
                           <input
@@ -2756,7 +2714,6 @@ export default function BudgetPage() {
                           {countTripRosterMembers(teamMembersByTripId, r.tripId)}
                         </td>
                         <td>{r.teamAccountant || ""}</td>
-                        <td>{formatUsdDisplay(r.returnedAmount)}</td>
                         <td
                           style={{
                             color: housingLineAmountVsBudgetColor(r.housingAmount, HOUSING1_BUDGET_PER_TEAM),

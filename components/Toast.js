@@ -1,10 +1,25 @@
 import { useEffect, useState } from "react";
+import { hideBusy, showBusyDone } from "@/components/BusyOverlay";
 
 const TOAST_EVENT = "lst-toast";
+
+function busyDoneLabelFromToast(message) {
+  const m = String(message || "").toLowerCase();
+  if (/\bdelet/.test(m)) return "Deleted";
+  if (/\badded\b|\bcreated\b/.test(m)) return "Added";
+  if (/\bsaved\b|\bupdated\b/.test(m)) return "Saved";
+  return null;
+}
 
 export function showToast(message, type = "success") {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(TOAST_EVENT, { detail: { message, type } }));
+  if (type === "error") {
+    hideBusy();
+    return;
+  }
+  const doneLabel = busyDoneLabelFromToast(message);
+  if (doneLabel) showBusyDone(doneLabel);
 }
 
 export default function Toast() {
