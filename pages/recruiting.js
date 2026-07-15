@@ -21,6 +21,7 @@ import {
   logRecruitingCycleContactAction,
   revertRecruitingLockedTeam,
   demoteRecruitingRecordToOutreach,
+  moveRecruitingRecordToYear,
   promoteRecruitingRecordToPotentialTeam,
   saveRecruitingCycleContact,
 } from "@/lib/recruitingCycles";
@@ -1935,6 +1936,7 @@ export default function RecruitingPage() {
   const [staffTaskModalOpen, setStaffTaskModalOpen] = useState(false);
   const [isSavingStaffTask, setIsSavingStaffTask] = useState(false);
   const [recordDetailsModalOpen, setRecordDetailsModalOpen] = useState(false);
+  const [moveTargetYear, setMoveTargetYear] = useState(CURRENT_RECRUITING_YEAR + 1);
   const [formTeamModalOpen, setFormTeamModalOpen] = useState(false);
   const [teamFormDraft, setTeamFormDraft] = useState(() => buildTeamFormDraft(null));
   const [teamFormShowMemberTripDates, setTeamFormShowMemberTripDates] = useState(false);
@@ -2539,6 +2541,10 @@ export default function RecruitingPage() {
       return null;
     }
 
+    const bulkYearOptions = [...new Set([...years, selectedYear + 1, CURRENT_RECRUITING_YEAR + 1])]
+      .filter((year) => Number(year) !== Number(selectedYear))
+      .sort((a, b) => a - b);
+
     return (
       <div className="recruitingBulkToolbar row" style={{ marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
         {summary || hasSelection ? (
@@ -2549,8 +2555,47 @@ export default function RecruitingPage() {
         ) : null}
         <div className="spacer" />
         {hasSelection ? (
-          <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+          <div className="row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {extraActions}
+            {bulkYearOptions.length ? (
+              <>
+                <select
+                  className="input"
+                  style={{ width: "auto", minWidth: 110 }}
+                  value={
+                    bulkYearOptions.includes(Number(moveTargetYear))
+                      ? Number(moveTargetYear)
+                      : bulkYearOptions[0]
+                  }
+                  onChange={(event) => setMoveTargetYear(Number(event.target.value))}
+                  aria-label="Bulk move to recruiting year"
+                  disabled={isBulkDeleting}
+                >
+                  {bulkYearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={isBulkDeleting}
+                  onClick={() =>
+                    void handleBulkMoveToYear(
+                      bulkYearOptions.includes(Number(moveTargetYear))
+                        ? Number(moveTargetYear)
+                        : bulkYearOptions[0]
+                    )
+                  }
+                >
+                  Move to{" "}
+                  {bulkYearOptions.includes(Number(moveTargetYear))
+                    ? Number(moveTargetYear)
+                    : bulkYearOptions[0]}
+                </button>
+              </>
+            ) : null}
             <button
               className="btn"
               type="button"
@@ -2656,6 +2701,62 @@ export default function RecruitingPage() {
     }
   }
 
+  async function handleBulkMoveToYear(targetYear = moveTargetYear) {
+    const ids = [...selectedBulkRecordIds];
+    const year = Number(targetYear);
+    if (!ids.length || !Number.isFinite(year) || year === Number(selectedYear)) return;
+
+    try {
+      setIsBulkDeleting(true);
+      let movedCount = 0;
+      let skippedCount = 0;
+      for (const id of ids) {
+        const record = records.find((item) => item.id === id);
+        if (!record || record.isConvertedToTeam) {
+          skippedCount += 1;
+          continue;
+        }
+        if (Number(record.recruitingYear) === year) {
+          skippedCount += 1;
+          continue;
+        }
+        try {
+          await moveRecruitingRecordToYear(record, year, {
+            staffMember: session?.name || session?.email || "Staff",
+          });
+          movedCount += 1;
+        } catch (perRecordError) {
+          console.error("Unable to move recruiting record to year", perRecordError);
+          skippedCount += 1;
+        }
+      }
+      if (ids.includes(selectedRecordId)) {
+        closeRecordDetailsModal();
+      }
+      clearBulkSelection();
+      setError("");
+      const parts = [`Moved ${movedCount} to ${year}`];
+      if (skippedCount) parts.push(`${skippedCount} skipped`);
+      const summary = parts.join(" · ");
+      setPageStatus(`${summary}.`);
+      showToast(`${summary}.`, movedCount ? "success" : "error");
+      setYears((current) =>
+        current.includes(year) ? current : [...current, year].sort((a, b) => b - a)
+      );
+      if (movedCount > 0) {
+        setSelectedYear(year);
+      } else {
+        await refreshCurrentYear();
+      }
+    } catch (moveError) {
+      console.error("Unable to bulk move recruiting rows to year", moveError);
+      setError(moveError.message || "Unable to move selected contacts.");
+      showToast(moveError.message || "Unable to move selected contacts.", "error");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }
+
   async function handlePromoteToPotentialTeam(record = selectedRecord) {
     if (!record?.id || record.isConvertedToTeam || record.isPotentialTeam) return;
 
@@ -2697,6 +2798,35 @@ export default function RecruitingPage() {
       console.error("Unable to move recruiting record to outreach", demoteError);
       setError(demoteError.message || "Unable to move to Recruiting list.");
       showToast(demoteError.message || "Unable to move to Recruiting list.", "error");
+    } finally {
+      setIsSavingNotes(false);
+    }
+  }
+
+  async function handleMoveRecordToYear(record = selectedRecord, year = moveTargetYear) {
+    if (!record?.id || record.isConvertedToTeam) return;
+    const targetYear = Number(year);
+    if (!Number.isFinite(targetYear) || targetYear === Number(record.recruitingYear)) return;
+
+    try {
+      setIsSavingNotes(true);
+      await moveRecruitingRecordToYear(record, targetYear, {
+        staffMember: session?.name || session?.email || "Staff",
+      });
+      closeRecordDetailsModal();
+      setError("");
+      setPageStatus(
+        `${record.teamName || formatContactName(record)} moved to ${targetYear}.`
+      );
+      showToast(`Moved to ${targetYear}.`, "success");
+      setYears((current) =>
+        current.includes(targetYear) ? current : [...current, targetYear].sort((a, b) => b - a)
+      );
+      setSelectedYear(targetYear);
+    } catch (yearMoveError) {
+      console.error("Unable to move recruiting record to year", yearMoveError);
+      setError(yearMoveError.message || "Unable to move to that year.");
+      showToast(yearMoveError.message || "Unable to move to that year.", "error");
     } finally {
       setIsSavingNotes(false);
     }
@@ -2758,6 +2888,12 @@ export default function RecruitingPage() {
 
   async function openRecordDetails(recordId) {
     if (!recordId) return;
+    const record = records.find((item) => item.id === recordId);
+    const currentYear = Number(record?.recruitingYear || selectedYear || CURRENT_RECRUITING_YEAR);
+    const yearOptions = [...new Set([...years, currentYear + 1, CURRENT_RECRUITING_YEAR + 1])]
+      .filter((year) => Number(year) !== currentYear)
+      .sort((a, b) => a - b);
+    setMoveTargetYear(yearOptions[0] || currentYear + 1);
     setSelectedRecordId(recordId);
     setConfirmingDeleteRecordId("");
     setRecordDetailsModalOpen(true);
@@ -4690,6 +4826,34 @@ export default function RecruitingPage() {
                               Move to Recruiting list
                             </button>
                           ) : null}
+                          {!selectedRecord.isConvertedToTeam ? (
+                            <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                              <select
+                                className="input"
+                                style={{ width: "auto", minWidth: 110 }}
+                                value={moveTargetYear}
+                                onChange={(event) => setMoveTargetYear(Number(event.target.value))}
+                                aria-label="Move to recruiting year"
+                              >
+                                {[...new Set([...years, Number(selectedRecord.recruitingYear) + 1, CURRENT_RECRUITING_YEAR + 1])]
+                                  .filter((year) => Number(year) !== Number(selectedRecord.recruitingYear))
+                                  .sort((a, b) => a - b)
+                                  .map((year) => (
+                                    <option key={year} value={year}>
+                                      {year}
+                                    </option>
+                                  ))}
+                              </select>
+                              <button
+                                className="btn"
+                                type="button"
+                                disabled={isSavingNotes || !moveTargetYear}
+                                onClick={() => void handleMoveRecordToYear(selectedRecord, moveTargetYear)}
+                              >
+                                Move to {moveTargetYear}
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       </>
                     ) : (
@@ -5083,6 +5247,54 @@ export default function RecruitingPage() {
                       <button className="btn btnPrimary" type="button" onClick={() => handleSaveRecord()}>
                         {isSavingNotes ? "Saving..." : "Save record"}
                       </button>
+                      {!selectedRecord.isConvertedToTeam && !selectedRecord.isPotentialTeam ? (
+                        <button
+                          className="btn"
+                          type="button"
+                          disabled={isSavingNotes}
+                          onClick={() => void handlePromoteToPotentialTeam(selectedRecord)}
+                        >
+                          Move to Potential Teams
+                        </button>
+                      ) : null}
+                      {!selectedRecord.isConvertedToTeam && selectedRecord.isPotentialTeam ? (
+                        <button
+                          className="btn"
+                          type="button"
+                          disabled={isSavingNotes}
+                          onClick={() => void handleMoveToRecruitingList(selectedRecord)}
+                        >
+                          Move to Recruiting list
+                        </button>
+                      ) : null}
+                      {!selectedRecord.isConvertedToTeam ? (
+                        <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                          <select
+                            className="input"
+                            style={{ width: "auto", minWidth: 110 }}
+                            value={moveTargetYear}
+                            onChange={(event) => setMoveTargetYear(Number(event.target.value))}
+                            aria-label="Move to recruiting year"
+                          >
+                            {[...new Set([...years, Number(selectedRecord.recruitingYear) + 1, CURRENT_RECRUITING_YEAR + 1])]
+                              .filter((year) => Number(year) !== Number(selectedRecord.recruitingYear))
+                              .sort((a, b) => a - b)
+                              .map((year) => (
+                                <option key={year} value={year}>
+                                  {year}
+                                </option>
+                              ))}
+                          </select>
+                          <button
+                            className="btn"
+                            type="button"
+                            disabled={isSavingNotes || !moveTargetYear}
+                            onClick={() => void handleMoveRecordToYear(selectedRecord, moveTargetYear)}
+                          >
+                            Move to {moveTargetYear}
+                          </button>
+                        </div>
+                      ) : null}
                       {canUnlockLockedTeams && selectedRecord.isConvertedToTeam && selectedRecord.convertedTeamId ? (
                         <button
                           className="btn"
