@@ -2482,6 +2482,12 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   flex:1 1 auto;
   min-width:0;
 }
+.recruitingSelectCopyStack{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+}
 .recruitingCopyRowBtn{
   flex:0 0 auto;
   display:inline-flex;

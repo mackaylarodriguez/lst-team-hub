@@ -3892,13 +3892,16 @@ export default function RecruitingPage() {
                   style={attention ? { boxShadow: `inset 4px 0 0 ${attention.rowAccent}` } : undefined}
                 >
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.select, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
-                    <input
-                      className="recruitingOutreachSelectInput"
-                      type="checkbox"
-                      aria-label={`Select ${record.teamName || formatContactName(record)}`}
-                      checked={isSelected}
-                      onChange={() => toggleBulkRecordSelected(record.id)}
-                    />
+                    <div className="recruitingSelectCopyStack">
+                      <input
+                        className="recruitingOutreachSelectInput"
+                        type="checkbox"
+                        aria-label={`Select ${record.teamName || formatContactName(record)}`}
+                        checked={isSelected}
+                        onChange={() => toggleBulkRecordSelected(record.id)}
+                      />
+                      <RecruitingBoardCopyRowButton record={record} />
+                    </div>
                   </td>
                   <td
                     className="recruitingPotentialStageCell"
@@ -3923,23 +3926,20 @@ export default function RecruitingPage() {
                     </select>
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.team, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
-                    <div className="recruitingTeamCellRow">
-                      <div className="recruitingTeamCellMain">
-                        <input
-                          className="input recruitingPotentialSheetInput"
-                          value={record.teamName || ""}
-                          onChange={(event) => updateRecordField(record.id, "teamName", event.target.value)}
-                          onBlur={() => void handleSaveRecord(record.id)}
-                          placeholder="Team name"
-                        />
-                        {attention ? (
-                          <div style={{ marginTop: 6 }}>
-                            <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
-                          </div>
-                        ) : null}
-                        {renderDuplicateNotice(duplicateInfo, { compact: true })}
-                      </div>
-                      <RecruitingBoardCopyRowButton record={record} />
+                    <div className="recruitingTeamCellMain">
+                      <input
+                        className="input recruitingPotentialSheetInput"
+                        value={record.teamName || ""}
+                        onChange={(event) => updateRecordField(record.id, "teamName", event.target.value)}
+                        onBlur={() => void handleSaveRecord(record.id)}
+                        placeholder="Team name"
+                      />
+                      {attention ? (
+                        <div style={{ marginTop: 6 }}>
+                          <span className={`badge ${attention.badgeClass}`}>{attention.label}</span>
+                        </div>
+                      ) : null}
+                      {renderDuplicateNotice(duplicateInfo, { compact: true })}
                     </div>
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.roster, verticalAlign: "top" }}>
@@ -4064,14 +4064,16 @@ export default function RecruitingPage() {
               style={getRecordRowStyle(record, false)}
             >
               <div className="row recruitingOutreachMobileSelectRow">
-                <input
-                  className="recruitingOutreachSelectInput"
-                  type="checkbox"
-                  aria-label={`Select ${record.teamName || formatContactName(record)}`}
-                  checked={isSelected}
-                  onChange={() => toggleBulkRecordSelected(record.id)}
-                  onClick={(event) => event.stopPropagation()}
-                />
+                <div className="recruitingSelectCopyStack" onClick={(event) => event.stopPropagation()}>
+                  <input
+                    className="recruitingOutreachSelectInput"
+                    type="checkbox"
+                    aria-label={`Select ${record.teamName || formatContactName(record)}`}
+                    checked={isSelected}
+                    onChange={() => toggleBulkRecordSelected(record.id)}
+                  />
+                  <RecruitingBoardCopyRowButton record={record} />
+                </div>
                 <div className="recruitingMobileCardHeader" style={{ flex: 1, minWidth: 0 }}>
                 <div>
                   <div className="recruitingMobileCardTitle">{record.teamName || formatContactName(record)}</div>
