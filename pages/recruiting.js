@@ -264,7 +264,18 @@ function sortPotentialTeamRecords(records, sortKey, sortDir) {
 function outreachColumnSortValue(row, key) {
   const record = row?.record;
   const person = row?.person;
-  if (key === "contact") return formatOutreachPersonName(person).toLowerCase();
+  if (key === "contact") {
+    const people = row?.people?.length
+      ? row.people
+      : record
+        ? recruitingRosterRowsFromRecord(record)
+        : [];
+    const names = people
+      .map((entry) => formatOutreachPersonName(entry))
+      .filter((name) => name && name !== "Unnamed")
+      .join(" ");
+    return String(names || formatOutreachPersonName(person) || "").toLowerCase();
+  }
   if (key === "project") {
     const site = String(record?.site || "").toLowerCase();
     const dates = String(record?.projectDates || "").toLowerCase();
@@ -297,24 +308,24 @@ function sortOutreachRowsByColumn(rows, sortKey, sortDir) {
 }
 
 function buildOutreachPersonRows(records) {
-  const rows = [];
-  for (const record of records) {
+  return (records || []).map((record) => {
     const people = recruitingRosterRowsFromRecord(record);
-    people.forEach((person, personIndex) => {
-      const name = formatOutreachPersonName(person);
-      const email = String(person.email || "").trim();
-      if (personIndex > 0 && !name && name === "Unnamed" && !email) return;
-      if (personIndex > 0 && !email && name === "Unnamed") return;
-      rows.push({
-        id: `${record.id}-${personIndex}`,
-        recordId: record.id,
-        personIndex,
-        person,
-        record,
-      });
-    });
-  }
-  return rows;
+    const person = people[0] || {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      gender: "",
+    };
+    return {
+      id: record.id,
+      recordId: record.id,
+      personIndex: 0,
+      person,
+      people,
+      record,
+    };
+  });
 }
 
 function normalizeImportHeader(value) {
@@ -3520,7 +3531,7 @@ export default function RecruitingPage() {
       return (
         <EmptyState
           icon="recruiting"
-          title="No people in this view"
+          title="No contacts in this view"
           description="Add contacts or clear filters to see who to reach out to next."
         />
       );
@@ -3596,18 +3607,7 @@ export default function RecruitingPage() {
                     </td>
                     <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.contact, verticalAlign: "top" }}>
                       <div className="recruitingOutreachContactCell">
-                        <div className="recruitingOutreachContactName">
-                          {row.personIndex === 0 ? (
-                            <span className="recruitingRosterPrimaryMark" title="Primary contact">★ </span>
-                          ) : null}
-                          {formatOutreachPersonName(person)}
-                        </div>
-                        {person.email ? (
-                          <div className="recruitingOutreachContactMeta">{person.email}</div>
-                        ) : null}
-                        {person.gender ? (
-                          <div className="recruitingOutreachContactMeta">{person.gender}</div>
-                        ) : null}
+                        <RecruitingRosterBoardColumn record={record} showGender />
                         {renderDuplicateNotice(duplicateInfo, { compact: true })}
                       </div>
                     </td>
@@ -3672,7 +3672,7 @@ export default function RecruitingPage() {
       return (
         <EmptyState
           icon="recruiting"
-          title="No people in this view"
+          title="No contacts in this view"
           description="Add contacts or clear filters to see who to reach out to next."
         />
       );
@@ -3707,15 +3707,10 @@ export default function RecruitingPage() {
                   onChange={() => toggleBulkRecordSelected(record.id)}
                   onClick={(event) => event.stopPropagation()}
                 />
-                <div className="recruitingOutreachContactName">
-                {row.personIndex === 0 ? (
-                  <span className="recruitingRosterPrimaryMark" title="Primary contact">★ </span>
-                ) : null}
-                {formatOutreachPersonName(person)}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <RecruitingRosterBoardColumn record={record} showGender />
+                </div>
               </div>
-              </div>
-              {person.email ? <div className="small">{person.email}</div> : null}
-              {person.gender ? <div className="small">{person.gender}</div> : null}
               {renderDuplicateNotice(duplicateInfo, { compact: true })}
               <div className="recruitingOutreachProjectCell" style={{ marginTop: 10 }}>
                 <div className="recruitingOutreachProjectSite">{siteLabel}</div>
