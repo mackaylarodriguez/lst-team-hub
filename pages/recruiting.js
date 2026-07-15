@@ -298,10 +298,6 @@ function sortPotentialTeamRecords(records, sortKey, sortDir) {
   });
   return sorted;
 }
-    return ta - tb;
-  });
-  return sorted;
-}
 
 function buildOutreachPersonRows(records) {
   const rows = [];
