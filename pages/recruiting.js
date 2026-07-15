@@ -120,8 +120,8 @@ const CURRENT_RECRUITING_YEAR = new Date().getFullYear();
 
 const RECRUITING_POTENTIAL_COL = {
   select: 44,
+  stage: 64,
   team: 168,
-  stage: 148,
   roster: 210,
   projectDates: 150,
   site: 280,
@@ -153,12 +153,6 @@ const RECRUITING_OUTREACH_LIST_COL_PCT = {
   actions: "10%",
 };
 
-const OUTREACH_SORT_OPTIONS = [
-  { id: "stale", label: "Stale first" },
-  { id: "recent", label: "Recent first" },
-  { id: "name", label: "Name A–Z" },
-];
-
 function formatOutreachContactMethod(method) {
   const normalized = String(method || "").trim().toLowerCase();
   if (normalized === "email" || normalized === "bulk email") return "Emailed";
@@ -169,10 +163,6 @@ function formatOutreachContactMethod(method) {
 
 function formatOutreachPersonName(person) {
   return [person?.firstName, person?.lastName].filter(Boolean).join(" ").trim() || "Unnamed";
-}
-
-function outreachPersonSortName(row) {
-  return formatOutreachPersonName(row.person).toLowerCase();
 }
 
 function outreachLastContactTimestamp(record) {
@@ -210,34 +200,6 @@ function parseLastContactActionDate(dateInput) {
 function getRecentContactActivities(recordId, activityByRecordId, limit = 3) {
   const entries = activityByRecordId?.[recordId] || [];
   return entries.slice(0, limit);
-}
-
-function sortOutreachPersonRows(rows, sortId) {
-  const sorted = [...rows];
-  if (sortId === "name") {
-    sorted.sort((a, b) => outreachPersonSortName(a).localeCompare(outreachPersonSortName(b)));
-    return sorted;
-  }
-  if (sortId === "recent") {
-    sorted.sort((a, b) => {
-      const ta = outreachLastContactTimestamp(a.record);
-      const tb = outreachLastContactTimestamp(b.record);
-      if (ta === null && tb === null) return outreachPersonSortName(a).localeCompare(outreachPersonSortName(b));
-      if (ta === null) return 1;
-      if (tb === null) return -1;
-      return tb - ta;
-    });
-    return sorted;
-  }
-  sorted.sort((a, b) => {
-    const ta = outreachLastContactTimestamp(a.record);
-    const tb = outreachLastContactTimestamp(b.record);
-    if (ta === null && tb === null) return outreachPersonSortName(a).localeCompare(outreachPersonSortName(b));
-    if (ta === null) return -1;
-    if (tb === null) return 1;
-    return ta - tb;
-  });
-  return sorted;
 }
 
 function potentialFundraisingSortValue(record) {
@@ -293,6 +255,41 @@ function sortPotentialTeamRecords(records, sortKey, sortDir) {
     }
     const ta = potentialTextSortValue(a, sortKey);
     const tb = potentialTextSortValue(b, sortKey);
+    const cmp = ta.localeCompare(tb, undefined, { numeric: true, sensitivity: "base" });
+    return dir === "desc" ? -cmp : cmp;
+  });
+  return sorted;
+}
+
+function outreachColumnSortValue(row, key) {
+  const record = row?.record;
+  const person = row?.person;
+  if (key === "contact") return formatOutreachPersonName(person).toLowerCase();
+  if (key === "project") {
+    const site = String(record?.site || "").toLowerCase();
+    const dates = String(record?.projectDates || "").toLowerCase();
+    return `${site} ${dates}`.trim();
+  }
+  if (key === "mackayla") return String(stripHandoffSummary(record?.mackaylaNotes) || "").toLowerCase();
+  if (key === "leslee") return String(record?.lesleeNotes || "").toLowerCase();
+  if (key === "lastContact") return outreachLastContactTimestamp(record);
+  return "";
+}
+
+function sortOutreachRowsByColumn(rows, sortKey, sortDir) {
+  if (!sortKey) return rows;
+  const dir = sortDir === "desc" ? "desc" : "asc";
+  const sorted = [...rows];
+  sorted.sort((a, b) => {
+    if (sortKey === "lastContact") {
+      return compareNullableNumber(
+        outreachColumnSortValue(a, "lastContact"),
+        outreachColumnSortValue(b, "lastContact"),
+        dir
+      );
+    }
+    const ta = String(outreachColumnSortValue(a, sortKey) || "");
+    const tb = String(outreachColumnSortValue(b, sortKey) || "");
     const cmp = ta.localeCompare(tb, undefined, { numeric: true, sensitivity: "base" });
     return dir === "desc" ? -cmp : cmp;
   });
@@ -1895,15 +1892,15 @@ export default function RecruitingPage() {
   const [isFormingTeam, setIsFormingTeam] = useState(false);
   const [filterConfig, setFilterConfig] = useState(DEFAULT_FILTER_CONFIG);
   const [activeFilterId, setActiveFilterId] = useState("all");
-  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [years, setYears] = useState(() => [CURRENT_RECRUITING_YEAR, CURRENT_RECRUITING_YEAR + 1]);
   const [selectedYear, setSelectedYear] = useState(CURRENT_RECRUITING_YEAR);
   const [contactActivityByRecordId, setContactActivityByRecordId] = useState({});
   /** Default matches trip Staff Tasks body (13px); use floating +/- for medium/large. */
   const [tableFontSize, setTableFontSize] = useState("small");
   const [activeTab, setActiveTab] = useState("outreach");
-  const [outreachSort, setOutreachSort] = useState("stale");
+  const [outreachBoardSort, setOutreachBoardSort] = useState({ key: null, dir: "asc" });
   const [potentialBoardSort, setPotentialBoardSort] = useState({ key: "team", dir: "asc" });
+  const [convertedBoardSort, setConvertedBoardSort] = useState({ key: "team", dir: "asc" });
   const [loggingOutreachRecordId, setLoggingOutreachRecordId] = useState("");
   const [outreachContactModalOpen, setOutreachContactModalOpen] = useState(false);
   const [outreachContactDraft, setOutreachContactDraft] = useState({
@@ -2243,9 +2240,21 @@ export default function RecruitingPage() {
     [outreachRecords]
   );
 
-  const sortedOutreachPersonRows = useMemo(
-    () => sortOutreachPersonRows(outreachPersonRows, outreachSort),
-    [outreachPersonRows, outreachSort]
+  const sortedOutreachPersonRows = useMemo(() => {
+    if (outreachBoardSort.key) {
+      return sortOutreachRowsByColumn(
+        outreachPersonRows,
+        outreachBoardSort.key,
+        outreachBoardSort.dir
+      );
+    }
+    return outreachPersonRows;
+  }, [outreachBoardSort.dir, outreachBoardSort.key, outreachPersonRows]);
+
+  const sortedConvertedTeams = useMemo(
+    () =>
+      sortPotentialTeamRecords(convertedTeams, convertedBoardSort.key, convertedBoardSort.dir),
+    [convertedBoardSort.dir, convertedBoardSort.key, convertedTeams]
   );
 
   const visibleOutreachRecordIds = useMemo(() => {
@@ -2459,15 +2468,6 @@ export default function RecruitingPage() {
     () => (selectedRecord ? recruitingRosterRowsFromRecord(selectedRecord) : []),
     [selectedRecord]
   );
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (filterConfig.searchQuery) count += 1;
-    if (filterConfig.stage !== "") count += 1;
-    if (filterConfig.assignedTo) count += 1;
-    if (activeFilterId && !["all", "custom"].includes(activeFilterId)) count += 1;
-    return count;
-  }, [activeFilterId, filterConfig]);
-
   function applyFilter(config, filterId = "custom") {
     setFilterConfig({ ...DEFAULT_FILTER_CONFIG, ...config });
     setActiveFilterId(filterId);
@@ -3544,11 +3544,21 @@ export default function RecruitingPage() {
                     onChange={toggleSelectAllVisibleBulk}
                   />
                 </th>
-                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.contact }}>Contact</th>
-                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project }}>Trip details</th>
-                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.mackayla }}>Mackayla notes</th>
-                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.leslee }}>Leslee notes</th>
-                <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.lastContact }}>Last contact</th>
+                {renderOutreachSortableHeader("Contact", "contact", {
+                  width: RECRUITING_OUTREACH_LIST_COL_PCT.contact,
+                })}
+                {renderOutreachSortableHeader("Trip details", "project", {
+                  width: RECRUITING_OUTREACH_LIST_COL_PCT.project,
+                })}
+                {renderOutreachSortableHeader("Mackayla notes", "mackayla", {
+                  width: RECRUITING_OUTREACH_LIST_COL_PCT.mackayla,
+                })}
+                {renderOutreachSortableHeader("Leslee notes", "leslee", {
+                  width: RECRUITING_OUTREACH_LIST_COL_PCT.leslee,
+                })}
+                {renderOutreachSortableHeader("Last contact", "lastContact", {
+                  width: RECRUITING_OUTREACH_LIST_COL_PCT.lastContact,
+                })}
                 <th style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.actions }}>Actions</th>
               </tr>
             </thead>
@@ -3743,30 +3753,55 @@ export default function RecruitingPage() {
     );
   }
 
-  function togglePotentialBoardSort(key) {
-    setPotentialBoardSort((current) => {
-      if (current.key === key) {
-        return { key, dir: current.dir === "asc" ? "desc" : "asc" };
-      }
-      return { key, dir: "asc" };
-    });
+  function toggleBoardSort(setter) {
+    return (key) => {
+      setter((current) => {
+        if (current.key === key) {
+          return { key, dir: current.dir === "asc" ? "desc" : "asc" };
+        }
+        return { key, dir: "asc" };
+      });
+    };
   }
 
-  function renderPotentialSortableHeader(label, key, style = {}, className = "") {
-    const isActive = potentialBoardSort.key === key;
-    const indicator = isActive ? (potentialBoardSort.dir === "asc" ? " ↑" : " ↓") : "";
+  const togglePotentialBoardSort = toggleBoardSort(setPotentialBoardSort);
+  const toggleOutreachBoardSort = toggleBoardSort(setOutreachBoardSort);
+  const toggleConvertedBoardSort = toggleBoardSort(setConvertedBoardSort);
+
+  function renderBoardSortableHeader(label, key, sortState, onToggle, style = {}, className = "") {
+    const isActive = sortState.key === key;
+    const indicator = isActive ? (sortState.dir === "asc" ? " ↑" : " ↓") : "";
     return (
       <th
         className={`recruitingPotentialSortableTh${className ? ` ${className}` : ""}`}
         style={{ ...style, cursor: "pointer", userSelect: "none" }}
-        onClick={() => togglePotentialBoardSort(key)}
+        onClick={() => onToggle(key)}
         title={`Sort by ${label}`}
-        aria-sort={isActive ? (potentialBoardSort.dir === "asc" ? "ascending" : "descending") : "none"}
+        aria-sort={isActive ? (sortState.dir === "asc" ? "ascending" : "descending") : "none"}
       >
         {label}
         {indicator}
       </th>
     );
+  }
+
+  function renderPotentialSortableHeader(label, key, style = {}, className = "") {
+    return renderBoardSortableHeader(
+      label,
+      key,
+      potentialBoardSort,
+      togglePotentialBoardSort,
+      style,
+      className
+    );
+  }
+
+  function renderOutreachSortableHeader(label, key, style = {}) {
+    return renderBoardSortableHeader(label, key, outreachBoardSort, toggleOutreachBoardSort, style);
+  }
+
+  function renderConvertedSortableHeader(label, key, style = {}) {
+    return renderBoardSortableHeader(label, key, convertedBoardSort, toggleConvertedBoardSort, style);
   }
 
   function renderPotentialTable(recordsToRender) {
@@ -3788,8 +3823,8 @@ export default function RecruitingPage() {
         >
           <colgroup>
             <col style={{ width: RECRUITING_POTENTIAL_COL.select }} />
-            <col style={{ width: RECRUITING_POTENTIAL_COL.team }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.stage }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.team }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.roster }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.projectDates }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.site }} />
@@ -3811,8 +3846,11 @@ export default function RecruitingPage() {
                   onChange={toggleSelectAllVisibleBulk}
                 />
               </th>
+              {renderPotentialSortableHeader("#", "stage", {
+                minWidth: RECRUITING_POTENTIAL_COL.stage,
+                textAlign: "center",
+              })}
               {renderPotentialSortableHeader("Team", "team", { minWidth: RECRUITING_POTENTIAL_COL.team })}
-              {renderPotentialSortableHeader("Status", "stage", { minWidth: RECRUITING_POTENTIAL_COL.stage })}
               {renderPotentialSortableHeader("Team roster", "roster", { minWidth: RECRUITING_POTENTIAL_COL.roster })}
               {renderPotentialSortableHeader("Project dates", "projectDates", {
                 minWidth: RECRUITING_POTENTIAL_COL.projectDates,
@@ -3862,6 +3900,28 @@ export default function RecruitingPage() {
                       onChange={() => toggleBulkRecordSelected(record.id)}
                     />
                   </td>
+                  <td
+                    className="recruitingPotentialStageCell"
+                    style={{ minWidth: RECRUITING_POTENTIAL_COL.stage, verticalAlign: "middle", textAlign: "center" }}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <select
+                      className="input recruitingPotentialSheetInput recruitingPotentialStageSelect"
+                      value={Number(record.stage) || 0}
+                      onChange={(event) =>
+                        updateRecordField(record.id, "stage", Number(event.target.value))
+                      }
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      aria-label={`Status for ${record.teamName || formatContactName(record)}`}
+                      title={getRecruitingStageLabel(record.stage)}
+                    >
+                      {RECRUITING_STAGES.map((stage) => (
+                        <option key={stage.value} value={stage.value} title={stage.label}>
+                          {stage.value}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.team, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="recruitingTeamCellRow">
                       <div className="recruitingTeamCellMain">
@@ -3881,23 +3941,6 @@ export default function RecruitingPage() {
                       </div>
                       <RecruitingBoardCopyRowButton record={record} />
                     </div>
-                  </td>
-                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.stage, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
-                    <select
-                      className="input recruitingPotentialSheetInput"
-                      value={Number(record.stage) || 0}
-                      onChange={(event) =>
-                        updateRecordField(record.id, "stage", Number(event.target.value))
-                      }
-                      onBlur={() => void handleSaveRecord(record.id)}
-                      aria-label={`Status for ${record.teamName || formatContactName(record)}`}
-                    >
-                      {RECRUITING_STAGES.map((stage) => (
-                        <option key={stage.value} value={stage.value}>
-                          {stage.value} — {stage.label}
-                        </option>
-                      ))}
-                    </select>
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.roster, verticalAlign: "top" }}>
                     <RecruitingRosterBoardColumn record={record} showGender={false} />
@@ -4053,6 +4096,23 @@ export default function RecruitingPage() {
               </div>
               <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} showGender={false} /></div>
               <div className="recruitingMobileMeta" onClick={(event) => event.stopPropagation()} style={{ display: "grid", gap: 8 }}>
+                <select
+                  className="input recruitingPotentialSheetInput recruitingPotentialStageSelect"
+                  value={Number(record.stage) || 0}
+                  onChange={(event) =>
+                    updateRecordField(record.id, "stage", Number(event.target.value))
+                  }
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  aria-label={`Status for ${record.teamName || formatContactName(record)}`}
+                  title={getRecruitingStageLabel(record.stage)}
+                  style={{ maxWidth: 72, textAlign: "center", justifySelf: "start" }}
+                >
+                  {RECRUITING_STAGES.map((stage) => (
+                    <option key={stage.value} value={stage.value} title={stage.label}>
+                      {stage.value}
+                    </option>
+                  ))}
+                </select>
                 <input
                   className="input recruitingPotentialSheetInput"
                   value={record.teamName || ""}
@@ -4060,21 +4120,6 @@ export default function RecruitingPage() {
                   onBlur={() => void handleSaveRecord(record.id)}
                   placeholder="Team name"
                 />
-                <select
-                  className="input recruitingPotentialSheetInput"
-                  value={Number(record.stage) || 0}
-                  onChange={(event) =>
-                    updateRecordField(record.id, "stage", Number(event.target.value))
-                  }
-                  onBlur={() => void handleSaveRecord(record.id)}
-                  aria-label={`Status for ${record.teamName || formatContactName(record)}`}
-                >
-                  {RECRUITING_STAGES.map((stage) => (
-                    <option key={stage.value} value={stage.value}>
-                      {stage.value} — {stage.label}
-                    </option>
-                  ))}
-                </select>
                 <input
                   className="input recruitingPotentialSheetInput"
                   value={record.projectDates || ""}
@@ -4176,13 +4221,21 @@ export default function RecruitingPage() {
         >
           <thead>
             <tr>
-              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.team }}>Team</th>
-              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.roster }}>Team roster</th>
-              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.projectDates }}>Project dates</th>
-              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.site }}>Site</th>
-              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.weeks }}>Weeks</th>
-              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.mackayla }}>Mackayla notes</th>
-              <th style={{ width: RECRUITING_CONVERTED_COL_PCT.leslee }}>Leslee notes</th>
+              {renderConvertedSortableHeader("Team", "team", { width: RECRUITING_CONVERTED_COL_PCT.team })}
+              {renderConvertedSortableHeader("Team roster", "roster", {
+                width: RECRUITING_CONVERTED_COL_PCT.roster,
+              })}
+              {renderConvertedSortableHeader("Project dates", "projectDates", {
+                width: RECRUITING_CONVERTED_COL_PCT.projectDates,
+              })}
+              {renderConvertedSortableHeader("Site", "site", { width: RECRUITING_CONVERTED_COL_PCT.site })}
+              {renderConvertedSortableHeader("Weeks", "weeks", { width: RECRUITING_CONVERTED_COL_PCT.weeks })}
+              {renderConvertedSortableHeader("Mackayla notes", "mackayla", {
+                width: RECRUITING_CONVERTED_COL_PCT.mackayla,
+              })}
+              {renderConvertedSortableHeader("Leslee notes", "leslee", {
+                width: RECRUITING_CONVERTED_COL_PCT.leslee,
+              })}
               <th style={{ width: RECRUITING_CONVERTED_COL_PCT.actions }}>Actions</th>
             </tr>
           </thead>
@@ -4408,14 +4461,6 @@ export default function RecruitingPage() {
               </option>
             ))}
           </select>
-          <button
-            className={`btn ${filterPanelOpen ? "btnPrimary" : ""}`}
-            type="button"
-            onClick={() => setFilterPanelOpen((current) => !current)}
-          >
-            {filterPanelOpen ? "Hide Filters" : "Filters"}
-            {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-          </button>
           <button className="btn btnPrimary" type="button" onClick={openAddContactModal}>
             Add Contact
           </button>
@@ -4435,89 +4480,6 @@ export default function RecruitingPage() {
       {error ? (
         <div className="card pad" style={{ marginBottom: 14, color: "var(--danger)" }}>
           {error}
-        </div>
-      ) : null}
-
-      {filterPanelOpen ? (
-        <div className="card pad" style={{ marginBottom: 14 }}>
-          <div className="row" style={{ marginBottom: 10 }}>
-            <div>
-              <div style={{ fontWeight: 900 }}>Filters</div>
-              <div className="small">Use owner, stage, or a couple quick views when you want to narrow the list.</div>
-            </div>
-            <div className="spacer" />
-            <button className="btn" type="button" onClick={() => applyFilter(DEFAULT_FILTER_CONFIG, "all")}>
-              Clear
-            </button>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: 10,
-            }}
-          >
-            <select
-              className="input"
-              value={filterConfig.stage}
-              onChange={(event) => applyFilter({ ...filterConfig, stage: event.target.value }, "custom")}
-            >
-              <option value="">All stages</option>
-              {RECRUITING_STAGES.map((stage) => (
-                <option key={stage.value} value={stage.value}>{stage.label}</option>
-              ))}
-            </select>
-            <select
-              className="input"
-              value={filterConfig.assignedTo}
-              onChange={(event) => applyFilter({ ...filterConfig, assignedTo: event.target.value }, "custom")}
-            >
-              <option value="">All owners</option>
-              {OWNER_OPTIONS.map((owner) => (
-                <option key={owner} value={owner}>
-                  {owner}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="row" style={{ marginTop: 10, gap: 8, flexWrap: "wrap" }}>
-            <button
-              className={`btn ${activeFilterId === "never_contacted" ? "btnPrimary" : ""}`}
-              type="button"
-              onClick={() => {
-                setActiveFilterId("never_contacted");
-                setFilterConfig(DEFAULT_FILTER_CONFIG);
-              }}
-            >
-              Never contacted
-            </button>
-            <button
-              className={`btn ${activeFilterId === "needs_attention" ? "btnPrimary" : ""}`}
-              type="button"
-              onClick={() => {
-                setActiveFilterId("needs_attention");
-                setFilterConfig(DEFAULT_FILTER_CONFIG);
-              }}
-            >
-              Needs Attention
-            </button>
-            <button
-              className={`btn ${activeFilterId === "duplicates" ? "btnPrimary" : ""}`}
-              type="button"
-              onClick={() => {
-                setActiveFilterId("duplicates");
-                setFilterConfig(DEFAULT_FILTER_CONFIG);
-              }}
-            >
-              Duplicates
-            </button>
-          </div>
-        </div>
-      ) : activeFilterCount > 0 ? (
-        <div className="card pad" style={{ marginBottom: 14 }}>
-          <div className="small">
-            Filters are active. Use the search bar or open `Filters` to adjust or clear them.
-          </div>
         </div>
       ) : null}
 
@@ -4546,21 +4508,6 @@ export default function RecruitingPage() {
             {activeTab === "outreach" ? (
               <>
                 {renderBulkDeleteToolbar("")}
-                <div className="recruitingOutreachToolbar row" style={{ marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
-                  <div className="spacer" />
-                  <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-                    {OUTREACH_SORT_OPTIONS.map((option) => (
-                      <button
-                        key={option.id}
-                        className={`btn ${outreachSort === option.id ? "btnPrimary" : ""}`}
-                        type="button"
-                        onClick={() => setOutreachSort(option.id)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
                 <div className="recruitingDesktopOnly">{renderOutreachTable(sortedOutreachPersonRows)}</div>
                 <div className="recruitingMobileOnly">{renderOutreachCards(sortedOutreachPersonRows)}</div>
               </>
@@ -4586,8 +4533,8 @@ export default function RecruitingPage() {
 
             {activeTab === "converted" ? (
               <>
-                <div className="recruitingDesktopOnly">{renderConvertedTable(convertedTeams)}</div>
-                <div className="recruitingMobileOnly">{renderConvertedCards(convertedTeams)}</div>
+                <div className="recruitingDesktopOnly">{renderConvertedTable(sortedConvertedTeams)}</div>
+                <div className="recruitingMobileOnly">{renderConvertedCards(sortedConvertedTeams)}</div>
               </>
             ) : null}
           </div>

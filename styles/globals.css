@@ -2432,6 +2432,21 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .recruitingPotentialSortableTh{
   white-space:nowrap;
 }
+.recruitingPotentialStageCell{
+  text-align:center;
+}
+.recruitingPotentialStageSelect{
+  width:52px;
+  min-width:52px;
+  max-width:52px;
+  margin:0 auto;
+  padding-left:4px;
+  padding-right:4px;
+  text-align:center;
+  text-align-last:center;
+  font-variant-numeric:tabular-nums;
+  font-weight:700;
+}
 .recruitingBoardTable td:first-child .recruitingTeamNamePill{
   max-width:100%;
 }
