@@ -121,6 +121,7 @@ const CURRENT_RECRUITING_YEAR = new Date().getFullYear();
 const RECRUITING_POTENTIAL_COL = {
   select: 44,
   team: 168,
+  stage: 148,
   roster: 210,
   projectDates: 150,
   site: 280,
@@ -234,6 +235,69 @@ function sortOutreachPersonRows(rows, sortId) {
     if (ta === null && tb === null) return outreachPersonSortName(a).localeCompare(outreachPersonSortName(b));
     if (ta === null) return -1;
     if (tb === null) return 1;
+    return ta - tb;
+  });
+  return sorted;
+}
+
+function potentialFundraisingSortValue(record) {
+  const raw =
+    record?.pendingLockTeamSetup?.fundraisingGoalAmount ??
+    record?.fundraisingGoalAmount ??
+    "";
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function potentialWeeksSortValue(record) {
+  const n = Number(record?.weeks);
+  return Number.isFinite(n) ? n : null;
+}
+
+function potentialTextSortValue(record, key) {
+  if (key === "team") return String(record?.teamName || formatContactName(record) || "").toLowerCase();
+  if (key === "roster") {
+    return getRecordPeopleList(record).join(", ").toLowerCase();
+  }
+  if (key === "projectDates") return String(record?.projectDates || "").toLowerCase();
+  if (key === "site") return String(record?.site || "").toLowerCase();
+  if (key === "mackayla") return String(stripHandoffSummary(record?.mackaylaNotes) || "").toLowerCase();
+  if (key === "leslee") return String(record?.lesleeNotes || "").toLowerCase();
+  return "";
+}
+
+function compareNullableNumber(a, b, dir) {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return dir === "desc" ? b - a : a - b;
+}
+
+function sortPotentialTeamRecords(records, sortKey, sortDir) {
+  if (!sortKey) return records;
+  const dir = sortDir === "desc" ? "desc" : "asc";
+  const sorted = [...records];
+  sorted.sort((a, b) => {
+    if (sortKey === "stage") {
+      return compareNullableNumber(Number(a.stage) || 0, Number(b.stage) || 0, dir);
+    }
+    if (sortKey === "weeks") {
+      return compareNullableNumber(potentialWeeksSortValue(a), potentialWeeksSortValue(b), dir);
+    }
+    if (sortKey === "fundraising") {
+      return compareNullableNumber(
+        potentialFundraisingSortValue(a),
+        potentialFundraisingSortValue(b),
+        dir
+      );
+    }
+    const ta = potentialTextSortValue(a, sortKey);
+    const tb = potentialTextSortValue(b, sortKey);
+    const cmp = ta.localeCompare(tb, undefined, { numeric: true, sensitivity: "base" });
+    return dir === "desc" ? -cmp : cmp;
+  });
+  return sorted;
+}
     return ta - tb;
   });
   return sorted;
@@ -1843,6 +1907,7 @@ export default function RecruitingPage() {
   const [tableFontSize, setTableFontSize] = useState("small");
   const [activeTab, setActiveTab] = useState("outreach");
   const [outreachSort, setOutreachSort] = useState("stale");
+  const [potentialBoardSort, setPotentialBoardSort] = useState({ key: "team", dir: "asc" });
   const [loggingOutreachRecordId, setLoggingOutreachRecordId] = useState("");
   const [outreachContactModalOpen, setOutreachContactModalOpen] = useState(false);
   const [outreachContactDraft, setOutreachContactDraft] = useState({
@@ -2153,6 +2218,15 @@ export default function RecruitingPage() {
     () => pipelineRecords.filter((record) => record.isPotentialTeam),
     [pipelineRecords]
   );
+  const sortedPotentialTeamRecords = useMemo(
+    () =>
+      sortPotentialTeamRecords(
+        potentialTeamRecords,
+        potentialBoardSort.key,
+        potentialBoardSort.dir
+      ),
+    [potentialTeamRecords, potentialBoardSort.dir, potentialBoardSort.key]
+  );
   const convertedTeams = useMemo(
     () => baseFilteredRecords.filter((record) => record.isConvertedToTeam),
     [baseFilteredRecords]
@@ -2191,8 +2265,8 @@ export default function RecruitingPage() {
   }, [sortedOutreachPersonRows]);
 
   const visiblePotentialRecordIds = useMemo(
-    () => potentialTeamRecords.map((record) => record.id).filter(Boolean),
-    [potentialTeamRecords]
+    () => sortedPotentialTeamRecords.map((record) => record.id).filter(Boolean),
+    [sortedPotentialTeamRecords]
   );
 
   const visibleBulkRecordIds = useMemo(() => {
@@ -3673,6 +3747,32 @@ export default function RecruitingPage() {
     );
   }
 
+  function togglePotentialBoardSort(key) {
+    setPotentialBoardSort((current) => {
+      if (current.key === key) {
+        return { key, dir: current.dir === "asc" ? "desc" : "asc" };
+      }
+      return { key, dir: "asc" };
+    });
+  }
+
+  function renderPotentialSortableHeader(label, key, style = {}, className = "") {
+    const isActive = potentialBoardSort.key === key;
+    const indicator = isActive ? (potentialBoardSort.dir === "asc" ? " ↑" : " ↓") : "";
+    return (
+      <th
+        className={`recruitingPotentialSortableTh${className ? ` ${className}` : ""}`}
+        style={{ ...style, cursor: "pointer", userSelect: "none" }}
+        onClick={() => togglePotentialBoardSort(key)}
+        title={`Sort by ${label}`}
+        aria-sort={isActive ? (potentialBoardSort.dir === "asc" ? "ascending" : "descending") : "none"}
+      >
+        {label}
+        {indicator}
+      </th>
+    );
+  }
+
   function renderPotentialTable(recordsToRender) {
     if (recordsToRender.length === 0) {
       return (
@@ -3693,6 +3793,7 @@ export default function RecruitingPage() {
           <colgroup>
             <col style={{ width: RECRUITING_POTENTIAL_COL.select }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.team }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.stage }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.roster }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.projectDates }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.site }} />
@@ -3714,18 +3815,26 @@ export default function RecruitingPage() {
                   onChange={toggleSelectAllVisibleBulk}
                 />
               </th>
-              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.team }}>Team</th>
-              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.roster }}>Team roster</th>
-              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.projectDates }}>Project dates</th>
-              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.site }}>Site</th>
-              <th className="recruitingPotentialWeeksTh" style={{ minWidth: RECRUITING_POTENTIAL_COL.weeks }}>
-                Weeks
-              </th>
-              <th className="recruitingPotentialFundraisingTh" style={{ minWidth: RECRUITING_POTENTIAL_COL.fundraising }}>
-                Fundraising
-              </th>
-              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.mackayla }}>Mackayla notes</th>
-              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.leslee }}>Leslee notes</th>
+              {renderPotentialSortableHeader("Team", "team", { minWidth: RECRUITING_POTENTIAL_COL.team })}
+              {renderPotentialSortableHeader("Status", "stage", { minWidth: RECRUITING_POTENTIAL_COL.stage })}
+              {renderPotentialSortableHeader("Team roster", "roster", { minWidth: RECRUITING_POTENTIAL_COL.roster })}
+              {renderPotentialSortableHeader("Project dates", "projectDates", {
+                minWidth: RECRUITING_POTENTIAL_COL.projectDates,
+              })}
+              {renderPotentialSortableHeader("Site", "site", { minWidth: RECRUITING_POTENTIAL_COL.site })}
+              {renderPotentialSortableHeader("Weeks", "weeks", { minWidth: RECRUITING_POTENTIAL_COL.weeks }, "recruitingPotentialWeeksTh")}
+              {renderPotentialSortableHeader(
+                "Fundraising",
+                "fundraising",
+                { minWidth: RECRUITING_POTENTIAL_COL.fundraising },
+                "recruitingPotentialFundraisingTh"
+              )}
+              {renderPotentialSortableHeader("Mackayla notes", "mackayla", {
+                minWidth: RECRUITING_POTENTIAL_COL.mackayla,
+              })}
+              {renderPotentialSortableHeader("Leslee notes", "leslee", {
+                minWidth: RECRUITING_POTENTIAL_COL.leslee,
+              })}
               <th style={{ minWidth: RECRUITING_POTENTIAL_COL.actions }}>Actions</th>
             </tr>
           </thead>
@@ -3776,6 +3885,23 @@ export default function RecruitingPage() {
                       </div>
                       <RecruitingBoardCopyRowButton record={record} />
                     </div>
+                  </td>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.stage, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    <select
+                      className="input recruitingPotentialSheetInput"
+                      value={Number(record.stage) || 0}
+                      onChange={(event) =>
+                        updateRecordField(record.id, "stage", Number(event.target.value))
+                      }
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      aria-label={`Status for ${record.teamName || formatContactName(record)}`}
+                    >
+                      {RECRUITING_STAGES.map((stage) => (
+                        <option key={stage.value} value={stage.value}>
+                          {stage.value} — {stage.label}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.roster, verticalAlign: "top" }}>
                     <RecruitingRosterBoardColumn record={record} showGender={false} />
@@ -3938,6 +4064,21 @@ export default function RecruitingPage() {
                   onBlur={() => void handleSaveRecord(record.id)}
                   placeholder="Team name"
                 />
+                <select
+                  className="input recruitingPotentialSheetInput"
+                  value={Number(record.stage) || 0}
+                  onChange={(event) =>
+                    updateRecordField(record.id, "stage", Number(event.target.value))
+                  }
+                  onBlur={() => void handleSaveRecord(record.id)}
+                  aria-label={`Status for ${record.teamName || formatContactName(record)}`}
+                >
+                  {RECRUITING_STAGES.map((stage) => (
+                    <option key={stage.value} value={stage.value}>
+                      {stage.value} — {stage.label}
+                    </option>
+                  ))}
+                </select>
                 <input
                   className="input recruitingPotentialSheetInput"
                   value={record.projectDates || ""}
@@ -4442,8 +4583,8 @@ export default function RecruitingPage() {
                     Move to Recruiting list
                   </button>
                 )}
-                <div className="recruitingDesktopOnly">{renderPotentialTable(potentialTeamRecords)}</div>
-                <div className="recruitingMobileOnly">{renderPotentialCards(potentialTeamRecords)}</div>
+                <div className="recruitingDesktopOnly">{renderPotentialTable(sortedPotentialTeamRecords)}</div>
+                <div className="recruitingMobileOnly">{renderPotentialCards(sortedPotentialTeamRecords)}</div>
               </>
             ) : null}
 
