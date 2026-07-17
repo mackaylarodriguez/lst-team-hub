@@ -43,7 +43,7 @@ export default function TripTrainingTab() {
 
   const currentTrainingContent = (
     <>
-              <CollapsibleSection className="tripTrainingResourcesDropdown" title="Training resources" defaultOpen>
+              <CollapsibleSection className="tripTrainingResourcesDropdown" title="Staff Led Components" defaultOpen>
                 <TripTrainingResourcesLayout
                   requiredTrainingResources={requiredTrainingResources}
                   optionalTrainingResources={optionalTrainingResources}
@@ -136,7 +136,7 @@ export default function TripTrainingTab() {
                       <p className="small tripTrainingSectionSubtitle">
                         Please confirm the training dates you signed up for. Checking these off or
                         choosing a date here does not register you for a session — use the
-                        registration link in each row (or in Training resources above).
+                        registration link in each row (or in Staff Led Components above).
                       </p>
                       <div className="tripTrainingTaskList">
                         {supplementalTrainingModules.map((module) => {
