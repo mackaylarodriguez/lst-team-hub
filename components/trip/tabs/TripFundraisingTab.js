@@ -295,7 +295,7 @@ export default function TripFundraisingTab() {
                     </a>
                     <a
                       className="btn"
-                      href="https://lst365.sharepoint.com/:w:/g/IQCaOfL_uQbER5SG_ngJVA7cAWAnrOS1UjRyzsWdMzn_USw"
+                      href="https://youtu.be/Xx3q7GQ1dRw"
                       target="_blank"
                       rel="noreferrer noopener"
                       style={{ alignSelf: "flex-start" }}
