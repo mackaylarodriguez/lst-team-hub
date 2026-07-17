@@ -2080,11 +2080,14 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   flex:1 1 auto;
   min-width:0;
 }
+.recruitingTitleSearchCluster .h1{
+  flex:0 0 auto;
+}
 .recruitingToolbarSearchCompact{
-  width:min(200px, 100%);
+  width:auto;
   min-width:140px;
-  max-width:200px;
-  flex:0 1 200px;
+  max-width:none;
+  flex:1 1 auto;
   padding:8px 10px;
   font-size:13px;
 }
