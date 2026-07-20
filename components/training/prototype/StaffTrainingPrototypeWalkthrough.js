@@ -12,79 +12,102 @@ import {
   savePrototypeModules,
   applyPrototypeTrainingDeadlines,
 } from "@/lib/trainingPrototypeStorage";
-import {
-  getPrototypeSectionQuiz,
-  TRAINING_OVERVIEW_PROTOTYPE_WORKERS,
-} from "@/lib/trainingCenterPrototypeMock";
+import { getPrototypeSectionQuiz } from "@/lib/trainingCenterPrototypeMock";
+import { listStaffProfiles } from "@/lib/auth";
 import { normalizeEmail } from "@/lib/resendMail";
 
 const SAMPLE_TRIP_NAME = "Demo trip";
 const SAMPLE_TRIP_LOCATION = "South Korea, Seoul";
 
-function workerEmail(worker) {
-  return `${worker.id}@prototype.lst`;
-}
+function buildDemoTripParticipants(staffProfiles, session) {
+  const sessionEmail = normalizeEmail(session?.email);
+  const byEmail = new Map();
 
-function buildDemoTripParticipants(session) {
-  const staffEmail = normalizeEmail(session?.email) || "staff@prototype.lst";
-  const staffName = String(session?.name || "").trim() || "You (Staff)";
-
-  const staffParticipant = {
-    id: "staff-session",
-    name: staffName,
-    email: staffEmail,
-    role: "Staff",
-    sectionsCompleteSeed: 0,
-    isSessionStaff: true,
-  };
-
-  const teammates = TRAINING_OVERVIEW_PROTOTYPE_WORKERS.filter(
-    (worker) => normalizeEmail(workerEmail(worker)) !== staffEmail
-  ).map((worker) => ({
-    id: worker.id,
-    name: worker.name,
-    email: workerEmail(worker),
-    role: worker.role,
-    sectionsCompleteSeed: worker.sectionsComplete || 0,
-    isSessionStaff: false,
-  }));
-
-  return [staffParticipant, ...teammates];
-}
-
-function seedParticipantSectionStates(modules, participants) {
-  const sectionIds = modules.flatMap((module) => (module.sections || []).map((section) => section.id));
-  const states = {};
-
-  for (const participant of participants) {
-    const completed = {};
-    sectionIds.slice(0, participant.sectionsCompleteSeed).forEach((sectionId) => {
-      completed[sectionId] = true;
+  for (const profile of staffProfiles || []) {
+    const email = normalizeEmail(profile.email);
+    if (!email) continue;
+    byEmail.set(email, {
+      id: profile.id || email,
+      name: profile.name || email,
+      email,
+      role: "Staff",
+      isSessionStaff: email === sessionEmail,
     });
-    states[participant.email] = completed;
   }
 
+  // Keep the signed-in user on the roster even if they are admin (not role=staff).
+  if (sessionEmail && !byEmail.has(sessionEmail)) {
+    byEmail.set(sessionEmail, {
+      id: session?.id || "staff-session",
+      name: String(session?.name || "").trim() || sessionEmail,
+      email: sessionEmail,
+      role: "Staff",
+      isSessionStaff: true,
+    });
+  }
+
+  return [...byEmail.values()].sort((left, right) =>
+    String(left.name || left.email).localeCompare(String(right.name || right.email), undefined, {
+      sensitivity: "base",
+    })
+  );
+}
+
+function emptyParticipantSectionStates(participants) {
+  const states = {};
+  for (const participant of participants) {
+    states[participant.email] = {};
+  }
   return states;
 }
 
 export default function StaffTrainingPrototypeWalkthrough({ session }) {
-  const sampleParticipants = useMemo(() => buildDemoTripParticipants(session), [session]);
-  const sessionStaffEmail = sampleParticipants.find((participant) => participant.isSessionStaff)?.email || "";
+  const sessionStaffEmail = normalizeEmail(session?.email);
+  const [staffProfiles, setStaffProfiles] = useState([]);
+  const [staffLoadError, setStaffLoadError] = useState("");
+  const [staffLoading, setStaffLoading] = useState(true);
+
+  const sampleParticipants = useMemo(
+    () => buildDemoTripParticipants(staffProfiles, session),
+    [staffProfiles, session]
+  );
 
   const [modules, setModules] = useState(() => loadPrototypeModules());
-  const [participantSectionStates, setParticipantSectionStates] = useState(() =>
-    seedParticipantSectionStates(loadPrototypeModules(), buildDemoTripParticipants(session))
-  );
+  const [participantSectionStates, setParticipantSectionStates] = useState({});
   const [view, setView] = useState("center");
   const [activeModuleId, setActiveModuleId] = useState("");
   const [activeSectionId, setActiveSectionId] = useState("");
   const [editingModuleId, setEditingModuleId] = useState("");
 
   useEffect(() => {
-    const nextModules = loadPrototypeModules();
-    const participants = buildDemoTripParticipants(session);
-    setModules(nextModules);
-    setParticipantSectionStates(seedParticipantSectionStates(nextModules, participants));
+    let cancelled = false;
+
+    async function loadStaff() {
+      setStaffLoading(true);
+      setStaffLoadError("");
+      try {
+        const profiles = await listStaffProfiles();
+        if (cancelled) return;
+        setStaffProfiles(profiles);
+        const participants = buildDemoTripParticipants(profiles, session);
+        setModules(loadPrototypeModules());
+        setParticipantSectionStates(emptyParticipantSectionStates(participants));
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Unable to load staff for demo trip", error);
+        setStaffLoadError(error?.message || "Unable to load staff profiles.");
+        const participants = buildDemoTripParticipants([], session);
+        setStaffProfiles([]);
+        setParticipantSectionStates(emptyParticipantSectionStates(participants));
+      } finally {
+        if (!cancelled) setStaffLoading(false);
+      }
+    }
+
+    void loadStaff();
+    return () => {
+      cancelled = true;
+    };
   }, [session]);
 
   const allSections = useMemo(
@@ -239,20 +262,41 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
             <div style={{ width: `${teamProgressPct}%` }} />
           </div>
           <div className="small tripTaskProgressMeta">
-            Overall completion across everyone on this demo trip.
+            Staff on this demo trip ({participantProgress.length}). Your checkoffs update your row
+            and the section lists below.
           </div>
 
-          <div className="tripTaskProgressParticipants">
-            {participantProgress.map((participant) => (
-              <div key={participant.email} className="tripTaskProgressParticipantRow">
-                <span className="tripTaskProgressParticipantName">{participant.name}</span>
-                <div className="progress tripTaskProgressBarSmall">
-                  <div style={{ width: `${participant.percent}%` }} />
-                </div>
-                <span className="small tripTaskProgressParticipantStat">{participant.percent}%</span>
-              </div>
-            ))}
-          </div>
+          {staffLoading ? (
+            <p className="small trainingPrototypeMuted" style={{ marginTop: 12, marginBottom: 0 }}>
+              Loading staff…
+            </p>
+          ) : null}
+
+          {staffLoadError ? (
+            <p className="small" style={{ marginTop: 12, marginBottom: 0, color: "var(--danger, #b42318)" }}>
+              {staffLoadError}
+            </p>
+          ) : null}
+
+          {!staffLoading ? (
+            <div className="tripTaskProgressParticipants">
+              {participantProgress.length ? (
+                participantProgress.map((participant) => (
+                  <div key={participant.email} className="tripTaskProgressParticipantRow">
+                    <span className="tripTaskProgressParticipantName">{participant.name}</span>
+                    <div className="progress tripTaskProgressBarSmall">
+                      <div style={{ width: `${participant.percent}%` }} />
+                    </div>
+                    <span className="small tripTaskProgressParticipantStat">{participant.percent}%</span>
+                  </div>
+                ))
+              ) : (
+                <p className="small trainingPrototypeMuted" style={{ marginTop: 12, marginBottom: 0 }}>
+                  No staff profiles found (role = staff).
+                </p>
+              )}
+            </div>
+          ) : null}
         </div>
 
         <div className="trainingPrototypeModuleList">

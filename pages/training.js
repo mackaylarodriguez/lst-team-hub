@@ -55,7 +55,7 @@ export default function TrainingStaffPrototypePage() {
 
       <p className="p" style={{ marginBottom: 16 }}>
         {isWalkthrough
-          ? "Demo trip roster — go through modules and your completion updates on the team lists. No trip required."
+          ? "Demo trip roster is everyone with role = staff. Go through modules and your completion updates on the team lists."
           : "Staff-only demo for monitoring training completion across workers and trips. All data is hardcoded — nothing connects to live training records."}
       </p>
 
