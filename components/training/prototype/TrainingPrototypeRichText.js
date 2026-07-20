@@ -54,12 +54,52 @@ function expandInlineDashLists(text) {
     .join("\n");
 }
 
+function parseBulletLine(line) {
+  const match = String(line || "").match(/^(\s*)- (.+)$/);
+  if (!match) return null;
+  const indent = match[1].replace(/\t/g, "  ").length;
+  return {
+    level: Math.floor(indent / 2),
+    text: match[2],
+  };
+}
+
+function buildBulletTree(bulletLines) {
+  const root = [];
+  const stack = [{ level: -1, children: root }];
+
+  for (const line of bulletLines) {
+    const parsed = parseBulletLine(line);
+    if (!parsed) continue;
+
+    const node = { text: parsed.text, children: [] };
+    while (stack.length > 1 && stack[stack.length - 1].level >= parsed.level) {
+      stack.pop();
+    }
+    stack[stack.length - 1].children.push(node);
+    stack.push({ level: parsed.level, children: node.children });
+  }
+
+  return root;
+}
+
+function renderBulletTree(nodes, keyPrefix = "bullet") {
+  if (!nodes?.length) return null;
+  return (
+    <ul>
+      {nodes.map((node, index) => (
+        <li key={`${keyPrefix}-${index}`}>
+          {renderPrototypeRichInline(node.text)}
+          {renderBulletTree(node.children, `${keyPrefix}-${index}`)}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function renderPrototypeRichBlock(paragraph, index) {
   const trimmed = String(paragraph || "").trim();
-  const lines = trimmed
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const rawLines = trimmed.split("\n").filter((line) => line.trim());
 
   if (/^__.+__$/.test(trimmed)) {
     return (
@@ -69,8 +109,8 @@ function renderPrototypeRichBlock(paragraph, index) {
     );
   }
 
-  const bulletLines = lines.filter((line) => line.startsWith("- "));
-  const nonBulletLines = lines.filter((line) => !line.startsWith("- "));
+  const bulletLines = rawLines.filter((line) => parseBulletLine(line));
+  const nonBulletLines = rawLines.filter((line) => !parseBulletLine(line)).map((line) => line.trim());
 
   if (bulletLines.length > 0) {
     return (
@@ -78,22 +118,8 @@ function renderPrototypeRichBlock(paragraph, index) {
         {nonBulletLines.map((line, lineIndex) => (
           <p key={`heading-${lineIndex}`}>{renderPrototypeRichInline(line)}</p>
         ))}
-        <ul>
-          {bulletLines.map((line, lineIndex) => (
-            <li key={lineIndex}>{renderPrototypeRichInline(line.slice(2))}</li>
-          ))}
-        </ul>
+        {renderBulletTree(buildBulletTree(bulletLines), `block-${index}`)}
       </div>
-    );
-  }
-
-  if (lines.length > 0 && lines.every((line) => line.startsWith("- "))) {
-    return (
-      <ul key={index}>
-        {lines.map((line, lineIndex) => (
-          <li key={lineIndex}>{renderPrototypeRichInline(line.slice(2))}</li>
-        ))}
-      </ul>
     );
   }
 
