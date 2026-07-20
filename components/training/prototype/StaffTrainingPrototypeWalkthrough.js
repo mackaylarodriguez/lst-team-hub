@@ -16,22 +16,40 @@ import {
   getPrototypeSectionQuiz,
   TRAINING_OVERVIEW_PROTOTYPE_WORKERS,
 } from "@/lib/trainingCenterPrototypeMock";
+import { normalizeEmail } from "@/lib/resendMail";
 
-const SAMPLE_TRIP_NAME = "UT Austin 1";
+const SAMPLE_TRIP_NAME = "Demo trip";
 const SAMPLE_TRIP_LOCATION = "South Korea, Seoul";
 
 function workerEmail(worker) {
   return `${worker.id}@prototype.lst`;
 }
 
-function buildSampleParticipants() {
-  return TRAINING_OVERVIEW_PROTOTYPE_WORKERS.map((worker) => ({
+function buildDemoTripParticipants(session) {
+  const staffEmail = normalizeEmail(session?.email) || "staff@prototype.lst";
+  const staffName = String(session?.name || "").trim() || "You (Staff)";
+
+  const staffParticipant = {
+    id: "staff-session",
+    name: staffName,
+    email: staffEmail,
+    role: "Staff",
+    sectionsCompleteSeed: 0,
+    isSessionStaff: true,
+  };
+
+  const teammates = TRAINING_OVERVIEW_PROTOTYPE_WORKERS.filter(
+    (worker) => normalizeEmail(workerEmail(worker)) !== staffEmail
+  ).map((worker) => ({
     id: worker.id,
     name: worker.name,
     email: workerEmail(worker),
     role: worker.role,
     sectionsCompleteSeed: worker.sectionsComplete || 0,
+    isSessionStaff: false,
   }));
+
+  return [staffParticipant, ...teammates];
 }
 
 function seedParticipantSectionStates(modules, participants) {
@@ -49,14 +67,13 @@ function seedParticipantSectionStates(modules, participants) {
   return states;
 }
 
-export default function StaffTrainingPrototypeWalkthrough() {
-  const sampleParticipants = useMemo(() => buildSampleParticipants(), []);
+export default function StaffTrainingPrototypeWalkthrough({ session }) {
+  const sampleParticipants = useMemo(() => buildDemoTripParticipants(session), [session]);
+  const sessionStaffEmail = sampleParticipants.find((participant) => participant.isSessionStaff)?.email || "";
+
   const [modules, setModules] = useState(() => loadPrototypeModules());
   const [participantSectionStates, setParticipantSectionStates] = useState(() =>
-    seedParticipantSectionStates(loadPrototypeModules(), buildSampleParticipants())
-  );
-  const [activeParticipantEmail, setActiveParticipantEmail] = useState(
-    () => buildSampleParticipants()[0]?.email || ""
+    seedParticipantSectionStates(loadPrototypeModules(), buildDemoTripParticipants(session))
   );
   const [view, setView] = useState("center");
   const [activeModuleId, setActiveModuleId] = useState("");
@@ -65,9 +82,10 @@ export default function StaffTrainingPrototypeWalkthrough() {
 
   useEffect(() => {
     const nextModules = loadPrototypeModules();
+    const participants = buildDemoTripParticipants(session);
     setModules(nextModules);
-    setParticipantSectionStates(seedParticipantSectionStates(nextModules, sampleParticipants));
-  }, [sampleParticipants]);
+    setParticipantSectionStates(seedParticipantSectionStates(nextModules, participants));
+  }, [session]);
 
   const allSections = useMemo(
     () => modules.flatMap((module) => module.sections || []),
@@ -96,8 +114,8 @@ export default function StaffTrainingPrototypeWalkthrough() {
   }, [participantProgress]);
 
   const completedSectionIds = useMemo(
-    () => participantSectionStates[activeParticipantEmail] || {},
-    [participantSectionStates, activeParticipantEmail]
+    () => participantSectionStates[sessionStaffEmail] || {},
+    [participantSectionStates, sessionStaffEmail]
   );
 
   const sectionCompletionRosters = useMemo(() => {
@@ -121,17 +139,12 @@ export default function StaffTrainingPrototypeWalkthrough() {
     return rosters;
   }, [allSections, participantProgress]);
 
-  const activeParticipant =
-    participantProgress.find((participant) => participant.email === activeParticipantEmail) ||
-    participantProgress[0] ||
-    null;
-
   function markSectionComplete(sectionId) {
-    if (!sectionId || !activeParticipantEmail) return;
+    if (!sectionId || !sessionStaffEmail) return;
     setParticipantSectionStates((prev) => ({
       ...prev,
-      [activeParticipantEmail]: {
-        ...(prev[activeParticipantEmail] || {}),
+      [sessionStaffEmail]: {
+        ...(prev[sessionStaffEmail] || {}),
         [sectionId]: true,
       },
     }));
@@ -212,57 +225,26 @@ export default function StaffTrainingPrototypeWalkthrough() {
   return (
     <>
       <div className="trainingPrototypeCenter">
-        <div className="card pad" style={{ marginBottom: 16 }}>
-          <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <div style={{ flex: "1 1 220px" }}>
-              <div className="cardSectionPill" style={{ marginBottom: 8 }}>
-                Demo trip
-              </div>
-              <div style={{ fontWeight: 700 }}>{SAMPLE_TRIP_NAME}</div>
-              <div className="small trainingPrototypeMuted">{SAMPLE_TRIP_LOCATION}</div>
-            </div>
-            <label className="small" style={{ display: "grid", gap: 6, minWidth: 220 }}>
-              Acting as worker
-              <select
-                className="input"
-                value={activeParticipantEmail}
-                onChange={(event) => setActiveParticipantEmail(event.target.value)}
-              >
-                {sampleParticipants.map((participant) => (
-                  <option key={participant.email} value={participant.email}>
-                    {participant.name} ({participant.role})
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <p className="small trainingPrototypeMuted" style={{ marginTop: 12, marginBottom: 0 }}>
-            Mark as read / quiz submit apply to the selected worker. Section completion lists below
-            show the whole demo team — same staff view as on a real trip.
-          </p>
-        </div>
-
         <div className="card pad tripSectionCard tripTaskProgressCard" style={{ marginBottom: 16 }}>
           <div className="tripTaskProgressTop">
-            <div className="cardSectionPill">Training progress</div>
+            <div>
+              <div className="cardSectionPill" style={{ marginBottom: 6 }}>
+                {SAMPLE_TRIP_NAME}
+              </div>
+              <div className="small trainingPrototypeMuted">{SAMPLE_TRIP_LOCATION}</div>
+            </div>
             <span className="badge">{teamProgressPct}% complete</span>
           </div>
           <div className="progress tripTaskProgressBar">
             <div style={{ width: `${teamProgressPct}%` }} />
           </div>
           <div className="small tripTaskProgressMeta">
-            Overall completion across all participant training sections.
-            {activeParticipant
-              ? ` Viewing as ${activeParticipant.name} (${activeParticipant.percent}%).`
-              : null}
+            Overall completion across everyone on this demo trip.
           </div>
 
           <div className="tripTaskProgressParticipants">
             {participantProgress.map((participant) => (
-              <div
-                key={participant.email}
-                className="tripTaskProgressParticipantRow"
-              >
+              <div key={participant.email} className="tripTaskProgressParticipantRow">
                 <span className="tripTaskProgressParticipantName">{participant.name}</span>
                 <div className="progress tripTaskProgressBarSmall">
                   <div style={{ width: `${participant.percent}%` }} />

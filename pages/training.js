@@ -55,7 +55,7 @@ export default function TrainingStaffPrototypePage() {
 
       <p className="p" style={{ marginBottom: 16 }}>
         {isWalkthrough
-          ? "Demo trip walkthrough — same staff view as on a project: team progress, who completed each section, and mark-as-read for the selected worker. No live trip required."
+          ? "Demo trip roster — go through modules and your completion updates on the team lists. No trip required."
           : "Staff-only demo for monitoring training completion across workers and trips. All data is hardcoded — nothing connects to live training records."}
       </p>
 
@@ -76,7 +76,7 @@ export default function TrainingStaffPrototypePage() {
       </div>
 
       {isWalkthrough ? (
-        <StaffTrainingPrototypeWalkthrough />
+        <StaffTrainingPrototypeWalkthrough session={session} />
       ) : (
         <>
           <TrainingPrototypeStaffSearchBar />
