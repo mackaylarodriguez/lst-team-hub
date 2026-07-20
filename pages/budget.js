@@ -829,6 +829,7 @@ export default function BudgetPage() {
   const [budgetCheckEditId, setBudgetCheckEditId] = useState("");
   const [budgetCheckEditAmount, setBudgetCheckEditAmount] = useState("");
   const [budgetCheckEditNote, setBudgetCheckEditNote] = useState("");
+  const [budgetCheckEditPayee, setBudgetCheckEditPayee] = useState("");
   const [budgetCheckEditSaving, setBudgetCheckEditSaving] = useState(false);
   const [budgetCheckDeleteId, setBudgetCheckDeleteId] = useState("");
   const [budgetCheckDonnaNotesDraft, setBudgetCheckDonnaNotesDraft] = useState({});
@@ -1636,12 +1637,14 @@ export default function BudgetPage() {
     setBudgetCheckEditId(row.id);
     setBudgetCheckEditAmount(String(row.amountRequested || "").trim());
     setBudgetCheckEditNote(String(row.note || "").trim());
+    setBudgetCheckEditPayee(String(row.teamAccountantSnapshot || "").trim());
   }
 
   function closeBudgetCheckEdit() {
     setBudgetCheckEditId("");
     setBudgetCheckEditAmount("");
     setBudgetCheckEditNote("");
+    setBudgetCheckEditPayee("");
     setBudgetCheckEditSaving(false);
   }
 
@@ -1685,21 +1688,23 @@ export default function BudgetPage() {
       showToast("Enter the check amount.", "error");
       return;
     }
+    const editingId = budgetCheckEditId;
+    const editingTripId = budgetCheckRows.find((r) => r.id === editingId)?.tripId;
     try {
       setBudgetCheckEditSaving(true);
       await updateBudgetCheckRequest({
-        id: budgetCheckEditId,
+        id: editingId,
         amount: budgetCheckEditAmount,
         note: budgetCheckEditNote,
+        payee: budgetCheckEditPayee,
       });
       const next = await listBudgetCheckRequests();
       setBudgetCheckRows(next);
       closeBudgetCheckEdit();
       showToast("Request updated.", "success");
-      const edited = next.find((r) => r.id === budgetCheckEditId);
-      if (typeof window !== "undefined" && edited?.tripId) {
+      if (typeof window !== "undefined" && editingTripId) {
         window.dispatchEvent(
-          new CustomEvent(STAFF_TASKS_UPDATED_EVENT, { detail: { tripId: edited.tripId } })
+          new CustomEvent(STAFF_TASKS_UPDATED_EVENT, { detail: { tripId: editingTripId } })
         );
       }
     } catch (e) {
@@ -1916,18 +1921,30 @@ export default function BudgetPage() {
                 <label className="small" htmlFor="budget-check-edit-payee" style={{ display: "block", marginBottom: 4 }}>
                   Payee
                 </label>
-                <input
+                <select
                   id="budget-check-edit-payee"
                   className="input"
-                  readOnly
-                  value={
-                    String(
-                      budgetCheckRows.find((r) => r.id === budgetCheckEditId)?.teamAccountantSnapshot || ""
-                    ).trim()
-                  }
-                  style={ticketComputedFieldStyle}
-                  aria-readonly="true"
-                />
+                  value={budgetCheckEditPayee}
+                  onChange={(e) => setBudgetCheckEditPayee(e.target.value)}
+                  disabled={budgetCheckEditSaving}
+                >
+                  <option value="">— Select team member —</option>
+                  {sortedAccountantNamesForTrip(
+                    budgetCheckRows.find((r) => r.id === budgetCheckEditId)?.tripId
+                  ).map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                  {budgetCheckEditPayee &&
+                  !sortedAccountantNamesForTrip(
+                    budgetCheckRows.find((r) => r.id === budgetCheckEditId)?.tripId
+                  ).includes(budgetCheckEditPayee) ? (
+                    <option value={budgetCheckEditPayee}>
+                      {budgetCheckEditPayee} (not on roster)
+                    </option>
+                  ) : null}
+                </select>
               </div>
               <div>
                 <label className="small" htmlFor="budget-check-edit-amount" style={{ display: "block", marginBottom: 4 }}>

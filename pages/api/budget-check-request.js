@@ -13,7 +13,7 @@
  * - BUDGET_CHECK_DUE_DAYS — days until misc-task due date (default 14 = two weeks).
  * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL — send notification email via Resend (both required for email).
  *
- * PATCH body: { id, action } — actions: mark_processed | mark_pending | update (amount, note; pending only) | update_donna_notes | delete.
+ * PATCH body: { id, action } — actions: mark_processed | mark_pending | update (amount, note, payee; pending only) | update_donna_notes | delete.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -496,6 +496,13 @@ export default async function handler(req, res) {
     if (action === "update") {
       const amountRequested = normalizeText(req.body?.amount);
       const note = normalizeText(req.body?.note);
+      const payeeProvided =
+        Object.prototype.hasOwnProperty.call(req.body || {}, "payee") ||
+        Object.prototype.hasOwnProperty.call(req.body || {}, "teamAccountant") ||
+        Object.prototype.hasOwnProperty.call(req.body || {}, "team_accountant");
+      const payeeNext = payeeProvided
+        ? normalizeText(req.body?.payee ?? req.body?.teamAccountant ?? req.body?.team_accountant)
+        : null;
 
       if (!amountRequested) {
         return res.status(400).json({ error: "Amount is required." });
@@ -518,13 +525,21 @@ export default async function handler(req, res) {
         normalizeText(existing.requested_by_name) ||
         normalizeEmail(existing.requested_by_email) ||
         "—";
+      const accountantSnap = payeeProvided
+        ? payeeNext
+        : normalizeText(existing.team_accountant_snapshot);
+
+      const patch = {
+        amount_requested: amountRequested,
+        note: note || null,
+      };
+      if (payeeProvided) {
+        patch.team_accountant_snapshot = payeeNext || null;
+      }
 
       const { data: updated, error: updErr } = await admin
         .from("budget_check_requests")
-        .update({
-          amount_requested: amountRequested,
-          note: note || null,
-        })
+        .update(patch)
         .eq("id", id)
         .select("*")
         .single();
@@ -545,7 +560,7 @@ export default async function handler(req, res) {
         tripId: existing.trip_id,
         tripName: tripNameSnap,
         teamNameSnap: normalizeText(existing.team_name_snapshot),
-        accountantSnap: normalizeText(existing.team_accountant_snapshot),
+        accountantSnap,
         amountRequested,
         note,
         requesterLine,
