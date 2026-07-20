@@ -147,6 +147,11 @@ import { showToast } from "@/components/Toast";
 import { hideBusy, isBusyActive, showBusyDone } from "@/components/BusyOverlay";
 import { formatPhoneNumber, toPhoneHref } from "@/lib/phone";
 import ExpandableCollapsibleSection from "@/components/CollapsibleSection";
+import {
+  getOptionalTrainingResources,
+  getRequiredTrainingResources,
+  getTrainingResources,
+} from "@/lib/trainingResources";
 import TripTravelSafetySection from "@/components/TripTravelSafetySection";
 import RosterTshirtSizeSelect from "@/components/RosterTshirtSizeSelect";
 import { deleteTripMeeting, listTripMeetings, saveTripMeeting } from "@/lib/tripMeetings";
@@ -590,77 +595,9 @@ export function useTripPageModel() {
     });
   }, [tripSetupStatus]);
 
-  const trainingAccessUrl =
-    "https://lst365.sharepoint.com/:w:/g/IQAgtqt1ku4YT7cr5lj-_hO-ATU5X5ep2OOZAJFUnQDhtpE?e=z8Slfm";
-  const basicTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=134&";
-  const gatewayTrainingUrl = "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=136&";
-
-  const trainingResources = [
-    {
-      id: "canvas",
-      group: "required",
-      title: "On-Demand Training",
-      description:
-        "Video-based training you can complete on your own schedule via Google Classroom.",
-      url: trainingAccessUrl,
-      icon: "OD",
-      accent: "#2563eb",
-    },
-    {
-      id: "basic",
-      group: "required",
-      title: "Basic Training",
-      descriptionBullets: [
-        "Required for new workers",
-        "Everyone is encouraged to do it",
-        "Teaches you how to lead good reading sessions",
-        "You can do this anytime before your trip",
-      ],
-      url: basicTrainingUrl,
-      icon: "BT",
-      accent: "#43a4d5",
-    },
-    {
-      id: "gateway-endmeetings",
-      group: "required",
-      title: "Gateway Training & EndMeetings",
-      descriptionBullets: [
-        "Required for the whole team",
-        "Try to attend as a team",
-        "Gateway: do this 1-2 months before your trip",
-        "EndMeeting: do this the month after you return",
-      ],
-      url: gatewayTrainingUrl,
-      icon: "GT",
-      accent: "#16a34a",
-    },
-    {
-      id: "optional",
-      group: "optional",
-      title: "Advanced Training",
-      description:
-        "Optional workshops offered through the year, mainly for experienced Workers.",
-      url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=135&",
-      icon: "AT",
-      accent: "#9333ea",
-    },
-    {
-      id: "lst-connect",
-      group: "optional",
-      title: "LST Connect",
-      description:
-        "Join LST Connect to practice with an online Reader before leaving. Register as a Worker.",
-      url: "https://lst.app.neoncrm.com/np/clients/lst/survey.jsp?surveyId=133&",
-      icon: "LC",
-      accent: "#eab308",
-    },
-  ];
-  const requiredTrainingResources = trainingResources.filter(
-    (resource) => resource.group === "required"
-  );
-  const optionalTrainingResources = trainingResources.filter(
-    (resource) => resource.group === "optional"
-  );
+  const trainingResources = getTrainingResources();
+  const requiredTrainingResources = getRequiredTrainingResources();
+  const optionalTrainingResources = getOptionalTrainingResources();
 
   const uniqueTrainingModules = useMemo(
     () => presentTrainingModules(trainingModules),

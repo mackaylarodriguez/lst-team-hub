@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import CollapsibleSection from "@/components/CollapsibleSection";
+import TripTrainingResourcesLayout from "@/components/trip/TripTrainingResourcesLayout";
 import TrainingPrototypeModuleBlock from "./TrainingPrototypeModuleBlock";
 import TrainingPrototypeModuleEditModal from "./TrainingPrototypeModuleEditModal";
 import TrainingSectionFullView from "./TrainingSectionFullView";
@@ -13,11 +15,18 @@ import {
   applyPrototypeTrainingDeadlines,
 } from "@/lib/trainingPrototypeStorage";
 import { getPrototypeSectionQuiz } from "@/lib/trainingCenterPrototypeMock";
+import {
+  getOptionalTrainingResources,
+  getRequiredTrainingResources,
+} from "@/lib/trainingResources";
 import { listStaffProfiles } from "@/lib/auth";
 import { normalizeEmail } from "@/lib/resendMail";
 
 const SAMPLE_TRIP_NAME = "Demo trip";
 const SAMPLE_TRIP_LOCATION = "South Korea, Seoul";
+
+const requiredTrainingResources = getRequiredTrainingResources();
+const optionalTrainingResources = getOptionalTrainingResources();
 
 function buildDemoTripParticipants(staffProfiles, session) {
   const sessionEmail = normalizeEmail(session?.email);
@@ -298,6 +307,18 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
             </div>
           ) : null}
         </div>
+
+        <CollapsibleSection
+          className="tripTrainingResourcesDropdown"
+          title="Staff Led Components"
+          defaultOpen={false}
+          style={{ marginBottom: 16 }}
+        >
+          <TripTrainingResourcesLayout
+            requiredTrainingResources={requiredTrainingResources}
+            optionalTrainingResources={optionalTrainingResources}
+          />
+        </CollapsibleSection>
 
         <div className="trainingPrototypeModuleList">
           {modules.map((module, index) => (
