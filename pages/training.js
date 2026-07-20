@@ -4,12 +4,14 @@ import TrainingPrototypeBanner from "@/components/training/prototype/TrainingPro
 import TrainingPrototypeStaffSearchBar from "@/components/training/prototype/TrainingPrototypeStaffSearchBar";
 import TrainingOverviewPrototypeTable from "@/components/training/prototype/TrainingOverviewPrototypeTable";
 import TrainingGradebookPrototypeTable from "@/components/training/prototype/TrainingGradebookPrototypeTable";
+import StaffTrainingPrototypeWalkthrough from "@/components/training/prototype/StaffTrainingPrototypeWalkthrough";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 
 const STAFF_TRAINING_TABS = [
+  { id: "prototype", label: "Prototype Training" },
   { id: "overview", label: "Overview" },
   { id: "gradebook", label: "Gradebook" },
 ];
@@ -17,7 +19,7 @@ const STAFF_TRAINING_TABS = [
 export default function TrainingStaffPrototypePage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
-  const [activePanel, setActivePanel] = useState("overview");
+  const [activePanel, setActivePanel] = useState("prototype");
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +42,8 @@ export default function TrainingStaffPrototypePage() {
 
   if (!session) return null;
 
+  const isWalkthrough = activePanel === "prototype";
+
   return (
     <Shell>
       <h1 className="h1" style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -50,8 +54,9 @@ export default function TrainingStaffPrototypePage() {
       <TrainingPrototypeBanner />
 
       <p className="p" style={{ marginBottom: 16 }}>
-        Staff-only demo for monitoring training completion across workers and trips. All data is hardcoded —
-        nothing connects to live training records.
+        {isWalkthrough
+          ? "Demo trip walkthrough — same staff view as on a project: team progress, who completed each section, and mark-as-read for the selected worker. No live trip required."
+          : "Staff-only demo for monitoring training completion across workers and trips. All data is hardcoded — nothing connects to live training records."}
       </p>
 
       <div className="trainingPrototypeStaffTabBar" style={{ marginBottom: 18 }}>
@@ -70,21 +75,28 @@ export default function TrainingStaffPrototypePage() {
         ))}
       </div>
 
-      <TrainingPrototypeStaffSearchBar />
-
-      {activePanel === "overview" ? (
-        <>
-          <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
-            Section completion summary across mock workers and trips.
-          </p>
-          <TrainingOverviewPrototypeTable />
-        </>
+      {isWalkthrough ? (
+        <StaffTrainingPrototypeWalkthrough />
       ) : (
         <>
-          <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
-            Pass / no-pass module completion at a glance — green check for complete, red X for incomplete.
-          </p>
-          <TrainingGradebookPrototypeTable />
+          <TrainingPrototypeStaffSearchBar />
+
+          {activePanel === "overview" ? (
+            <>
+              <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
+                Section completion summary across mock workers and trips.
+              </p>
+              <TrainingOverviewPrototypeTable />
+            </>
+          ) : (
+            <>
+              <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
+                Pass / no-pass module completion at a glance — green check for complete, red X for
+                incomplete.
+              </p>
+              <TrainingGradebookPrototypeTable />
+            </>
+          )}
         </>
       )}
     </Shell>
