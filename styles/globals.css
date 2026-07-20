@@ -5395,6 +5395,10 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:grid;
   gap:10px;
 }
+.trainingPrototypeRichText ul ul{
+  margin-top:8px;
+  gap:6px;
+}
 .trainingPrototypeRichText li{
   margin:0;
 }
