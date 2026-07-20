@@ -13,7 +13,7 @@
  * - BUDGET_CHECK_DUE_DAYS — days until misc-task due date (default 14 = two weeks).
  * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL — send notification email via Resend (both required for email).
  *
- * PATCH body: { id, action } — actions: mark_processed | update (amount, note; pending only) | update_donna_notes | delete.
+ * PATCH body: { id, action } — actions: mark_processed | mark_pending | update (amount, note; pending only) | update_donna_notes | delete.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -639,6 +639,55 @@ export default async function handler(req, res) {
       }
 
       return res.status(200).json({ ok: true, deletedId: id });
+    }
+
+    if (action === "mark_pending") {
+      const { data: existing, error: loadErr } = await admin
+        .from("budget_check_requests")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (loadErr || !existing) {
+        return res.status(404).json({ error: "Request not found." });
+      }
+      if (existing.status === "pending") {
+        return res.status(200).json({ ok: true, request: existing, alreadyPending: true });
+      }
+
+      const nowIso = new Date().toISOString();
+      const { data: updated, error: updErr } = await admin
+        .from("budget_check_requests")
+        .update({
+          status: "pending",
+          processed_at: null,
+          processed_by_user_id: null,
+          processed_by_email: null,
+          processed_by_name: null,
+        })
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (updErr) {
+        console.error("[budget-check-request] mark_pending", updErr);
+        return res.status(500).json({ error: updErr.message || "Could not move request back to pending." });
+      }
+
+      if (existing.staff_misc_task_id) {
+        await admin
+          .from("staff_misc_tasks")
+          .update({ progress: "Not started", updated_at: nowIso })
+          .eq("id", existing.staff_misc_task_id);
+      }
+
+      const tripStaffTaskIdPending = buildBudgetCheckTripStaffTaskId(existing.trip_id, existing.id);
+      await admin
+        .from("trip_staff_tasks")
+        .update({ progress: "Not started", updated_at: nowIso })
+        .eq("id", tripStaffTaskIdPending);
+
+      return res.status(200).json({ ok: true, request: updated });
     }
 
     if (action !== "mark_processed") {

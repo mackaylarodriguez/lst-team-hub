@@ -47,6 +47,7 @@ import { computeTeamFundraisingGoalTotal } from "@/lib/tripFundraising";
 import {
   deleteBudgetCheckRequest,
   listBudgetCheckRequests,
+  markBudgetCheckRequestPending,
   markBudgetCheckRequestProcessed,
   submitBudgetCheckRequest,
   updateBudgetCheckDonnaNotes,
@@ -1599,6 +1600,26 @@ export default function BudgetPage() {
       const next = await listBudgetCheckRequests();
       setBudgetCheckRows(next);
       showToast("Marked processed.", "success");
+      if (typeof window !== "undefined" && rowForTrip?.tripId) {
+        window.dispatchEvent(
+          new CustomEvent(STAFF_TASKS_UPDATED_EVENT, { detail: { tripId: rowForTrip.tripId } })
+        );
+      }
+    } catch (e) {
+      showToast(e.message || "Could not update.", "error");
+    } finally {
+      setBudgetCheckProcessingId("");
+    }
+  }
+
+  async function handleUndoBudgetCheckProcessed(id) {
+    try {
+      setBudgetCheckProcessingId(id);
+      const rowForTrip = budgetCheckRows.find((r) => r.id === id);
+      await markBudgetCheckRequestPending(id);
+      const next = await listBudgetCheckRequests();
+      setBudgetCheckRows(next);
+      showToast("Moved back to pending.", "success");
       if (typeof window !== "undefined" && rowForTrip?.tripId) {
         window.dispatchEvent(
           new CustomEvent(STAFF_TASKS_UPDATED_EVENT, { detail: { tripId: rowForTrip.tripId } })
@@ -3391,14 +3412,32 @@ export default function BudgetPage() {
                           />
                         </td>
                         <td style={{ verticalAlign: "top" }}>
-                          <button
-                            type="button"
-                            className="btn"
-                            style={{ color: "var(--danger)" }}
-                            onClick={() => setBudgetCheckDeleteId(r.id)}
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 6,
+                              alignItems: "stretch",
+                              maxWidth: 132,
+                            }}
                           >
-                            Delete
-                          </button>
+                            <button
+                              type="button"
+                              className="btn"
+                              disabled={budgetCheckProcessingId === r.id}
+                              onClick={() => void handleUndoBudgetCheckProcessed(r.id)}
+                            >
+                              {budgetCheckProcessingId === r.id ? "…" : "Undo processed"}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn"
+                              style={{ color: "var(--danger)" }}
+                              onClick={() => setBudgetCheckDeleteId(r.id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
