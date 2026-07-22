@@ -95,12 +95,7 @@ export default function TrainingStaffPage() {
         ) : null}
       </div>
 
-      {isWalkthrough ? (
-        <p className="p" style={{ marginBottom: 16 }}>
-          Demo trip roster is everyone with role = staff. Go through modules and your completion
-          updates on the team lists.
-        </p>
-      ) : null}
+      {isWalkthrough ? null : null}
 
       <div className="trainingPrototypeStaffTabBar" style={{ marginBottom: 18 }}>
         {STAFF_TRAINING_TABS.map((panel) => (
