@@ -188,7 +188,7 @@ export default function TripFundraisingTab() {
                     gap: 6,
                   }}
                 >
-                  <div className="cardSectionPill" style={{ marginBottom: 2 }}>
+                  <div className="cardSectionPill" style={{ marginBottom: 2, alignSelf: "center" }}>
                     90 days before departure
                   </div>
                   <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em" }}>
@@ -220,7 +220,7 @@ export default function TripFundraisingTab() {
                     gap: 6,
                   }}
                 >
-                  <div className="cardSectionPill" style={{ marginBottom: 2 }}>
+                  <div className="cardSectionPill" style={{ marginBottom: 2, alignSelf: "center" }}>
                     30 days before departure
                   </div>
                   <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em" }}>
@@ -247,18 +247,24 @@ export default function TripFundraisingTab() {
                     borderColor: "rgba(47,73,147,.2)",
                     display: "flex",
                     flexDirection: "column",
+                    alignItems: "center",
+                    textAlign: "center",
                     gap: 10,
-                    justifyContent: "space-between",
+                    justifyContent: "center",
                   }}
                 >
-                  <div className="cardSectionPill" style={{ marginBottom: 0 }}>Resources</div>
-                  <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+                  <div className="cardSectionPill" style={{ marginBottom: 0, alignSelf: "center" }}>
+                    Resources
+                  </div>
+                  <div
+                    className="row"
+                    style={{ flexWrap: "wrap", gap: 8, justifyContent: "center" }}
+                  >
                     <a
                       className="btn btnPrimary"
                       href="https://lst.org/projects/general-financial-information/"
                       target="_blank"
                       rel="noreferrer noopener"
-                      style={{ alignSelf: "flex-start" }}
                     >
                       Financial info
                     </a>
@@ -267,7 +273,6 @@ export default function TripFundraisingTab() {
                       href="https://youtu.be/Xx3q7GQ1dRw"
                       target="_blank"
                       rel="noreferrer noopener"
-                      style={{ alignSelf: "flex-start" }}
                     >
                       Edit fundraising page
                     </a>

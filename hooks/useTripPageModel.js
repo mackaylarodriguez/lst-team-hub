@@ -41,6 +41,7 @@ import {
 } from "@/lib/trainingSessionOptions";
 import {
   findPrototypeModuleIdForSection,
+  findPrototypeModuleIdForTrainingTitle,
   getAllPrototypeSections,
   getPrototypeModuleById,
   TRAINING_PROTOTYPE_MODULE_TO_TRAINING_TITLE,
@@ -3101,6 +3102,7 @@ export function useTripPageModel() {
       }));
 
       const participant = participantDisplayForTrainingEmail(ownerEmail);
+      const module = allTrainingModules.find((item) => item.id === id);
 
       try {
         await saveTrainingProgress({
@@ -3110,8 +3112,37 @@ export function useTripPageModel() {
           completed: nextValue,
           completedAt: next[`${id}Date`] || null,
         });
+
+        // Transition: checking a classroom module also completes all matching prototype sections.
+        if (nextValue) {
+          const prototypeModuleId = findPrototypeModuleIdForTrainingTitle(module?.title);
+          const protoModule = prototypeModuleId ? getPrototypeModuleById(prototypeModuleId) : null;
+          const sections = protoModule?.sections || [];
+          if (sections.length) {
+            const completedSectionIds = Object.fromEntries(
+              sections.map((section) => [section.id, true])
+            );
+            setParticipantSectionStates((prev) => ({
+              ...prev,
+              [emailKey]: {
+                ...(prev[emailKey] || {}),
+                ...completedSectionIds,
+              },
+            }));
+            await Promise.all(
+              sections.map((section) =>
+                saveTrainingSectionProgress({
+                  tripId: trip.id,
+                  userId,
+                  sectionId: section.id,
+                  completed: true,
+                })
+              )
+            );
+          }
+        }
+
         if (!nextValue) return;
-        const module = allTrainingModules.find((item) => item.id === id);
         const activityEntry = await logTripActivity({
           tripId: trip.id,
           actorUserId: userId,
