@@ -6800,7 +6800,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
     tripTabTravelSafety,
     "Fundraising",
     "Training",
-    "Prototype Training",
     "Tasks",
     "Materials",
     "Travel Form",
@@ -6813,7 +6812,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
     tripTabTravelSafety,
     "Fundraising",
     "Training",
-    "Prototype Training",
     "Tasks",
     "Materials",
     tripDocumentsTabLabel,
@@ -6828,7 +6826,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
       tripTabTravelSafety,
       "Fundraising",
       "Training",
-      "Prototype Training",
       "Tasks",
       "Materials",
       tripDocumentsTabLabel,
@@ -7349,6 +7346,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
     if (tabs.includes(tab)) return;
     if (tab === "My Documents" && tabs.includes("Worker Docs")) {
       setTab("Worker Docs");
+      return;
+    }
+    if (tab === "Prototype Training" && tabs.includes("Training")) {
+      setTab("Training");
       return;
     }
     setTab("Overview");
