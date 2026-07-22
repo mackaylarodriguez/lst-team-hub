@@ -1,25 +1,37 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
-import TrainingPrototypeBanner from "@/components/training/prototype/TrainingPrototypeBanner";
-import TrainingPrototypeStaffSearchBar from "@/components/training/prototype/TrainingPrototypeStaffSearchBar";
-import TrainingOverviewPrototypeTable from "@/components/training/prototype/TrainingOverviewPrototypeTable";
-import TrainingGradebookPrototypeTable from "@/components/training/prototype/TrainingGradebookPrototypeTable";
-import StaffTrainingPrototypeWalkthrough from "@/components/training/prototype/StaffTrainingPrototypeWalkthrough";
+import TrainingStaffSearchBar from "@/components/training/TrainingStaffSearchBar";
+import TrainingOverviewTable from "@/components/training/TrainingOverviewTable";
+import TrainingGradebookTable from "@/components/training/TrainingGradebookTable";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
+import { listStaffTrainingRoster } from "@/lib/staffTrainingRoster";
 
 const STAFF_TRAINING_TABS = [
-  { id: "prototype", label: "Prototype Training" },
   { id: "overview", label: "Overview" },
   { id: "gradebook", label: "Gradebook" },
 ];
 
-export default function TrainingStaffPrototypePage() {
+function matchesTrainingSearch(row, query) {
+  const needle = String(query || "").trim().toLowerCase();
+  if (!needle) return true;
+  const haystack = [row.name, row.email, row.tripName, row.siteLocation, row.role]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(needle);
+}
+
+export default function TrainingStaffPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
-  const [activePanel, setActivePanel] = useState("prototype");
+  const [activePanel, setActivePanel] = useState("overview");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +43,22 @@ export default function TrainingStaffPrototypePage() {
       setSession(nextSession);
       if (!isManagerRole(nextSession.permissionRole || nextSession.role)) {
         router.replace("/trips");
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+      try {
+        const roster = await listStaffTrainingRoster();
+        if (!cancelled) setRows(roster);
+      } catch (loadError) {
+        console.error("Unable to load staff training roster", loadError);
+        if (!cancelled) {
+          setRows([]);
+          setError(loadError?.message || "Unable to load training data.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -40,23 +68,23 @@ export default function TrainingStaffPrototypePage() {
     };
   }, [router]);
 
-  if (!session) return null;
+  const filteredRows = useMemo(
+    () => rows.filter((row) => matchesTrainingSearch(row, searchQuery)),
+    [rows, searchQuery]
+  );
 
-  const isWalkthrough = activePanel === "prototype";
+  if (!session) return null;
 
   return (
     <Shell>
       <h1 className="h1" style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <AppIcon name="training" className="pageEyebrowIcon" />
-        <span>Training (Prototype)</span>
+        <span>Training</span>
       </h1>
 
-      <TrainingPrototypeBanner />
-
       <p className="p" style={{ marginBottom: 16 }}>
-        {isWalkthrough
-          ? "Demo trip roster is everyone with role = staff. Go through modules and your completion updates on the team lists."
-          : "Staff-only demo for monitoring training completion across workers and trips. All data is hardcoded — nothing connects to live training records."}
+        Track classroom module completion across workers and trips. Progress updates as modules are
+        marked complete on each trip.
       </p>
 
       <div className="trainingPrototypeStaffTabBar" style={{ marginBottom: 18 }}>
@@ -75,28 +103,21 @@ export default function TrainingStaffPrototypePage() {
         ))}
       </div>
 
-      {isWalkthrough ? (
-        <StaffTrainingPrototypeWalkthrough session={session} />
+      <TrainingStaffSearchBar value={searchQuery} onChange={setSearchQuery} />
+
+      {activePanel === "overview" ? (
+        <>
+          <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
+            Module completion across workers and trips.
+          </p>
+          <TrainingOverviewTable rows={filteredRows} loading={loading} error={error} />
+        </>
       ) : (
         <>
-          <TrainingPrototypeStaffSearchBar />
-
-          {activePanel === "overview" ? (
-            <>
-              <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
-                Section completion summary across mock workers and trips.
-              </p>
-              <TrainingOverviewPrototypeTable />
-            </>
-          ) : (
-            <>
-              <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
-                Pass / no-pass module completion at a glance — green check for complete, red X for
-                incomplete.
-              </p>
-              <TrainingGradebookPrototypeTable />
-            </>
-          )}
+          <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
+            Pass / no-pass by classroom module — green check for complete, red X for incomplete.
+          </p>
+          <TrainingGradebookTable rows={filteredRows} loading={loading} error={error} />
         </>
       )}
     </Shell>

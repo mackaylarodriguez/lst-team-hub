@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { useTripPage } from "../TripPageContext";
 import TripParticipantCollapsible from "../TripParticipantCollapsible";
 import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
-import TripTrainingPrototypePanel from "@/components/training/prototype/TripTrainingPrototypePanel";
 import TripTrainingProgressCard from "../TripTrainingProgressCard";
 import TripTrainingResourcesLayout from "../TripTrainingResourcesLayout";
 import { buildTrainingModuleRowDomId } from "../tripPageShared";
@@ -22,7 +20,6 @@ import {
 export default function TripTrainingTab() {
     const {
     basicTrainingUrl,
-    canManageTrips,
     canViewTeamDashboard,
     canvasTrainingModules,
     gatewayTrainingUrl,
@@ -33,16 +30,13 @@ export default function TripTrainingTab() {
     supplementalTrainingModules,
     toDateInputValue,
     toggleTraining,
-    trainingState,
     trip,
     updateTrainingDate,
     visibleTrainingParticipants,
   } = useTripPage();
 
-  const [trainingPanelMode, setTrainingPanelMode] = useState("current");
-
-  const currentTrainingContent = (
-    <>
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
               <CollapsibleSection className="tripTrainingResourcesDropdown" title="Staff Led Components" defaultOpen>
                 <TripTrainingResourcesLayout
                   requiredTrainingResources={requiredTrainingResources}
@@ -256,41 +250,6 @@ export default function TripTrainingTab() {
               </div>
     
               </CollapsibleSection>
-    </>
-  );
-
-  return (
-    <div style={{ display: "grid", gap: 16 }}>
-      {canManageTrips ? (
-        <div className="trainingPrototypeTripTabBar">
-          <button
-            type="button"
-            className={
-              "trainingPrototypeTripTab" +
-              (trainingPanelMode === "current" ? " trainingPrototypeTripTabActive" : "")
-            }
-            onClick={() => setTrainingPanelMode("current")}
-          >
-            Current Training
-          </button>
-          <button
-            type="button"
-            className={
-              "trainingPrototypeTripTab" +
-              (trainingPanelMode === "prototype" ? " trainingPrototypeTripTabActive" : "")
-            }
-            onClick={() => setTrainingPanelMode("prototype")}
-          >
-            Prototype Training
-          </button>
-        </div>
-      ) : null}
-
-      {canManageTrips && trainingPanelMode === "prototype" ? (
-        <TripTrainingPrototypePanel />
-      ) : (
-        currentTrainingContent
-      )}
-            </div>
+    </div>
   );
 }

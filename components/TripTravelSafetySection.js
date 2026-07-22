@@ -24,6 +24,99 @@ function shouldIncludeInTravelSafetyAckCount(email, teamMembers = []) {
   return true;
 }
 
+function rosterDisplayName(member) {
+  return (
+    String(member?.name || "").trim() ||
+    [member?.firstName, member?.lastName].filter(Boolean).join(" ").trim() ||
+    String(member?.email || "").trim() ||
+    "Unnamed member"
+  );
+}
+
+/**
+ * People who must acknowledge: full trip roster (minus remote leaders),
+ * plus any assigned participants not already on the roster.
+ * Profile ids from assignments are attached so we can match acknowledgment rows.
+ */
+function buildPeopleRequiringTravelSafetyAck(participants = [], teamMembers = []) {
+  const byKey = new Map();
+
+  function ensurePerson({ key, id, email, name }) {
+    const existing = byKey.get(key);
+    if (existing) {
+      if (id && !existing.profileIds.includes(String(id))) {
+        existing.profileIds.push(String(id));
+      }
+      if ((!existing.name || existing.name === existing.email) && name) {
+        existing.name = name;
+      }
+      if (!existing.email && email) existing.email = email;
+      return existing;
+    }
+    const person = {
+      id: id || key,
+      email: email || "",
+      name: name || email || "Unnamed member",
+      profileIds: id ? [String(id)] : [],
+    };
+    byKey.set(key, person);
+    return person;
+  }
+
+  for (const member of teamMembers || []) {
+    const email = normalizeEmail(member.email);
+    if (!shouldIncludeInTravelSafetyAckCount(member.email, teamMembers)) continue;
+    // Skip empty rows with no identifying info
+    if (!email && !String(member.name || "").trim() && !String(member.firstName || "").trim()) {
+      continue;
+    }
+    const key = email || `roster:${member.id || rosterDisplayName(member)}`;
+    ensurePerson({
+      key,
+      id: "",
+      email: member.email || "",
+      name: rosterDisplayName(member),
+    });
+  }
+
+  for (const participant of participants || []) {
+    if (!shouldIncludeInTravelSafetyAckCount(participant.email, teamMembers)) continue;
+    const email = normalizeEmail(participant.email);
+    const key = email || `participant:${participant.id}`;
+    ensurePerson({
+      key,
+      id: participant.id,
+      email: participant.email || "",
+      name:
+        String(participant.name || "").trim() ||
+        [participant.firstName, participant.lastName].filter(Boolean).join(" ").trim() ||
+        participant.email ||
+        "Unnamed member",
+    });
+  }
+
+  return [...byKey.values()].sort((a, b) =>
+    String(a.name || "").localeCompare(String(b.name || ""), undefined, { sensitivity: "base" })
+  );
+}
+
+function personHasCurrentAck(person, acksByUserId, acksByEmail, contentVersion) {
+  const version = Number(contentVersion);
+  const ids = [
+    ...new Set([String(person.id || ""), ...(person.profileIds || []).map(String)].filter(Boolean)),
+  ];
+  for (const id of ids) {
+    const row = acksByUserId.get(id);
+    if (row && Number(row.acknowledgedVersion) === version) return true;
+  }
+  const email = normalizeEmail(person.email);
+  if (email) {
+    const row = acksByEmail.get(email);
+    if (row && Number(row.acknowledgedVersion) === version) return true;
+  }
+  return false;
+}
+
 function daysBetween(isoDate) {
   if (!isoDate) return null;
   const d = new Date(`${String(isoDate).slice(0, 10)}T12:00:00`);
@@ -158,7 +251,7 @@ export default function TripTravelSafetySection({
     (isParticipant || isOnTripRosterByEmail) && !isExcludedFromTravelSafetyAck;
 
   const participantsRequiringAck = useMemo(
-    () => participants.filter((p) => shouldIncludeInTravelSafetyAckCount(p.email, teamMembers)),
+    () => buildPeopleRequiringTravelSafetyAck(participants, teamMembers),
     [participants, teamMembers]
   );
 
@@ -176,14 +269,18 @@ export default function TripTravelSafetySection({
 
   const { acknowledgedParticipants, notAcknowledgedParticipants } = useMemo(() => {
     const byId = new Map(acks.map((a) => [String(a.userId), a]));
+    const byEmail = new Map(
+      acks
+        .filter((a) => normalizeEmail(a.email))
+        .map((a) => [normalizeEmail(a.email), a])
+    );
     const acked = [];
     const missing = [];
-    for (const p of participantsRequiringAck) {
-      const row = byId.get(String(p.id));
-      if (row && Number(row.acknowledgedVersion) === Number(contentVersion)) {
-        acked.push(p);
+    for (const person of participantsRequiringAck) {
+      if (personHasCurrentAck(person, byId, byEmail, contentVersion)) {
+        acked.push(person);
       } else {
-        missing.push(p);
+        missing.push(person);
       }
     }
     return { acknowledgedParticipants: acked, notAcknowledgedParticipants: missing };
@@ -431,8 +528,8 @@ export default function TripTravelSafetySection({
                 <div style={{ marginTop: 8 }}>
                   <div style={{ fontWeight: 800, marginBottom: 6 }}>Acknowledgment status</div>
                   <div className="small" style={{ marginBottom: 8 }}>
-                    {acknowledgedParticipants.length} / {participantsRequiringAck.length} team members acknowledged (version{" "}
-                    {contentVersion}).
+                    {acknowledgedParticipants.length} / {participantsRequiringAck.length} roster members acknowledged
+                    (version {contentVersion}).
                   </div>
                   <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
                     <div>
@@ -442,7 +539,7 @@ export default function TripTravelSafetySection({
                       <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
                         {acknowledgedParticipants.length ? (
                           acknowledgedParticipants.map((p) => (
-                            <li key={p.id}>{p.name || p.email || p.id}</li>
+                            <li key={p.id || p.email || p.name}>{p.name || p.email || p.id}</li>
                           ))
                         ) : (
                           <li className="small">None yet.</li>
@@ -456,7 +553,7 @@ export default function TripTravelSafetySection({
                       <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
                         {notAcknowledgedParticipants.length ? (
                           notAcknowledgedParticipants.map((p) => (
-                            <li key={p.id}>{p.name || p.email || p.id}</li>
+                            <li key={p.id || p.email || p.name}>{p.name || p.email || p.id}</li>
                           ))
                         ) : (
                           <li className="small">Everyone has acknowledged.</li>

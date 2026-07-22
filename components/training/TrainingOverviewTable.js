@@ -1,0 +1,79 @@
+import EmptyState from "@/components/EmptyState";
+
+export default function TrainingOverviewTable({ rows = [], loading = false, error = "" }) {
+  if (loading) {
+    return (
+      <div className="card pad">
+        <p className="small" style={{ margin: 0, color: "var(--muted)" }}>
+          Loading training overview…
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card pad">
+        <p className="small" style={{ margin: 0, color: "var(--danger)" }}>
+          {error}
+        </p>
+      </div>
+    );
+  }
+
+  if (!rows.length) {
+    return (
+      <EmptyState
+        icon="training"
+        title="No workers yet"
+        description="Assign workers to trips to see module completion here."
+      />
+    );
+  }
+
+  return (
+    <div className="card pad trainingPrototypeOverviewCard">
+      <table className="table dataTableStriped trainingPrototypeOverviewTable">
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>Trip</th>
+            <th>Role</th>
+            <th>Modules</th>
+            <th>Progress</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((worker) => (
+            <tr key={worker.id}>
+              <td>
+                <div style={{ fontWeight: 700 }}>{worker.name}</div>
+                {worker.email ? (
+                  <div className="small trainingPrototypeMuted">{worker.email}</div>
+                ) : null}
+              </td>
+              <td>
+                <div style={{ fontWeight: 700 }}>{worker.tripName}</div>
+                {worker.siteLocation ? (
+                  <div className="small trainingPrototypeMuted">{worker.siteLocation}</div>
+                ) : null}
+              </td>
+              <td>{worker.role}</td>
+              <td>
+                {worker.modulesComplete} / {worker.modulesTotal}
+              </td>
+              <td>
+                <div className="row" style={{ gap: 8, alignItems: "center" }}>
+                  <div className="progress trainingPrototypeOverviewBar">
+                    <div style={{ width: `${worker.percent}%` }} />
+                  </div>
+                  <span className="small">{worker.percent}%</span>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

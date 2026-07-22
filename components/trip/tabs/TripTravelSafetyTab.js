@@ -26,8 +26,8 @@ export default function TripTravelSafetyTab() {
                 <TripTravelSafetySection
                   tripId={trip.id}
                   session={session}
-                  participants={trip.participants || []}
-                  teamMembers={trip.teamMembers || []}
+                  participants={participants?.length ? participants : trip.participants || []}
+                  teamMembers={teamMembers?.length ? teamMembers : trip.teamMembers || []}
                   canEdit={staffViewAllParticipants && !isPreviewingParticipant}
                   isPreviewingParticipant={isPreviewingParticipant}
                 />
