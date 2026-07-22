@@ -2428,18 +2428,34 @@ export function useTripPageModel() {
   async function handleSaveTeamFundraising() {
     if (!trip?.id) return;
 
+    const mode =
+      teamFundraisingDraft.fundraisingMode === "team" ? "team" : "individual";
+    const url = String(teamFundraisingDraft.teamFundraisingUrl || "").trim();
+    const goalRaw = teamFundraisingDraft.fundraisingGoalAmount;
+    const goalParsed =
+      goalRaw === "" || goalRaw == null
+        ? null
+        : Number.parseFloat(String(goalRaw), 10);
+    const goalAmount = Number.isFinite(goalParsed) ? goalParsed : null;
+
+    if (mode === "team") {
+      if (!url) {
+        setTeamFundraisingStatus("Add the shared Neon link for group fundraising.");
+        return;
+      }
+      if (goalAmount == null || goalAmount <= 0) {
+        setTeamFundraisingStatus("Add the group fundraising amount.");
+        return;
+      }
+    }
+
     try {
       setTeamFundraisingStatus("Saving...");
       const savedTrip = await saveTripFundraisingSettings({
         tripId: trip.id,
-        teamFundraisingUrl: teamFundraisingDraft.teamFundraisingUrl,
-        fundraisingGoalAmount: (() => {
-          const raw = teamFundraisingDraft.fundraisingGoalAmount;
-          if (raw === "" || raw == null) return null;
-          const n = Number.parseFloat(String(raw), 10);
-          return Number.isFinite(n) ? n : null;
-        })(),
-        fundraisingMode: teamFundraisingDraft.fundraisingMode,
+        teamFundraisingUrl: mode === "team" ? url : "",
+        fundraisingGoalAmount: mode === "team" ? goalAmount : goalAmount,
+        fundraisingMode: mode,
       });
 
       setTrip((current) =>
@@ -6231,9 +6247,12 @@ normalizeEmail(participant.email) === activeParticipantEmail
   const fundraisingGoalAmount =
     !canViewTeamDashboard ? workerSpecificFundraisingGoalAmount : staffTeamFundraisingGoalAmount;
   const useTeamFundraisingDeadlineRollup = canViewFundraisingTeamDashboard;
-  const fundraisingDeadlineGoalAmount = useTeamFundraisingDeadlineRollup
-    ? staffTeamFundraisingGoalAmount
-    : workerSpecificFundraisingGoalAmount;
+  // Group fundraising: one shared trip goal. Individual: staff rollup vs worker personal goal.
+  const fundraisingDeadlineGoalAmount = isTeamFundraisingMode
+    ? tripFundraisingGoal
+    : useTeamFundraisingDeadlineRollup
+      ? staffTeamFundraisingGoalAmount
+      : workerSpecificFundraisingGoalAmount;
   const fundraisingWorkerCount = useMemo(() => {
     if (!trip) return 1;
     const roster = trip.teamMembers || [];
@@ -6268,12 +6287,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
     }
     return Math.max(count, 1);
   }, [trip]);
-  const countForDeadlines = useTeamFundraisingDeadlineRollup
-    ? isTeamFundraisingMode
-      ? 1
-      : fundraisingWorkerCount
-    : 1;
-  // International: 90-day milestone is $2,000 per applicable person.
+  // Group + staff individual rollup: $2,000 × workers. Worker individual view: $2,000 for that person.
+  const countForDeadlines =
+    isTeamFundraisingMode || useTeamFundraisingDeadlineRollup ? fundraisingWorkerCount : 1;
+  // International / group: 90-day milestone is $2,000 per applicable worker.
   // Domestic (USA West Springfield / MA): show 50% milestones only — no dollar amounts.
   const fundraisingUsesPercentMilestones = tripIsMassachusettsDomestic;
   const fundraisingFirstDeadlineAmount = fundraisingUsesPercentMilestones

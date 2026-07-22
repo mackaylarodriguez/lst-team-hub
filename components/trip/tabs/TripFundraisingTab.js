@@ -1,15 +1,10 @@
 import { useState } from "react";
+import AppIcon from "@/components/AppIcon";
 import BudgetTeamEditorModal from "@/components/budget/BudgetTeamEditorModal";
 import { formatTripBudgetSummaryUsd } from "@/lib/tripBudget";
 import { useTripPage } from "../TripPageContext";
 import {
   CollapsibleSection,
-  AppStatusMessage,
-  AppEmptyState,
-  AppMetricCard,
-  AppDetailAction,
-  TrainingResourceLink,
-  OptionalTripWideDocumentCard,
 } from "../tripPageShared";
 
 const tripStaffBudgetCardGridStyle = {
@@ -50,7 +45,6 @@ export default function TripFundraisingTab() {
     const {
     canManageTripFundraising,
     canViewFundraisingTeamDashboard,
-    canViewTeamDashboard,
     editingParticipantFundraisingId,
     formatDeadlineDate,
     formatMoney,
@@ -59,12 +53,10 @@ export default function TripFundraisingTab() {
     fundraisingFirstDeadlineAmount,
     fundraisingFirstDeadlineLabel,
     fundraisingFirstDeadlineDate,
-    fundraisingGoalAmount,
     fundraisingSecondDeadlineAmount,
     fundraisingSecondDeadlineLabel,
     fundraisingSecondDeadlineDate,
     fundraisingStatus,
-    getFundraisingProgressMeta,
     handleSaveFundraising,
     handleSaveTeamFundraising,
     isEditingTeamFundraising,
@@ -76,7 +68,6 @@ export default function TripFundraisingTab() {
     setTeamFundraisingDraft,
     setTeamFundraisingStatus,
     staffViewAllParticipants,
-    tab,
     teamFundraisingDraft,
     teamFundraisingStatus,
     trip,
@@ -284,143 +275,86 @@ export default function TripFundraisingTab() {
     
               <CollapsibleSection defaultOpen>
               <div className="card pad">
-                <div className="cardSectionPill" style={{ marginBottom: 8 }}>
-                  {canViewFundraisingTeamDashboard ? "Fundraising pages" : "My fundraising"}
+                <div className="row" style={{ marginBottom: 12, alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <div className="cardSectionPill" style={{ marginBottom: 0 }}>
+                    {canViewFundraisingTeamDashboard ? "Fundraising pages" : "My fundraising"}
+                  </div>
+                  <div className="spacer" />
+                  {canManageTripFundraising ? (
+                    <button
+                      className="btn"
+                      type="button"
+                      aria-label="Edit fundraising setup"
+                      onClick={() => {
+                        setIsEditingTeamFundraising(true);
+                        setTeamFundraisingStatus("");
+                        setTeamFundraisingDraft({
+                          teamFundraisingUrl: trip.teamFundraisingUrl || "",
+                          fundraisingMode: trip.fundraisingMode === "team" ? "team" : "individual",
+                          fundraisingGoalAmount:
+                            trip.fundraisingGoalAmount != null && trip.fundraisingGoalAmount !== ""
+                              ? String(trip.fundraisingGoalAmount)
+                              : "",
+                        });
+                      }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                    >
+                      <span style={{ display: "inline-flex", width: 16, height: 16 }}>
+                        <AppIcon name="pencil" />
+                      </span>
+                      Edit setup
+                    </button>
+                  ) : null}
+                  {teamFundraisingStatus && !isEditingTeamFundraising ? (
+                    <div className="small" style={{ color: "var(--muted)" }}>
+                      {teamFundraisingStatus}
+                    </div>
+                  ) : null}
                 </div>
-                {canViewFundraisingTeamDashboard && !canManageTripFundraising ? (
-                  <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
-                    {"View everyone's Neon pages and progress. Staff configure trip fundraising setup and edit links."}
-                  </div>
-                ) : null}
-                {!canViewFundraisingTeamDashboard ? (
-                  <div className="small" style={{ marginBottom: 14, opacity: 0.88 }}>
-                    {isTeamFundraisingMode
-                      ? "Shared fundraising for your family or team."
-                      : "Your Neon fundraising page and team updates."}
-                  </div>
-                ) : null}
-    
-                {canManageTripFundraising && (
+
+                {canManageTripFundraising && isEditingTeamFundraising ? (
                   <div
                     className="card pad"
                     style={{
                       boxShadow: "none",
                       marginBottom: 14,
-                      background: "linear-gradient(180deg, rgba(234,242,255,.85), rgba(255,255,255,1) 65%)",
                       borderColor: "rgba(47,73,147,.22)",
-                      display: "flex",
-                      flexDirection: "column",
+                      display: "grid",
                       gap: 12,
                     }}
                   >
-                    <div className="cardSectionPill" style={{ marginBottom: 4 }}>Fundraising setup</div>
-                    <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>
-                      Individual vs family / team fundraising
-                    </div>
-                    <div className="small" style={{ opacity: 0.9, lineHeight: 1.45 }}>
-                      Most teams use individual Neon pages. Choose team/family when everyone shares one campaign and one
-                      trip goal.
-                    </div>
-                    {!isEditingTeamFundraising ? (
-                      <div style={{ display: "grid", gap: 10 }}>
-                        <div className="small">
-                          <strong>Current:</strong>{" "}
-                          {trip.fundraisingMode === "team"
-                            ? "Team / family — one shared Neon link and trip fundraising goal."
-                            : "Individual — each worker has their own Neon page (default)."}
-                        </div>
-                        <div className="small">
-                          <strong>Trip goal:</strong> {formatMoney(Number(trip.fundraisingGoalAmount || 0))}
-                        </div>
-                        {trip.teamFundraisingUrl ? (
-                          <a className="btn" href={trip.teamFundraisingUrl} target="_blank" rel="noreferrer">
-                            Open shared Neon page
-                          </a>
-                        ) : trip.fundraisingMode === "team" ? (
-                          <div className="small" style={{ color: "var(--danger)" }}>
-                            Team mode is on — add a shared Neon link in Edit setup.
-                          </div>
-                        ) : null}
-                        <div className="row">
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => {
-                              setIsEditingTeamFundraising(true);
-                              setTeamFundraisingStatus("");
-                              setTeamFundraisingDraft({
-                                teamFundraisingUrl: trip.teamFundraisingUrl || "",
-                                fundraisingMode: trip.fundraisingMode === "team" ? "team" : "individual",
-                                fundraisingGoalAmount:
-                                  trip.fundraisingGoalAmount != null && trip.fundraisingGoalAmount !== ""
-                                    ? String(trip.fundraisingGoalAmount)
-                                    : "",
-                              });
-                            }}
-                          >
-                            Edit setup
-                          </button>
-                          {teamFundraisingStatus ? (
-                            <div className="small" style={{ alignSelf: "center" }}>
-                              {teamFundraisingStatus}
-                            </div>
-                          ) : null}
-                        </div>
+                    <div style={{ fontWeight: 800 }}>Fundraising setup</div>
+                    <div>
+                      <div className="small" style={{ marginBottom: 8, fontWeight: 700 }}>
+                        Fundraising type
                       </div>
-                    ) : (
-                      <div style={{ display: "grid", gap: 12 }}>
+                      <label style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                        <input
+                          type="radio"
+                          name="fundraisingMode"
+                          checked={teamFundraisingDraft.fundraisingMode !== "team"}
+                          onChange={() =>
+                            setTeamFundraisingDraft((c) => ({ ...c, fundraisingMode: "individual" }))
+                          }
+                        />
+                        <span className="small">Individual fundraising</span>
+                      </label>
+                      <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input
+                          type="radio"
+                          name="fundraisingMode"
+                          checked={teamFundraisingDraft.fundraisingMode === "team"}
+                          onChange={() =>
+                            setTeamFundraisingDraft((c) => ({ ...c, fundraisingMode: "team" }))
+                          }
+                        />
+                        <span className="small">Group fundraising</span>
+                      </label>
+                    </div>
+                    {teamFundraisingDraft.fundraisingMode === "team" ? (
+                      <>
                         <div>
-                          <div className="small" style={{ marginBottom: 8, fontWeight: 700 }}>
-                            How is this trip fundraising?
-                          </div>
-                          <label style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                            <input
-                              type="radio"
-                              name="fundraisingMode"
-                              checked={teamFundraisingDraft.fundraisingMode !== "team"}
-                              onChange={() =>
-                                setTeamFundraisingDraft((c) => ({ ...c, fundraisingMode: "individual" }))
-                              }
-                            />
-                            <span className="small">
-                              Individual — each worker has their own Neon link (most common)
-                            </span>
-                          </label>
-                          <label style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                            <input
-                              type="radio"
-                              name="fundraisingMode"
-                              checked={teamFundraisingDraft.fundraisingMode === "team"}
-                              onChange={() =>
-                                setTeamFundraisingDraft((c) => ({ ...c, fundraisingMode: "team" }))
-                              }
-                            />
-                            <span className="small">
-                              Team / family — one shared Neon link and one trip goal for everyone (e.g. one family
-                              campaign)
-                            </span>
-                          </label>
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>
-                            {teamFundraisingDraft.fundraisingMode === "team"
-                              ? "Shared Neon link (required for team mode)"
-                              : "Optional shared Neon link"}
-                          </div>
-                          <input
-                            className="input"
-                            value={teamFundraisingDraft.teamFundraisingUrl}
-                            onChange={(event) =>
-                              setTeamFundraisingDraft((current) => ({
-                                ...current,
-                                teamFundraisingUrl: event.target.value,
-                              }))
-                            }
-                            placeholder="https://..."
-                          />
-                        </div>
-                        <div>
-                          <div className="small" style={{ marginBottom: 6 }}>Trip fundraising goal (dollars)</div>
+                          <div className="small" style={{ marginBottom: 6 }}>Group fundraising amount</div>
                           <input
                             className="input"
                             type="number"
@@ -436,54 +370,126 @@ export default function TripFundraisingTab() {
                             placeholder="e.g. 5000"
                           />
                         </div>
-                        <div className="row">
-                          <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
-                            Save setup
-                          </button>
-                          <button
-                            className="btn"
-                            type="button"
-                            onClick={() => {
-                              setIsEditingTeamFundraising(false);
-                              setTeamFundraisingStatus("");
-                              setTeamFundraisingDraft({
-                                teamFundraisingUrl: trip.teamFundraisingUrl || "",
-                                fundraisingMode: trip.fundraisingMode === "team" ? "team" : "individual",
-                                fundraisingGoalAmount:
-                                  trip.fundraisingGoalAmount != null && trip.fundraisingGoalAmount !== ""
-                                    ? String(trip.fundraisingGoalAmount)
-                                    : "",
-                              });
-                            }}
-                          >
-                            Cancel
-                          </button>
-                          {teamFundraisingStatus ? (
-                            <div className="small" style={{ alignSelf: "center" }}>
-                              {teamFundraisingStatus}
-                            </div>
-                          ) : null}
+                        <div>
+                          <div className="small" style={{ marginBottom: 6 }}>Shared Neon link</div>
+                          <input
+                            className="input"
+                            value={teamFundraisingDraft.teamFundraisingUrl}
+                            onChange={(event) =>
+                              setTeamFundraisingDraft((current) => ({
+                                ...current,
+                                teamFundraisingUrl: event.target.value,
+                              }))
+                            }
+                            placeholder="https://..."
+                          />
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-    
-                {canViewFundraisingTeamDashboard && isTeamFundraisingMode ? (
-                  <div className="small" style={{ marginBottom: 12, opacity: 0.88 }}>
-                    Team/family mode: workers only see the shared Neon link above. Per-person links below are optional
-                    (e.g. exceptions).
+                      </>
+                    ) : null}
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                      <button className="btn btnPrimary" type="button" onClick={handleSaveTeamFundraising}>
+                        Save setup
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          setIsEditingTeamFundraising(false);
+                          setTeamFundraisingStatus("");
+                          setTeamFundraisingDraft({
+                            teamFundraisingUrl: trip.teamFundraisingUrl || "",
+                            fundraisingMode: trip.fundraisingMode === "team" ? "team" : "individual",
+                            fundraisingGoalAmount:
+                              trip.fundraisingGoalAmount != null && trip.fundraisingGoalAmount !== ""
+                                ? String(trip.fundraisingGoalAmount)
+                                : "",
+                          });
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      {teamFundraisingStatus ? (
+                        <div className="small" style={{ alignSelf: "center", color: "var(--muted)" }}>
+                          {teamFundraisingStatus}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
-                {!canViewFundraisingTeamDashboard && isTeamFundraisingMode ? (
-                  <div className="small" style={{ marginTop: 4 }}>
-                    This trip uses one shared fundraising page for the whole family or team — personal Neon tiles are
-                    hidden. Use the shared link above.
+
+                {isTeamFundraisingMode ? (
+                  <div
+                    className="card pad"
+                    style={{
+                      boxShadow: "none",
+                      display: "grid",
+                      gap: 10,
+                      background: "linear-gradient(180deg, rgba(234,242,255,.65), #ffffff 40%)",
+                      borderColor: "rgba(47,73,147,.14)",
+                      maxWidth: 360,
+                    }}
+                  >
+                    <div className="row" style={{ alignItems: "center", gap: 8 }}>
+                      <div style={{ fontWeight: 900, fontSize: 17 }}>Group Fundraising</div>
+                      <div className="spacer" />
+                      {canManageTripFundraising ? (
+                        <button
+                          className="btn"
+                          type="button"
+                          aria-label="Edit group fundraising"
+                          onClick={() => {
+                            setIsEditingTeamFundraising(true);
+                            setTeamFundraisingStatus("");
+                            setTeamFundraisingDraft({
+                              teamFundraisingUrl: trip.teamFundraisingUrl || "",
+                              fundraisingMode: "team",
+                              fundraisingGoalAmount:
+                                trip.fundraisingGoalAmount != null && trip.fundraisingGoalAmount !== ""
+                                  ? String(trip.fundraisingGoalAmount)
+                                  : "",
+                            });
+                          }}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding: 8,
+                            minWidth: 36,
+                          }}
+                        >
+                          <span style={{ display: "inline-flex", width: 16, height: 16 }}>
+                            <AppIcon name="pencil" />
+                          </span>
+                        </button>
+                      ) : null}
+                    </div>
+                    <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>
+                      {formatMoney(Number(trip.fundraisingGoalAmount || 0))}
+                    </div>
+                    {trip.teamFundraisingUrl ? (
+                      <a
+                        className="btn btnPrimary"
+                        href={trip.teamFundraisingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ justifySelf: "start" }}
+                      >
+                        Open Neon Page
+                      </a>
+                    ) : canManageTripFundraising ? (
+                      <div className="small" style={{ color: "var(--danger)" }}>
+                        Add the shared Neon link in Edit setup.
+                      </div>
+                    ) : (
+                      <div className="small" style={{ color: "var(--muted)" }}>
+                        Shared Neon page not added yet.
+                      </div>
+                    )}
                   </div>
                 ) : visibleFundraisingParticipants.length === 0 ? (
                   <div className="small">
                     {canViewFundraisingTeamDashboard
-                      ? "No per-person fundraising tiles to show yet. Leaders not traveling with the team are omitted."
+                      ? "No fundraising cards to show yet. Leaders not traveling with the team are omitted."
                       : "No fundraising record found for this login."}
                   </div>
                 ) : (
@@ -491,15 +497,22 @@ export default function TripFundraisingTab() {
                     style={{
                       display: "grid",
                       gridTemplateColumns: canViewFundraisingTeamDashboard
-                        ? "repeat(auto-fit, minmax(220px, 1fr))"
+                        ? "repeat(auto-fit, minmax(180px, 1fr))"
                         : "repeat(auto-fit, minmax(160px, 1fr))",
-                      gap: canViewFundraisingTeamDashboard ? 16 : 12,
+                      gap: 12,
                     }}
                   >
                     {visibleFundraisingParticipants.map((participant) => {
                       const isEditingParticipantLink =
                         editingParticipantFundraisingId === participant.id;
-                      const fundraisingProgressMeta = getFundraisingProgressMeta(participant);
+                      const goalAmount =
+                        participant.fundraisingGoalAmount != null &&
+                        participant.fundraisingGoalAmount !== "" &&
+                        Number(participant.fundraisingGoalAmount) > 0
+                          ? Number(participant.fundraisingGoalAmount)
+                          : Number(trip?.fundraisingGoalAmount || 0) > 0
+                            ? Number(trip.fundraisingGoalAmount)
+                            : 0;
                       const canEditParticipantFundraising =
                         canManageTripFundraising &&
                         canViewFundraisingTeamDashboard &&
@@ -510,204 +523,164 @@ export default function TripFundraisingTab() {
                           className="card pad"
                           style={{
                             boxShadow: "none",
-                            minHeight: canViewFundraisingTeamDashboard ? 220 : 136,
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "space-between",
+                            display: "grid",
+                            gap: 10,
                             background: "linear-gradient(180deg, rgba(234,242,255,.65), #ffffff 40%)",
                             borderColor: "rgba(47,73,147,.14)",
-                            position: "relative",
-                            overflow: "hidden",
                           }}
                         >
-                          <div
-                            style={{
-                              position: "absolute",
-                              inset: "0 auto auto 0",
-                              width: "100%",
-                              height: 5,
-                              background: "linear-gradient(90deg, var(--primary), var(--primary2))",
-                            }}
-                          />
-                          <div>
-                            <div className="row" style={{ alignItems: "flex-start", marginBottom: 10 }}>
-                              <div
+                          <div className="row" style={{ alignItems: "center", gap: 8 }}>
+                            <div
+                              style={{
+                                fontWeight: 900,
+                                fontSize: 15,
+                                lineHeight: 1.2,
+                                minWidth: 0,
+                              }}
+                            >
+                              {canViewFundraisingTeamDashboard ? participant.name : "My fundraising"}
+                            </div>
+                            <div className="spacer" />
+                            {canEditParticipantFundraising && !isEditingParticipantLink ? (
+                              <button
+                                className="btn"
+                                type="button"
+                                aria-label={`Edit fundraising for ${participant.name}`}
+                                onClick={() => {
+                                  setEditingParticipantFundraisingId(participant.id);
+                                  setFundraisingStatus((current) => ({
+                                    ...current,
+                                    [participant.id]: undefined,
+                                  }));
+                                  setFundraisingDrafts((current) => ({
+                                    ...current,
+                                    [participant.id]: {
+                                      fundraisingUrl: participant.fundraisingUrl || "",
+                                      fundraisingGoalAmount:
+                                        participant.fundraisingGoalAmount != null &&
+                                        participant.fundraisingGoalAmount !== ""
+                                          ? String(participant.fundraisingGoalAmount)
+                                          : "",
+                                    },
+                                  }));
+                                }}
                                 style={{
-                                  fontWeight: 900,
-                                  fontSize: canViewFundraisingTeamDashboard ? 18 : 15,
-                                  lineHeight: 1.2,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: 8,
+                                  minWidth: 36,
                                 }}
                               >
-                                {participant.name}
-                              </div>
-                              <div className="spacer" />
-                              <span className={"badge " + fundraisingProgressMeta.badgeClass}>
-                                {fundraisingProgressMeta.label}
-                              </span>
-                            </div>
-                            <div className="small" style={{ marginBottom: 8 }}>
-                              {fundraisingProgressMeta.helperText}
-                            </div>
-                            <div className="small" style={{ marginBottom: 12, color: "var(--muted)" }}>
-                              {fundraisingProgressMeta.goalLine}
-                            </div>
-                          </div>
-                          <div>
-                            {participant.fundraisingUrl ? (
-                              <a className="btn btnPrimary" href={participant.fundraisingUrl} target="_blank" rel="noreferrer">
-                                Open Neon Page
-                              </a>
+                                <span style={{ display: "inline-flex", width: 16, height: 16 }}>
+                                  <AppIcon name="pencil" />
+                                </span>
+                              </button>
                             ) : null}
                           </div>
-                          {canEditParticipantFundraising && (
+
+                          {!isEditingParticipantLink ? (
                             <>
-                              <div style={{ height: 12 }} />
-                              {!isEditingParticipantLink ? (
-                                <div className="row">
-                                  <button
-                                    className="btn"
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingParticipantFundraisingId(participant.id);
-                                      setFundraisingStatus((current) => ({
-                                        ...current,
-                                        [participant.id]: undefined,
-                                      }));
-                                      setFundraisingDrafts((current) => ({
-                                        ...current,
-                                        [participant.id]: {
-                                          fundraisingUrl: participant.fundraisingUrl || "",
-                                          fundraisingGoalAmount:
-                                            participant.fundraisingGoalAmount != null &&
-                                            participant.fundraisingGoalAmount !== ""
-                                              ? String(participant.fundraisingGoalAmount)
-                                              : "",
-                                        },
-                                      }));
-                                    }}
-                                  >
-                                    {participant.fundraisingUrl ? "Edit link & goal" : "Add link & goal"}
-                                  </button>
-                                  {fundraisingStatus[participant.id]?.message ? (
-                                    <div
-                                      className="small"
-                                      style={{
-                                        alignSelf: "center",
-                                        color:
-                                          fundraisingStatus[participant.id].type === "error"
-                                            ? "var(--danger)"
-                                            : "var(--muted)",
-                                      }}
-                                    >
-                                      {fundraisingStatus[participant.id].message}
-                                    </div>
-                                  ) : null}
-                                </div>
+                              <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>
+                                {formatMoney(goalAmount)}
+                              </div>
+                              {participant.fundraisingUrl ? (
+                                <a
+                                  className="btn btnPrimary"
+                                  href={participant.fundraisingUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ justifySelf: "start" }}
+                                >
+                                  Open Neon Page
+                                </a>
                               ) : (
-                                <div style={{ display: "grid", gap: 10 }}>
-                                  <div>
-                                    <div className="small" style={{ marginBottom: 6 }}>Neon Fundraising Link</div>
-                                    <input
-                                      className="input"
-                                      value={fundraisingDrafts[participant.id]?.fundraisingUrl || ""}
-                                      onChange={(event) =>
-                                        updateFundraisingDraft(participant.id, "fundraisingUrl", event.target.value)
-                                      }
-                                      placeholder="https://"
-                                    />
-                                  </div>
-                                  <div>
-                                    <div className="small" style={{ marginBottom: 6 }}>
-                                      Individual goal (USD, optional)
-                                    </div>
-                                    <input
-                                      className="input"
-                                      type="text"
-                                      inputMode="decimal"
-                                      disabled={!participant.tripTeamMemberId}
-                                      title={
-                                        !participant.tripTeamMemberId
-                                          ? "Add this worker to the trip roster (Team tab) to store a per-person goal."
-                                          : undefined
-                                      }
-                                      value={fundraisingDrafts[participant.id]?.fundraisingGoalAmount || ""}
-                                      onChange={(event) =>
-                                        updateFundraisingDraft(
-                                          participant.id,
-                                          "fundraisingGoalAmount",
-                                          event.target.value
-                                        )
-                                      }
-                                      placeholder={
-                                        trip?.fundraisingGoalAmount != null &&
-                                        trip.fundraisingGoalAmount !== "" &&
-                                        Number(trip.fundraisingGoalAmount) > 0
-                                          ? `Trip default: ${trip.fundraisingGoalAmount}`
-                                          : "e.g. 2000"
-                                      }
-                                    />
-                                    {!participant.tripTeamMemberId ? (
-                                      <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
-                                        Per-person goals are saved on the roster. Add them on the Team tab first.
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                  {fundraisingStatus[participant.id]?.message && (
-                                    <div
-                                      className="small"
-                                      style={{
-                                        color:
-                                          fundraisingStatus[participant.id].type === "error"
-                                            ? "var(--danger)"
-                                            : "var(--muted)",
-                                      }}
-                                    >
-                                      {fundraisingStatus[participant.id].message}
-                                    </div>
-                                  )}
-                                  <div className="row">
-                                    <button
-                                      className="btn"
-                                      type="button"
-                                      onClick={() => handleSaveFundraising(participant)}
-                                    >
-                                      {participant.tripTeamMemberId ? "Save link & goal" : "Save Neon link"}
-                                    </button>
-                                    <button
-                                      className="btn"
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingParticipantFundraisingId("");
-                                        setFundraisingStatus((current) => ({
-                                          ...current,
-                                          [participant.id]: undefined,
-                                        }));
-                                        setFundraisingDrafts((current) => ({
-                                          ...current,
-                                          [participant.id]: {
-                                            fundraisingUrl: participant.fundraisingUrl || "",
-                                            fundraisingGoalAmount:
-                                              participant.fundraisingGoalAmount != null &&
-                                              participant.fundraisingGoalAmount !== ""
-                                                ? String(participant.fundraisingGoalAmount)
-                                                : "",
-                                          },
-                                        }));
-                                      }}
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
+                                <div className="small" style={{ color: "var(--muted)" }}>
+                                  Neon page not added yet.
                                 </div>
                               )}
+                              {fundraisingStatus[participant.id]?.message ? (
+                                <div
+                                  className="small"
+                                  style={{
+                                    color:
+                                      fundraisingStatus[participant.id].type === "error"
+                                        ? "var(--danger)"
+                                        : "var(--muted)",
+                                  }}
+                                >
+                                  {fundraisingStatus[participant.id].message}
+                                </div>
+                              ) : null}
                             </>
-                          )}
-                          {canViewTeamDashboard && participant.rosterOnly && participant.tripTeamMemberId ? (
-                            <div className="small" style={{ marginTop: 12, color: "var(--muted)" }}>
-                              No login yet — link is stored on the roster. When they join with this email, it
-                              shows on their profile unless you save a different link under their account.
+                          ) : (
+                            <div style={{ display: "grid", gap: 10 }}>
+                              <div>
+                                <div className="small" style={{ marginBottom: 6 }}>Neon Fundraising Link</div>
+                                <input
+                                  className="input"
+                                  value={fundraisingDrafts[participant.id]?.fundraisingUrl || ""}
+                                  onChange={(event) =>
+                                    updateFundraisingDraft(participant.id, "fundraisingUrl", event.target.value)
+                                  }
+                                  placeholder="https://"
+                                />
+                              </div>
+                              <div>
+                                <div className="small" style={{ marginBottom: 6 }}>Fundraising amount</div>
+                                <input
+                                  className="input"
+                                  type="text"
+                                  inputMode="decimal"
+                                  disabled={!participant.tripTeamMemberId}
+                                  value={fundraisingDrafts[participant.id]?.fundraisingGoalAmount || ""}
+                                  onChange={(event) =>
+                                    updateFundraisingDraft(
+                                      participant.id,
+                                      "fundraisingGoalAmount",
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder="e.g. 2000"
+                                />
+                              </div>
+                              {fundraisingStatus[participant.id]?.message ? (
+                                <div
+                                  className="small"
+                                  style={{
+                                    color:
+                                      fundraisingStatus[participant.id].type === "error"
+                                        ? "var(--danger)"
+                                        : "var(--muted)",
+                                  }}
+                                >
+                                  {fundraisingStatus[participant.id].message}
+                                </div>
+                              ) : null}
+                              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                                <button
+                                  className="btn btnPrimary"
+                                  type="button"
+                                  onClick={() => handleSaveFundraising(participant)}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingParticipantFundraisingId("");
+                                    setFundraisingStatus((current) => ({
+                                      ...current,
+                                      [participant.id]: undefined,
+                                    }));
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
                             </div>
-                          ) : null}
+                          )}
                         </div>
                       );
                     })}
