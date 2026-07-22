@@ -7,10 +7,7 @@ export default function TrainingWorkerNameCell({ userId, name, email }) {
     <>
       <div style={{ fontWeight: 700 }}>
         {userId ? (
-          <Link
-            href={`/profile?participantId=${encodeURIComponent(userId)}`}
-            style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2 }}
-          >
+          <Link href={`/profile?participantId=${encodeURIComponent(userId)}`}>
             {label}
           </Link>
         ) : (

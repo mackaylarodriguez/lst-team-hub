@@ -7,10 +7,7 @@ export default function TrainingStaffTripCell({ tripId, tripName, siteLocation }
     <>
       <div style={{ fontWeight: 700 }}>
         {tripId ? (
-          <Link
-            href={`/trips/${encodeURIComponent(tripId)}`}
-            style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2 }}
-          >
+          <Link href={`/trips/${encodeURIComponent(tripId)}`}>
             {label}
           </Link>
         ) : (
