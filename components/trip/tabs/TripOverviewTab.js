@@ -54,7 +54,6 @@ export default function TripOverviewTab() {
     pastMeetings,
     recentActivity,
     recentActivityError,
-    referenceReceivedProgress,
     renderTripSetupCard,
     savedFundraisingLinksCount,
     session,
@@ -155,19 +154,6 @@ export default function TripOverviewTab() {
                   />
                 )}
     
-                {(staffViewAllParticipants || !canViewTeamDashboard) &&
-                referenceReceivedProgress.showOnOverview ? (
-                  <AppMetricCard
-                    label={referenceReceivedProgress.label}
-                    value={`${referenceReceivedProgress.percent}%`}
-                    detail={
-                      canViewTeamDashboard
-                        ? `${referenceReceivedProgress.completed} of ${referenceReceivedProgress.total} received.`
-                        : "Your LST reference has been received."
-                    }
-                    tone={referenceReceivedProgress.percent === 100 ? "success" : "info"}
-                  />
-                ) : null}
               </div>
               </CollapsibleSection>
     

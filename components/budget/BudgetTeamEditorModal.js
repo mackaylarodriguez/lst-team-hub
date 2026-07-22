@@ -160,8 +160,10 @@ export default function BudgetTeamEditorModal({ tripId, trip, tripName, onClose,
         ...trip,
         teamMembers,
         participants,
+        fundraisingMode: trip?.fundraisingMode,
+        fundraisingGoalAmount: trip?.fundraisingGoalAmount,
       }),
-    [trip, teamMembers, participants]
+    [trip, teamMembers, participants, trip?.fundraisingMode, trip?.fundraisingGoalAmount]
   );
 
   const summary = useMemo(() => {

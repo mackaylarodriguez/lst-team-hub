@@ -1015,6 +1015,7 @@ export function useTripPageModel() {
     trip?.teamMembers,
     trip?.participants,
     trip?.fundraisingGoalAmount,
+    trip?.fundraisingMode,
     trip?.tripFeeAmount,
     trip?.materialsFeeAmount,
     trip?.domesticProjectFeeAmount,
