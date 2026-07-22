@@ -56,11 +56,14 @@ export default function TripFundraisingTab() {
     formatDeadlineDate,
     formatMoney,
     fundraisingDrafts,
+    fundraisingUsesPercentMilestones,
     fundraisingFirstDeadlineAmount,
+    fundraisingFirstDeadlineLabel,
     fundraisingFirstDeadlineDate,
     fundraisingDeadlineGoalAmount,
     fundraisingGoalAmount,
     fundraisingSecondDeadlineAmount,
+    fundraisingSecondDeadlineLabel,
     fundraisingSecondDeadlineDate,
     fundraisingStatus,
     getFundraisingProgressMeta,
@@ -198,11 +201,22 @@ export default function TripFundraisingTab() {
                     90 days before departure
                   </div>
                   <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em" }}>
-                    {formatMoney(fundraisingFirstDeadlineAmount)}
+                    {fundraisingUsesPercentMilestones
+                      ? fundraisingFirstDeadlineLabel || "50%"
+                      : formatMoney(fundraisingFirstDeadlineAmount)}
                   </div>
                   <div className="small" style={{ opacity: 0.9 }}>
-                    Target raised by{" "}
-                    <strong>{formatDeadlineDate(fundraisingFirstDeadlineDate)}</strong>
+                    {fundraisingUsesPercentMilestones ? (
+                      <>
+                        50% of fundraising due by{" "}
+                        <strong>{formatDeadlineDate(fundraisingFirstDeadlineDate)}</strong>
+                      </>
+                    ) : (
+                      <>
+                        Target raised by{" "}
+                        <strong>{formatDeadlineDate(fundraisingFirstDeadlineDate)}</strong>
+                      </>
+                    )}
                     {!trip?.startDate ? (
                       <span style={{ color: "var(--muted)" }}>
                         {" "}
@@ -211,11 +225,13 @@ export default function TripFundraisingTab() {
                     ) : null}
                   </div>
                   <div className="small" style={{ opacity: 0.78, marginTop: "auto", lineHeight: 1.45 }}>
-                    {canViewTeamDashboard
-                      ? `First milestone for the team (${countForDeadlines} worker${
-                          countForDeadlines === 1 ? "" : "s"
-                        }): typically $2,000 per person toward the trip goal, not more than the total goal.`
-                      : "First slice of your trip goal is usually due by this date (often $2,000 toward your full amount)."}
+                    {fundraisingUsesPercentMilestones
+                      ? "Domestic milestone: half of fundraising should be raised by this date."
+                      : canViewTeamDashboard
+                        ? `First milestone for the team (${countForDeadlines} worker${
+                            countForDeadlines === 1 ? "" : "s"
+                          }): typically $2,000 per person toward the trip goal, not more than the total goal.`
+                        : "First slice of your trip goal is usually due by this date (often $2,000 toward your full amount)."}
                   </div>
                 </div>
                 <div
@@ -234,11 +250,22 @@ export default function TripFundraisingTab() {
                     30 days before departure
                   </div>
                   <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em" }}>
-                    {formatMoney(fundraisingSecondDeadlineAmount)}
+                    {fundraisingUsesPercentMilestones
+                      ? fundraisingSecondDeadlineLabel || "50%"
+                      : formatMoney(fundraisingSecondDeadlineAmount)}
                   </div>
                   <div className="small" style={{ opacity: 0.9 }}>
-                    Remaining goal due by{" "}
-                    <strong>{formatDeadlineDate(fundraisingSecondDeadlineDate)}</strong>
+                    {fundraisingUsesPercentMilestones ? (
+                      <>
+                        50% of fundraising due by{" "}
+                        <strong>{formatDeadlineDate(fundraisingSecondDeadlineDate)}</strong>
+                      </>
+                    ) : (
+                      <>
+                        Remaining goal due by{" "}
+                        <strong>{formatDeadlineDate(fundraisingSecondDeadlineDate)}</strong>
+                      </>
+                    )}
                     {!trip?.startDate ? (
                       <span style={{ color: "var(--muted)" }}>
                         {" "}
@@ -247,7 +274,9 @@ export default function TripFundraisingTab() {
                     ) : null}
                   </div>
                   <div className="small" style={{ opacity: 0.78, marginTop: "auto", lineHeight: 1.45 }}>
-                    {fundraisingDeadlineGoalAmount > 0 ? (
+                    {fundraisingUsesPercentMilestones
+                      ? "Domestic milestone: the other half of fundraising should be raised by this date."
+                      : fundraisingDeadlineGoalAmount > 0 ? (
                       fundraisingSecondDeadlineAmount > 0 ? (
                         <>
                           {formatMoney(fundraisingDeadlineGoalAmount)} goal minus{" "}

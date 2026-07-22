@@ -6192,13 +6192,18 @@ normalizeEmail(participant.email) === activeParticipantEmail
       ? 1
       : fundraisingWorkerCount
     : 1;
-  // Business rule: 90-day milestone is always $2,000 per applicable person.
-  const fundraisingFirstDeadlineAmount = 2000 * countForDeadlines;
-  const fundraisingSecondDeadlineTotalAmount = Math.max(
-    (fundraisingDeadlineGoalAmount || 0) - fundraisingFirstDeadlineAmount,
-    0
-  );
+  // International: 90-day milestone is $2,000 per applicable person.
+  // Domestic (USA West Springfield / MA): show 50% milestones only — no dollar amounts.
+  const fundraisingUsesPercentMilestones = tripIsMassachusettsDomestic;
+  const fundraisingFirstDeadlineAmount = fundraisingUsesPercentMilestones
+    ? 0
+    : 2000 * countForDeadlines;
+  const fundraisingSecondDeadlineTotalAmount = fundraisingUsesPercentMilestones
+    ? 0
+    : Math.max((fundraisingDeadlineGoalAmount || 0) - fundraisingFirstDeadlineAmount, 0);
   const fundraisingSecondDeadlineAmount = fundraisingSecondDeadlineTotalAmount;
+  const fundraisingFirstDeadlineLabel = fundraisingUsesPercentMilestones ? "50%" : null;
+  const fundraisingSecondDeadlineLabel = fundraisingUsesPercentMilestones ? "50%" : null;
   const fundraisingFirstDeadlineDate = subtractDays(trip?.startDate, 90);
   const fundraisingSecondDeadlineDate = subtractDays(trip?.startDate, 30);
   const savedFundraisingLinksCount = useMemo(() => {
@@ -6216,12 +6221,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
   const nextFundraisingDeadline = fundraisingFirstDeadlineDate
     ? {
         amount: fundraisingFirstDeadlineAmount,
+        percentLabel: fundraisingFirstDeadlineLabel,
         date: fundraisingFirstDeadlineDate,
         label: "90-day deadline",
       }
     : fundraisingSecondDeadlineDate
       ? {
           amount: fundraisingSecondDeadlineAmount,
+          percentLabel: fundraisingSecondDeadlineLabel,
           date: fundraisingSecondDeadlineDate,
           label: "30-day deadline",
         }
@@ -6241,11 +6248,17 @@ normalizeEmail(participant.email) === activeParticipantEmail
         : currentParticipant?.fundraisingUrl
           ? "Page Ready"
           : "No Link";
-  const overviewFundraisingDetail = fundraisingGoalAmount && nextFundraisingDeadline
-    ? `${nextFundraisingDeadline.label}: ${formatMoney(
-        nextFundraisingDeadline.amount
-      )} by ${formatDeadlineDate(nextFundraisingDeadline.date)}.`
-    : isTeamFundraisingMode || trip?.teamFundraisingUrl
+  const overviewFundraisingDetail =
+    nextFundraisingDeadline &&
+    (fundraisingUsesPercentMilestones || fundraisingGoalAmount)
+      ? fundraisingUsesPercentMilestones
+        ? `${nextFundraisingDeadline.label}: ${
+            nextFundraisingDeadline.percentLabel || "50%"
+          } of fundraising due by ${formatDeadlineDate(nextFundraisingDeadline.date)}.`
+        : `${nextFundraisingDeadline.label}: ${formatMoney(
+            nextFundraisingDeadline.amount
+          )} by ${formatDeadlineDate(nextFundraisingDeadline.date)}.`
+      : isTeamFundraisingMode || trip?.teamFundraisingUrl
       ? trip?.teamFundraisingUrl
         ? "Shared Neon page is ready for the full team."
         : "Team mode — add the shared Neon link on the Fundraising tab."
@@ -7432,11 +7445,14 @@ normalizeEmail(participant.email) === activeParticipantEmail
     formatTaskUpdatedAt,
     formatTripDateRange,
     fundraisingDrafts,
+    fundraisingUsesPercentMilestones,
     fundraisingFirstDeadlineAmount,
+    fundraisingFirstDeadlineLabel,
     fundraisingFirstDeadlineDate,
     fundraisingDeadlineGoalAmount,
     fundraisingGoalAmount,
     fundraisingSecondDeadlineAmount,
+    fundraisingSecondDeadlineLabel,
     fundraisingSecondDeadlineDate,
     fundraisingSecondDeadlineTotalAmount,
     fundraisingStatus,
