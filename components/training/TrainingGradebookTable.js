@@ -4,7 +4,13 @@ import TrainingStaffTripCell from "./TrainingStaffTripCell";
 import TrainingWorkerNameCell from "./TrainingWorkerNameCell";
 import { STAFF_TRAINING_MODULE_SLOTS } from "@/lib/staffTrainingRoster";
 
-export default function TrainingGradebookTable({ rows = [], loading = false, error = "" }) {
+export default function TrainingGradebookTable({
+  rows = [],
+  loading = false,
+  error = "",
+  emptyTitle = "No workers yet",
+  emptyDescription = "Assign workers to trips to see module pass/fail here.",
+}) {
   if (loading) {
     return (
       <div className="card pad">
@@ -29,8 +35,8 @@ export default function TrainingGradebookTable({ rows = [], loading = false, err
     return (
       <EmptyState
         icon="training"
-        title="No workers yet"
-        description="Assign workers to trips to see module pass/fail here."
+        title={emptyTitle}
+        description={emptyDescription}
       />
     );
   }

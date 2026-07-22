@@ -5923,6 +5923,13 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   flex-wrap:wrap;
   margin-bottom:16px;
 }
+.trainingStaffTripSections{
+  display:grid;
+  gap:28px;
+}
+.trainingStaffTripSection{
+  min-width:0;
+}
 .trainingPrototypeStaffSearchWrapCompact{
   margin-bottom:0;
   display:flex;

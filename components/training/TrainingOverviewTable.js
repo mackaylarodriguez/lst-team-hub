@@ -2,7 +2,13 @@ import EmptyState from "@/components/EmptyState";
 import TrainingStaffTripCell from "./TrainingStaffTripCell";
 import TrainingWorkerNameCell from "./TrainingWorkerNameCell";
 
-export default function TrainingOverviewTable({ rows = [], loading = false, error = "" }) {
+export default function TrainingOverviewTable({
+  rows = [],
+  loading = false,
+  error = "",
+  emptyTitle = "No workers yet",
+  emptyDescription = "Assign workers to trips to see module completion here.",
+}) {
   if (loading) {
     return (
       <div className="card pad">
@@ -27,8 +33,8 @@ export default function TrainingOverviewTable({ rows = [], loading = false, erro
     return (
       <EmptyState
         icon="training"
-        title="No workers yet"
-        description="Assign workers to trips to see module completion here."
+        title={emptyTitle}
+        description={emptyDescription}
       />
     );
   }

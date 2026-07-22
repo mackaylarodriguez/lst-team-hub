@@ -1,14 +1,13 @@
 import Shell from "@/components/Shell";
 import AppIcon from "@/components/AppIcon";
 import TrainingStaffSearchBar from "@/components/training/TrainingStaffSearchBar";
-import TrainingOverviewTable from "@/components/training/TrainingOverviewTable";
-import TrainingGradebookTable from "@/components/training/TrainingGradebookTable";
+import TrainingStaffTripSections from "@/components/training/TrainingStaffTripSections";
 import StaffTrainingPrototypeWalkthrough from "@/components/training/prototype/StaffTrainingPrototypeWalkthrough";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
-import { listStaffTrainingRoster } from "@/lib/staffTrainingRoster";
+import { listStaffTrainingRoster, partitionStaffTrainingRows } from "@/lib/staffTrainingRoster";
 
 const STAFF_TRAINING_TABS = [
   { id: "prototype", label: "Prototype Training" },
@@ -75,6 +74,11 @@ export default function TrainingStaffPage() {
     [rows, searchQuery]
   );
 
+  const { activeRows, pastRows } = useMemo(
+    () => partitionStaffTrainingRows(filteredRows),
+    [filteredRows]
+  );
+
   if (!session) return null;
 
   const isWalkthrough = activePanel === "prototype";
@@ -116,10 +120,14 @@ export default function TrainingStaffPage() {
 
       {isWalkthrough ? (
         <StaffTrainingPrototypeWalkthrough session={session} />
-      ) : activePanel === "overview" ? (
-        <TrainingOverviewTable rows={filteredRows} loading={loading} error={error} />
       ) : (
-        <TrainingGradebookTable rows={filteredRows} loading={loading} error={error} />
+        <TrainingStaffTripSections
+          mode={activePanel === "gradebook" ? "gradebook" : "overview"}
+          activeRows={activeRows}
+          pastRows={pastRows}
+          loading={loading}
+          error={error}
+        />
       )}
     </Shell>
   );
