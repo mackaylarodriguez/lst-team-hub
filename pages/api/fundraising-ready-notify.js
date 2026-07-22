@@ -3,7 +3,7 @@
  *
  * Env:
  * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL (or RESEND_FROM_EMAIL)
- * - FUNDRAISING_READY_CC_EMAIL — optional CC (defaults to Leslee)
+ * - FUNDRAISING_READY_CC_EMAIL — optional CC (none by default)
  * - FUNDRAISING_READY_BCC_EMAIL — optional BCC (defaults to Mackayla)
  */
 
@@ -89,9 +89,7 @@ async function authenticateStaffOrAdmin(req) {
 }
 
 function getFundraisingReadyCcEmails() {
-  return parseNotifyEmailList(
-    process.env.FUNDRAISING_READY_CC_EMAIL || "leslee.altrock@lst.org"
-  );
+  return parseNotifyEmailList(process.env.FUNDRAISING_READY_CC_EMAIL || "");
 }
 
 function getFundraisingReadyBccEmails() {
