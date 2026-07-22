@@ -2,10 +2,11 @@
  * Admin-only: send test copies of Hub notification emails without locking teams or creating invites.
  *
  * POST body:
- * - template: "worker_invite" | "team_lock"
+ * - template: "worker_invite" | "team_lock" | "fundraising_ready"
  * - tripId: uuid
  * - testEmail: recipient (defaults to admin profile email)
- * - recipientName: optional, for worker invite fallback greeting
+ * - recipientName: optional, for worker invite / fundraising ready greeting
+ * - memberId: optional roster member id for fundraising_ready (otherwise first member with email)
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -20,6 +21,16 @@ import {
   buildTeamLockStaffEmailHtml,
   buildTeamLockStaffEmailSubject,
 } from "@/lib/teamLockStaffEmail";
+import {
+  buildFundraisingReadyEmailHtml,
+  buildFundraisingReadyEmailSubject,
+  FUNDRAISING_PAGE_TUTORIAL_URL,
+} from "@/lib/fundraisingReadyEmail";
+import {
+  computeWeeksBetweenDepartAndEnd,
+  formatWeeksLabel,
+  firstNonBlankValue,
+} from "@/lib/teamLockProjectLength";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -124,8 +135,14 @@ export default async function handler(req, res) {
   if (!testEmail) {
     return res.status(400).json({ error: "testEmail is required." });
   }
-  if (template !== "worker_invite" && template !== "team_lock") {
-    return res.status(400).json({ error: 'template must be "worker_invite" or "team_lock".' });
+  if (
+    template !== "worker_invite" &&
+    template !== "team_lock" &&
+    template !== "fundraising_ready"
+  ) {
+    return res.status(400).json({
+      error: 'template must be "worker_invite", "team_lock", or "fundraising_ready".',
+    });
   }
 
   try {
@@ -157,6 +174,72 @@ export default async function handler(req, res) {
         teamMembers: context.teamMembers,
         appLoginUrl: `${baseUrl}/login`,
         inviteUrl: `${baseUrl}/login?test=worker-invite-preview`,
+      });
+    } else if (template === "fundraising_ready") {
+      const memberId = normalizeText(req.body?.memberId);
+      let member =
+        (context.teamMembers || []).find((row) => normalizeText(row?.id) === memberId) || null;
+
+      if (!member && memberId) {
+        const { data: memberRow } = await admin
+          .from("trip_team_members")
+          .select("id, first_name, last_name, email, fundraising_url, fundraising_goal_amount")
+          .eq("id", memberId)
+          .eq("trip_id", tripId)
+          .maybeSingle();
+        if (memberRow) {
+          member = {
+            firstName: memberRow.first_name,
+            lastName: memberRow.last_name,
+            email: memberRow.email,
+            fundraisingUrl: memberRow.fundraising_url,
+            fundraisingGoalAmount: memberRow.fundraising_goal_amount,
+          };
+        }
+      }
+
+      if (!member) {
+        const { data: firstMember } = await admin
+          .from("trip_team_members")
+          .select("id, first_name, last_name, email, fundraising_url, fundraising_goal_amount")
+          .eq("trip_id", tripId)
+          .limit(1)
+          .maybeSingle();
+        if (firstMember) {
+          member = {
+            firstName: firstMember.first_name,
+            lastName: firstMember.last_name,
+            email: firstMember.email,
+            fundraisingUrl: firstMember.fundraising_url,
+            fundraisingGoalAmount: firstMember.fundraising_goal_amount,
+          };
+        }
+      }
+
+      const memberName =
+        recipientName ||
+        [member?.firstName || member?.first_name, member?.lastName || member?.last_name]
+          .filter(Boolean)
+          .join(" ")
+          .trim() ||
+        "Worker";
+      const explicitWeeks = firstNonBlankValue(context.weeks);
+      const computedWeeks = computeWeeksBetweenDepartAndEnd(context.startDate, context.endDate);
+      const projectWeeksLabel = formatWeeksLabel(
+        explicitWeeks || (computedWeeks == null ? "" : String(computedWeeks))
+      );
+
+      subject = `[TEST] ${buildFundraisingReadyEmailSubject({ recipientName: memberName })}`;
+      html = buildFundraisingReadyEmailHtml({
+        recipientName: memberName,
+        fundraisingUrl:
+          member?.fundraisingUrl ||
+          member?.fundraising_url ||
+          "https://example.neonone.com/fundraising",
+        fundraisingGoalAmount:
+          member?.fundraisingGoalAmount ?? member?.fundraising_goal_amount ?? 2500,
+        projectWeeksLabel: projectWeeksLabel || "3 weeks",
+        tutorialUrl: FUNDRAISING_PAGE_TUTORIAL_URL,
       });
     } else {
       const lockPayload = {

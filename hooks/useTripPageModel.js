@@ -25,6 +25,10 @@ import {
   saveTripTeamMembers,
   updateTripTeamMemberTshirtSize,
 } from "@/lib/tripTeamMembers";
+import {
+  hasFundraisingLinkAndAmount,
+  sendFundraisingReadyNotify,
+} from "@/lib/fundraisingReadyNotify";
 import { pruneTripTicketsForNonTravelingLeaders, listTripTickets } from "@/lib/tripTickets";
 import {
   getTrainingModuleDeadline,
@@ -2316,6 +2320,14 @@ export function useTripPageModel() {
       fundraisingGoalAmount: "",
     };
 
+    const rosterMember = (trip.teamMembers || []).find(
+      (m) => m.id === participant.tripTeamMemberId
+    );
+    const wasFundraisingReady = hasFundraisingLinkAndAmount({
+      fundraisingUrl: rosterMember?.fundraisingUrl || "",
+      fundraisingGoalAmount: rosterMember?.fundraisingGoalAmount,
+    });
+
     try {
       setFundraisingStatus((current) => ({
         ...current,
@@ -2370,6 +2382,22 @@ export function useTripPageModel() {
                 : "",
           },
         }));
+
+        const isFundraisingReady = hasFundraisingLinkAndAmount({
+          fundraisingUrl: savedMember.fundraisingUrl,
+          fundraisingGoalAmount: savedMember.fundraisingGoalAmount,
+        });
+
+        if (isFundraisingReady && !wasFundraisingReady) {
+          try {
+            await sendFundraisingReadyNotify({
+              tripId: trip.id,
+              memberId: participant.tripTeamMemberId,
+            });
+          } catch (notifyError) {
+            console.error("Unable to send fundraising ready email", notifyError);
+          }
+        }
       } else {
         if (
           String(draft.fundraisingGoalAmount || "").trim() !== "" &&
