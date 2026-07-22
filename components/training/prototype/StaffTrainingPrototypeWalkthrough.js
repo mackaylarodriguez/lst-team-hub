@@ -215,6 +215,9 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
   }
 
   function handleSectionContinue(sectionId, moduleId) {
+    // Next / Continue only navigates. Completion requires Mark section as read / Mark video as watched.
+    if (!sectionId || !completedSectionIds[sectionId]) return;
+
     const nextSectionId = getNextPrototypeSectionIdFromModules(modules, sectionId, moduleId);
     if (!nextSectionId) {
       closeOverlay();

@@ -17,6 +17,14 @@ export default function TrainingSectionFullView({
   const blocks = section?.fullSessionBlocks || [{ heading: section?.title, body: section?.body }];
   const videoEmbedUrl = resolvePrototypeSectionVideoEmbed(section);
   const isVideoSection = Boolean(section?.showVideo);
+  const markLabel = isVideoSection ? "Mark video as watched" : "Mark section as read";
+  const markedLabel = isVideoSection ? "Video marked as watched" : "Section marked as read";
+
+  function handleContinue() {
+    // Navigation only — never marks complete. Require an explicit mark first.
+    if (!sectionComplete) return;
+    onContinue?.();
+  }
 
   return (
     <TrainingPrototypeFullscreenShell
@@ -29,7 +37,19 @@ export default function TrainingSectionFullView({
             Previous
           </button>
           <div className="spacer" />
-          <button type="button" className="btn btnPrimary" onClick={onContinue}>
+          <button
+            type="button"
+            className="btn btnPrimary"
+            onClick={handleContinue}
+            disabled={!sectionComplete}
+            title={
+              sectionComplete
+                ? undefined
+                : isVideoSection
+                  ? "Mark the video as watched before continuing"
+                  : "Mark the section as read before continuing"
+            }
+          >
             {continueLabel}
           </button>
         </>
@@ -54,20 +74,34 @@ export default function TrainingSectionFullView({
               disabled={sectionComplete}
               onClick={onMarkAsRead}
             >
-              {sectionComplete ? "Marked as watched" : "Mark as watched"}
+              {sectionComplete ? markedLabel : markLabel}
             </button>
           </div>
+          {!sectionComplete ? (
+            <p className="small trainingPrototypeMuted" style={{ margin: "8px auto 0", maxWidth: 760 }}>
+              Mark the video as watched to unlock{" "}
+              {continueLabel === "Continue to quiz" ? "the quiz" : "Next"}.
+            </p>
+          ) : null}
         </div>
       ) : (
-        <div className="trainingPrototypeMarkCompleteRow">
-          <button
-            type="button"
-            className={sectionComplete ? "btn" : "btn btnPrimary"}
-            disabled={sectionComplete}
-            onClick={onMarkAsRead}
-          >
-            {sectionComplete ? "Marked as completed" : "Mark as completed"}
-          </button>
+        <div>
+          <div className="trainingPrototypeMarkCompleteRow">
+            <button
+              type="button"
+              className={sectionComplete ? "btn" : "btn btnPrimary"}
+              disabled={sectionComplete}
+              onClick={onMarkAsRead}
+            >
+              {sectionComplete ? markedLabel : markLabel}
+            </button>
+          </div>
+          {!sectionComplete ? (
+            <p className="small trainingPrototypeMuted" style={{ margin: "8px auto 0", maxWidth: 760 }}>
+              Mark the section as read to unlock{" "}
+              {continueLabel === "Continue to quiz" ? "the quiz" : "Next"}.
+            </p>
+          ) : null}
         </div>
       )}
     </TrainingPrototypeFullscreenShell>

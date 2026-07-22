@@ -64,9 +64,12 @@ export default function TrainingPrototypeModuleBlock({
         <div className="trainingPrototypeSectionStack">
           {sections.map((section, index) => {
             const sectionComplete = !!completedSectionIds[section.id];
+            // Only explicit mark/quiz submit counts — opening or clicking Next does not.
+            const firstIncompleteIndex = sections.findIndex((item) => !completedSectionIds[item.id]);
+            const hasAnyComplete = sections.some((item) => completedSectionIds[item.id]);
             const sectionStatus = sectionComplete
               ? PROTOTYPE_STATUS_META.completed
-              : index === 0 || completedSectionIds[sections[index - 1]?.id]
+              : hasAnyComplete && index === firstIncompleteIndex
                 ? PROTOTYPE_STATUS_META.in_progress
                 : PROTOTYPE_STATUS_META.not_started;
 
@@ -133,7 +136,13 @@ export default function TrainingPrototypeModuleBlock({
                           disabled={sectionComplete}
                           onClick={() => onMarkSectionRead?.(section.id)}
                         >
-                          {sectionComplete ? "Marked as read" : "Mark as read"}
+                          {sectionComplete
+                            ? section.showVideo
+                              ? "Video marked as watched"
+                              : "Section marked as read"
+                            : section.showVideo
+                              ? "Mark video as watched"
+                              : "Mark section as read"}
                         </button>
                         <TrainingPrototypeFullSessionButton
                           label="Open Quiz ↗"
@@ -150,7 +159,13 @@ export default function TrainingPrototypeModuleBlock({
                           disabled={sectionComplete}
                           onClick={() => onMarkSectionRead?.(section.id)}
                         >
-                          {sectionComplete ? "Marked as read" : "Mark as read"}
+                          {sectionComplete
+                            ? section.showVideo
+                              ? "Video marked as watched"
+                              : "Section marked as read"
+                            : section.showVideo
+                              ? "Mark video as watched"
+                              : "Mark section as read"}
                         </button>
                         <TrainingPrototypeFullSessionButton
                           label="Open Training Section ↗"

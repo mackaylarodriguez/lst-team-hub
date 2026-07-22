@@ -1,8 +1,7 @@
 import { useTripPage } from "../TripPageContext";
 import TripParticipantCollapsible from "../TripParticipantCollapsible";
 import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
-import TripTrainingProgressCard from "../TripTrainingProgressCard";
-import TripTrainingResourcesLayout from "../TripTrainingResourcesLayout";
+import TripTrainingPrototypePanel from "@/components/training/prototype/TripTrainingPrototypePanel";
 import { buildTrainingModuleRowDomId } from "../tripPageShared";
 import {
   getTrainingSessionOptionsForModuleTitle,
@@ -25,8 +24,6 @@ export default function TripTrainingTab() {
     gatewayTrainingUrl,
     currentParticipant,
     formatShortDate,
-    optionalTrainingResources,
-    requiredTrainingResources,
     supplementalTrainingModules,
     toDateInputValue,
     toggleTraining,
@@ -37,18 +34,9 @@ export default function TripTrainingTab() {
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
-              <CollapsibleSection className="tripTrainingResourcesDropdown" title="Staff Led Components" defaultOpen>
-                <TripTrainingResourcesLayout
-                  requiredTrainingResources={requiredTrainingResources}
-                  optionalTrainingResources={optionalTrainingResources}
-                />
-              </CollapsibleSection>
-    
-              <CollapsibleSection defaultOpen>
-              <TripTrainingProgressCard />
-              </CollapsibleSection>
-    
-              <CollapsibleSection defaultOpen>
+              <TripTrainingPrototypePanel />
+
+              <CollapsibleSection title="Classroom checklist" defaultOpen>
               <div
                 className={
                   canViewTeamDashboard && visibleTrainingParticipants.length > 1
