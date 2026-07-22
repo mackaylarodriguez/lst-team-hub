@@ -502,10 +502,10 @@ export default function TripFundraisingTab() {
                 ) : (
                   <div
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fill, minmax(150px, 180px))",
+                      display: "flex",
+                      flexWrap: "wrap",
                       gap: 10,
-                      justifyContent: "start",
+                      alignItems: "stretch",
                     }}
                   >
                     {visibleFundraisingParticipants.map((participant) => {
@@ -533,27 +533,32 @@ export default function TripFundraisingTab() {
                             boxShadow: "none",
                             display: "grid",
                             gap: 8,
-                            padding: "12px",
+                            padding: "12px 14px",
                             background: "linear-gradient(180deg, rgba(234,242,255,.65), #ffffff 40%)",
                             borderColor: "rgba(47,73,147,.14)",
-                            width: "100%",
-                            maxWidth: 180,
+                            width: "fit-content",
+                            minWidth: 220,
+                            maxWidth: "100%",
                           }}
                         >
-                          <div className="row" style={{ alignItems: "center", gap: 8 }}>
+                          <div
+                            className="row"
+                            style={{
+                              alignItems: "center",
+                              gap: 8,
+                              flexWrap: "nowrap",
+                            }}
+                          >
                             <div
                               className="cardSectionPill"
                               style={{
                                 marginBottom: 0,
-                                maxWidth: "100%",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
                                 whiteSpace: "nowrap",
+                                flex: "1 1 auto",
                               }}
                             >
                               {canViewFundraisingTeamDashboard ? participant.name : "My fundraising"}
                             </div>
-                            <div className="spacer" />
                             {canEditParticipantFundraising && !isEditingParticipantLink ? (
                               <button
                                 className="btn"
@@ -583,6 +588,7 @@ export default function TripFundraisingTab() {
                                   justifyContent: "center",
                                   padding: 8,
                                   minWidth: 36,
+                                  flex: "0 0 auto",
                                 }}
                               >
                                 <span style={{ display: "inline-flex", width: 16, height: 16 }}>
