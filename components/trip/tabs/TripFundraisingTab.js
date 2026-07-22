@@ -51,7 +51,6 @@ export default function TripFundraisingTab() {
     canManageTripFundraising,
     canViewFundraisingTeamDashboard,
     canViewTeamDashboard,
-    countForDeadlines,
     editingParticipantFundraisingId,
     formatDeadlineDate,
     formatMoney,
@@ -60,7 +59,6 @@ export default function TripFundraisingTab() {
     fundraisingFirstDeadlineAmount,
     fundraisingFirstDeadlineLabel,
     fundraisingFirstDeadlineDate,
-    fundraisingDeadlineGoalAmount,
     fundraisingGoalAmount,
     fundraisingSecondDeadlineAmount,
     fundraisingSecondDeadlineLabel,
@@ -180,9 +178,9 @@ export default function TripFundraisingTab() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: canViewFundraisingTeamDashboard
-                    ? "repeat(auto-fit, minmax(260px, 1fr))"
-                    : "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: 16,
+                    ? "repeat(auto-fit, minmax(220px, 1fr))"
+                    : "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: 12,
                 }}
               >
                 <div
@@ -193,8 +191,7 @@ export default function TripFundraisingTab() {
                     borderColor: "rgba(180,140,40,.22)",
                     display: "flex",
                     flexDirection: "column",
-                    gap: 8,
-                    minHeight: 176,
+                    gap: 6,
                   }}
                 >
                   <div className="cardSectionPill" style={{ marginBottom: 2 }}>
@@ -206,32 +203,14 @@ export default function TripFundraisingTab() {
                       : formatMoney(fundraisingFirstDeadlineAmount)}
                   </div>
                   <div className="small" style={{ opacity: 0.9 }}>
-                    {fundraisingUsesPercentMilestones ? (
-                      <>
-                        50% of fundraising due by{" "}
-                        <strong>{formatDeadlineDate(fundraisingFirstDeadlineDate)}</strong>
-                      </>
-                    ) : (
-                      <>
-                        Target raised by{" "}
-                        <strong>{formatDeadlineDate(fundraisingFirstDeadlineDate)}</strong>
-                      </>
-                    )}
+                    {fundraisingUsesPercentMilestones ? "50% of fundraising due by " : "Due by "}
+                    <strong>{formatDeadlineDate(fundraisingFirstDeadlineDate)}</strong>
                     {!trip?.startDate ? (
                       <span style={{ color: "var(--muted)" }}>
                         {" "}
-                        — add a trip start date on the trip to calculate this deadline.
+                        — add a trip start date to calculate this deadline.
                       </span>
                     ) : null}
-                  </div>
-                  <div className="small" style={{ opacity: 0.78, marginTop: "auto", lineHeight: 1.45 }}>
-                    {fundraisingUsesPercentMilestones
-                      ? "Domestic milestone: half of fundraising should be raised by this date."
-                      : canViewTeamDashboard
-                        ? `First milestone for the team (${countForDeadlines} worker${
-                            countForDeadlines === 1 ? "" : "s"
-                          }): typically $2,000 per person toward the trip goal, not more than the total goal.`
-                        : "First slice of your trip goal is usually due by this date (often $2,000 toward your full amount)."}
                   </div>
                 </div>
                 <div
@@ -242,8 +221,7 @@ export default function TripFundraisingTab() {
                     borderColor: "rgba(50,120,70,.18)",
                     display: "flex",
                     flexDirection: "column",
-                    gap: 8,
-                    minHeight: 176,
+                    gap: 6,
                   }}
                 >
                   <div className="cardSectionPill" style={{ marginBottom: 2 }}>
@@ -255,39 +233,14 @@ export default function TripFundraisingTab() {
                       : formatMoney(fundraisingSecondDeadlineAmount)}
                   </div>
                   <div className="small" style={{ opacity: 0.9 }}>
-                    {fundraisingUsesPercentMilestones ? (
-                      <>
-                        50% of fundraising due by{" "}
-                        <strong>{formatDeadlineDate(fundraisingSecondDeadlineDate)}</strong>
-                      </>
-                    ) : (
-                      <>
-                        Remaining goal due by{" "}
-                        <strong>{formatDeadlineDate(fundraisingSecondDeadlineDate)}</strong>
-                      </>
-                    )}
+                    {fundraisingUsesPercentMilestones ? "50% of fundraising due by " : "Remaining due by "}
+                    <strong>{formatDeadlineDate(fundraisingSecondDeadlineDate)}</strong>
                     {!trip?.startDate ? (
                       <span style={{ color: "var(--muted)" }}>
                         {" "}
-                        — add a trip start date on the trip to calculate this deadline.
+                        — add a trip start date to calculate this deadline.
                       </span>
                     ) : null}
-                  </div>
-                  <div className="small" style={{ opacity: 0.78, marginTop: "auto", lineHeight: 1.45 }}>
-                    {fundraisingUsesPercentMilestones
-                      ? "Domestic milestone: the other half of fundraising should be raised by this date."
-                      : fundraisingDeadlineGoalAmount > 0 ? (
-                      fundraisingSecondDeadlineAmount > 0 ? (
-                        <>
-                          {formatMoney(fundraisingDeadlineGoalAmount)} goal minus{" "}
-                          {formatMoney(fundraisingFirstDeadlineAmount)} first milestone.
-                        </>
-                      ) : (
-                        "If your total goal matches the first milestone, there is no separate 30-day balance."
-                      )
-                    ) : (
-                      "Add your fundraising goal on this trip to calculate the 30-day balance."
-                    )}
                   </div>
                 </div>
                 <div
@@ -298,21 +251,15 @@ export default function TripFundraisingTab() {
                     borderColor: "rgba(47,73,147,.2)",
                     display: "flex",
                     flexDirection: "column",
-                    gap: 12,
+                    gap: 10,
                     justifyContent: "space-between",
-                    minHeight: 176,
                   }}
                 >
                   <div>
                     <div className="cardSectionPill" style={{ marginBottom: 6 }}>Resources</div>
-                    <div style={{ fontWeight: 900, fontSize: 17, marginBottom: 6 }}>
-                      Fundraising guides and tools
-                    </div>
-                    <div className="small" style={{ opacity: 0.88, lineHeight: 1.45 }}>
-                      LST handouts, Neon tips, and training references for workers and leaders.
-                    </div>
+                    <div style={{ fontWeight: 900, fontSize: 16 }}>Fundraising guides</div>
                   </div>
-                  <div className="row" style={{ flexWrap: "wrap", gap: 10, marginTop: 4 }}>
+                  <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
                     <a
                       className="btn btnPrimary"
                       href="https://lst.org/projects/general-financial-information/"
@@ -320,7 +267,7 @@ export default function TripFundraisingTab() {
                       rel="noreferrer noopener"
                       style={{ alignSelf: "flex-start" }}
                     >
-                      General financial information
+                      Financial info
                     </a>
                     <a
                       className="btn"
@@ -329,7 +276,7 @@ export default function TripFundraisingTab() {
                       rel="noreferrer noopener"
                       style={{ alignSelf: "flex-start" }}
                     >
-                      How to edit your fundraising page
+                      Edit fundraising page
                     </a>
                   </div>
                 </div>
