@@ -104,6 +104,7 @@ import {
 import {
   saveTripFundraisingSettings,
   parsePositiveFundraisingGoal,
+  parseExplicitFundraisingGoal,
   resolveWorkerFundraisingGoalAmount,
   computeDefaultTeamBudgetFromFundraising,
   computeTeamFundraisingGoalTotal,
@@ -4657,7 +4658,8 @@ function parseDateSafe(dateStr) {
         ...tripSetupDraft,
         tripFeeAmount: trimmedTripFee || String(DEFAULT_TRIP_FEE_AMOUNT),
         materialsFeeAmount: trimmedMaterials || String(DEFAULT_MATERIALS_FEE_AMOUNT),
-        hannoverHousingFeeAmount: trimmedHannover || String(DEFAULT_HANNOVER_HOUSING_FEE_AMOUNT),
+        // Leave blank when empty — do not auto-fill the $600 placeholder as a real value.
+        hannoverHousingFeeAmount: trimmedHannover || null,
       });
 
       setTrip((current) =>
@@ -5401,7 +5403,14 @@ function parseDateSafe(dateStr) {
                   <div style={{ fontWeight: 800 }}>{trip.hasDeferredWorker ? "Yes" : "No"}</div>
                   <div style={{ height: 12 }} />
                   <div className="small">Hannover Housing Fee</div>
-                  <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.hannoverHousingFeeAmount)}</div>
+                  <div style={{ fontWeight: 800 }}>
+                    {formatOptionalMoney(
+                      draftFeeAmountUnlessDefault(
+                        trip.hannoverHousingFeeAmount,
+                        DEFAULT_HANNOVER_HOUSING_FEE_AMOUNT
+                      ) || null
+                    )}
+                  </div>
                   <div style={{ height: 12 }} />
                   <div className="small">Domestic Project</div>
                   <div style={{ fontWeight: 800 }}>{formatOptionalMoney(trip.domesticProjectFeeAmount)}</div>
@@ -6079,8 +6088,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
       );
       const mergedParticipants = (trip.participants || []).map((p) => {
         const m = rosterByEmail.get(normalizeEmail(p.email));
-        const participantGoal = parsePositiveFundraisingGoal(p.fundraisingGoalAmount);
-        const rosterGoal = parsePositiveFundraisingGoal(m?.fundraisingGoalAmount);
+        const participantGoal = parseExplicitFundraisingGoal(p.fundraisingGoalAmount);
+        const rosterGoal = parseExplicitFundraisingGoal(m?.fundraisingGoalAmount);
         return {
           ...p,
           tripTeamMemberId: p.tripTeamMemberId || m?.id || "",
@@ -6099,7 +6108,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
           email: member.email || "",
           fundraisingUrl: member.fundraisingUrl || "",
           fundraisingGoalAmount:
-            parsePositiveFundraisingGoal(member.fundraisingGoalAmount) ?? tripDefaultGoal,
+            parseExplicitFundraisingGoal(member.fundraisingGoalAmount) ?? tripDefaultGoal,
           rosterOnly: true,
         }));
       const merged = [...mergedParticipants, ...rosterOnly];
@@ -6128,8 +6137,8 @@ normalizeEmail(participant.email) === activeParticipantEmail
       })
       .map((participant) => {
         const rosterGoalRaw = rosterGoalByEmail.get(normalizeEmail(participant.email));
-        const participantGoal = parsePositiveFundraisingGoal(participant.fundraisingGoalAmount);
-        const rosterGoal = parsePositiveFundraisingGoal(rosterGoalRaw);
+        const participantGoal = parseExplicitFundraisingGoal(participant.fundraisingGoalAmount);
+        const rosterGoal = parseExplicitFundraisingGoal(rosterGoalRaw);
         return {
           ...participant,
           fundraisingGoalAmount: participantGoal ?? rosterGoal ?? tripDefaultGoal,

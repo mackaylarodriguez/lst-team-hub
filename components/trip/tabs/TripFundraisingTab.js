@@ -433,7 +433,7 @@ export default function TripFundraisingTab() {
                       gap: 10,
                       background: "linear-gradient(180deg, rgba(234,242,255,.65), #ffffff 40%)",
                       borderColor: "rgba(47,73,147,.14)",
-                      maxWidth: 360,
+                      maxWidth: 220,
                     }}
                   >
                     <div className="row" style={{ alignItems: "center", gap: 8 }}>
@@ -503,20 +503,21 @@ export default function TripFundraisingTab() {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: canViewFundraisingTeamDashboard
-                        ? "repeat(auto-fit, minmax(180px, 1fr))"
-                        : "repeat(auto-fit, minmax(160px, 1fr))",
-                      gap: 12,
+                      gridTemplateColumns: "repeat(auto-fill, minmax(150px, 180px))",
+                      gap: 10,
+                      justifyContent: "start",
                     }}
                   >
                     {visibleFundraisingParticipants.map((participant) => {
                       const isEditingParticipantLink =
                         editingParticipantFundraisingId === participant.id;
+                      const participantGoal = Number(participant.fundraisingGoalAmount);
                       const goalAmount =
                         participant.fundraisingGoalAmount != null &&
                         participant.fundraisingGoalAmount !== "" &&
-                        Number(participant.fundraisingGoalAmount) > 0
-                          ? Number(participant.fundraisingGoalAmount)
+                        Number.isFinite(participantGoal) &&
+                        participantGoal >= 0
+                          ? participantGoal
                           : Number(trip?.fundraisingGoalAmount || 0) > 0
                             ? Number(trip.fundraisingGoalAmount)
                             : 0;
@@ -531,18 +532,23 @@ export default function TripFundraisingTab() {
                           style={{
                             boxShadow: "none",
                             display: "grid",
-                            gap: 10,
+                            gap: 8,
+                            padding: "12px",
                             background: "linear-gradient(180deg, rgba(234,242,255,.65), #ffffff 40%)",
                             borderColor: "rgba(47,73,147,.14)",
+                            width: "100%",
+                            maxWidth: 180,
                           }}
                         >
                           <div className="row" style={{ alignItems: "center", gap: 8 }}>
                             <div
+                              className="cardSectionPill"
                               style={{
-                                fontWeight: 900,
-                                fontSize: 15,
-                                lineHeight: 1.2,
-                                minWidth: 0,
+                                marginBottom: 0,
+                                maxWidth: "100%",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
                               }}
                             >
                               {canViewFundraisingTeamDashboard ? participant.name : "My fundraising"}
@@ -588,7 +594,7 @@ export default function TripFundraisingTab() {
 
                           {!isEditingParticipantLink ? (
                             <>
-                              <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>
+                              <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.02em" }}>
                                 {formatMoney(goalAmount)}
                               </div>
                               {participant.fundraisingUrl ? (
@@ -597,7 +603,7 @@ export default function TripFundraisingTab() {
                                   href={participant.fundraisingUrl}
                                   target="_blank"
                                   rel="noreferrer"
-                                  style={{ justifySelf: "start" }}
+                                  style={{ justifySelf: "start", padding: "6px 10px", fontSize: 12 }}
                                 >
                                   Open Neon Page
                                 </a>
