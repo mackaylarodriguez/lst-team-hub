@@ -646,7 +646,7 @@ export default function TripFundraisingTab() {
                                   type="text"
                                   inputMode="decimal"
                                   disabled={!participant.tripTeamMemberId}
-                                  value={fundraisingDrafts[participant.id]?.fundraisingGoalAmount || ""}
+                                  value={fundraisingDrafts[participant.id]?.fundraisingGoalAmount ?? ""}
                                   onChange={(event) =>
                                     updateFundraisingDraft(
                                       participant.id,
