@@ -37,6 +37,86 @@ function formatDate(value) {
   return parsed.toLocaleDateString();
 }
 
+function startOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function parseProfileTripEnd(trip) {
+  if (!trip?.endDate) return null;
+  const end = new Date(`${trip.endDate}T00:00:00`);
+  return Number.isNaN(end.getTime()) ? null : end;
+}
+
+function isProfileTripPast(assignment) {
+  const trip = assignment?.trip;
+  if (!trip) return false;
+  if (String(trip.status || "").toLowerCase() === "archived") return true;
+  const end = parseProfileTripEnd(trip);
+  if (!end) return false;
+  return end < startOfToday();
+}
+
+function renderProfileTripAssignmentCard(assignment, tripProgressById) {
+  const progress = tripProgressById?.[assignment.tripId] || null;
+  return (
+    <Link
+      key={`${assignment.tripId}-${assignment.createdAt}`}
+      href={`/trips/${encodeURIComponent(assignment.tripId)}`}
+      className="card pad"
+      style={{ boxShadow: "none", textDecoration: "none", color: "inherit" }}
+    >
+      <div style={{ fontWeight: 900 }}>{assignment.trip?.name}</div>
+      <div className="small">{assignment.trip?.location}</div>
+      {progress ? (
+        <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+          <div>
+            <div
+              className="row"
+              style={{
+                justifyContent: "space-between",
+                gap: 8,
+                marginBottom: 4,
+              }}
+            >
+              <span className="small" style={{ fontWeight: 700 }}>
+                Training
+              </span>
+              <span className="small">
+                {progress.trainingComplete}/{progress.trainingTotal} · {progress.trainingPercent}%
+              </span>
+            </div>
+            <div className="progress">
+              <div style={{ width: `${progress.trainingPercent}%` }} />
+            </div>
+          </div>
+          <div>
+            <div
+              className="row"
+              style={{
+                justifyContent: "space-between",
+                gap: 8,
+                marginBottom: 4,
+              }}
+            >
+              <span className="small" style={{ fontWeight: 700 }}>
+                Tasks
+              </span>
+              <span className="small">
+                {progress.tasksComplete}/{progress.tasksTotal} · {progress.taskPercent}%
+              </span>
+            </div>
+            <div className="progress">
+              <div style={{ width: `${progress.taskPercent}%` }} />
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </Link>
+  );
+}
+
 function formatProfileRole(role) {
   const normalized = String(role || "").trim();
   if (!normalized) return "Worker";
@@ -235,7 +315,7 @@ export default function Profile() {
         if (tripIds.length > 0) {
           const { data: tripRows, error: tripError } = await supabase
             .from("trips")
-            .select("id, trip_name, location, start_date, end_date")
+            .select("id, trip_name, location, start_date, end_date, status")
             .in("id", tripIds);
 
           if (tripError) {
@@ -251,6 +331,7 @@ export default function Profile() {
                 location: trip.location || "",
                 startDate: trip.start_date || "",
                 endDate: trip.end_date || "",
+                status: trip.status || "active",
               },
             ])
           );
@@ -329,6 +410,16 @@ export default function Profile() {
     !!profile && (isOwnProfile || canEditWorkerProfileEmail);
   const canDeleteDocuments =
     !!profile && (canManageProfiles || String(profile.id) === String(session?.profileId || session?.id));
+
+  const { activeAssignments, pastAssignments } = useMemo(() => {
+    const active = [];
+    const past = [];
+    for (const assignment of assignments || []) {
+      if (isProfileTripPast(assignment)) past.push(assignment);
+      else active.push(assignment);
+    }
+    return { activeAssignments: active, pastAssignments: past };
+  }, [assignments]);
 
   async function handleDeleteDocument(document) {
     if (!profile || !document?.id) return;
@@ -835,73 +926,38 @@ export default function Profile() {
           <div className="card pad" style={{ flex: "1 1 280px", minWidth: 0 }}>
             <div className="small">Trips</div>
             <div style={{ fontWeight: 900, fontSize: 18 }}>{assignments.length}</div>
-            <div className="small" style={{ marginTop: 8 }}>
-              Current and past trip assignments visible on this profile.
-            </div>
-            <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-              {assignments.length > 0 ? (
-                assignments.map((assignment) => {
-                  const progress = tripProgressById[assignment.tripId] || null;
-                  return (
-                    <Link
-                      key={`${assignment.tripId}-${assignment.createdAt}`}
-                      href={`/trips/${encodeURIComponent(assignment.tripId)}`}
-                      className="card pad"
-                      style={{ boxShadow: "none", textDecoration: "none", color: "inherit" }}
-                    >
-                      <div style={{ fontWeight: 900 }}>{assignment.trip?.name}</div>
-                      <div className="small">{assignment.trip?.location}</div>
-                      {progress ? (
-                        <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                          <div>
-                            <div
-                              className="row"
-                              style={{
-                                justifyContent: "space-between",
-                                gap: 8,
-                                marginBottom: 4,
-                              }}
-                            >
-                              <span className="small" style={{ fontWeight: 700 }}>
-                                Training
-                              </span>
-                              <span className="small">
-                                {progress.trainingComplete}/{progress.trainingTotal} ·{" "}
-                                {progress.trainingPercent}%
-                              </span>
-                            </div>
-                            <div className="progress">
-                              <div style={{ width: `${progress.trainingPercent}%` }} />
-                            </div>
-                          </div>
-                          <div>
-                            <div
-                              className="row"
-                              style={{
-                                justifyContent: "space-between",
-                                gap: 8,
-                                marginBottom: 4,
-                              }}
-                            >
-                              <span className="small" style={{ fontWeight: 700 }}>
-                                Tasks
-                              </span>
-                              <span className="small">
-                                {progress.tasksComplete}/{progress.tasksTotal} ·{" "}
-                                {progress.taskPercent}%
-                              </span>
-                            </div>
-                            <div className="progress">
-                              <div style={{ width: `${progress.taskPercent}%` }} />
-                            </div>
-                          </div>
-                        </div>
-                      ) : null}
-                    </Link>
-                  );
-                })
-              ) : (
+            <div style={{ display: "grid", gap: 16, marginTop: 12 }}>
+              {assignments.length === 0 ? (
                 <div className="small">No trip assignments found.</div>
+              ) : (
+                <>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    <div className="row" style={{ alignItems: "center", gap: 8 }}>
+                      <div style={{ fontWeight: 800 }}>Active trips</div>
+                      <span className="badge">{activeAssignments.length}</span>
+                    </div>
+                    {activeAssignments.length > 0 ? (
+                      activeAssignments.map((assignment) =>
+                        renderProfileTripAssignmentCard(assignment, tripProgressById)
+                      )
+                    ) : (
+                      <div className="small">No active trips.</div>
+                    )}
+                  </div>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    <div className="row" style={{ alignItems: "center", gap: 8 }}>
+                      <div style={{ fontWeight: 800 }}>Past trips</div>
+                      <span className="badge">{pastAssignments.length}</span>
+                    </div>
+                    {pastAssignments.length > 0 ? (
+                      pastAssignments.map((assignment) =>
+                        renderProfileTripAssignmentCard(assignment, tripProgressById)
+                      )
+                    ) : (
+                      <div className="small">No past trips.</div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
