@@ -53,6 +53,7 @@ export default function TripFundraisingTab() {
     fundraisingFirstDeadlineAmount,
     fundraisingFirstDeadlineLabel,
     fundraisingFirstDeadlineDate,
+    fundraisingGoalAmount,
     fundraisingSecondDeadlineAmount,
     fundraisingSecondDeadlineLabel,
     fundraisingSecondDeadlineDate,
