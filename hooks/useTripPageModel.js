@@ -291,6 +291,8 @@ export function useTripPageModel() {
   const [docDraft, setDocDraft] = useState(null);
   const [referenceEmails, setReferenceEmails] = useState({});
   const [referenceSaveStatusByKey, setReferenceSaveStatusByKey] = useState({});
+  const referenceEmailsRef = useRef({});
+  const referenceFieldSaveTimeoutsRef = useRef({});
   const [docsError, setDocsError] = useState("");
   const [tripDocsUndoBanner, setTripDocsUndoBanner] = useState(null);
   const tripDocsUndoRunRef = useRef(null);
@@ -1387,6 +1389,9 @@ export function useTripPageModel() {
       Object.values(staffTaskNoteSaveTimeoutsRef.current || {}).forEach((timeoutId) => {
         clearTimeout(timeoutId);
       });
+      Object.values(referenceFieldSaveTimeoutsRef.current || {}).forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
     };
   }, []);
 
@@ -2241,7 +2246,10 @@ export function useTripPageModel() {
 
   useEffect(() => {
     if (!trip?.id || isPreviewingParticipant) {
-      if (isPreviewingParticipant || !trip?.id) setReferenceEmails({});
+      if (isPreviewingParticipant || !trip?.id) {
+        setReferenceEmails({});
+        referenceEmailsRef.current = {};
+      }
       return;
     }
 
@@ -2265,10 +2273,12 @@ export function useTripPageModel() {
             sentDate: row.sentDate,
           };
         });
+        referenceEmailsRef.current = next;
         setReferenceEmails(next);
       } catch (error) {
         console.error("Unable to load reference emails", error);
         if (!cancelled) {
+          referenceEmailsRef.current = {};
           setReferenceEmails({});
         }
       }
@@ -2499,6 +2509,15 @@ export function useTripPageModel() {
     const tripTeamMemberId = rawKey.startsWith("roster:") ? rawKey.slice(7) : "";
     if (!userId && !tripTeamMemberId) return;
 
+    const saveSnapshot = {
+      referenceName: String(nextStatus?.referenceName || ""),
+      referenceEmail: String(nextStatus?.referenceEmail || ""),
+      referencePhone: String(nextStatus?.referencePhone || ""),
+      sent: !!nextStatus?.sent,
+      received: !!nextStatus?.received,
+      sentDate: String(nextStatus?.sentDate || ""),
+    };
+
     try {
       setReferenceSaveStatusByKey((current) => ({
         ...current,
@@ -2508,28 +2527,49 @@ export function useTripPageModel() {
         tripId: trip.id,
         userId: userId || undefined,
         tripTeamMemberId: tripTeamMemberId || undefined,
-        referenceName: nextStatus.referenceName,
-        referenceEmail: nextStatus.referenceEmail,
-        referencePhone: nextStatus.referencePhone,
-        sent: nextStatus.sent,
-        received: nextStatus.received,
-        sentDate: nextStatus.sentDate,
+        referenceName: saveSnapshot.referenceName,
+        referenceEmail: saveSnapshot.referenceEmail,
+        referencePhone: saveSnapshot.referencePhone,
+        sent: saveSnapshot.sent,
+        received: saveSnapshot.received,
+        sentDate: saveSnapshot.sentDate,
       });
 
       const stateKey = referenceRowToStateKey(saved);
       if (!stateKey) return;
 
-      setReferenceEmails((current) => ({
-        ...current,
-        [stateKey]: {
-          referenceName: saved.referenceName,
-          referenceEmail: saved.referenceEmail,
-          referencePhone: saved.referencePhone,
-          sent: saved.sent,
-          received: saved.received,
-          sentDate: saved.sentDate,
-        },
-      }));
+      setReferenceEmails((current) => {
+        const existing = current[stateKey];
+        // Keep newer local typing if the user kept editing while this save was in flight.
+        const localMovedOn =
+          existing &&
+          (String(existing.referenceName || "") !== saveSnapshot.referenceName ||
+            String(existing.referenceEmail || "") !== saveSnapshot.referenceEmail ||
+            String(existing.referencePhone || "") !== saveSnapshot.referencePhone);
+        const nextRow = localMovedOn
+          ? {
+              ...existing,
+              sent: saved.sent,
+              received: saved.received,
+              sentDate: saved.sentDate,
+            }
+          : {
+              referenceName: saved.referenceName,
+              referenceEmail: saved.referenceEmail,
+              referencePhone: saved.referencePhone,
+              sent: saved.sent,
+              received: saved.received,
+              sentDate: saved.sentDate,
+            };
+        referenceEmailsRef.current = {
+          ...referenceEmailsRef.current,
+          [stateKey]: nextRow,
+        };
+        return {
+          ...current,
+          [stateKey]: nextRow,
+        };
+      });
       setReferenceSaveStatusByKey((current) => ({
         ...current,
         [stateKey]: { type: "success", message: "Saved." },
@@ -2549,8 +2589,29 @@ export function useTripPageModel() {
     void saveReferenceStatus(refKey, current);
   }
 
+  function clearPendingReferenceFieldSave(refKey) {
+    const key = normalizeReferenceRefKey(refKey);
+    const existingTimeout = referenceFieldSaveTimeoutsRef.current[key];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      delete referenceFieldSaveTimeoutsRef.current[key];
+      return true;
+    }
+    return false;
+  }
+
+  function flushReferenceFieldSave(refKey) {
+    const key = normalizeReferenceRefKey(refKey);
+    const hadPendingSave = clearPendingReferenceFieldSave(key);
+    if (!hadPendingSave) return;
+    const current =
+      referenceEmailsRef.current[key] || getReferenceStatus(key);
+    void saveReferenceStatus(key, current);
+  }
+
   function toggleReferenceEmail(refKey, field) {
     const key = normalizeReferenceRefKey(refKey);
+    clearPendingReferenceFieldSave(key);
     const current = getReferenceStatus(refKey);
     const nextValue = !current[field];
 
@@ -2561,6 +2622,10 @@ export function useTripPageModel() {
         field === "sent" && !nextValue ? "" : current.sentDate || "",
     };
 
+    referenceEmailsRef.current = {
+      ...referenceEmailsRef.current,
+      [key]: nextStatus,
+    };
     setReferenceEmails((prev) => ({
       ...prev,
       [key]: nextStatus,
@@ -2570,6 +2635,7 @@ export function useTripPageModel() {
 
   function updateReferenceSentDate(refKey, value) {
     const key = normalizeReferenceRefKey(refKey);
+    clearPendingReferenceFieldSave(key);
     const current = getReferenceStatus(refKey);
     const nextStatus = {
       ...current,
@@ -2577,6 +2643,10 @@ export function useTripPageModel() {
       sentDate: value,
     };
 
+    referenceEmailsRef.current = {
+      ...referenceEmailsRef.current,
+      [key]: nextStatus,
+    };
     setReferenceEmails((prev) => ({
       ...prev,
       [key]: nextStatus,
@@ -2592,11 +2662,22 @@ export function useTripPageModel() {
       [field]: value,
     };
 
+    referenceEmailsRef.current = {
+      ...referenceEmailsRef.current,
+      [key]: nextStatus,
+    };
     setReferenceEmails((prev) => ({
       ...prev,
       [key]: nextStatus,
     }));
-    void saveReferenceStatus(refKey, nextStatus);
+
+    // Debounce text-field saves so typing is not interrupted by per-keystroke requests.
+    clearPendingReferenceFieldSave(key);
+    referenceFieldSaveTimeoutsRef.current[key] = setTimeout(() => {
+      delete referenceFieldSaveTimeoutsRef.current[key];
+      const latest = referenceEmailsRef.current[key] || nextStatus;
+      void saveReferenceStatus(key, latest);
+    }, 700);
   }
 
   function toggleTask(taskId, ownerEmail = session?.email) {
@@ -7435,6 +7516,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     effectiveSiteInfoDoc,
     flightsOpenUrl,
     flushStaffTaskNotesSave,
+    flushReferenceFieldSave,
     formatDeadlineDate,
     formatMeetingDateTime,
     formatMoney,

@@ -53,6 +53,7 @@ export default function TripTeamTab() {
     trip,
     updateNewWorkerDraft,
     updateReferenceField,
+    flushReferenceFieldSave,
     updateReferenceSentDate,
     updateRosterDraftMember,
     workerAddStatus,
@@ -480,6 +481,7 @@ export default function TripTeamTab() {
                                         e.target.value
                                       )
                                     }
+                                    onBlur={() => flushReferenceFieldSave(refRow.refKey)}
                                   />
                                   <input
                                     className="input"
@@ -493,6 +495,7 @@ export default function TripTeamTab() {
                                         e.target.value
                                       )
                                     }
+                                    onBlur={() => flushReferenceFieldSave(refRow.refKey)}
                                   />
                                   <input
                                     className="input"
@@ -506,6 +509,7 @@ export default function TripTeamTab() {
                                         e.target.value
                                       )
                                     }
+                                    onBlur={() => flushReferenceFieldSave(refRow.refKey)}
                                   />
                                 </div>
                               ) : (
