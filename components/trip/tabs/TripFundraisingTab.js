@@ -182,6 +182,8 @@ export default function TripFundraisingTab() {
                     borderColor: "rgba(180,140,40,.22)",
                     display: "flex",
                     flexDirection: "column",
+                    alignItems: "center",
+                    textAlign: "center",
                     gap: 6,
                   }}
                 >
@@ -212,6 +214,8 @@ export default function TripFundraisingTab() {
                     borderColor: "rgba(50,120,70,.18)",
                     display: "flex",
                     flexDirection: "column",
+                    alignItems: "center",
+                    textAlign: "center",
                     gap: 6,
                   }}
                 >
@@ -246,10 +250,7 @@ export default function TripFundraisingTab() {
                     justifyContent: "space-between",
                   }}
                 >
-                  <div>
-                    <div className="cardSectionPill" style={{ marginBottom: 6 }}>Resources</div>
-                    <div style={{ fontWeight: 900, fontSize: 16 }}>Fundraising guides</div>
-                  </div>
+                  <div className="cardSectionPill" style={{ marginBottom: 0 }}>Resources</div>
                   <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
                     <a
                       className="btn btnPrimary"
