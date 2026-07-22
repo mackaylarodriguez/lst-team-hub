@@ -33,6 +33,7 @@ import {
 } from "@/lib/workbookInventory";
 import { resolveSiteLogisticsUrl } from "@/lib/siteInfoLinks";
 import { showToast } from "@/components/Toast";
+import SitesAvailabilityTab from "@/components/sites/SitesAvailabilityTab";
 
 /** Fixed column widths (px) for Sites workbook grid — keeps headers aligned while scrolling. */
 const WB_TABLE = {
@@ -88,6 +89,7 @@ export default function SitesPage() {
   useEffect(() => {
     const t = String(router.query.tab || "").toLowerCase();
     if (t === "logistics" || t === "site-logistics") setTab("Site logistics");
+    else if (t === "availability") setTab("Availability");
     else if (t === "workbooks") setTab("Workbooks");
   }, [router.query.tab]);
 
@@ -449,6 +451,13 @@ export default function SitesPage() {
           </button>
           <button
             type="button"
+            className={"tab " + (tab === "Availability" ? "tabActive" : "")}
+            onClick={() => switchSitesTab("Availability")}
+          >
+            Availability
+          </button>
+          <button
+            type="button"
             className={"tab " + (tab === "Site logistics" ? "tabActive" : "")}
             onClick={() => switchSitesTab("Site logistics")}
           >
@@ -663,6 +672,10 @@ export default function SitesPage() {
           </table>
         </div>
       </div>
+      ) : null}
+
+      {tab === "Availability" ? (
+        <SitesAvailabilityTab siteLabels={siteLabelsOrdered} />
       ) : null}
 
       {tab === "Site logistics" ? (
