@@ -273,10 +273,6 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
           <div className="progress tripTaskProgressBar">
             <div style={{ width: `${teamProgressPct}%` }} />
           </div>
-          <div className="small tripTaskProgressMeta">
-            Staff on this demo trip ({participantProgress.length}). Your checkoffs update your row
-            and the section lists below.
-          </div>
 
           {staffLoading ? (
             <p className="small trainingPrototypeMuted" style={{ marginTop: 12, marginBottom: 0 }}>
