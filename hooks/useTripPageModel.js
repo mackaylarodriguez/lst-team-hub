@@ -403,6 +403,7 @@ export function useTripPageModel() {
   const [budgetCheckEditingId, setBudgetCheckEditingId] = useState("");
   const [budgetCheckAmount, setBudgetCheckAmount] = useState("");
   const [budgetCheckNote, setBudgetCheckNote] = useState("");
+  const [budgetCheckDueDate, setBudgetCheckDueDate] = useState("");
   const [budgetCheckSubmitting, setBudgetCheckSubmitting] = useState(false);
   const [budgetCheckPayeeSaving, setBudgetCheckPayeeSaving] = useState(false);
   const [tripBudgetCheckRequests, setTripBudgetCheckRequests] = useState([]);
@@ -7162,6 +7163,10 @@ normalizeEmail(participant.email) === activeParticipantEmail
       showToast("Enter the check amount.", "error");
       return;
     }
+    if (!budgetCheckEditingId && !String(budgetCheckDueDate || "").trim()) {
+      showToast("Choose a due date.", "error");
+      return;
+    }
     try {
       setBudgetCheckSubmitting(true);
       if (budgetCheckEditingId) {
@@ -7176,6 +7181,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
           tripId: trip.id,
           amount: amt,
           note: budgetCheckNote,
+          dueDate: budgetCheckDueDate,
         });
         const { type, message } = budgetCheckSubmitToast(submitResult);
         if (type === "success") {
@@ -7198,6 +7204,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
       setBudgetCheckEditingId("");
       setBudgetCheckAmount("");
       setBudgetCheckNote("");
+      setBudgetCheckDueDate("");
     } catch (e) {
       showToast(e.message || "Request failed.", "error");
     } finally {
@@ -7365,6 +7372,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     budgetCheckEditingId,
     budgetCheckModalOpen,
     budgetCheckNote,
+    budgetCheckDueDate,
     budgetCheckPayeeSaving,
     budgetCheckSubmitting,
     canEditRosterTshirtInline,
@@ -7753,6 +7761,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     setBudgetCheckEditingId,
     setBudgetCheckModalOpen,
     setBudgetCheckNote,
+    setBudgetCheckDueDate,
     setConfirmingParticipantDocumentDeleteId,
     setCustomParticipantDocumentLabel,
     setParticipantDocumentTypeStatus,

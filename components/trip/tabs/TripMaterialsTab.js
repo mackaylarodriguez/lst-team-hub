@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Spinner from "@/components/Spinner";
 import { useTripPage } from "../TripPageContext";
+import { defaultBudgetCheckDueDateIso } from "@/lib/budgetCheckRequests";
 import {
   parseMaterialsPackingChecklist,
   preferredTripResourceOpenUrl,
@@ -52,6 +53,7 @@ export default function TripMaterialsTab() {
     setBudgetCheckEditingId,
     setBudgetCheckModalOpen,
     setBudgetCheckNote,
+    setBudgetCheckDueDate,
     setIsEditingMaterialsGlance,
     setMaterialsDraft,
     setTeamLogisticsDraft,
@@ -827,6 +829,7 @@ export default function TripMaterialsTab() {
                                             setBudgetCheckEditingId(req.id);
                                             setBudgetCheckAmount(String(req.amountRequested || "").trim());
                                             setBudgetCheckNote(String(req.note || "").trim());
+                                            setBudgetCheckDueDate("");
                                             setBudgetCheckModalOpen(true);
                                           }}
                                         >
@@ -854,10 +857,11 @@ export default function TripMaterialsTab() {
                               setBudgetCheckEditingId("");
                               setBudgetCheckAmount("");
                               setBudgetCheckNote("");
+                              setBudgetCheckDueDate(defaultBudgetCheckDueDateIso());
                               setBudgetCheckModalOpen(true);
                             }}
                           >
-                            Request budget check
+                            Request Check
                           </button>
                         </div>
                       </div>

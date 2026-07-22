@@ -52,6 +52,7 @@ import {
   submitBudgetCheckRequest,
   updateBudgetCheckDonnaNotes,
   updateBudgetCheckRequest,
+  defaultBudgetCheckDueDateIso,
 } from "@/lib/budgetCheckRequests";
 import { budgetCheckSubmitToast } from "@/lib/budgetCheckSubmitFeedback";
 import { STAFF_TASKS_UPDATED_EVENT } from "@/lib/staffTasks";
@@ -824,6 +825,8 @@ export default function BudgetPage() {
   const [newBudgetCheckTripId, setNewBudgetCheckTripId] = useState("");
   const [newBudgetCheckAmount, setNewBudgetCheckAmount] = useState("");
   const [newBudgetCheckNote, setNewBudgetCheckNote] = useState("");
+  const [newBudgetCheckDueDate, setNewBudgetCheckDueDate] = useState(() => defaultBudgetCheckDueDateIso());
+  const [budgetCheckRequestModalOpen, setBudgetCheckRequestModalOpen] = useState(false);
   const [budgetCheckSubmitting, setBudgetCheckSubmitting] = useState(false);
   const [budgetCheckProcessingId, setBudgetCheckProcessingId] = useState("");
   const [budgetCheckEditId, setBudgetCheckEditId] = useState("");
@@ -1568,17 +1571,24 @@ export default function BudgetPage() {
       showToast("Enter the check amount.", "error");
       return;
     }
+    if (!String(newBudgetCheckDueDate || "").trim()) {
+      showToast("Choose a due date.", "error");
+      return;
+    }
     try {
       setBudgetCheckSubmitting(true);
       const submitResult = await submitBudgetCheckRequest({
         tripId,
         amount: newBudgetCheckAmount,
         note: newBudgetCheckNote,
+        dueDate: newBudgetCheckDueDate,
       });
       const next = await listBudgetCheckRequests();
       setBudgetCheckRows(next);
       setNewBudgetCheckAmount("");
       setNewBudgetCheckNote("");
+      setNewBudgetCheckDueDate(defaultBudgetCheckDueDateIso());
+      setBudgetCheckRequestModalOpen(false);
       const { type, message } = budgetCheckSubmitToast(submitResult);
       showToast(message, type);
       if (typeof window !== "undefined" && tripId) {
@@ -1591,6 +1601,19 @@ export default function BudgetPage() {
     } finally {
       setBudgetCheckSubmitting(false);
     }
+  }
+
+  function openBudgetCheckRequestModal() {
+    if (!newBudgetCheckTripId && tripsSortedForBudget[0]?.id) {
+      setNewBudgetCheckTripId(tripsSortedForBudget[0].id);
+    }
+    setNewBudgetCheckDueDate(defaultBudgetCheckDueDateIso());
+    setBudgetCheckRequestModalOpen(true);
+  }
+
+  function closeBudgetCheckRequestModal() {
+    if (budgetCheckSubmitting) return;
+    setBudgetCheckRequestModalOpen(false);
   }
 
   async function handleMarkBudgetCheckProcessed(id) {
@@ -1895,6 +1918,136 @@ export default function BudgetPage() {
         onConfirm={() => void handleConfirmDeleteBudgetCheck()}
         onCancel={() => setBudgetCheckDeleteId("")}
       />
+      {budgetCheckRequestModalOpen ? (
+        <div
+          className="appModalOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Request Check"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 100,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeBudgetCheckRequestModal();
+          }}
+        >
+          <div className="card pad" style={{ width: "min(420px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+            <div className="row" style={{ marginBottom: 12 }}>
+              <div style={{ fontWeight: 900 }}>Request Check</div>
+              <div className="spacer" />
+              <button className="btn" type="button" disabled={budgetCheckSubmitting} onClick={closeBudgetCheckRequestModal}>
+                Close
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              <div>
+                <label className="small" htmlFor="budget-check-trip" style={{ display: "block", marginBottom: 4 }}>
+                  Trip
+                </label>
+                <select
+                  id="budget-check-trip"
+                  className="input"
+                  value={newBudgetCheckTripIdResolved}
+                  onChange={(e) => setNewBudgetCheckTripId(e.target.value)}
+                  disabled={!tripsSortedForBudget.length || budgetCheckSubmitting}
+                >
+                  {tripsSortedForBudget.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name || t.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="small" htmlFor="budget-check-payee" style={{ display: "block", marginBottom: 4 }}>
+                  Payee
+                </label>
+                <select
+                  id="budget-check-payee"
+                  className="input"
+                  value={newBudgetCheckPayee}
+                  onChange={(e) => void handleBudgetCheckPayeeChange(e.target.value)}
+                  disabled={!newBudgetCheckTripIdResolved || budgetCheckPayeeSaving || budgetCheckSubmitting}
+                >
+                  <option value="">— Select team member —</option>
+                  {sortedAccountantNamesForTrip(newBudgetCheckTripIdResolved).map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                  {newBudgetCheckPayee &&
+                  !sortedAccountantNamesForTrip(newBudgetCheckTripIdResolved).includes(newBudgetCheckPayee) ? (
+                    <option value={newBudgetCheckPayee}>{newBudgetCheckPayee} (not on roster)</option>
+                  ) : null}
+                </select>
+                {sortedAccountantNamesForTrip(newBudgetCheckTripIdResolved).length === 0 ? (
+                  <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+                    Add workers on the trip roster first.
+                  </div>
+                ) : null}
+              </div>
+              <div>
+                <label className="small" htmlFor="budget-check-amount" style={{ display: "block", marginBottom: 4 }}>
+                  Amount
+                </label>
+                <input
+                  id="budget-check-amount"
+                  className="input"
+                  inputMode="decimal"
+                  placeholder="$0.00"
+                  value={newBudgetCheckAmount}
+                  onChange={(e) => setNewBudgetCheckAmount(e.target.value)}
+                  onBlur={() => setNewBudgetCheckAmount((v) => normalizeMoneyInputToUsd(v))}
+                  disabled={budgetCheckSubmitting}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="small" htmlFor="budget-check-note" style={{ display: "block", marginBottom: 4 }}>
+                  Note
+                </label>
+                <input
+                  id="budget-check-note"
+                  className="input"
+                  value={newBudgetCheckNote}
+                  onChange={(e) => setNewBudgetCheckNote(e.target.value)}
+                  placeholder="Memo (optional)"
+                  disabled={budgetCheckSubmitting}
+                />
+              </div>
+              <div>
+                <label className="small" htmlFor="budget-check-due-date" style={{ display: "block", marginBottom: 4 }}>
+                  Due date
+                </label>
+                <input
+                  id="budget-check-due-date"
+                  className="input"
+                  type="date"
+                  value={newBudgetCheckDueDate}
+                  onChange={(e) => setNewBudgetCheckDueDate(e.target.value)}
+                  disabled={budgetCheckSubmitting}
+                />
+              </div>
+            </div>
+            <div className="row" style={{ marginTop: 14, gap: 8 }}>
+              <button
+                type="button"
+                className="btn btnPrimary"
+                disabled={budgetCheckSubmitting || !tripsSortedForBudget.length}
+                onClick={() => void handleSubmitBudgetCheckFromBudgetPage()}
+              >
+                {budgetCheckSubmitting ? "Submitting…" : "Request Check"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {budgetCheckEditId ? (
         <div
           className="appModalOverlay"
@@ -3209,98 +3362,16 @@ export default function BudgetPage() {
 
         {tab === "Checks" && (
           <div className="card pad" style={budgetSectionCardStyle}>
-            <BudgetCheckSectionPill label="Printed checks" style={{ marginBottom: 16 }} />
-
-            <div
-              className="row"
-              style={{
-                gap: 8,
-                flexWrap: "wrap",
-                alignItems: "flex-end",
-                marginBottom: 20,
-              }}
-            >
-              <div style={{ flex: "1 1 180px", minWidth: 0 }}>
-                <label className="small" htmlFor="budget-check-trip" style={{ display: "block", marginBottom: 4 }}>
-                  Trip
-                </label>
-                <select
-                  id="budget-check-trip"
-                  className="input"
-                  value={newBudgetCheckTripId}
-                  onChange={(e) => setNewBudgetCheckTripId(e.target.value)}
-                  disabled={!tripsSortedForBudget.length}
-                >
-                  {tripsSortedForBudget.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name || t.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ flex: "1 1 160px", minWidth: 0 }}>
-                <label className="small" htmlFor="budget-check-payee" style={{ display: "block", marginBottom: 4 }}>
-                  Payee
-                </label>
-                <select
-                  id="budget-check-payee"
-                  className="input"
-                  value={newBudgetCheckPayee}
-                  onChange={(e) => void handleBudgetCheckPayeeChange(e.target.value)}
-                  disabled={!newBudgetCheckTripIdResolved || budgetCheckPayeeSaving}
-                >
-                  <option value="">— Select team member —</option>
-                  {sortedAccountantNamesForTrip(newBudgetCheckTripIdResolved).map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                  {newBudgetCheckPayee &&
-                  !sortedAccountantNamesForTrip(newBudgetCheckTripIdResolved).includes(
-                    newBudgetCheckPayee
-                  ) ? (
-                    <option value={newBudgetCheckPayee}>{newBudgetCheckPayee} (not on roster)</option>
-                  ) : null}
-                </select>
-                {sortedAccountantNamesForTrip(newBudgetCheckTripIdResolved).length === 0 ? (
-                  <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
-                    Add workers on the trip roster first.
-                  </div>
-                ) : null}
-              </div>
-              <div style={{ flex: "0 1 130px", minWidth: 0 }}>
-                <label className="small" htmlFor="budget-check-amount" style={{ display: "block", marginBottom: 4 }}>
-                  Amount
-                </label>
-                <input
-                  id="budget-check-amount"
-                  className="input"
-                  inputMode="decimal"
-                  placeholder="$0.00"
-                  value={newBudgetCheckAmount}
-                  onChange={(e) => setNewBudgetCheckAmount(e.target.value)}
-                  onBlur={() => setNewBudgetCheckAmount((v) => normalizeMoneyInputToUsd(v))}
-                />
-              </div>
-              <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-                <label className="small" htmlFor="budget-check-note" style={{ display: "block", marginBottom: 4 }}>
-                  Note
-                </label>
-                <input
-                  id="budget-check-note"
-                  className="input"
-                  value={newBudgetCheckNote}
-                  onChange={(e) => setNewBudgetCheckNote(e.target.value)}
-                  placeholder="Memo (optional)"
-                />
-              </div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16 }}>
+              <BudgetCheckSectionPill label="Printed checks" />
+              <div className="spacer" />
               <button
                 type="button"
                 className="btn btnPrimary"
-                disabled={budgetCheckSubmitting || !tripsSortedForBudget.length}
-                onClick={() => void handleSubmitBudgetCheckFromBudgetPage()}
+                disabled={!tripsSortedForBudget.length}
+                onClick={openBudgetCheckRequestModal}
               >
-                {budgetCheckSubmitting ? "Submitting…" : "Submit"}
+                Request Check
               </button>
             </div>
 

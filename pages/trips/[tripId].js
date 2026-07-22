@@ -224,6 +224,7 @@ export default function TripPage() {
     budgetCheckEditingId,
     budgetCheckModalOpen,
     budgetCheckNote,
+    budgetCheckDueDate,
     budgetCheckPayeeSaving,
     budgetCheckSubmitting,
     canEditRosterTshirtInline,
@@ -570,6 +571,7 @@ export default function TripPage() {
     setBudgetCheckEditingId,
     setBudgetCheckModalOpen,
     setBudgetCheckNote,
+    setBudgetCheckDueDate,
     setIsConfirmingTripDelete,
     setPreviewParticipantId,
     setTab,
@@ -822,7 +824,7 @@ export default function TripPage() {
           className="appModalOverlay"
           role="dialog"
           aria-modal="true"
-          aria-label={budgetCheckEditingId ? "Edit budget check request" : "Request budget check"}
+          aria-label={budgetCheckEditingId ? "Edit budget check request" : "Request Check"}
           style={{
             position: "fixed",
             inset: 0,
@@ -842,7 +844,7 @@ export default function TripPage() {
           <div className="card pad appModalCard" style={{ width: "min(420px, 100%)", maxHeight: "90vh", overflow: "auto" }}>
             <div className="row" style={{ marginBottom: 12 }}>
               <div style={{ fontWeight: 900 }}>
-                {budgetCheckEditingId ? "Edit check request" : "Request printed check"}
+                {budgetCheckEditingId ? "Edit check request" : "Request Check"}
               </div>
               <div className="spacer" />
               <button
@@ -915,6 +917,19 @@ export default function TripPage() {
                   placeholder="Memo (optional)"
                 />
               </div>
+              {!budgetCheckEditingId ? (
+                <div>
+                  <div className="small" style={{ marginBottom: 4 }}>
+                    Due date
+                  </div>
+                  <input
+                    className="input"
+                    type="date"
+                    value={budgetCheckDueDate}
+                    onChange={(e) => setBudgetCheckDueDate(e.target.value)}
+                  />
+                </div>
+              ) : null}
             </div>
             <div className="row" style={{ marginTop: 14, gap: 8, flexWrap: "wrap" }}>
               <button
@@ -927,7 +942,7 @@ export default function TripPage() {
                   ? "Saving…"
                   : budgetCheckEditingId
                     ? "Save changes"
-                    : "Submit request"}
+                    : "Request Check"}
               </button>
             </div>
           </div>

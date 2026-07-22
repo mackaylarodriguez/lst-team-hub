@@ -10,9 +10,10 @@
  * - BUDGET_CHECK_ASSIGNEE_EMAIL or DONNA_STAFF_EMAIL — optional override for the misc-task assignee (defaults to
  *   donna.tucker@lst.org so other “Donna” profiles are never picked by mistake).
  * - BUDGET_CHECK_ASSIGNEE_NAME — optional display name on the misc task (defaults to “Donna Tucker” for Donna’s email).
- * - BUDGET_CHECK_DUE_DAYS — days until misc-task due date (default 14 = two weeks).
+ * - BUDGET_CHECK_DUE_DAYS — fallback days until misc-task due date when body omits dueDate (default 14).
  * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL — send notification email via Resend (both required for email).
  *
+ * POST body: { tripId, amount, note?, dueDate? } — dueDate is YYYY-MM-DD for Donna / trip staff tasks.
  * PATCH body: { id, action } — actions: mark_processed | mark_pending | update (amount, note, payee; pending only) | update_donna_notes | delete.
  */
 
@@ -166,8 +167,29 @@ function addDaysIsoDate(days) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Printed-check tasks are always due two weeks out unless BUDGET_CHECK_DUE_DAYS overrides. */
+/** Accept YYYY-MM-DD calendar dates; reject invalid values. */
+function normalizeDueDateIso(value) {
+  const s = normalizeText(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+  return s;
+}
+
+/** Printed-check tasks default two weeks out unless the request body or BUDGET_CHECK_DUE_DAYS overrides. */
 const DEFAULT_BUDGET_CHECK_TASK_DUE_DAYS = 14;
+
+function resolveBudgetCheckDueDate(bodyDueDate) {
+  const fromBody = normalizeDueDateIso(bodyDueDate);
+  if (fromBody) return fromBody;
+  const dueDaysRaw = process.env.BUDGET_CHECK_DUE_DAYS;
+  const dueDaysParsed =
+    dueDaysRaw === undefined || dueDaysRaw === "" ? DEFAULT_BUDGET_CHECK_TASK_DUE_DAYS : Number(dueDaysRaw);
+  const safeDueDays =
+    Number.isFinite(dueDaysParsed) && dueDaysParsed > 0 ? dueDaysParsed : DEFAULT_BUDGET_CHECK_TASK_DUE_DAYS;
+  return addDaysIsoDate(safeDueDays);
+}
 
 /** Donna Tucker (accounting) — fixed default so first-name profile search never hits the wrong Donna. */
 const DEFAULT_DONNA_BUDGET_CHECK_EMAIL = "donna.tucker@lst.org";
@@ -318,6 +340,11 @@ export default async function handler(req, res) {
     const tripId = normalizeText(req.body?.tripId);
     const amountRequested = normalizeText(req.body?.amount);
     const note = normalizeText(req.body?.note);
+    const dueDateRaw = req.body?.dueDate ?? req.body?.due_date;
+    if (normalizeText(dueDateRaw) && !normalizeDueDateIso(dueDateRaw)) {
+      return res.status(400).json({ error: "Due date must be a valid YYYY-MM-DD date." });
+    }
+    const dueDate = resolveBudgetCheckDueDate(dueDateRaw);
 
     if (!tripId) {
       return res.status(400).json({ error: "tripId is required." });
@@ -350,12 +377,6 @@ export default async function handler(req, res) {
       budget?.budget_amount === null || budget?.budget_amount === undefined
         ? ""
         : String(budget.budget_amount);
-
-    const dueDaysRaw = process.env.BUDGET_CHECK_DUE_DAYS;
-    const dueDaysParsed = dueDaysRaw === undefined || dueDaysRaw === "" ? DEFAULT_BUDGET_CHECK_TASK_DUE_DAYS : Number(dueDaysRaw);
-    const safeDueDays =
-      Number.isFinite(dueDaysParsed) && dueDaysParsed > 0 ? dueDaysParsed : DEFAULT_BUDGET_CHECK_TASK_DUE_DAYS;
-    const dueDate = addDaysIsoDate(safeDueDays);
 
     const assignee = resolveBudgetCheckTaskAssignee();
 
@@ -460,6 +481,7 @@ export default async function handler(req, res) {
       payee: accountantSnap,
       amountRequested,
       note,
+      dueDate,
       checksUrl: getBudgetChecksUrl(req),
     });
 

@@ -95,8 +95,6 @@ export default function TrainingStaffPage() {
         ) : null}
       </div>
 
-      {isWalkthrough ? null : null}
-
       <div className="trainingPrototypeStaffTabBar" style={{ marginBottom: 18 }}>
         {STAFF_TRAINING_TABS.map((panel) => (
           <button
