@@ -81,16 +81,22 @@ export default function TrainingStaffPage() {
 
   return (
     <Shell>
-      <h1 className="h1" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <AppIcon name="training" className="pageEyebrowIcon" />
-        <span>Training</span>
-      </h1>
+      <div className="trainingStaffPageHeader">
+        <h1 className="h1" style={{ display: "flex", alignItems: "center", gap: 10, margin: 0 }}>
+          <AppIcon name="training" className="pageEyebrowIcon" />
+          <span>Training</span>
+        </h1>
+        {!isWalkthrough ? (
+          <TrainingStaffSearchBar value={searchQuery} onChange={setSearchQuery} compact />
+        ) : null}
+      </div>
 
-      <p className="p" style={{ marginBottom: 16 }}>
-        {isWalkthrough
-          ? "Demo trip roster is everyone with role = staff. Go through modules and your completion updates on the team lists."
-          : "Track classroom module completion across workers and trips. Progress updates as modules are marked complete on each trip."}
-      </p>
+      {isWalkthrough ? (
+        <p className="p" style={{ marginBottom: 16 }}>
+          Demo trip roster is everyone with role = staff. Go through modules and your completion
+          updates on the team lists.
+        </p>
+      ) : null}
 
       <div className="trainingPrototypeStaffTabBar" style={{ marginBottom: 18 }}>
         {STAFF_TRAINING_TABS.map((panel) => (
@@ -110,26 +116,10 @@ export default function TrainingStaffPage() {
 
       {isWalkthrough ? (
         <StaffTrainingPrototypeWalkthrough session={session} />
+      ) : activePanel === "overview" ? (
+        <TrainingOverviewTable rows={filteredRows} loading={loading} error={error} />
       ) : (
-        <>
-          <TrainingStaffSearchBar value={searchQuery} onChange={setSearchQuery} />
-
-          {activePanel === "overview" ? (
-            <>
-              <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
-                Module completion across workers and trips.
-              </p>
-              <TrainingOverviewTable rows={filteredRows} loading={loading} error={error} />
-            </>
-          ) : (
-            <>
-              <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
-                Pass / no-pass by classroom module — green check for complete, red X for incomplete.
-              </p>
-              <TrainingGradebookTable rows={filteredRows} loading={loading} error={error} />
-            </>
-          )}
-        </>
+        <TrainingGradebookTable rows={filteredRows} loading={loading} error={error} />
       )}
     </Shell>
   );

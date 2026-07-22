@@ -1,6 +1,11 @@
-export default function TrainingStaffSearchBar({ value, onChange }) {
+export default function TrainingStaffSearchBar({ value, onChange, compact = false }) {
   return (
-    <div className="trainingPrototypeStaffSearchWrap">
+    <div
+      className={
+        "trainingPrototypeStaffSearchWrap" +
+        (compact ? " trainingPrototypeStaffSearchWrapCompact" : "")
+      }
+    >
       <label className="trainingPrototypeStaffSearchLabel" htmlFor="trainingWorkerSearch">
         Search workers
       </label>
