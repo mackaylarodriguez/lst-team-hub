@@ -1,6 +1,7 @@
 import EmptyState from "@/components/EmptyState";
 import TrainingPassFailMark from "./TrainingPassFailMark";
 import TrainingStaffTripCell from "./TrainingStaffTripCell";
+import TrainingWorkerNameCell from "./TrainingWorkerNameCell";
 import { STAFF_TRAINING_MODULE_SLOTS } from "@/lib/staffTrainingRoster";
 
 export default function TrainingGradebookTable({ rows = [], loading = false, error = "" }) {
@@ -56,11 +57,14 @@ export default function TrainingGradebookTable({ rows = [], loading = false, err
           {rows.map((row) => (
             <tr key={row.id}>
               <td>
-                <div style={{ fontWeight: 700 }}>{row.name}</div>
-                {row.email ? <div className="small trainingPrototypeMuted">{row.email}</div> : null}
+                <TrainingWorkerNameCell userId={row.userId} name={row.name} email={row.email} />
               </td>
               <td>
-                <TrainingStaffTripCell tripName={row.tripName} siteLocation={row.siteLocation} />
+                <TrainingStaffTripCell
+                  tripId={row.tripId}
+                  tripName={row.tripName}
+                  siteLocation={row.siteLocation}
+                />
               </td>
               {(row.modulesCompleteFlags || []).map((complete, index) => (
                 <td key={`${row.id}-${index}`} className="trainingPrototypeGradebookMarkCell">

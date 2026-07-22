@@ -3,6 +3,7 @@ import AppIcon from "@/components/AppIcon";
 import TrainingStaffSearchBar from "@/components/training/TrainingStaffSearchBar";
 import TrainingOverviewTable from "@/components/training/TrainingOverviewTable";
 import TrainingGradebookTable from "@/components/training/TrainingGradebookTable";
+import StaffTrainingPrototypeWalkthrough from "@/components/training/prototype/StaffTrainingPrototypeWalkthrough";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
@@ -10,6 +11,7 @@ import { isManagerRole } from "@/lib/roles";
 import { listStaffTrainingRoster } from "@/lib/staffTrainingRoster";
 
 const STAFF_TRAINING_TABS = [
+  { id: "prototype", label: "Prototype Training" },
   { id: "overview", label: "Overview" },
   { id: "gradebook", label: "Gradebook" },
 ];
@@ -27,7 +29,7 @@ function matchesTrainingSearch(row, query) {
 export default function TrainingStaffPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
-  const [activePanel, setActivePanel] = useState("overview");
+  const [activePanel, setActivePanel] = useState("prototype");
   const [searchQuery, setSearchQuery] = useState("");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +77,8 @@ export default function TrainingStaffPage() {
 
   if (!session) return null;
 
+  const isWalkthrough = activePanel === "prototype";
+
   return (
     <Shell>
       <h1 className="h1" style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -83,8 +87,9 @@ export default function TrainingStaffPage() {
       </h1>
 
       <p className="p" style={{ marginBottom: 16 }}>
-        Track classroom module completion across workers and trips. Progress updates as modules are
-        marked complete on each trip.
+        {isWalkthrough
+          ? "Demo trip roster is everyone with role = staff. Go through modules and your completion updates on the team lists."
+          : "Track classroom module completion across workers and trips. Progress updates as modules are marked complete on each trip."}
       </p>
 
       <div className="trainingPrototypeStaffTabBar" style={{ marginBottom: 18 }}>
@@ -103,21 +108,27 @@ export default function TrainingStaffPage() {
         ))}
       </div>
 
-      <TrainingStaffSearchBar value={searchQuery} onChange={setSearchQuery} />
-
-      {activePanel === "overview" ? (
-        <>
-          <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
-            Module completion across workers and trips.
-          </p>
-          <TrainingOverviewTable rows={filteredRows} loading={loading} error={error} />
-        </>
+      {isWalkthrough ? (
+        <StaffTrainingPrototypeWalkthrough session={session} />
       ) : (
         <>
-          <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
-            Pass / no-pass by classroom module — green check for complete, red X for incomplete.
-          </p>
-          <TrainingGradebookTable rows={filteredRows} loading={loading} error={error} />
+          <TrainingStaffSearchBar value={searchQuery} onChange={setSearchQuery} />
+
+          {activePanel === "overview" ? (
+            <>
+              <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
+                Module completion across workers and trips.
+              </p>
+              <TrainingOverviewTable rows={filteredRows} loading={loading} error={error} />
+            </>
+          ) : (
+            <>
+              <p className="small trainingPrototypeMuted" style={{ marginBottom: 12 }}>
+                Pass / no-pass by classroom module — green check for complete, red X for incomplete.
+              </p>
+              <TrainingGradebookTable rows={filteredRows} loading={loading} error={error} />
+            </>
+          )}
         </>
       )}
     </Shell>

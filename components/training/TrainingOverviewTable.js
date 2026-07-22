@@ -1,4 +1,6 @@
 import EmptyState from "@/components/EmptyState";
+import TrainingStaffTripCell from "./TrainingStaffTripCell";
+import TrainingWorkerNameCell from "./TrainingWorkerNameCell";
 
 export default function TrainingOverviewTable({ rows = [], loading = false, error = "" }) {
   if (loading) {
@@ -47,16 +49,18 @@ export default function TrainingOverviewTable({ rows = [], loading = false, erro
           {rows.map((worker) => (
             <tr key={worker.id}>
               <td>
-                <div style={{ fontWeight: 700 }}>{worker.name}</div>
-                {worker.email ? (
-                  <div className="small trainingPrototypeMuted">{worker.email}</div>
-                ) : null}
+                <TrainingWorkerNameCell
+                  userId={worker.userId}
+                  name={worker.name}
+                  email={worker.email}
+                />
               </td>
               <td>
-                <div style={{ fontWeight: 700 }}>{worker.tripName}</div>
-                {worker.siteLocation ? (
-                  <div className="small trainingPrototypeMuted">{worker.siteLocation}</div>
-                ) : null}
+                <TrainingStaffTripCell
+                  tripId={worker.tripId}
+                  tripName={worker.tripName}
+                  siteLocation={worker.siteLocation}
+                />
               </td>
               <td>{worker.role}</td>
               <td>

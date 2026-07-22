@@ -1,14 +1,14 @@
 import Link from "next/link";
 
-export default function TrainingStaffTripCell({ tripId, tripName, siteLocation }) {
-  const label = tripName || "Untitled trip";
+export default function TrainingWorkerNameCell({ userId, name, email }) {
+  const label = name || email || "Worker";
 
   return (
     <>
       <div style={{ fontWeight: 700 }}>
-        {tripId ? (
+        {userId ? (
           <Link
-            href={`/trips/${encodeURIComponent(tripId)}`}
+            href={`/profile?participantId=${encodeURIComponent(userId)}`}
             style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2 }}
           >
             {label}
@@ -17,7 +17,7 @@ export default function TrainingStaffTripCell({ tripId, tripName, siteLocation }
           label
         )}
       </div>
-      {siteLocation ? <div className="small trainingPrototypeMuted">{siteLocation}</div> : null}
+      {email ? <div className="small trainingPrototypeMuted">{email}</div> : null}
     </>
   );
 }

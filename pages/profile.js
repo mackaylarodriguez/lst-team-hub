@@ -27,6 +27,7 @@ import {
   listProfileStaffNotes,
   saveProfileStaffNote,
 } from "@/lib/profileStaffNotes";
+import { listProfileTripProgress } from "@/lib/profileTripProgress";
 import { formatPhoneNumber } from "@/lib/phone";
 
 function formatDate(value) {
@@ -106,6 +107,7 @@ export default function Profile() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [assignments, setAssignments] = useState([]);
+  const [tripProgressById, setTripProgressById] = useState({});
   const [documents, setDocuments] = useState([]);
   const [notes, setNotes] = useState([]);
   const [recruitingRecords, setRecruitingRecords] = useState([]);
@@ -254,13 +256,18 @@ export default function Profile() {
           );
         }
 
-        const [nextDocuments, nextNotes, nextRecruitingRecords] = await Promise.all([
-          listProfileDocuments(targetProfileId),
-          canViewPrivateStaffSections ? listProfileStaffNotes(targetProfileId) : Promise.resolve([]),
-          canViewPrivateStaffSections && displayProfile.email
-            ? listRecruitingCycleContactsByEmail(displayProfile.email)
-            : Promise.resolve([]),
-        ]);
+        const [nextDocuments, nextNotes, nextRecruitingRecords, nextTripProgress] =
+          await Promise.all([
+            listProfileDocuments(targetProfileId),
+            canViewPrivateStaffSections ? listProfileStaffNotes(targetProfileId) : Promise.resolve([]),
+            canViewPrivateStaffSections && displayProfile.email
+              ? listRecruitingCycleContactsByEmail(displayProfile.email)
+              : Promise.resolve([]),
+            listProfileTripProgress(targetProfileId).catch((progressError) => {
+              console.error("Unable to load profile trip progress", progressError);
+              return [];
+            }),
+          ]);
 
         if (cancelled) return;
 
@@ -273,6 +280,9 @@ export default function Profile() {
               trip: tripMap.get(row.trip_id) || null,
             }))
             .filter((row) => row.trip)
+        );
+        setTripProgressById(
+          Object.fromEntries((nextTripProgress || []).map((row) => [row.tripId, row]))
         );
         setDocuments(nextDocuments);
         setNotes(nextNotes);
@@ -291,6 +301,7 @@ export default function Profile() {
         console.error("Unable to load profile page", error);
         if (!cancelled) {
           setLoadError(error.message || "Unable to load profile.");
+          setTripProgressById({});
         }
       }
     }
@@ -829,17 +840,66 @@ export default function Profile() {
             </div>
             <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
               {assignments.length > 0 ? (
-                assignments.map((assignment) => (
-                  <Link
-                    key={`${assignment.tripId}-${assignment.createdAt}`}
-                    href={`/trips/${encodeURIComponent(assignment.tripId)}`}
-                    className="card pad"
-                    style={{ boxShadow: "none", textDecoration: "none", color: "inherit" }}
-                  >
-                    <div style={{ fontWeight: 900 }}>{assignment.trip?.name}</div>
-                    <div className="small">{assignment.trip?.location}</div>
-                  </Link>
-                ))
+                assignments.map((assignment) => {
+                  const progress = tripProgressById[assignment.tripId] || null;
+                  return (
+                    <Link
+                      key={`${assignment.tripId}-${assignment.createdAt}`}
+                      href={`/trips/${encodeURIComponent(assignment.tripId)}`}
+                      className="card pad"
+                      style={{ boxShadow: "none", textDecoration: "none", color: "inherit" }}
+                    >
+                      <div style={{ fontWeight: 900 }}>{assignment.trip?.name}</div>
+                      <div className="small">{assignment.trip?.location}</div>
+                      {progress ? (
+                        <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                          <div>
+                            <div
+                              className="row"
+                              style={{
+                                justifyContent: "space-between",
+                                gap: 8,
+                                marginBottom: 4,
+                              }}
+                            >
+                              <span className="small" style={{ fontWeight: 700 }}>
+                                Training
+                              </span>
+                              <span className="small">
+                                {progress.trainingComplete}/{progress.trainingTotal} ·{" "}
+                                {progress.trainingPercent}%
+                              </span>
+                            </div>
+                            <div className="progress">
+                              <div style={{ width: `${progress.trainingPercent}%` }} />
+                            </div>
+                          </div>
+                          <div>
+                            <div
+                              className="row"
+                              style={{
+                                justifyContent: "space-between",
+                                gap: 8,
+                                marginBottom: 4,
+                              }}
+                            >
+                              <span className="small" style={{ fontWeight: 700 }}>
+                                Tasks
+                              </span>
+                              <span className="small">
+                                {progress.tasksComplete}/{progress.tasksTotal} ·{" "}
+                                {progress.taskPercent}%
+                              </span>
+                            </div>
+                            <div className="progress">
+                              <div style={{ width: `${progress.taskPercent}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </Link>
+                  );
+                })
               ) : (
                 <div className="small">No trip assignments found.</div>
               )}
