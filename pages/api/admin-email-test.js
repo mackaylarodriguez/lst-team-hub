@@ -232,6 +232,8 @@ export default async function handler(req, res) {
       subject = `[TEST] ${buildFundraisingReadyEmailSubject({ recipientName: memberName })}`;
       html = buildFundraisingReadyEmailHtml({
         recipientName: memberName,
+        teamName: context.tripName,
+        site: context.tripLocation,
         fundraisingUrl:
           member?.fundraisingUrl ||
           member?.fundraising_url ||

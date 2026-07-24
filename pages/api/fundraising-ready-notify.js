@@ -174,6 +174,8 @@ export default async function handler(req, res) {
     const subject = buildFundraisingReadyEmailSubject({ recipientName });
     const html = buildFundraisingReadyEmailHtml({
       recipientName,
+      teamName: context.tripName,
+      site: context.tripLocation,
       fundraisingUrl: member.fundraising_url,
       fundraisingGoalAmount: member.fundraising_goal_amount,
       projectWeeksLabel,
