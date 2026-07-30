@@ -43,7 +43,7 @@ export {
 } from "@/lib/trainingSessionOptions";
 
 export { findStaffTaskTemplate } from "@/lib/staffTaskTemplate";
-export { computeStaffTaskDueDate } from "@/lib/staffTasks";
+export { computeStaffTaskDueDate, effectiveStaffTaskDueDate } from "@/lib/staffTasks";
 
 export { deleteTripMeeting } from "@/lib/tripMeetings";
 

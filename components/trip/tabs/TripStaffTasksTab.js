@@ -2,7 +2,7 @@ import { useTripPage } from "../TripPageContext";
 import AppDueDateTripleSelect from "@/components/AppDueDateTripleSelect";
 import { buildStaffTaskRowDomId } from "../tripPageShared";
 import { findStaffTaskTemplate } from "@/lib/staffTaskTemplate";
-import { computeStaffTaskDueDate } from "@/lib/staffTasks";
+import { effectiveStaffTaskDueDate } from "@/lib/staffTasks";
 import {
   CollapsibleSection,
   AppStatusMessage,
@@ -310,7 +310,7 @@ export default function TripStaffTasksTab() {
                               const staffTaskLink = staffTaskTpl?.link;
                               const staffTaskDetails = staffTaskTpl?.details;
                               const effectiveStaffDueDate =
-                                t.dueDate || computeStaffTaskDueDate(t, trip) || "";
+                                effectiveStaffTaskDueDate(t, trip) || "";
     
                               return (
                                 <tr

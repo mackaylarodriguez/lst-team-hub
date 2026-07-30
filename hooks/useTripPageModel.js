@@ -77,7 +77,9 @@ import {
   isTaskAssignedToUser,
   saveStaffTasks as persistStaffTasks,
   sortStaffTasksByTemplate,
-  computeStaffTaskDueDate,
+  effectiveStaffTaskDueDate,
+  applyStaffTaskDueDateRules,
+  syncStaffTaskDueDatesForTrip,
   getStaffTaskAreaSortRank,
   listStaffTaskTemplateWorkAreas,
   STAFF_TASKS_UPDATED_EVENT,
@@ -1509,14 +1511,8 @@ export function useTripPageModel() {
       try {
         const tasks = await listStaffTasksForTrip(trip.id);
         if (!cancelled) {
-          setEditableStaffTasks(
-            sortStaffTasksByTemplate(
-              (tasks || []).map((task) => ({
-                ...task,
-                dueDate: task.dueDate || computeStaffTaskDueDate(task, trip),
-              }))
-            )
-          );
+          const withRules = await syncStaffTaskDueDatesForTrip(trip.id, trip, tasks);
+          setEditableStaffTasks(sortStaffTasksByTemplate(withRules));
         }
       } catch (error) {
         console.error("Unable to load staff tasks", error);
@@ -1538,7 +1534,7 @@ export function useTripPageModel() {
       cancelled = true;
       window.removeEventListener(STAFF_TASKS_UPDATED_EVENT, handleTaskUpdate);
     };
-  }, [trip?.id, staffViewAllParticipants]);
+  }, [trip?.id, trip?.startDate, trip?.endDate, trip?.createdAt, staffViewAllParticipants]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3348,12 +3344,7 @@ export function useTripPageModel() {
   }
 
   function withComputedStaffDueDates(tasks) {
-    return sortStaffTasksByTemplate(
-      (tasks || []).map((task) => ({
-        ...task,
-        dueDate: task.dueDate || computeStaffTaskDueDate(task, trip),
-      }))
-    );
+    return sortStaffTasksByTemplate(applyStaffTaskDueDateRules(tasks, trip));
   }
 
   async function saveStaffTasks(nextTasks) {
@@ -3763,7 +3754,7 @@ export function useTripPageModel() {
     setEditingStaffTaskId(task.id);
     setStaffTaskTitleDraft(task.taskName || task.title || "");
     setStaffTaskDueDateDraft(
-      toDateInputValue(task.dueDate || computeStaffTaskDueDate(task, trip) || "")
+      toDateInputValue(effectiveStaffTaskDueDate(task, trip) || "")
     );
   }
 
@@ -6828,7 +6819,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     if (!trip) return [];
 
     if (staffViewAllParticipants) {
-      const effectiveStaffDue = (task) => task.dueDate || computeStaffTaskDueDate(task, trip);
+      const effectiveStaffDue = (task) => effectiveStaffTaskDueDate(task, trip);
       return (editableStaffTasks || [])
         .filter(
           (task) =>

@@ -10,7 +10,8 @@ import {
 } from "@/lib/trips";
 import { isAdminRole, isManagerRole } from "@/lib/roles";
 import {
-  computeStaffTaskDueDate,
+  effectiveStaffTaskDueDate,
+  syncStaffTaskDueDatesForTrip,
   deleteStaffMiscTask,
   isTaskAssignedToUser,
   isMissingStaffMiscTasksTableError,
@@ -140,7 +141,8 @@ export default function Admin() {
       const next = {};
       await Promise.all(
         trips.map(async (trip) => {
-          next[trip.id] = await listStaffTasksForTrip(trip.id);
+          const tasks = await listStaffTasksForTrip(trip.id);
+          next[trip.id] = await syncStaffTaskDueDatesForTrip(trip.id, trip, tasks);
         })
       );
       if (!cancelled) {
@@ -225,14 +227,12 @@ export default function Admin() {
     () => [
       ...trips.flatMap((trip) =>
         (staffTasksByTrip[trip.id] || trip.staffTasks || []).map((task) => {
-          const stored = toCalendarDatePart(task.dueDate);
-          const computed = toCalendarDatePart(computeStaffTaskDueDate(task, trip));
           return {
             ...task,
             tripId: trip.id,
             tripName: trip.name,
             tripSite: trip.location || "",
-            dueDate: stored || computed || "",
+            dueDate: effectiveStaffTaskDueDate(task, trip) || "",
           };
         })
       ),
