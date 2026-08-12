@@ -21,6 +21,13 @@ import {
 } from "@/lib/trainingResources";
 import { listStaffProfiles } from "@/lib/auth";
 import { normalizeEmail } from "@/lib/resendMail";
+import {
+  listStaffTrainingSectionStatesByUserId,
+  loadStaffTrainingProgressFromStorage,
+  mergeStaffTrainingSectionStates,
+  saveStaffTrainingProgressToStorage,
+  saveStaffTrainingSectionProgress,
+} from "@/lib/staffTrainingProgress";
 
 const SAMPLE_TRIP_NAME = "Demo trip";
 const SAMPLE_TRIP_LOCATION = "South Korea, Seoul";
@@ -47,7 +54,7 @@ function buildDemoTripParticipants(staffProfiles, session) {
   // Keep the signed-in user on the roster even if they are admin (not role=staff).
   if (sessionEmail && !byEmail.has(sessionEmail)) {
     byEmail.set(sessionEmail, {
-      id: session?.id || "staff-session",
+      id: session?.profileId || session?.id || "staff-session",
       name: String(session?.name || "").trim() || sessionEmail,
       email: sessionEmail,
       role: "Staff",
@@ -82,7 +89,9 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
   );
 
   const [modules, setModules] = useState(() => loadPrototypeModules());
-  const [participantSectionStates, setParticipantSectionStates] = useState({});
+  const [participantSectionStates, setParticipantSectionStates] = useState(() =>
+    loadStaffTrainingProgressFromStorage()
+  );
   const [view, setView] = useState("center");
   const [activeModuleId, setActiveModuleId] = useState("");
   const [activeSectionId, setActiveSectionId] = useState("");
@@ -100,14 +109,40 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
         setStaffProfiles(profiles);
         const participants = buildDemoTripParticipants(profiles, session);
         setModules(loadPrototypeModules());
-        setParticipantSectionStates(emptyParticipantSectionStates(participants));
+
+        const stored = loadStaffTrainingProgressFromStorage();
+        const dbByUserId = await listStaffTrainingSectionStatesByUserId(
+          participants.map((participant) => participant.id)
+        );
+        if (cancelled) return;
+
+        const fromDb = {};
+        for (const participant of participants) {
+          const dbState = dbByUserId.get(String(participant.id));
+          if (dbState) fromDb[participant.email] = dbState;
+        }
+
+        setParticipantSectionStates((prev) =>
+          mergeStaffTrainingSectionStates(
+            emptyParticipantSectionStates(participants),
+            stored,
+            fromDb,
+            prev
+          )
+        );
       } catch (error) {
         if (cancelled) return;
         console.error("Unable to load staff for demo trip", error);
         setStaffLoadError(error?.message || "Unable to load staff profiles.");
         const participants = buildDemoTripParticipants([], session);
         setStaffProfiles([]);
-        setParticipantSectionStates(emptyParticipantSectionStates(participants));
+        setParticipantSectionStates((prev) =>
+          mergeStaffTrainingSectionStates(
+            emptyParticipantSectionStates(participants),
+            loadStaffTrainingProgressFromStorage(),
+            prev
+          )
+        );
       } finally {
         if (!cancelled) setStaffLoading(false);
       }
@@ -173,13 +208,38 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
 
   function markSectionComplete(sectionId) {
     if (!sectionId || !sessionStaffEmail) return;
-    setParticipantSectionStates((prev) => ({
-      ...prev,
-      [sessionStaffEmail]: {
-        ...(prev[sessionStaffEmail] || {}),
-        [sectionId]: true,
-      },
-    }));
+
+    const sessionParticipant = sampleParticipants.find(
+      (participant) => participant.email === sessionStaffEmail
+    );
+    const userId = String(sessionParticipant?.id || session?.profileId || session?.id || "").trim();
+
+    setParticipantSectionStates((prev) => {
+      const next = {
+        ...prev,
+        [sessionStaffEmail]: {
+          ...(prev[sessionStaffEmail] || {}),
+          [sectionId]: true,
+        },
+      };
+      saveStaffTrainingProgressToStorage(next);
+      return next;
+    });
+
+    if (!userId || userId === "staff-session") return;
+
+    void (async () => {
+      try {
+        await saveStaffTrainingSectionProgress({
+          userId,
+          sectionId,
+          completed: true,
+        });
+      } catch (error) {
+        // Browser storage already kept the checkoff; DB may reject a sentinel trip id.
+        console.error("Unable to save staff training progress to the database", error);
+      }
+    })();
   }
 
   function openFullSession(moduleId, sectionId) {

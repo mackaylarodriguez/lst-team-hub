@@ -21,6 +21,7 @@ import {
 import { isAdminRole, isLeaderRole, isManagerRole } from "@/lib/roles";
 import {
   listTripTeamMembers,
+  omitTripMemberFundraisingFields,
   saveTripTeamMemberFundraisingUrl,
   saveTripTeamMembers,
   updateTripTeamMemberTshirtSize,
@@ -4936,10 +4937,12 @@ function parseDateSafe(dateStr) {
             )
         )
         .map((member) => member.assignmentId);
-      const normalizedDraft = rosterDraft.map((m) => ({
-        ...m,
-        teamRole: normalizeLegacyTeamRole(m.teamRole),
-      }));
+      const normalizedDraft = rosterDraft.map((m) =>
+        omitTripMemberFundraisingFields({
+          ...m,
+          teamRole: normalizeLegacyTeamRole(m.teamRole),
+        })
+      );
       const savedMembers = await saveTripTeamMembers(trip.id, normalizedDraft);
       rosterSaveEpochRef.current += 1;
 
@@ -5007,7 +5010,7 @@ function parseDateSafe(dateStr) {
           ? newWorkerDraft.travelsWithTeam !== false
           : true;
       const nextRosterMembers = await saveTripTeamMembers(trip.id, [
-        ...(trip.teamMembers || []),
+        ...(trip.teamMembers || []).map(omitTripMemberFundraisingFields),
         {
           firstName,
           lastName,
@@ -5806,7 +5809,8 @@ function parseDateSafe(dateStr) {
         tshirtSize: String(member.tshirtSize || "").trim(),
         email,
         cellPhone: String(member.cellPhone || "").trim(),
-        fundraisingUrl: "",
+        fundraisingUrl: member.fundraisingUrl || "",
+        fundraisingGoalAmount: member.fundraisingGoalAmount,
         startDate: member.startDate || trip.startDate || "",
         endDate: member.endDate || trip.endDate || "",
         connected: !!hubProfile?.id,
@@ -5840,7 +5844,15 @@ function parseDateSafe(dateStr) {
         tshirtSize: String(rosterMatch?.tshirtSize || existing?.tshirtSize || "").trim(),
         email: participant.email || existing?.email || "",
         cellPhone: String(rosterMatch?.cellPhone || existing?.cellPhone || "").trim(),
-        fundraisingUrl: participant.fundraisingUrl || existing?.fundraisingUrl || "",
+        fundraisingUrl:
+          participant.fundraisingUrl ||
+          rosterMatch?.fundraisingUrl ||
+          existing?.fundraisingUrl ||
+          "",
+        fundraisingGoalAmount:
+          participant.fundraisingGoalAmount ??
+          rosterMatch?.fundraisingGoalAmount ??
+          existing?.fundraisingGoalAmount,
         startDate: existing?.startDate || trip.startDate || "",
         endDate: existing?.endDate || trip.endDate || "",
         connected: !!profileId,
