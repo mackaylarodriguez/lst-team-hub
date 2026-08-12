@@ -362,6 +362,7 @@ export function useTripPageModel() {
   const [editingStaffTaskId, setEditingStaffTaskId] = useState(null);
   /** Keeps staff-task list refetch from stealing focus from the date picker while a row is open for edit. */
   const editingStaffTaskIdRef = useRef(null);
+  const rosterSaveEpochRef = useRef(0);
   const [staffTaskDueDateDraft, setStaffTaskDueDateDraft] = useState("");
   const staffDueTripleRef = useRef(null);
   const [staffTaskTitleDraft, setStaffTaskTitleDraft] = useState("");
@@ -1146,6 +1147,7 @@ export function useTripPageModel() {
     let cancelled = false;
 
     async function loadTripData() {
+      const rosterEpochAtStart = rosterSaveEpochRef.current;
       const [
         participantsResult,
         teamMembersResult,
@@ -1186,7 +1188,16 @@ export function useTripPageModel() {
         "task progress"
       );
 
-      setTrip((current) => (current ? { ...current, participants, teamMembers, tasks } : current));
+      setTrip((current) => {
+        if (!current) return current;
+        const keepLocalRoster = rosterSaveEpochRef.current !== rosterEpochAtStart;
+        return {
+          ...current,
+          participants,
+          tasks,
+          teamMembers: keepLocalRoster ? current.teamMembers : teamMembers,
+        };
+      });
       setTrainingModules(modules);
 
       const rosterEmails = [
@@ -4930,6 +4941,7 @@ function parseDateSafe(dateStr) {
         teamRole: normalizeLegacyTeamRole(m.teamRole),
       }));
       const savedMembers = await saveTripTeamMembers(trip.id, normalizedDraft);
+      rosterSaveEpochRef.current += 1;
 
       try {
         await pruneTripTicketsForNonTravelingLeaders();
@@ -5008,6 +5020,7 @@ function parseDateSafe(dateStr) {
           endDate: "",
         },
       ]);
+      rosterSaveEpochRef.current += 1;
 
       let nextParticipants = trip.participants || [];
       let statusMessage = "Worker added as unassigned.";
@@ -5817,8 +5830,8 @@ function parseDateSafe(dateStr) {
         name: participant.name || existing?.name || "Unnamed member",
         firstName: participant.firstName || existing?.firstName || "",
         lastName: participant.lastName || existing?.lastName || "",
-        role: rosterMatch?.teamRole || existing?.role || participant.role || "",
-        teamRole: rosterMatch?.teamRole || existing?.teamRole || participant.role || "Worker",
+        role: rosterMatch?.teamRole || existing?.teamRole || "Worker",
+        teamRole: rosterMatch?.teamRole || existing?.teamRole || "Worker",
         travelsWithTeam: rosterMatch
           ? rosterMatch.travelsWithTeam !== false
           : existing
