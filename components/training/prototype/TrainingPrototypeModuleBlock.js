@@ -3,6 +3,7 @@ import CollapsibleSection from "@/components/CollapsibleSection";
 import TrainingPrototypeRichText from "./TrainingPrototypeRichText";
 import TrainingPrototypeWrittenBlocks from "./TrainingPrototypeWrittenBlocks";
 import TrainingPrototypeFullSessionButton from "./TrainingPrototypeFullSessionButton";
+import { buildTrainingModuleRowDomId } from "@/components/trip/tripPageShared";
 import {
   PROTOTYPE_STATUS_META,
   formatPrototypeDueDate,
@@ -31,7 +32,7 @@ export default function TrainingPrototypeModuleBlock({
   const moduleStatusMeta = PROTOTYPE_STATUS_META[moduleStatus] || PROTOTYPE_STATUS_META.not_started;
 
   return (
-    <div className="trainingPrototypeModuleShell">
+    <div className="trainingPrototypeModuleShell" id={buildTrainingModuleRowDomId(module.id)}>
       <div className="trainingPrototypeModuleHeadingRow">
         <button
           type="button"

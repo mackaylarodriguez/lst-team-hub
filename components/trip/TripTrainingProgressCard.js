@@ -1,25 +1,16 @@
 import { useTripPage } from "./TripPageContext";
 
-export default function TripTrainingProgressCard({ variant = "modules" }) {
+export default function TripTrainingProgressCard() {
   const {
     canViewTeamDashboard,
-    currentTrainingProgress,
     currentPrototypeTrainingProgress,
-    overviewTrainingPct,
     overviewPrototypeTrainingPct,
-    visibleTrainingParticipants,
     visiblePrototypeTrainingParticipants,
   } = useTripPage();
 
-  const usePrototype = variant === "prototype";
-  const progressPct = usePrototype ? overviewPrototypeTrainingPct : overviewTrainingPct;
-  const currentProgress = usePrototype
-    ? currentPrototypeTrainingProgress
-    : currentTrainingProgress;
-  const participants = usePrototype
-    ? visiblePrototypeTrainingParticipants
-    : visibleTrainingParticipants;
-  const unitLabel = usePrototype ? "sections" : "modules";
+  const progressPct = overviewPrototypeTrainingPct;
+  const currentProgress = currentPrototypeTrainingProgress;
+  const participants = visiblePrototypeTrainingParticipants;
 
   return (
     <div className="card pad tripSectionCard tripTaskProgressCard" style={{ marginBottom: 16 }}>
@@ -32,8 +23,8 @@ export default function TripTrainingProgressCard({ variant = "modules" }) {
       </div>
       <div className="small tripTaskProgressMeta">
         {canViewTeamDashboard
-          ? `Overall completion across all participant training ${unitLabel}.`
-          : `${currentProgress?.completed || 0} of ${currentProgress?.total || 0} ${unitLabel} complete.`}
+          ? "Overall completion across all participant training sections."
+          : `${currentProgress?.completed || 0} of ${currentProgress?.total || 0} sections complete.`}
       </div>
 
       {canViewTeamDashboard ? (

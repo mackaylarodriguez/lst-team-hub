@@ -51,6 +51,8 @@ import {
   TRAINING_PROTOTYPE_MODULE_TO_TRAINING_TITLE,
 } from "@/lib/trainingCenterPrototypeMock";
 import {
+  applyCompletedClassroomModulesToSectionState,
+  getPrototypeSectionsForClassroomModule,
   isTrainingSectionProgressTask,
   parseTrainingSectionTaskName,
   saveTrainingSectionProgress,
@@ -1191,8 +1193,9 @@ export function useTripPageModel() {
         ...(participants || []).map((p) => p?.email),
         ...(teamMembers || []).map((m) => m?.email),
       ];
+      let profileMap = new Map();
       try {
-        const profileMap = await loadWorkerProfilesByEmails(rosterEmails);
+        profileMap = await loadWorkerProfilesByEmails(rosterEmails);
         if (!cancelled) setHubProfilesByEmail(profileMap);
       } catch (profileError) {
         console.error("Unable to load worker profiles for trip roster", profileError);
@@ -1275,9 +1278,64 @@ export function useTripPageModel() {
         nextTaskStates[taskEmailKey][row.taskName] = !!row.completed;
       });
 
+      const userIdByEmail = new Map();
+      profileMap.forEach((profile, email) => {
+        const emailKey = normalizeEmail(email || profile?.email);
+        if (emailKey && profile?.id) userIdByEmail.set(emailKey, profile.id);
+      });
+      participants.forEach((participant) => {
+        const emailKey = normalizeEmail(participant?.email);
+        if (emailKey && participant?.id) userIdByEmail.set(emailKey, participant.id);
+      });
+      progress.forEach((row) => {
+        const email = resolveEmailForProgressUserId(row.userId);
+        const emailKey = normalizeEmail(email);
+        if (emailKey && row.userId) userIdByEmail.set(emailKey, row.userId);
+      });
+      taskProgress.forEach((row) => {
+        const email = resolveEmailForProgressUserId(row.userId);
+        const emailKey = normalizeEmail(email);
+        if (emailKey && row.userId) userIdByEmail.set(emailKey, row.userId);
+      });
+
+      const carryOverSaves = [];
+      const emailsToCarryOver = new Set([
+        ...Object.keys(nextTrainingStates),
+        ...Object.keys(nextSectionStates),
+        ...userIdByEmail.keys(),
+      ]);
+      for (const emailKey of emailsToCarryOver) {
+        const trainingState = nextTrainingStates[emailKey] || {};
+        const { sectionState, newlyCompletedSectionIds } =
+          applyCompletedClassroomModulesToSectionState(
+            nextSectionStates[emailKey] || {},
+            trainingState,
+            modules
+          );
+        nextSectionStates[emailKey] = sectionState;
+        const userId = userIdByEmail.get(emailKey);
+        if (!userId || !newlyCompletedSectionIds.length) continue;
+        for (const sectionId of newlyCompletedSectionIds) {
+          carryOverSaves.push(
+            saveTrainingSectionProgress({
+              tripId: trip.id,
+              userId,
+              sectionId,
+              completed: true,
+            })
+          );
+        }
+      }
+
       setParticipantTrainingStates(nextTrainingStates);
       setParticipantTaskStates(nextTaskStates);
       setParticipantSectionStates(nextSectionStates);
+
+      if (carryOverSaves.length) {
+        Promise.all(carryOverSaves).catch((error) => {
+          console.error("Unable to carry over completed training modules", error);
+        });
+      }
 
       const travelForms = getSettledValue(travelFormResult, [], "travel form responses");
       setTravelFormResponses(travelForms);
@@ -3139,11 +3197,8 @@ export function useTripPageModel() {
           completedAt: next[`${id}Date`] || null,
         });
 
-        // Transition: checking a classroom module also completes all matching prototype sections.
         if (nextValue) {
-          const prototypeModuleId = findPrototypeModuleIdForTrainingTitle(module?.title);
-          const protoModule = prototypeModuleId ? getPrototypeModuleById(prototypeModuleId) : null;
-          const sections = protoModule?.sections || [];
+          const sections = getPrototypeSectionsForClassroomModule(module);
           if (sections.length) {
             const completedSectionIds = Object.fromEntries(
               sections.map((section) => [section.id, true])
@@ -3266,7 +3321,7 @@ export function useTripPageModel() {
         });
         pushRecentActivity(activityEntry);
       } catch (error) {
-        console.error("Unable to save prototype training section progress", error);
+        console.error("Unable to save training section progress", error);
         showToast(error.message || "Unable to save training progress.", "error");
       }
     })();
@@ -6254,9 +6309,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
     ? participantTaskPct
     : currentParticipantProgress?.percent || 0;
   const overviewTrainingLabel = canViewTeamDashboard ? "Training" : "My Training";
-  const overviewTrainingPct = canViewTeamDashboard
-    ? trainingPct
-    : currentTrainingProgress?.percent || 0;
   const rosterMemberForWorker = useMemo(() => {
     if (sessionTripRosterRow) return sessionTripRosterRow;
     if (!trip || !currentParticipant) return null;
@@ -6782,6 +6834,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
   const overviewPrototypeTrainingPct = canViewTeamDashboard
     ? prototypeTrainingPct
     : currentPrototypeTrainingProgress?.percent || 0;
+  const overviewTrainingPct = overviewPrototypeTrainingPct;
 
   const visiblePrototypeTrainingParticipants = canViewTeamDashboard
     ? prototypeTrainingProgress
@@ -6904,7 +6957,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
         }),
         detail: "Training",
         destinationTab: "Training",
-        destinationId: module.id,
+        destinationId: findPrototypeModuleIdForTrainingTitle(module.title) || module.id,
       }));
 
     return [...upcomingTasks, ...upcomingTraining]

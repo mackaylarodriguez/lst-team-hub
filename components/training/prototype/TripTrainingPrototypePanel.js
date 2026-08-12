@@ -129,7 +129,7 @@ export default function TripTrainingPrototypePanel() {
   return (
     <>
       <div className="trainingPrototypeCenter">
-        <TripTrainingProgressCard variant="prototype" />
+        <TripTrainingProgressCard />
 
         <CollapsibleSection
           className="tripTrainingResourcesDropdown"

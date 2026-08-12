@@ -10,7 +10,7 @@ import { isManagerRole } from "@/lib/roles";
 import { listStaffTrainingRoster, partitionStaffTrainingRows } from "@/lib/staffTrainingRoster";
 
 const STAFF_TRAINING_TABS = [
-  { id: "prototype", label: "Prototype Training" },
+  { id: "training", label: "Training" },
   { id: "overview", label: "Overview" },
   { id: "gradebook", label: "Gradebook" },
 ];
@@ -28,7 +28,7 @@ function matchesTrainingSearch(row, query) {
 export default function TrainingStaffPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
-  const [activePanel, setActivePanel] = useState("prototype");
+  const [activePanel, setActivePanel] = useState("training");
   const [searchQuery, setSearchQuery] = useState("");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +81,7 @@ export default function TrainingStaffPage() {
 
   if (!session) return null;
 
-  const isWalkthrough = activePanel === "prototype";
+  const isWalkthrough = activePanel === "training";
 
   return (
     <Shell>
