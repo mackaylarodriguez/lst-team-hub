@@ -76,6 +76,19 @@ export default function TripTeamTab() {
                       {rosterStatus}
                     </div>
                   ) : null}
+                  {staffViewAllParticipants && isEditingRoster ? (
+                    <div className="tripRosterEditToolbar">
+                      <button className="btn" type="button" onClick={handleAddRosterMember}>
+                        Add person
+                      </button>
+                      <button className="btn btnPrimary" type="button" onClick={handleSaveRoster}>
+                        Save roster
+                      </button>
+                      <button className="btn" type="button" onClick={handleCancelRosterEdit}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : null}
                   {staffViewAllParticipants && !isEditingRoster && !isAddingWorker ? (
                     <>
                       <button className="btn" type="button" onClick={handleStartAddWorker}>
@@ -193,130 +206,191 @@ export default function TripTeamTab() {
                 ) : null}
     
                 {staffViewAllParticipants && isEditingRoster ? (
-                  <div style={{ display: "grid", gap: 12 }}>
-                    {rosterDraft.map((member, index) => (
-                      <div
-                        key={member.id || `draft-${index}`}
-                        className="tripMobileFormGrid"
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                          gap: 10,
-                          padding: 12,
-                          borderRadius: 14,
-                          border: "1px solid var(--border)",
-                          background: "#fff",
-                        }}
-                      >
-                        <input
-                          className="input"
-                          value={member.firstName || ""}
-                          placeholder="First name"
-                          onChange={(event) => updateRosterDraftMember(index, "firstName", event.target.value)}
-                        />
-                        <input
-                          className="input"
-                          value={member.lastName || ""}
-                          placeholder="Last name"
-                          onChange={(event) => updateRosterDraftMember(index, "lastName", event.target.value)}
-                        />
-                        <input
-                          className="input"
-                          type="email"
-                          value={member.email || ""}
-                          placeholder="Email"
-                          onChange={(event) => updateRosterDraftMember(index, "email", event.target.value)}
-                        />
-                        <input
-                          className="input"
-                          type="tel"
-                          value={member.cellPhone || ""}
-                          placeholder="Cell phone"
-                          onChange={(event) => updateRosterDraftMember(index, "cellPhone", event.target.value)}
-                          onBlur={(event) =>
-                            updateRosterDraftMember(index, "cellPhone", formatPhoneNumber(event.target.value))
-                          }
-                        />
-                        <select
-                          className="input"
-                          value={normalizeLegacyTeamRole(member.teamRole || "Worker")}
-                          onChange={(event) => {
-                            const v = event.target.value;
-                            setRosterDraft((current) =>
-                              current.map((row, memberIndex) =>
-                                memberIndex === index
-                                  ? {
-                                      ...row,
-                                      teamRole: v,
-                                      travelsWithTeam:
-                                        String(v).trim().toLowerCase() === "leader"
-                                          ? row.travelsWithTeam !== false
-                                          : true,
-                                    }
-                                  : row
-                              )
-                            );
-                          }}
-                        >
-                          {TEAM_MEMBER_ROLE_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                        {String(normalizeLegacyTeamRole(member.teamRole || "")).trim().toLowerCase() ===
-                        "leader" ? (
-                          <label className="row" style={{ gap: 8, alignItems: "center", gridColumn: "1 / -1" }}>
-                            <input
-                              type="checkbox"
-                              checked={member.travelsWithTeam !== false}
-                              onChange={(event) =>
-                                updateRosterDraftMember(index, "travelsWithTeam", event.target.checked)
-                              }
-                            />
-                            <span className="small">Traveling with team</span>
-                          </label>
-                        ) : null}
-                        <RosterTshirtSizeSelect
-                          value={member.tshirtSize || ""}
-                          onChange={(event) =>
-                            updateRosterDraftMember(index, "tshirtSize", event.target.value)
-                          }
-                        />
-                        <div className="tripRosterDatesRow">
-                          <div className="tripRosterDateField">
-                            <div className="small tripRosterDateLabel">Project leave date</div>
-                            <AppDueDateTripleSelect
-                              compact
-                              value={member.startDate || ""}
-                              onChange={(ymd) => updateRosterDraftMember(index, "startDate", ymd)}
-                            />
-                          </div>
-                          <div className="tripRosterDateField">
-                            <div className="small tripRosterDateLabel">Project return date</div>
-                            <AppDueDateTripleSelect
-                              compact
-                              value={member.endDate || ""}
-                              onChange={(ymd) => updateRosterDraftMember(index, "endDate", ymd)}
-                            />
-                          </div>
-                        </div>
-                        <button className="btn" type="button" onClick={() => handleRemoveRosterMember(index)}>
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-    
-                    <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                      <button className="btn" type="button" onClick={handleAddRosterMember}>
-                        Add Worker
-                      </button>
-                      <button className="btn btnPrimary" type="button" onClick={handleSaveRoster}>
-                        Save Roster
-                      </button>
-                      <button className="btn" type="button" onClick={handleCancelRosterEdit}>
-                        Cancel
-                      </button>
+                  <div className="tripRosterEditWrap">
+                    <div className="small tripRosterEditHint">
+                      Edit names, contact info, roles, and project dates. Save when you&apos;re done.
+                    </div>
+                    <div className="tripRosterEditScroller">
+                      <table className="table dataTableStriped tripRosterEditTable">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Traveling</th>
+                            <th>T-shirt</th>
+                            <th>Email</th>
+                            <th>Cell phone</th>
+                            <th>Project dates</th>
+                            <th aria-label="Actions" />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rosterDraft.length > 0 ? (
+                            rosterDraft.map((member, index) => {
+                              const roleValue = normalizeLegacyTeamRole(member.teamRole || "Worker");
+                              const isLeader =
+                                String(roleValue).trim().toLowerCase() === "leader";
+                              return (
+                                <tr key={member.id || `draft-${index}`}>
+                                  <td>
+                                    <div className="tripRosterEditNameFields">
+                                      <input
+                                        className="input"
+                                        value={member.firstName || ""}
+                                        placeholder="First"
+                                        aria-label="First name"
+                                        onChange={(event) =>
+                                          updateRosterDraftMember(index, "firstName", event.target.value)
+                                        }
+                                      />
+                                      <input
+                                        className="input"
+                                        value={member.lastName || ""}
+                                        placeholder="Last"
+                                        aria-label="Last name"
+                                        onChange={(event) =>
+                                          updateRosterDraftMember(index, "lastName", event.target.value)
+                                        }
+                                      />
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <select
+                                      className="input"
+                                      value={roleValue}
+                                      aria-label="Role"
+                                      onChange={(event) => {
+                                        const v = event.target.value;
+                                        setRosterDraft((current) =>
+                                          current.map((row, memberIndex) =>
+                                            memberIndex === index
+                                              ? {
+                                                  ...row,
+                                                  teamRole: v,
+                                                  travelsWithTeam:
+                                                    String(v).trim().toLowerCase() === "leader"
+                                                      ? row.travelsWithTeam !== false
+                                                      : true,
+                                                }
+                                              : row
+                                          )
+                                        );
+                                      }}
+                                    >
+                                      {TEAM_MEMBER_ROLE_OPTIONS.map((opt) => (
+                                        <option key={opt} value={opt}>
+                                          {opt}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td>
+                                    {isLeader ? (
+                                      <label className="tripRosterEditTravelLabel">
+                                        <input
+                                          type="checkbox"
+                                          checked={member.travelsWithTeam !== false}
+                                          onChange={(event) =>
+                                            updateRosterDraftMember(
+                                              index,
+                                              "travelsWithTeam",
+                                              event.target.checked
+                                            )
+                                          }
+                                        />
+                                        <span>Yes</span>
+                                      </label>
+                                    ) : (
+                                      <span className="small" style={{ color: "var(--muted)" }}>
+                                        —
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    <RosterTshirtSizeSelect
+                                      value={member.tshirtSize || ""}
+                                      aria-label="T-shirt size"
+                                      onChange={(event) =>
+                                        updateRosterDraftMember(index, "tshirtSize", event.target.value)
+                                      }
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      className="input"
+                                      type="email"
+                                      value={member.email || ""}
+                                      placeholder="email@example.com"
+                                      aria-label="Email"
+                                      onChange={(event) =>
+                                        updateRosterDraftMember(index, "email", event.target.value)
+                                      }
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      className="input"
+                                      type="tel"
+                                      value={member.cellPhone || ""}
+                                      placeholder="(555) 555-5555"
+                                      aria-label="Cell phone"
+                                      onChange={(event) =>
+                                        updateRosterDraftMember(index, "cellPhone", event.target.value)
+                                      }
+                                      onBlur={(event) =>
+                                        updateRosterDraftMember(
+                                          index,
+                                          "cellPhone",
+                                          formatPhoneNumber(event.target.value)
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                  <td>
+                                    <div className="tripRosterEditDates">
+                                      <div className="tripRosterDateField">
+                                        <div className="small tripRosterDateLabel">Leave</div>
+                                        <AppDueDateTripleSelect
+                                          compact
+                                          value={member.startDate || ""}
+                                          onChange={(ymd) =>
+                                            updateRosterDraftMember(index, "startDate", ymd)
+                                          }
+                                        />
+                                      </div>
+                                      <div className="tripRosterDateField">
+                                        <div className="small tripRosterDateLabel">Return</div>
+                                        <AppDueDateTripleSelect
+                                          compact
+                                          value={member.endDate || ""}
+                                          onChange={(ymd) =>
+                                            updateRosterDraftMember(index, "endDate", ymd)
+                                          }
+                                        />
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <button
+                                      className="btn tripRosterEditRemoveBtn"
+                                      type="button"
+                                      onClick={() => handleRemoveRosterMember(index)}
+                                    >
+                                      Remove
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan={8} className="small">
+                                No people on this roster yet. Use Add person to start.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 ) : (

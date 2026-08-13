@@ -3190,6 +3190,72 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   margin-bottom:0;
   color:var(--muted);
 }
+.tripRosterEditToolbar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+.tripRosterEditWrap{
+  display:grid;
+  gap:10px;
+}
+.tripRosterEditHint{
+  color:var(--muted);
+}
+.tripRosterEditScroller{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:#fff;
+}
+.tripRosterEditTable{
+  margin:0;
+  min-width:980px;
+}
+.tripRosterEditTable th,
+.tripRosterEditTable td{
+  vertical-align:top;
+  white-space:normal;
+}
+.tripRosterEditTable .input,
+.tripRosterEditTable select.input{
+  min-height:38px;
+  padding:6px 8px;
+  font-size:13px;
+  border-radius:10px;
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+}
+.tripRosterEditNameFields{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  min-width:180px;
+}
+.tripRosterEditTravelLabel{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  font-size:13px;
+  margin:6px 0 0;
+}
+.tripRosterEditDates{
+  display:grid;
+  gap:8px;
+  min-width:220px;
+}
+.tripRosterEditDates .tripRosterDateField{
+  flex:none;
+}
+.tripRosterEditRemoveBtn{
+  white-space:nowrap;
+  padding:6px 10px;
+  font-size:12px;
+}
 .tripTrainingResourceGrid{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
