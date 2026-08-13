@@ -228,7 +228,7 @@ export default function TripTeamTab() {
                           {rosterDraft.length > 0 ? (
                             rosterDraft.map((member, index) => {
                               const roleValue = normalizeLegacyTeamRole(member.teamRole || "Worker");
-                              const isLeader =
+                              const memberIsLeader =
                                 String(roleValue).trim().toLowerCase() === "leader";
                               return (
                                 <tr key={member.id || `draft-${index}`}>
@@ -285,7 +285,7 @@ export default function TripTeamTab() {
                                     </select>
                                   </td>
                                   <td>
-                                    {isLeader ? (
+                                    {memberIsLeader ? (
                                       <label className="tripRosterEditTravelLabel">
                                         <input
                                           type="checkbox"
