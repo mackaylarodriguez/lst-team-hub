@@ -5,6 +5,8 @@
  * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL (or RESEND_FROM_EMAIL)
  * - FUNDRAISING_READY_CC_EMAIL — optional CC (none by default)
  * - FUNDRAISING_READY_BCC_EMAIL — optional BCC (defaults to Mackayla)
+ *
+ * Temporarily disabled: set FUNDRAISING_READY_EMAILS_ENABLED to true to resume sending.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -20,6 +22,8 @@ import {
   buildFundraisingReadyEmailHtml,
   buildFundraisingReadyEmailSubject,
 } from "@/lib/fundraisingReadyEmail";
+
+const FUNDRAISING_READY_EMAILS_ENABLED = false;
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -120,6 +124,14 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed." });
+  }
+
+  if (!FUNDRAISING_READY_EMAILS_ENABLED) {
+    return res.status(200).json({
+      ok: true,
+      skipped: true,
+      reason: "Fundraising ready emails are temporarily disabled.",
+    });
   }
 
   const auth = await authenticateStaffOrAdmin(req);
