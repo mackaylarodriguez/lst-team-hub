@@ -126,6 +126,7 @@ export default function StaffAssignments() {
   const [newWorkerDraft, setNewWorkerDraft] = useState(() => createEmptyWorkerDraft());
   const [invitingWorkerEmail, setInvitingWorkerEmail] = useState("");
   const [invitedEmails, setInvitedEmails] = useState(() => new Set());
+  const [registeredEmails, setRegisteredEmails] = useState(() => new Set());
   const [deletingWorkerId, setDeletingWorkerId] = useState("");
   const [confirmingDeleteWorkerId, setConfirmingDeleteWorkerId] = useState("");
 
@@ -160,7 +161,10 @@ export default function StaffAssignments() {
         .map((worker) => normalizeWorkerEmailKey(worker.email));
 
       if (!emails.length) {
-        if (!cancelled) setInvitedEmails(new Set());
+        if (!cancelled) {
+          setInvitedEmails(new Set());
+          setRegisteredEmails(new Set());
+        }
         return;
       }
 
@@ -175,6 +179,7 @@ export default function StaffAssignments() {
         const result = await response.json().catch(() => null);
         if (!cancelled && response.ok) {
           setInvitedEmails(new Set(result?.invited || []));
+          setRegisteredEmails(new Set(result?.registered || []));
         }
       } catch (statusError) {
         console.error("Unable to load worker invite status", statusError);
@@ -860,7 +865,10 @@ function WorkerDirectorySection({
                 const participant = participantForWorker(worker, participantByProfileId, participantByEmail);
                 const tripRows = collectWorkerTripRows(worker, participant);
                 const workerEmailKey = normalizeWorkerEmailKey(worker.email);
-                const inviteAlreadySent = invitedEmails?.has?.(workerEmailKey);
+                const accountReady =
+                  !!worker.hasAccount || registeredEmails?.has?.(workerEmailKey);
+                const inviteAlreadySent =
+                  !accountReady && invitedEmails?.has?.(workerEmailKey);
                 return (
                   <tr key={worker.id}>
                     <td style={{ whiteSpace: "nowrap" }}>
@@ -880,8 +888,8 @@ function WorkerDirectorySection({
                       </div>
                     </td>
                     <td>
-                      <span className={`badge ${worker.hasAccount ? "badgeSuccess" : inviteAlreadySent ? "badgeInfo" : "badgeWarn"}`.trim()}>
-                        {worker.hasAccount ? "Account created" : inviteAlreadySent ? "Invite sent" : "Pending invite"}
+                      <span className={`badge ${accountReady ? "badgeSuccess" : inviteAlreadySent ? "badgeInfo" : "badgeWarn"}`.trim()}>
+                        {accountReady ? "Account created" : inviteAlreadySent ? "Invite sent" : "Pending invite"}
                       </span>
                     </td>
                     <td>
@@ -971,7 +979,7 @@ function WorkerDirectorySection({
                             className="btn"
                             style={{ width: "100%" }}
                             disabled={
-                              worker.hasAccount ||
+                              accountReady ||
                               !worker.assignments.length ||
                               invitingWorkerEmail === worker.email ||
                               inviteAlreadySent
@@ -980,7 +988,7 @@ function WorkerDirectorySection({
                           >
                             {invitingWorkerEmail === worker.email
                               ? "Sending invite…"
-                              : worker.hasAccount
+                              : accountReady
                                 ? "Invite (account exists)"
                                 : inviteAlreadySent
                                   ? "Invite sent"
