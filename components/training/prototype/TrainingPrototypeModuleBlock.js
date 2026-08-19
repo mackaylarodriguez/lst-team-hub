@@ -7,12 +7,22 @@ import { buildTrainingModuleRowDomId } from "@/components/trip/tripPageShared";
 import {
   PROTOTYPE_STATUS_META,
   formatPrototypeDueDate,
+  formatPrototypeModuleTeamStatusLabel,
   getPrototypeModuleStatus,
+  getPrototypeModuleTeamStatus,
   getPrototypeSectionQuiz,
   resolvePrototypeSectionVideoEmbed,
 } from "@/lib/trainingCenterPrototypeMock";
 import TrainingPrototypeQuizForm from "./TrainingPrototypeQuizForm";
 import TrainingPrototypeSectionAckStatus from "./TrainingPrototypeSectionAckStatus";
+
+function getSectionTeamStatusMeta(roster) {
+  const total = Number(roster?.total) || 0;
+  const completed = Array.isArray(roster?.completed) ? roster.completed.length : 0;
+  if (!total || completed === 0) return PROTOTYPE_STATUS_META.not_started;
+  if (completed >= total) return PROTOTYPE_STATUS_META.completed;
+  return PROTOTYPE_STATUS_META.in_progress;
+}
 
 export default function TrainingPrototypeModuleBlock({
   module,
@@ -21,6 +31,7 @@ export default function TrainingPrototypeModuleBlock({
   canEdit = false,
   canViewSectionAckRoster = false,
   sectionCompletionRosters = {},
+  teamParticipants = [],
   onEditModule,
   onOpenFullSession,
   onOpenQuiz,
@@ -28,8 +39,17 @@ export default function TrainingPrototypeModuleBlock({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const sections = module.sections || [];
-  const moduleStatus = getPrototypeModuleStatus(completedSectionIds, module);
+  const useTeamStatus = canViewSectionAckRoster && (teamParticipants?.length || 0) > 0;
+  const teamStatus = useTeamStatus
+    ? getPrototypeModuleTeamStatus(module, teamParticipants)
+    : null;
+  const moduleStatus = useTeamStatus
+    ? teamStatus.status
+    : getPrototypeModuleStatus(completedSectionIds, module);
   const moduleStatusMeta = PROTOTYPE_STATUS_META[moduleStatus] || PROTOTYPE_STATUS_META.not_started;
+  const moduleStatusLabel = useTeamStatus
+    ? formatPrototypeModuleTeamStatusLabel(teamStatus)
+    : moduleStatusMeta.label;
 
   return (
     <div className="trainingPrototypeModuleShell" id={buildTrainingModuleRowDomId(module.id)}>
@@ -48,7 +68,7 @@ export default function TrainingPrototypeModuleBlock({
           </div>
         </button>
         <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <span className={`badge ${moduleStatusMeta.badge}`}>{moduleStatusMeta.label}</span>
+          <span className={`badge ${moduleStatusMeta.badge}`}>{moduleStatusLabel}</span>
           {canEdit ? (
             <button
               type="button"
@@ -65,14 +85,25 @@ export default function TrainingPrototypeModuleBlock({
         <div className="trainingPrototypeSectionStack">
           {sections.map((section, index) => {
             const sectionComplete = !!completedSectionIds[section.id];
+            const teamSectionMeta = useTeamStatus
+              ? getSectionTeamStatusMeta(sectionCompletionRosters[section.id])
+              : null;
             // Only explicit mark/quiz submit counts — opening or clicking Next does not.
             const firstIncompleteIndex = sections.findIndex((item) => !completedSectionIds[item.id]);
             const hasAnyComplete = sections.some((item) => completedSectionIds[item.id]);
-            const sectionStatus = sectionComplete
+            const personalSectionStatus = sectionComplete
               ? PROTOTYPE_STATUS_META.completed
               : hasAnyComplete && index === firstIncompleteIndex
                 ? PROTOTYPE_STATUS_META.in_progress
                 : PROTOTYPE_STATUS_META.not_started;
+            const sectionStatus = teamSectionMeta || personalSectionStatus;
+            const sectionStatusLabel = useTeamStatus
+              ? `${sectionStatus.label} · ${
+                  Array.isArray(sectionCompletionRosters[section.id]?.completed)
+                    ? sectionCompletionRosters[section.id].completed.length
+                    : 0
+                }/${Number(sectionCompletionRosters[section.id]?.total) || 0}`
+              : sectionStatus.label;
 
             return (
               <CollapsibleSection
@@ -85,7 +116,7 @@ export default function TrainingPrototypeModuleBlock({
                     : `Due ${formatPrototypeDueDate(section.dueDate)}`
                 }
                 defaultOpen={index === 0 && defaultOpen}
-                badge={<span className={`badge ${sectionStatus.badge}`}>{sectionStatus.label}</span>}
+                badge={<span className={`badge ${sectionStatus.badge}`}>{sectionStatusLabel}</span>}
               >
                 <div className="trainingPrototypeSectionInner">
                   {section.fullSessionBlocks?.length ? (

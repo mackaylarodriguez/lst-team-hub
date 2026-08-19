@@ -389,6 +389,7 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
               canEdit
               canViewSectionAckRoster
               sectionCompletionRosters={sectionCompletionRosters}
+              teamParticipants={participantProgress}
               onEditModule={setEditingModuleId}
               onOpenFullSession={openFullSession}
               onOpenQuiz={openQuiz}

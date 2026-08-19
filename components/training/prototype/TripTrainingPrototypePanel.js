@@ -29,6 +29,7 @@ export default function TripTrainingPrototypePanel() {
     markPrototypeSectionComplete,
     optionalTrainingResources,
     prototypeSectionCompletionRosters,
+    prototypeTrainingProgress,
     requiredTrainingResources,
     trainingProgress,
     trip,
@@ -166,6 +167,7 @@ export default function TripTrainingPrototypePanel() {
               canEdit={canManageTrips}
               canViewSectionAckRoster={canViewTeamDashboard}
               sectionCompletionRosters={prototypeSectionCompletionRosters}
+              teamParticipants={canViewTeamDashboard ? prototypeTrainingProgress : []}
               onEditModule={setEditingModuleId}
               onOpenFullSession={openFullSession}
               onOpenQuiz={openQuiz}
