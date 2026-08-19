@@ -22,48 +22,43 @@ const WEEK_BLOCKS = [
   { key: 4, label: "22–end", startDay: 22, endDay: null },
 ];
 
-/** Stronger palette so status reads at a glance on the overview grid. */
+/** Soft palette — readable without neon green/red. */
 const CELL = {
   outside: {
     label: "Closed",
     title: "Outside available season / not hosting",
-    background: "#111827",
-    color: "#f9fafb",
-    border: "#030712",
+    background: "#e8eef5",
+    color: "#64748b",
+    border: "#cbd5e1",
   },
   open: {
     label: "Open",
     title: "Available all month",
-    background: "#22c55e",
-    color: "#052e16",
-    border: "#15803d",
+    background: "#d8efe4",
+    color: "#1f5c45",
+    border: "#b5dcc9",
   },
   partial: {
     label: "Part",
     title: "Available part of the month (see weekly calendar)",
-    background: "#4ade80",
-    color: "#14532d",
-    border: "#16a34a",
+    background: "#e7f6ee",
+    color: "#2d6a4f",
+    border: "#c5e6d4",
   },
   booked: {
     label: "Locked",
     title: "Team locked / booked",
-    background: "#ef4444",
-    color: "#fff",
-    border: "#b91c1c",
+    background: "#f3d6d6",
+    color: "#8b3a3a",
+    border: "#e0b4b4",
   },
   excluded: {
     label: "Hold",
     title: "Excluded / host unavailable",
-    background: "#a1a1aa",
-    color: "#18181b",
-    border: "#71717a",
+    background: "#eceff3",
+    color: "#5b6573",
+    border: "#d0d5dd",
   },
-};
-
-const AV_TABLE = {
-  site: 220,
-  month: 78,
 };
 
 const VISIBLE_SITES_STORAGE_KEY = "lst-sites-availability-visible-v1";
@@ -464,8 +459,7 @@ function AvailabilityCell({ status, compact = false }) {
         color: style.color,
         border: `1px solid ${style.border}`,
         boxSizing: "border-box",
-        textShadow:
-          status === "outside" || status === "booked" ? "0 1px 0 rgba(0,0,0,.25)" : "none",
+        textShadow: "none",
       }}
     >
       {style.label}
@@ -586,7 +580,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
     );
   }, [siteLabels, siteFilter]);
 
-  const tableWidth = AV_TABLE.site + MONTHS.length * AV_TABLE.month;
   const visibleCount = visibleRows.length;
   const totalCount = rows.length;
 
@@ -860,26 +853,24 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
           grid.
         </div>
       ) : (
-        <div className="sitesWorkbookScroller">
+        <div className="sitesAvailabilityScroller">
           <table
             className="table sitesWorkbookTable dataTableStriped sitesAvailabilityTable"
             style={{
-              width: tableWidth,
-              minWidth: tableWidth,
+              width: "100%",
               fontSize: 12,
             }}
           >
             <colgroup>
-              <col style={{ width: AV_TABLE.site }} />
+              <col className="sitesAvailabilitySiteCol" />
               {MONTHS.map((month) => (
-                <col key={month.key} style={{ width: AV_TABLE.month }} />
+                <col key={month.key} className="sitesAvailabilityMonthCol" />
               ))}
             </colgroup>
             <thead>
               <tr>
                 <th
-                  className="sitesWorkbookCorner"
-                  style={{ whiteSpace: "nowrap", maxWidth: AV_TABLE.site, boxSizing: "border-box" }}
+                  className="sitesWorkbookCorner sitesAvailabilitySiteHead"
                 >
                   Site
                 </th>
@@ -908,17 +899,15 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                     onClick={() => setSelectedSite(row.siteLabel)}
                     style={{
                       cursor: "pointer",
-                      outline: isSelected ? "2px solid rgba(239, 68, 68, 0.55)" : undefined,
+                      outline: isSelected ? "2px solid rgba(239, 68, 68, 0.35)" : undefined,
                       outlineOffset: -2,
                     }}
                   >
                     <td
-                      className="sitesWorkbookSiteCell"
+                      className="sitesWorkbookSiteCell sitesAvailabilitySiteCell"
                       style={{
                         fontWeight: 700,
-                        maxWidth: AV_TABLE.site,
-                        boxSizing: "border-box",
-                        background: isSelected ? "rgba(239, 68, 68, 0.08)" : undefined,
+                        background: isSelected ? "rgba(239, 68, 68, 0.06)" : undefined,
                       }}
                       title={row.siteLabel}
                     >
@@ -947,7 +936,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                           className="sitesWorkbookQtyCell"
                           style={{
                             verticalAlign: "middle",
-                            background: isSelected ? "rgba(239, 68, 68, 0.04)" : undefined,
+                            background: isSelected ? "rgba(239, 68, 68, 0.03)" : undefined,
                           }}
                         >
                           <AvailabilityCell status={status} />
