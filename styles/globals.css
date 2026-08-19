@@ -3788,13 +3788,6 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:grid;
   gap:8px;
 }
-.tripTrainingWorkshopRosterHeading{
-  font-weight:800;
-  color:var(--text);
-}
-.tripTrainingWorkshopRosterHint{
-  color:var(--muted);
-}
 .tripTrainingWorkshopRosterScroller{
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;

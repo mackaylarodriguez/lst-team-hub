@@ -128,10 +128,7 @@ function WorkshopRegistrationRoster({ trainingProgress, trainingModules }) {
 
   return (
     <div className="tripTrainingWorkshopRoster">
-      <div className="small tripTrainingWorkshopRosterHeading">Workshop registrations</div>
-      <div className="small tripTrainingWorkshopRosterHint">
-        Who registered for Basic Training, Gateway, and EndMeeting (session date &amp; time).
-      </div>
+      <div className="small tripTrainingResourcesColumnHeading">Training registration</div>
       <div className="tripTrainingWorkshopRosterScroller">
         <table className="table dataTableStriped tripTrainingWorkshopRosterTable">
           <thead>
