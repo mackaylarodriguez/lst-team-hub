@@ -161,7 +161,6 @@ import ExpandableCollapsibleSection from "@/components/CollapsibleSection";
 import {
   BASIC_TRAINING_URL,
   GATEWAY_TRAINING_URL,
-  TRAINING_ACCESS_URL,
   getOptionalTrainingResources,
   getRequiredTrainingResources,
   getTrainingResources,
@@ -616,7 +615,6 @@ export function useTripPageModel() {
   const trainingResources = getTrainingResources();
   const requiredTrainingResources = getRequiredTrainingResources();
   const optionalTrainingResources = getOptionalTrainingResources();
-  const trainingAccessUrl = TRAINING_ACCESS_URL;
   const basicTrainingUrl = BASIC_TRAINING_URL;
   const gatewayTrainingUrl = GATEWAY_TRAINING_URL;
 
@@ -6725,13 +6723,7 @@ normalizeEmail(participant.email) === activeParticipantEmail
     );
   }, [docs]);
   const quickLinks = useMemo(() => {
-    const links = [
-      {
-        label: "On-Demand Training",
-        url: trainingAccessUrl,
-        ready: true,
-      },
-    ];
+    const links = [];
 
     if (trip?.teamFundraisingUrl) {
       links.push({
@@ -6774,7 +6766,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
     effectiveSiteInfoDoc?.pdfUrl,
     flightsOpenUrl,
     smartsheetBudgetOpenUrl,
-    trainingAccessUrl,
     trip?.fundraisingMode,
     trip?.teamFundraisingUrl,
   ]);
@@ -7909,7 +7900,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
     toggleTask,
     toggleTraining,
     totalCount,
-    trainingAccessUrl,
     trainingModules,
     trainingPct,
     trainingProgress,

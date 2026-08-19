@@ -496,7 +496,6 @@ export default function TripPage() {
     toggleTask,
     toggleTraining,
     totalCount,
-    trainingAccessUrl,
     trainingModules,
     trainingPct,
     trainingProgress,
