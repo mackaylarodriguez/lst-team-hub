@@ -2020,6 +2020,60 @@ table.sitesWorkbookTable tbody td{
   border:1px solid var(--border);
   background:linear-gradient(180deg, rgba(255,241,242,.7), #ffffff 40%);
 }
+.sitesAvailabilityEditPanel{
+  margin-bottom:16px;
+  padding:14px;
+  border-radius:12px;
+  border:1px solid rgba(50,84,163,.28);
+  background:#f8fbff;
+}
+.sitesAvailabilityEditTitle{
+  font-size:15px;
+  font-weight:900;
+  margin-bottom:4px;
+}
+.sitesAvailabilityEditGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  gap:10px 12px;
+}
+.sitesAvailabilityEditField{
+  display:grid;
+  gap:6px;
+  font-size:12px;
+  font-weight:700;
+  color:var(--muted);
+}
+.sitesAvailabilityEditField .input{
+  font-weight:600;
+  color:var(--text);
+}
+.sitesAvailabilityEditSection{
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px solid var(--border);
+}
+.sitesAvailabilityEditSectionTitle{
+  font-size:13px;
+  font-weight:900;
+  color:var(--text);
+}
+.sitesAvailabilityEditList{
+  display:grid;
+  gap:8px;
+  margin-top:10px;
+}
+.sitesAvailabilityEditRow{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr)) auto;
+  gap:8px;
+  align-items:center;
+}
+@media (max-width:800px){
+  .sitesAvailabilityEditRow{
+    grid-template-columns:1fr;
+  }
+}
 .sitesAvailabilityDetailLayout{
   display:grid;
   grid-template-columns:minmax(0, 1.6fr) minmax(220px, .9fr);
