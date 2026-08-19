@@ -21,14 +21,18 @@ import { getPrototypeSectionQuiz } from "@/lib/trainingCenterPrototypeMock";
 export default function TripTrainingPrototypePanel() {
   const {
     activeParticipantEmail,
+    allTrainingModules,
     canManageTrips,
     canViewTeamDashboard,
     completedPrototypeSectionIds,
+    currentTrainingProgress,
     markPrototypeSectionComplete,
     optionalTrainingResources,
     prototypeSectionCompletionRosters,
     requiredTrainingResources,
+    trainingProgress,
     trip,
+    updateTrainingDate,
   } = useTripPage();
   const tripDeadlineContext = {
     startDate: trip?.startDate,
@@ -40,6 +44,8 @@ export default function TripTrainingPrototypePanel() {
   const [activeModuleId, setActiveModuleId] = useState("");
   const [activeSectionId, setActiveSectionId] = useState("");
   const [editingModuleId, setEditingModuleId] = useState("");
+
+  const canEditWorkshopRegistration = !!currentTrainingProgress && !!activeParticipantEmail;
 
   useEffect(() => {
     setModules(loadPrototypeModules(tripDeadlineContext));
@@ -134,12 +140,19 @@ export default function TripTrainingPrototypePanel() {
         <CollapsibleSection
           className="tripTrainingResourcesDropdown"
           title="Staff Led Components"
-          defaultOpen={false}
+          defaultOpen
           style={{ marginBottom: 16 }}
         >
           <TripTrainingResourcesLayout
             requiredTrainingResources={requiredTrainingResources}
             optionalTrainingResources={optionalTrainingResources}
+            trainingModules={allTrainingModules}
+            trainingState={currentTrainingProgress?.trainingState || {}}
+            ownerEmail={activeParticipantEmail}
+            canEditRegistration={canEditWorkshopRegistration}
+            canViewRegistrationRoster={canViewTeamDashboard}
+            trainingProgress={trainingProgress}
+            onChangeSession={updateTrainingDate}
           />
         </CollapsibleSection>
 

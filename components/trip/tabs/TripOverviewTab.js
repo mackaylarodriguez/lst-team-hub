@@ -306,7 +306,7 @@ export default function TripOverviewTab() {
                             </div>
                             {m.isTrainingSession ? (
                               <div className="small" style={{ marginTop: 4, color: "var(--muted)", fontSize: 12, lineHeight: 1.45 }}>
-                                Training session (date is set on the Training tab).
+                                Workshop registration from Training → Staff Led Components.
                               </div>
                             ) : null}
                             {canManageTripMeetings && !m.isTrainingSession ? (
@@ -387,7 +387,7 @@ export default function TripOverviewTab() {
                             </div>
                             {m.isTrainingSession ? (
                               <div className="small" style={{ marginTop: 4, color: "var(--muted)", fontSize: 12, lineHeight: 1.45 }}>
-                                Training session (date is set on the Training tab).
+                                Workshop registration from Training → Staff Led Components.
                               </div>
                             ) : null}
                             {canManageTripMeetings && !m.isTrainingSession ? (

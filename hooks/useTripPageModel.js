@@ -3398,7 +3398,7 @@ export function useTripPageModel() {
           actorName: participant.name || session?.name || participant.email,
           actorEmail: participant.email || session?.email || "",
           eventType: "training_completed",
-          message: `${participant.name || participant.email || "Someone"} completed ${module?.title || "training module"}`,
+          message: `${participant.name || participant.email || "Someone"} registered for ${module?.title || "training"}`,
         });
         pushRecentActivity(activityEntry);
       } catch (error) {
@@ -7001,10 +7001,25 @@ normalizeEmail(participant.email) === activeParticipantEmail
     const now = Date.now();
     const upcoming = [];
     const past = [];
-    const trainingMeetings = buildTrainingSessionMeetingsFromState(
-      currentTrainingProgress?.trainingState,
-      allTrainingModules
-    );
+    const trainingMeetings = canViewTeamDashboard
+      ? (trainingProgress || []).flatMap((participant) =>
+          buildTrainingSessionMeetingsFromState(
+            participant?.trainingState,
+            allTrainingModules,
+            {
+              personName: participant?.name || participant?.email || "",
+              personEmail: participant?.email || "",
+            }
+          )
+        )
+      : buildTrainingSessionMeetingsFromState(
+          currentTrainingProgress?.trainingState,
+          allTrainingModules,
+          {
+            personName: "",
+            personEmail: currentTrainingProgress?.email || activeParticipantEmail || "",
+          }
+        );
     const combined = [...tripMeetings, ...trainingMeetings];
     for (const m of combined) {
       const t = new Date(m.scheduledAt).getTime();
@@ -7015,7 +7030,15 @@ normalizeEmail(participant.email) === activeParticipantEmail
     upcoming.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
     past.sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
     return { upcomingMeetings: upcoming, pastMeetings: past };
-  }, [tripMeetings, currentTrainingProgress?.trainingState, allTrainingModules]);
+  }, [
+    activeParticipantEmail,
+    allTrainingModules,
+    canViewTeamDashboard,
+    currentTrainingProgress?.email,
+    currentTrainingProgress?.trainingState,
+    trainingProgress,
+    tripMeetings,
+  ]);
 
   const participantDocumentsTabLabel = canViewTeamDashboard ? "Worker Docs" : "My Documents";
   const tripDocumentsTabLabel = "Trip Documents";

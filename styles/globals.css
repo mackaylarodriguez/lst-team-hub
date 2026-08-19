@@ -3755,6 +3755,62 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .tripTrainingResourceBtn:hover .tripTrainingResourceBtnCta{
   gap:7px;
 }
+.tripTrainingResourceStack{
+  display:grid;
+  gap:8px;
+  min-width:0;
+}
+.tripTrainingSignupPanel{
+  display:grid;
+  gap:8px;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid rgba(15, 23, 42, 0.08);
+  background:rgba(248, 250, 252, 0.95);
+}
+.tripTrainingSignupField{
+  display:grid;
+  gap:4px;
+  min-width:0;
+}
+.tripTrainingSignupLabel{
+  color:var(--muted);
+  font-weight:700;
+}
+.tripTrainingSignupField .input{
+  min-height:38px;
+  padding:6px 10px;
+  font-size:13px;
+  border-radius:10px;
+}
+.tripTrainingWorkshopRoster{
+  margin-top:16px;
+  display:grid;
+  gap:8px;
+}
+.tripTrainingWorkshopRosterHeading{
+  font-weight:800;
+  color:var(--text);
+}
+.tripTrainingWorkshopRosterHint{
+  color:var(--muted);
+}
+.tripTrainingWorkshopRosterScroller{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:#fff;
+}
+.tripTrainingWorkshopRosterTable{
+  margin:0;
+  min-width:720px;
+}
+.tripTrainingWorkshopRosterTable th,
+.tripTrainingWorkshopRosterTable td{
+  vertical-align:top;
+  white-space:normal;
+}
 .tripTrainingOptionalGrid,
 .tripTrainingParticipantGrid,
 .tripTaskSummaryGrid,

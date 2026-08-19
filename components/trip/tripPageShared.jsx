@@ -495,9 +495,16 @@ function buildTrainingModuleRowDomId(moduleId) {
 const TRAINING_MEETING_MODULE_TITLES = new Set(["Basic Training", "Gateway Training", "EndMeeting"]);
 
 /** Supplemental sessions the worker chose (Basic / Gateway / End meeting) → overview Meetings list. */
-function buildTrainingSessionMeetingsFromState(trainingState, allTrainingModules) {
+function buildTrainingSessionMeetingsFromState(
+  trainingState,
+  allTrainingModules,
+  { personName = "", personEmail = "" } = {}
+) {
   if (!trainingState || !allTrainingModules?.length) return [];
   const rows = [];
+  const emailKey = String(personEmail || "")
+    .trim()
+    .toLowerCase();
   for (const module of allTrainingModules) {
     if (!TRAINING_MEETING_MODULE_TITLES.has(module.title)) continue;
     const raw = String(trainingState[`${module.id}Date`] || "").trim();
@@ -509,12 +516,16 @@ function buildTrainingSessionMeetingsFromState(trainingState, allTrainingModules
     const t = new Date(scheduledAt).getTime();
     if (Number.isNaN(t)) continue;
     const displayTitle = module.title === "EndMeeting" ? "End meeting" : module.title;
+    const name = String(personName || "").trim();
     rows.push({
-      id: `training-session:${module.id}`,
-      title: displayTitle,
+      id: `training-session:${module.id}:${emailKey || "self"}`,
+      title: name ? `${displayTitle} · ${name}` : displayTitle,
       scheduledAt,
       notesAfter: "",
       isTrainingSession: true,
+      trainingModuleTitle: module.title,
+      participantName: name,
+      participantEmail: emailKey,
     });
   }
   return rows;
