@@ -790,21 +790,11 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                       }}
                       title={row.siteLabel}
                     >
-                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                        <input
-                          type="checkbox"
-                          checked
-                          aria-label={`Show ${row.siteLabel} on chart`}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={() => toggleSite(row.siteLabel)}
-                          style={{ marginTop: 3 }}
-                        />
-                        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                          <span>{row.siteLabel}</span>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>
-                            {row.availableLabel}
-                          </span>
-                        </div>
+                      <div style={{ display: "grid", gap: 2 }}>
+                        <span>{row.siteLabel}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>
+                          {row.availableLabel}
+                        </span>
                       </div>
                     </td>
                     {MONTHS.map((month) => {
