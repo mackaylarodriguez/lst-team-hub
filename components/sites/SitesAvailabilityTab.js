@@ -11,6 +11,7 @@ import { listTripsForCurrentUser, TRIPS_UPDATED_EVENT } from "@/lib/trips";
 import { resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import { showToast } from "@/components/Toast";
+import SiteNameLabel from "@/components/sites/SiteNameLabel";
 
 const MONTHS = [
   { key: 1, label: "January", short: "Jan" },
@@ -818,7 +819,9 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                     checked={checked}
                     onChange={() => toggleSite(label)}
                   />
-                  <span>{label}</span>
+                  <span>
+                    <SiteNameLabel siteLabel={label} />
+                  </span>
                 </label>
               );
             })}
@@ -923,7 +926,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                           }}
                           title={`${row.siteLabel} — click to edit site`}
                         >
-                          {row.siteLabel}
+                          <SiteNameLabel siteLabel={row.siteLabel} />
                         </button>
                         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>
                           {row.availableLabel}
@@ -991,7 +994,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                   }}
                   title="Edit all site details"
                 >
-                  {selected.siteLabel}
+                  <SiteNameLabel siteLabel={selected.siteLabel} />
                 </button>
                 <div className="small" style={{ color: "var(--muted)", fontWeight: 700 }}>
                   {selected.siteType}

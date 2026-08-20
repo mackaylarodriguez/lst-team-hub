@@ -33,6 +33,7 @@ import { resolveSiteLogisticsUrl } from "@/lib/siteInfoLinks";
 import { showToast } from "@/components/Toast";
 import SitesAvailabilityTab from "@/components/sites/SitesAvailabilityTab";
 import SiteEditorModal from "@/components/sites/SiteEditorModal";
+import SiteNameLabel from "@/components/sites/SiteNameLabel";
 import { migrateLegacySiteAvailabilityFromNotes } from "@/lib/siteAvailability";
 
 /** Fixed column widths (px) for Sites workbook grid — keeps headers aligned while scrolling. */
@@ -548,7 +549,7 @@ export default function SitesPage() {
                       className="sitesSiteNameButton"
                       onClick={() => openSiteEditor(row.siteLabel)}
                     >
-                      {row.siteLabel}
+                      <SiteNameLabel siteLabel={row.siteLabel} />
                     </button>
                   </td>
                   {cols.map((col) => {
@@ -737,7 +738,7 @@ export default function SitesPage() {
                         onClick={() => openSiteEditor(row.siteLabel)}
                         title={`${row.siteLabel} — click to edit site`}
                       >
-                        {row.siteLabel}
+                        <SiteNameLabel siteLabel={row.siteLabel} />
                       </button>
                     </td>
                     <td className="sitesLogisticsHostCell">

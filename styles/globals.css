@@ -2086,6 +2086,10 @@ table.sitesAvailabilityTable tbody tr.sitesAvailabilityRowSelected:hover > td.si
   color:var(--primary, #3254a3);
   text-decoration-color:currentColor;
 }
+.sitesPartnerStar{
+  color:#b45309;
+  font-weight:800;
+}
 .sitesEditorWorkbookGrid{
   display:grid;
   grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));
