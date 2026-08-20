@@ -28,42 +28,42 @@ const WEEK_BLOCKS = [
   { key: 4, label: "22–end", startDay: 22, endDay: null },
 ];
 
-/** Soft palette — readable without neon green/red. */
+/** Soft palette — readable status colors. */
 const CELL = {
   outside: {
-    label: "Closed",
-    title: "Outside available season / not hosting",
+    label: "Unavailable",
+    title: "Unavailable",
     background: "#e8eef5",
     color: "#64748b",
     border: "#cbd5e1",
   },
   open: {
-    label: "Open",
-    title: "Available all month",
+    label: "Available",
+    title: "Fully available",
     background: "#d8efe4",
     color: "#1f5c45",
     border: "#b5dcc9",
   },
   partial: {
-    label: "Part",
-    title: "Available part of the month (see weekly calendar)",
-    background: "#e7f6ee",
-    color: "#2d6a4f",
-    border: "#c5e6d4",
+    label: "Partial",
+    title: "Partially available",
+    background: "#fef3c7",
+    color: "#92400e",
+    border: "#f6de8a",
   },
   booked: {
     label: "Locked",
-    title: "Team locked / booked",
-    background: "#f3d6d6",
-    color: "#8b3a3a",
-    border: "#e0b4b4",
+    title: "Team locked",
+    background: "#ef9a9a",
+    color: "#7f1d1d",
+    border: "#e57373",
   },
-  excluded: {
-    label: "Hold",
-    title: "Excluded / host unavailable",
-    background: "#eceff3",
-    color: "#5b6573",
-    border: "#d0d5dd",
+  bookedPartial: {
+    label: "Locked",
+    title: "Team locked (part of month)",
+    background: "#f8d7da",
+    color: "#9b4449",
+    border: "#f1b0b7",
   },
 };
 
@@ -246,6 +246,38 @@ function mergeAvailability(siteLabel, year, editsMap) {
   });
 }
 
+function clipRange(startYmd, endYmd, clipStart, clipEnd) {
+  const start = Math.max(ymdTime(startYmd), ymdTime(clipStart));
+  const end = Math.min(ymdTime(endYmd), ymdTime(clipEnd));
+  if (Number.isNaN(start) || Number.isNaN(end) || start > end) return null;
+  return { start, end };
+}
+
+/** True when merged booking intervals fully cover [openStart, openEnd]. */
+function bookingsCoverFullOpenWindow(openStart, openEnd, bookings) {
+  const open0 = ymdTime(openStart);
+  const open1 = ymdTime(openEnd);
+  if (Number.isNaN(open0) || Number.isNaN(open1)) return false;
+
+  const clipped = [];
+  for (const row of bookings || []) {
+    const piece = clipRange(row.start, row.end, openStart, openEnd);
+    if (piece) clipped.push(piece);
+  }
+  if (!clipped.length) return false;
+
+  clipped.sort((a, b) => a.start - b.start);
+  let coverTo = clipped[0].start;
+  if (coverTo > open0) return false;
+  coverTo = clipped[0].end;
+  for (let i = 1; i < clipped.length; i += 1) {
+    const next = clipped[i];
+    if (next.start > coverTo + 86400000) return false; // gap > 1 day
+    coverTo = Math.max(coverTo, next.end);
+  }
+  return coverTo >= open1;
+}
+
 function monthStatus(availability, month) {
   if (!availability.hasSeason) return "outside";
   const year = availability.year;
@@ -261,24 +293,33 @@ function monthStatus(availability, month) {
     return "outside";
   }
 
-  const openStart =
+  let openStart =
     ymdTime(availability.availableStart) > ymdTime(bounds.start)
       ? availability.availableStart
       : bounds.start;
-  const openEnd =
+  let openEnd =
     ymdTime(availability.availableEnd) < ymdTime(bounds.end)
       ? availability.availableEnd
       : bounds.end;
 
-  const hasBooking = (availability.bookings || []).some((row) =>
+  // Treat holds/blackouts as unavailable time within the month.
+  const holdsInMonth = (availability.exclusions || []).filter((row) =>
     rangesOverlap(row.start, row.end, openStart, openEnd)
   );
-  if (hasBooking) return "booked";
+  if (holdsInMonth.length && bookingsCoverFullOpenWindow(openStart, openEnd, holdsInMonth)) {
+    return "outside";
+  }
 
-  const hasHold = (availability.exclusions || []).some((row) =>
+  const overlappingBookings = (availability.bookings || []).filter((row) =>
     rangesOverlap(row.start, row.end, openStart, openEnd)
   );
-  if (hasHold) return "excluded";
+  if (overlappingBookings.length) {
+    return bookingsCoverFullOpenWindow(openStart, openEnd, overlappingBookings)
+      ? "booked"
+      : "bookedPartial";
+  }
+
+  if (holdsInMonth.length) return "partial";
 
   const coversFullMonth =
     ymdTime(availability.availableStart) <= ymdTime(bounds.start) &&
@@ -306,7 +347,7 @@ function weekStatus(availability, month, weekKey) {
 
   for (const exclusion of availability.exclusions || []) {
     if (rangesOverlap(exclusion.start, exclusion.end, bounds.start, bounds.end)) {
-      return { status: "excluded", label: exclusion.note || "Hold" };
+      return { status: "outside", label: exclusion.note || "Unavailable" };
     }
   }
 
@@ -678,8 +719,8 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
         <div style={{ flex: "1 1 280px", minWidth: 0 }}>
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Sites availability overview</div>
           <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.45 }}>
-            Set exact date ranges (e.g. Sep 16 – Nov 14). Months show Open / Part / Locked /
-            Hold; the weekly calendar shows the precise weeks.
+            Set exact date ranges (e.g. Sep 16 – Nov 14). Months show fully / partially
+            available, unavailable, or team locked; the weekly calendar shows the precise weeks.
             {editsLoading ? " Loading saved seasons…" : ""}
           </p>
         </div>
@@ -766,7 +807,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
         <LegendSwatch status="open" />
         <LegendSwatch status="partial" />
         <LegendSwatch status="booked" />
-        <LegendSwatch status="excluded" />
+        <LegendSwatch status="bookedPartial" />
       </div>
 
       {visibleRows.length === 0 ? (
@@ -901,7 +942,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                 </button>
               ) : null}
               <div className="small" style={{ color: "var(--muted)" }}>
-                Part = only part of that month is in season
+                Yellow = partially available · Light red = locked part of the month
               </div>
             </div>
           </div>
