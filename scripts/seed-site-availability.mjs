@@ -1,5 +1,5 @@
 /**
- * One-off seed: site availability from staff spreadsheet (2026 + 2027).
+ * One-off seed: site availability from staff spreadsheet (2027 only).
  * Run: node scripts/seed-site-availability.mjs
  */
 import { createClient } from "@supabase/supabase-js";
@@ -332,7 +332,7 @@ for (const [name, host] of ensureSites) {
   console.log("site ok", row.site_name);
 }
 
-for (const year of [2026, 2027]) {
+for (const year of [2027]) {
   for (const row of buildRows(year)) {
     await saveAvailability(row.siteLabel, year, row);
     if (row.notesOnly) {

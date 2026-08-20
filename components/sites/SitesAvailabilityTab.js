@@ -441,8 +441,7 @@ function blankEditDraft(availability, year) {
  * Edits save to the Hub database (shared for all staff).
  */
 export default function SitesAvailabilityTab({ siteLabels = [] }) {
-  const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState(currentYear);
+  const year = 2027;
   const [selectedSite, setSelectedSite] = useState("");
   const [visibleSites, setVisibleSites] = useState(() => new Set());
   const [showSitePicker, setShowSitePicker] = useState(false);
@@ -725,21 +724,9 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
           </p>
         </div>
         <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <label className="small" style={{ fontWeight: 700, color: "var(--muted)" }}>
-            Year
-          </label>
-          <select
-            className="input"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            style={{ width: 110, padding: "6px 10px" }}
-          >
-            {[currentYear - 1, currentYear, currentYear + 1].map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
+          <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
+            Season {year}
+          </div>
           <button
             type="button"
             className="btn"
