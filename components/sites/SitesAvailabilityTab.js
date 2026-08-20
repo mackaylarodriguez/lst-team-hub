@@ -500,7 +500,7 @@ function blankEditDraft(availability, year) {
  * Availability overview + weekly detail + edit panel.
  * Seasons save to site_availability; locked teams come from Hub trips.
  */
-export default function SitesAvailabilityTab({ siteLabels = [] }) {
+export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
   const year = AVAILABILITY_YEAR;
   const [selectedSite, setSelectedSite] = useState("");
   const [visibleSites, setVisibleSites] = useState(() => new Set(siteLabels || []));
@@ -913,7 +913,18 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                       title={row.siteLabel}
                     >
                       <div style={{ display: "grid", gap: 2 }}>
-                        <span>{row.siteLabel}</span>
+                        <button
+                          type="button"
+                          className="sitesSiteNameButton"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (typeof onEditSite === "function") onEditSite(row.siteLabel);
+                            else selectSiteRow(row.siteLabel);
+                          }}
+                          title={`${row.siteLabel} — click to edit site`}
+                        >
+                          {row.siteLabel}
+                        </button>
                         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>
                           {row.availableLabel}
                         </span>
@@ -971,9 +982,17 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
               }}
             >
               <div>
-                <div className="cardSectionPill" style={{ marginBottom: 6 }}>
+                <button
+                  type="button"
+                  className="cardSectionPill sitesSiteNamePillButton"
+                  style={{ marginBottom: 6 }}
+                  onClick={() => {
+                    if (typeof onEditSite === "function") onEditSite(selected.siteLabel);
+                  }}
+                  title="Edit all site details"
+                >
                   {selected.siteLabel}
-                </div>
+                </button>
                 <div className="small" style={{ color: "var(--muted)", fontWeight: 700 }}>
                   {selected.siteType}
                 </div>

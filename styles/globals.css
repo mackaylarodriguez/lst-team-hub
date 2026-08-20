@@ -2067,6 +2067,33 @@ table.sitesAvailabilityTable tbody tr.sitesAvailabilityRowSelected:hover > td.si
 .sitesAvailabilityPickerItem input{
   margin-top:2px;
 }
+.sitesSiteNameButton{
+  appearance:none;
+  background:none;
+  border:0;
+  padding:0;
+  margin:0;
+  font:inherit;
+  font-weight:700;
+  color:inherit;
+  text-align:left;
+  cursor:pointer;
+  text-decoration:underline;
+  text-decoration-color:transparent;
+  text-underline-offset:2px;
+}
+.sitesSiteNameButton:hover{
+  color:var(--primary, #3254a3);
+  text-decoration-color:currentColor;
+}
+button.sitesSiteNamePillButton{
+  cursor:pointer;
+  border:0;
+  font:inherit;
+}
+button.sitesSiteNamePillButton:hover{
+  filter:brightness(0.97);
+}
 .sitesAvailabilityDetail{
   margin-top:18px;
   padding:16px;

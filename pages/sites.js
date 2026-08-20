@@ -34,6 +34,7 @@ import {
 import { resolveSiteLogisticsUrl } from "@/lib/siteInfoLinks";
 import { showToast } from "@/components/Toast";
 import SitesAvailabilityTab from "@/components/sites/SitesAvailabilityTab";
+import SiteEditorModal from "@/components/sites/SiteEditorModal";
 import { migrateLegacySiteAvailabilityFromNotes } from "@/lib/siteAvailability";
 
 /** Fixed column widths (px) for Sites workbook grid — keeps headers aligned while scrolling. */
@@ -84,6 +85,8 @@ export default function SitesPage() {
   const [addSiteBudgetNotesDraft, setAddSiteBudgetNotesDraft] = useState("");
   const [savingAddSite, setSavingAddSite] = useState(false);
   const [tab, setTab] = useState("Availability");
+  const [editingSiteLabel, setEditingSiteLabel] = useState("");
+  const [availabilityReloadKey, setAvailabilityReloadKey] = useState(0);
 
   const siteLabelsOrdered = useMemo(() => buildSiteLabelsOrdered(siteNotes), [siteNotes]);
 
@@ -307,11 +310,31 @@ export default function SitesPage() {
     setWorkbookQtyDraft(next);
   }
 
+  function openSiteEditor(siteLabel) {
+    const label = String(siteLabel || "").trim();
+    if (!label) return;
+    setEditingSiteLabel(label);
+  }
+
   function closeAddSiteModal() {
     setAddSiteOpen(false);
     setAddSiteNameDraft("");
     setAddSiteLogisticsDraft("");
     setAddSiteBudgetNotesDraft("");
+  }
+
+  function handleSiteEditorSaved({ note, siteLabel }) {
+    if (note) {
+      setSiteNotes((prev) => {
+        const others = prev.filter((r) => r.id !== note.id);
+        return [...others, note].sort((a, b) =>
+          a.siteName.localeCompare(b.siteName, undefined, { sensitivity: "base" })
+        );
+      });
+    } else {
+      void listSiteBudgetNotes().then((rows) => setSiteNotes(rows || []));
+    }
+    setAvailabilityReloadKey((n) => n + 1);
   }
 
   async function submitAddSite() {
@@ -569,9 +592,15 @@ export default function SitesPage() {
                   <td
                     className="sitesWorkbookSiteCell"
                     style={{ fontWeight: 700, maxWidth: WB_TABLE.site, boxSizing: "border-box" }}
-                    title={row.siteLabel}
+                    title={`${row.siteLabel} — click to edit site`}
                   >
-                    {row.siteLabel}
+                    <button
+                      type="button"
+                      className="sitesSiteNameButton"
+                      onClick={() => openSiteEditor(row.siteLabel)}
+                    >
+                      {row.siteLabel}
+                    </button>
                   </td>
                   {cols.map((col) => {
                     const q = row.qtyByKey.get(col.key);
@@ -681,7 +710,11 @@ export default function SitesPage() {
       ) : null}
 
       {tab === "Availability" ? (
-        <SitesAvailabilityTab siteLabels={siteLabelsOrdered} />
+        <SitesAvailabilityTab
+          key={availabilityReloadKey}
+          siteLabels={siteLabelsOrdered}
+          onEditSite={openSiteEditor}
+        />
       ) : null}
 
       {tab === "Site logistics" ? (
@@ -748,7 +781,16 @@ export default function SitesPage() {
                 };
                 return (
                   <tr key={row.siteLabel}>
-                    <td className="sitesLogisticsSiteCell">{row.siteLabel}</td>
+                    <td className="sitesLogisticsSiteCell">
+                      <button
+                        type="button"
+                        className="sitesSiteNameButton"
+                        onClick={() => openSiteEditor(row.siteLabel)}
+                        title={`${row.siteLabel} — click to edit site`}
+                      >
+                        {row.siteLabel}
+                      </button>
+                    </td>
                     <td className="sitesLogisticsHostCell">
                       {isEditingLogistics ? (
                         <input
@@ -943,6 +985,15 @@ export default function SitesPage() {
           </div>
         </div>
       ) : null}
+
+      <SiteEditorModal
+        open={Boolean(editingSiteLabel)}
+        siteLabel={editingSiteLabel}
+        siteNotes={siteNotes}
+        allSiteLabels={siteLabelsOrdered}
+        onClose={() => setEditingSiteLabel("")}
+        onSaved={handleSiteEditorSaved}
+      />
     </Shell>
   );
 }
