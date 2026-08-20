@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   deleteSiteAvailabilityEdit,
   listSiteAvailabilityEdits,
@@ -428,7 +428,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
   const year = AVAILABILITY_YEAR;
   const [selectedSite, setSelectedSite] = useState("");
   const [visibleSites, setVisibleSites] = useState(() => new Set(siteLabels || []));
-  const [prefsReady, setPrefsReady] = useState(false);
+  const [draftVisibleSites, setDraftVisibleSites] = useState(() => new Set(siteLabels || []));
   const [showSitePicker, setShowSitePicker] = useState(false);
   const [siteFilter, setSiteFilter] = useState("");
   const [editsMap, setEditsMap] = useState({});
@@ -438,14 +438,11 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
   const [savingSites, setSavingSites] = useState(false);
-  const skipNextPrefsSave = useRef(true);
 
   useEffect(() => {
     let cancelled = false;
     async function loadAll() {
       setEditsLoading(true);
-      setPrefsReady(false);
-      skipNextPrefsSave.current = true;
       try {
         let map = await listSiteAvailabilityEdits(year);
         if (!Object.keys(map).length) {
@@ -464,13 +461,14 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
         setEditsMap(map || {});
         setTripBookingsBySite(buildTripBookingsBySite(trips, year));
         setVisibleSites(visible);
-        setPrefsReady(true);
+        setDraftVisibleSites(new Set(visible));
       } catch (e) {
         if (!cancelled) {
           setEditsMap({});
           setTripBookingsBySite({});
-          setVisibleSites(new Set(siteLabels || []));
-          setPrefsReady(true);
+          const fallback = new Set(siteLabels || []);
+          setVisibleSites(fallback);
+          setDraftVisibleSites(new Set(fallback));
           showToast(e?.message || "Unable to load availability from the Hub.");
         }
       } finally {
@@ -482,27 +480,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
       cancelled = true;
     };
   }, [year, siteLabels]);
-
-  useEffect(() => {
-    if (!prefsReady) return;
-    if (skipNextPrefsSave.current) {
-      skipNextPrefsSave.current = false;
-      return;
-    }
-    const handle = setTimeout(() => {
-      void (async () => {
-        try {
-          setSavingSites(true);
-          await saveSiteAvailabilityVisibleSites(year, [...visibleSites], siteLabels);
-        } catch (e) {
-          showToast(e?.message || "Unable to save which sites are shown.");
-        } finally {
-          setSavingSites(false);
-        }
-      })();
-    }, 450);
-    return () => clearTimeout(handle);
-  }, [visibleSites, prefsReady, year, siteLabels]);
 
   const filteredSiteLabels = useMemo(() => {
     const needle = String(siteFilter || "").trim().toLowerCase();
@@ -541,8 +518,19 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
     setDraft(null);
   }, [selectedSite, year]);
 
+  function openSitePicker() {
+    setDraftVisibleSites(new Set(visibleSites));
+    setShowSitePicker(true);
+  }
+
+  function cancelSitePicker() {
+    setDraftVisibleSites(new Set(visibleSites));
+    setShowSitePicker(false);
+    setSiteFilter("");
+  }
+
   function toggleSite(label) {
-    setVisibleSites((current) => {
+    setDraftVisibleSites((current) => {
       const next = new Set(current);
       if (next.has(label)) next.delete(label);
       else next.add(label);
@@ -551,11 +539,28 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
   }
 
   function showAllSites() {
-    setVisibleSites(new Set(siteLabels || []));
+    setDraftVisibleSites(new Set(siteLabels || []));
   }
 
   function hideAllSites() {
-    setVisibleSites(new Set());
+    setDraftVisibleSites(new Set());
+  }
+
+  async function saveSitePicker() {
+    if (savingSites) return;
+    const next = new Set(draftVisibleSites);
+    try {
+      setSavingSites(true);
+      await saveSiteAvailabilityVisibleSites(year, [...next], siteLabels);
+      setVisibleSites(next);
+      setShowSitePicker(false);
+      setSiteFilter("");
+      showToast("Saved which sites appear on the grid.");
+    } catch (e) {
+      showToast(e?.message || "Unable to save which sites are shown.");
+    } finally {
+      setSavingSites(false);
+    }
   }
 
   function openEditor() {
@@ -644,7 +649,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Sites availability overview</div>
           <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.45 }}>
             Set exact date ranges (e.g. Sep 16 – Nov 14). Red locked cells come from real Hub
-            trips. Uncheck sites to hide them — that choice saves for everyone.
+            trips. Use Choose sites, then Save, to control which sites appear on the grid.
             {editsLoading ? " Loading…" : ""}
           </p>
         </div>
@@ -655,9 +660,9 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
           <button
             type="button"
             className="btn"
-            onClick={() => setShowSitePicker((open) => !open)}
+            onClick={() => (showSitePicker ? cancelSitePicker() : openSitePicker())}
           >
-            {showSitePicker ? "Hide site list" : "Choose sites"}
+            {showSitePicker ? "Cancel" : "Choose sites"}
           </button>
         </div>
       </div>
@@ -695,7 +700,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
           />
           <div className="sitesAvailabilityPickerGrid">
             {filteredSiteLabels.map((label) => {
-              const checked = visibleSites.has(label);
+              const checked = draftVisibleSites.has(label);
               return (
                 <label key={label} className="sitesAvailabilityPickerItem">
                   <input
@@ -708,9 +713,33 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
               );
             })}
           </div>
-          <div className="small" style={{ marginTop: 10, color: "var(--muted)" }}>
-            Uncheck a site to hide it from the chart. Choices save automatically
-            {savingSites ? " (saving…)" : ""}.
+          <div
+            className="row"
+            style={{
+              gap: 8,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginTop: 12,
+              justifyContent: "space-between",
+            }}
+          >
+            <div className="small" style={{ color: "var(--muted)" }}>
+              Check the sites you want, then Save. Unchecked sites stay hidden until you check
+              them and save again.
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <button type="button" className="btn" onClick={cancelSitePicker} disabled={savingSites}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => void saveSitePicker()}
+                disabled={savingSites}
+              >
+                {savingSites ? "Saving…" : "Save"}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
