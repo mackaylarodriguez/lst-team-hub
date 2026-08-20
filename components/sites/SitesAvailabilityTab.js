@@ -184,12 +184,14 @@ function normalizeBooking(row) {
 
 function normalizeAvailability(row) {
   const year = Number(row?.year) || new Date().getFullYear();
-  const available = clampRange(
-    row?.availableStart || toYmd(year, 4, 1),
-    row?.availableEnd || toYmd(year, 8, 31)
-  );
-  const exclusions = (row?.exclusions || []).map(normalizeHold);
-  const bookings = (row?.bookings || []).map(normalizeBooking);
+  const startRaw = String(row?.availableStart || "").trim();
+  const endRaw = String(row?.availableEnd || "").trim();
+  const hasSeason = Boolean(parseYmd(startRaw) && parseYmd(endRaw));
+  const available = hasSeason
+    ? clampRange(startRaw, endRaw)
+    : { start: "", end: "" };
+  const exclusions = hasSeason ? (row?.exclusions || []).map(normalizeHold) : [];
+  const bookings = hasSeason ? (row?.bookings || []).map(normalizeBooking) : [];
   const teamNotes = Array.isArray(row?.teamNotes)
     ? row.teamNotes.map((n) => String(n || "").trim()).filter(Boolean)
     : String(row?.teamNotesText || "")
@@ -202,7 +204,10 @@ function normalizeAvailability(row) {
     year,
     availableStart: available.start,
     availableEnd: available.end,
-    availableLabel: formatDateRangeLabel(available.start, available.end, year),
+    availableLabel: hasSeason
+      ? formatDateRangeLabel(available.start, available.end, year)
+      : "Not set",
+    hasSeason,
     exclusions,
     bookings,
     teamNotes,
@@ -212,132 +217,24 @@ function normalizeAvailability(row) {
   };
 }
 
-/** Deterministic mock season / exclusions / bookings used as defaults. */
-function buildMockAvailabilityForSite(siteLabel, year) {
-  const lower = String(siteLabel || "").toLowerCase();
-  let availableStart = toYmd(year, 4, 1);
-  let availableEnd = toYmd(year, 8, 31);
-  const exclusions = [];
-  const bookings = [];
-  const teamNotes = [];
-  let siteType = "Partner site";
-
-  if (lower.includes("usa") || lower.includes("springfield")) {
-    availableStart = toYmd(year, 6, 1);
-    availableEnd = toYmd(year, 8, 31);
-  } else if (lower.includes("japan") || lower.includes("korea") || lower.includes("philippines")) {
-    availableStart = toYmd(year, 1, 1);
-    availableEnd = toYmd(year, 12, 31);
-    siteType = "Centurion Site";
-  } else if (lower.includes("angola") || lower.includes("ecuador")) {
-    availableStart = toYmd(year, 5, 1);
-    availableEnd = toYmd(year, 9, 30);
-  } else if (lower.includes("brazil")) {
-    availableStart = toYmd(year, 2, 1);
-    availableEnd = toYmd(year, 11, 30);
-  } else if (lower.includes("mut") || lower.includes("university")) {
-    availableStart = toYmd(year, 4, 1);
-    availableEnd = toYmd(year, 8, 31);
-    siteType = "Centurion Site";
-    teamNotes.push("2 – 4 team members");
-    teamNotes.push("campus, church, women, older");
-    teamNotes.push("REALLY want a 6 – 7 week program!");
-    teamNotes.push("Best time to host is April – July (students out part of July and August).");
-  }
-
-  if (lower.includes("hannover")) {
-    exclusions.push({
-      id: "mock-hold-hannover",
-      start: toYmd(year, 6, 12),
-      end: toYmd(year, 6, 18),
-      note: "Host family unavailable",
-    });
-    bookings.push({
-      id: "mock-book-hannover",
-      teamName: "Team Rivera",
-      start: toYmd(year, 7, 5),
-      end: toYmd(year, 7, 25),
-    });
-  } else if (lower.includes("vienna")) {
-    bookings.push({
-      id: "mock-book-vienna-1",
-      teamName: "Team Cole",
-      start: toYmd(year, 5, 10),
-      end: toYmd(year, 5, 31),
-    });
-    bookings.push({
-      id: "mock-book-vienna-2",
-      teamName: "Team Park",
-      start: toYmd(year, 9, 1),
-      end: toYmd(year, 9, 20),
-    });
-  } else if (lower.includes("murcia")) {
-    exclusions.push({
-      id: "mock-hold-murcia",
-      start: toYmd(year, 8, 1),
-      end: toYmd(year, 8, 10),
-      note: "Local festival / housing closed",
-    });
-  } else if (lower.includes("krakow")) {
-    bookings.push({
-      id: "mock-book-krakow",
-      teamName: "Team Nguyen",
-      start: toYmd(year, 6, 15),
-      end: toYmd(year, 7, 12),
-    });
-  } else if (lower.includes("padova")) {
-    exclusions.push({
-      id: "mock-hold-padova",
-      start: toYmd(year, 4, 18),
-      end: toYmd(year, 4, 21),
-      note: "Easter blackout",
-    });
-  } else if (lower.includes("west springfield")) {
-    bookings.push({
-      id: "mock-book-springfield",
-      teamName: "Team Brooks",
-      start: toYmd(year, 7, 1),
-      end: toYmd(year, 7, 26),
-    });
-  } else if (lower.includes("zagreb")) {
-    bookings.push({
-      id: "mock-book-zagreb",
-      teamName: "Team Ellis",
-      start: toYmd(year, 8, 3),
-      end: toYmd(year, 8, 24),
-    });
-  } else if (lower.includes("joao pessoa") || lower.includes("florianopolis")) {
-    bookings.push({
-      id: "mock-book-brazil",
-      teamName: lower.includes("florianopolis") ? "Team Costa" : "Team Alves",
-      start: toYmd(year, 3, 8),
-      end: toYmd(year, 3, 29),
-    });
-  } else if (lower.includes("mut") || lower.includes("university")) {
-    bookings.push({
-      id: "mock-book-mut",
-      teamName: "MUT 4",
-      start: toYmd(year, 4, 15),
-      end: toYmd(year, 4, 23),
-    });
-  }
-
+/** Empty default until staff saves a season in Edit availability. */
+function buildEmptyAvailabilityForSite(siteLabel, year) {
   return normalizeAvailability({
     siteLabel,
     year,
-    availableStart,
-    availableEnd,
-    exclusions,
-    bookings,
-    teamNotes,
-    siteType,
+    availableStart: "",
+    availableEnd: "",
+    exclusions: [],
+    bookings: [],
+    teamNotes: [],
+    siteType: "Partner site",
     churchName: siteLabel,
     isEdited: false,
   });
 }
 
 function mergeAvailability(siteLabel, year, editsMap) {
-  const base = buildMockAvailabilityForSite(siteLabel, year);
+  const base = buildEmptyAvailabilityForSite(siteLabel, year);
   const saved = editsMap?.[siteLabel];
   if (!saved) return base;
   return normalizeAvailability({
@@ -350,6 +247,7 @@ function mergeAvailability(siteLabel, year, editsMap) {
 }
 
 function monthStatus(availability, month) {
+  if (!availability.hasSeason) return "outside";
   const year = availability.year;
   const bounds = monthBounds(year, month);
   if (
@@ -389,6 +287,9 @@ function monthStatus(availability, month) {
 }
 
 function weekStatus(availability, month, weekKey) {
+  if (!availability.hasSeason) {
+    return { status: "outside", label: "" };
+  }
   const year = availability.year;
   const bounds = weekBounds(year, month, weekKey);
 
@@ -479,11 +380,15 @@ function loadVisibleSiteSet(siteLabels) {
   }
 }
 
-function blankEditDraft(availability) {
+function blankEditDraft(availability, year) {
+  const y = Number(year) || availability.year || new Date().getFullYear();
+  const hasDates =
+    Boolean(parseYmd(availability.availableStart)) &&
+    Boolean(parseYmd(availability.availableEnd));
   return {
-    availableStart: availability.availableStart,
-    availableEnd: availability.availableEnd,
-    siteType: availability.siteType,
+    availableStart: hasDates ? availability.availableStart : toYmd(y, 4, 1),
+    availableEnd: hasDates ? availability.availableEnd : toYmd(y, 8, 31),
+    siteType: availability.siteType || "Partner site",
     teamNotesText: (availability.teamNotes || []).join("\n"),
     exclusions: (availability.exclusions || []).map((row) => ({ ...row })),
     bookings: (availability.bookings || []).map((row) => ({ ...row })),
@@ -516,28 +421,14 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
     async function loadEdits() {
       setEditsLoading(true);
       try {
-        let map = await listSiteAvailabilityEdits(year);
+        const map = await listSiteAvailabilityEdits(year);
 
-        // One-time: move any leftover browser-only edits into the Hub DB.
+        // Drop any leftover browser-only availability drafts.
         if (typeof window !== "undefined") {
           try {
-            const raw = window.localStorage.getItem("lst-sites-availability-edits-v1");
-            if (raw) {
-              const legacy = JSON.parse(raw);
-              if (legacy && typeof legacy === "object") {
-                const prefix = `||${year}`;
-                for (const [key, value] of Object.entries(legacy)) {
-                  if (!String(key).endsWith(prefix)) continue;
-                  const siteLabel = String(key).slice(0, -prefix.length);
-                  if (!siteLabel || map[siteLabel] || !value) continue;
-                  await saveSiteAvailabilityEdit(siteLabel, year, value);
-                  map = { ...map, [siteLabel]: value };
-                }
-                window.localStorage.removeItem("lst-sites-availability-edits-v1");
-              }
-            }
+            window.localStorage.removeItem("lst-sites-availability-edits-v1");
           } catch {
-            /* ignore legacy migrate errors */
+            /* ignore */
           }
         }
 
@@ -624,7 +515,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
 
   function openEditor() {
     if (!selected) return;
-    setDraft(blankEditDraft(selected));
+    setDraft(blankEditDraft(selected, year));
     setEditing(true);
   }
 
@@ -752,7 +643,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
     }
   }
 
-  async function resetToSample() {
+  async function clearAvailability() {
     if (!selected || saving) return;
     setSaving(true);
     try {
@@ -762,11 +653,11 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
         delete next[selected.siteLabel];
         return next;
       });
-      const base = buildMockAvailabilityForSite(selected.siteLabel, year);
-      setDraft(blankEditDraft(base));
-      showToast("Reset to sample defaults.");
+      const base = buildEmptyAvailabilityForSite(selected.siteLabel, year);
+      setDraft(blankEditDraft(base, year));
+      showToast("Availability cleared.");
     } catch (e) {
-      showToast(e?.message || "Unable to reset availability.");
+      showToast(e?.message || "Unable to clear availability.");
     } finally {
       setSaving(false);
     }
@@ -1173,10 +1064,10 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                 <button
                   type="button"
                   className="btn"
-                  onClick={() => void resetToSample()}
+                  onClick={() => void clearAvailability()}
                   disabled={saving}
                 >
-                  Reset to sample
+                  Clear
                 </button>
               </div>
             </div>
