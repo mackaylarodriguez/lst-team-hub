@@ -2239,9 +2239,10 @@ export default function BudgetPage() {
           }
         >
           <p className="small" style={{ margin: "0 0 12px", color: "var(--muted)" }}>
-            Per-site logistics and workbook data stay on{" "}
-            <Link href="/sites">Sites</Link>. Here you only see sites with budget note text. Empty and duplicate
-            rows are cleaned when this page loads.
+            Site housing and budget notes only — not season availability. Hosting seasons and team
+            information live on <Link href="/sites">Sites → Availability</Link>. Logistics and
+            workbooks stay on <Link href="/sites">Sites</Link>. Here you only see sites with note
+            text.
           </p>
           {isAddingSiteNote ? (
             <div

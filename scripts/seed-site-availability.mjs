@@ -255,28 +255,25 @@ async function ensureSiteRow(siteName, hostName) {
 
 async function saveAvailability(siteLabel, year, values) {
   const payload = {
-    version: 1,
-    availableStart: values.availableStart || "",
-    availableEnd: values.availableEnd || "",
-    siteType: values.siteType || "Partner site",
-    teamNotes: values.teamNotes || [],
-    exclusions: [],
-    bookings: values.bookings || [],
+    site_name: siteLabel,
+    year,
+    available_start: values.availableStart || null,
+    available_end: values.availableEnd || null,
+    site_type: values.siteType || "Partner site",
+    team_notes: values.teamNotes || [],
+    updated_at: new Date().toISOString(),
   };
 
-  const { error } = await admin.from("site_budget_notes").upsert(
-    {
-      site_name: storageName(siteLabel, year),
-      notes: JSON.stringify(payload),
-      workbook_notes: null,
-      logistics_url: null,
-      host_name: null,
-      effective_date: `${year}-01-01`,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "site_name" }
-  );
+  const { error } = await admin
+    .from("site_availability")
+    .upsert(payload, { onConflict: "site_name,year" });
   if (error) throw error;
+
+  // Remove any leftover availability rows that were incorrectly stored as budget notes.
+  await admin
+    .from("site_budget_notes")
+    .delete()
+    .eq("site_name", storageName(siteLabel, year));
 }
 
 const ensureSites = [

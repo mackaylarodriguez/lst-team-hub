@@ -486,7 +486,6 @@ function blankEditDraft(availability, year) {
   return {
     availableStart: hasDates ? availability.availableStart : "",
     availableEnd: hasDates ? availability.availableEnd : "",
-    churchName: availability.churchName || availability.siteLabel || "",
     teamNotesText: (availability.teamNotes || []).join("\n"),
   };
 }
@@ -504,7 +503,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
   const [siteFilter, setSiteFilter] = useState("");
   const [editsMap, setEditsMap] = useState({});
   const [tripBookingsBySite, setTripBookingsBySite] = useState({});
-  const [editsLoading, setEditsLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -535,7 +533,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
   useEffect(() => {
     let cancelled = false;
     async function loadAll() {
-      setEditsLoading(true);
       try {
         let map = await listSiteAvailabilityEdits(year);
         try {
@@ -562,8 +559,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
           setDraftVisibleSites(new Set(fallback));
           showToast(e?.message || "Unable to load availability from the Hub.");
         }
-      } finally {
-        if (!cancelled) setEditsLoading(false);
       }
     }
     void loadAll();
@@ -710,7 +705,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
       availableStart: available.start,
       availableEnd: available.end,
       siteType: String(selected.siteType || "").trim() || "Partner site",
-      churchName: String(draft.churchName || "").trim() || selected.siteLabel,
+      churchName: String(selected.churchName || selected.siteLabel || "").trim() || selected.siteLabel,
       teamNotes: String(draft.teamNotesText || "")
         .split("\n")
         .map((line) => line.trim())
@@ -754,11 +749,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
       >
         <div style={{ flex: "1 1 280px", minWidth: 0 }}>
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Sites availability overview</div>
-          <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.45 }}>
-            Set exact date ranges (e.g. Sep 16 – Nov 14). Red locked cells come from real Hub
-            trips. Use Choose sites, then Save, to control which sites appear on the grid.
-            {editsLoading ? " Loading…" : ""}
-          </p>
           <div className="sitesAvailabilityLegend" aria-label="Availability legend">
             {LEGEND_ITEMS.map((item) => (
               <LegendSwatch key={item.status} status={item.status} label={item.label} />
@@ -982,8 +972,8 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
             <div className="sitesAvailabilityEditPanel">
               <div className="sitesAvailabilityEditTitle">Edit availability</div>
               <p className="small" style={{ margin: "0 0 12px", color: "var(--muted)" }}>
-                Update the season dates, team information, and church/site name. Locked teams stay
-                live from Hub trips for {year} — they are not edited here.
+                Update the season dates and team information. Locked teams stay live from Hub
+                trips for {year} — they are not edited here.
               </p>
 
               <div className="sitesAvailabilityEditSectionTitle">Season</div>
@@ -1020,21 +1010,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                     placeholder="Preferred team size, church backgrounds, hosting notes…"
                   />
                 </label>
-              </div>
-
-              <div className="sitesAvailabilityEditSection">
-                <div className="sitesAvailabilityEditSectionTitle">Site information</div>
-                <div className="sitesAvailabilityEditGrid" style={{ marginTop: 8 }}>
-                  <label className="sitesAvailabilityEditField">
-                    <span>Church / site</span>
-                    <input
-                      className="input"
-                      value={draft.churchName}
-                      onChange={(e) => updateDraft({ churchName: e.target.value })}
-                      placeholder="Church or host site name"
-                    />
-                  </label>
-                </div>
               </div>
 
               <div className="row" style={{ gap: 8, marginTop: 14, flexWrap: "wrap" }}>
