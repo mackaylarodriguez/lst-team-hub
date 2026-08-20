@@ -950,30 +950,40 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
             (detailHighlight ? " sitesAvailabilityDetailHighlight" : "")
           }
         >
-          <div
-            className="row"
-            style={{
-              justifyContent: "space-between",
-              gap: 12,
-              flexWrap: "wrap",
-              marginBottom: 14,
-              alignItems: "baseline",
-            }}
-          >
-            <div>
-              <div className="cardSectionPill" style={{ marginBottom: 8 }}>
-                {selected.siteLabel}
-              </div>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>{year} weekly calendar</div>
-              <div className="small" style={{ color: "var(--muted)", marginTop: 4 }}>
-                {selected.availableLabel} · {selected.siteType}
-              </div>
+          <div style={{ marginBottom: 14 }}>
+            <div
+              style={{
+                textAlign: "center",
+                fontWeight: 900,
+                fontSize: 16,
+                marginBottom: 12,
+              }}
+            >
+              {year} weekly calendar
             </div>
-            {!editing ? (
-              <button type="button" className="btn primary" onClick={openEditor}>
-                Edit availability
-              </button>
-            ) : null}
+            <div
+              className="row"
+              style={{
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+                alignItems: "flex-start",
+              }}
+            >
+              <div>
+                <div className="cardSectionPill" style={{ marginBottom: 6 }}>
+                  {selected.siteLabel}
+                </div>
+                <div className="small" style={{ color: "var(--muted)", fontWeight: 700 }}>
+                  {selected.siteType}
+                </div>
+              </div>
+              {!editing ? (
+                <button type="button" className="btn primary" onClick={openEditor}>
+                  Edit availability
+                </button>
+              ) : null}
+            </div>
           </div>
 
           {editing && draft ? (
@@ -1095,15 +1105,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
             </div>
 
             <div className="sitesAvailabilitySideNotes">
-              <div className="sitesAvailabilitySideBlock">
-                <div className="sitesAvailabilitySideTitle">Site information</div>
-                <div className="small">
-                  <strong>Church / site:</strong> {selected.churchName || selected.siteLabel}
-                </div>
-                <div className="small" style={{ marginTop: 6 }}>
-                  <strong>Site type:</strong> {selected.siteType}
-                </div>
-              </div>
               <div className="sitesAvailabilitySideBlock">
                 <div className="sitesAvailabilitySideTitle">Season</div>
                 <div className="small">
