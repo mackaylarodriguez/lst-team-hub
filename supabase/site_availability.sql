@@ -29,6 +29,8 @@ create table if not exists public.site_availability (
   available_end date,
   site_type text,
   church_name text,
+  other_backgrounds text,
+  preferred_team_size text,
   team_notes jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -37,6 +39,12 @@ create table if not exists public.site_availability (
 
 alter table public.site_availability
   add column if not exists church_name text;
+
+alter table public.site_availability
+  add column if not exists other_backgrounds text;
+
+alter table public.site_availability
+  add column if not exists preferred_team_size text;
 
 create index if not exists site_availability_year_idx
   on public.site_availability (year);

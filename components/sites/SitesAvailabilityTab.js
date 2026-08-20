@@ -195,6 +195,8 @@ function normalizeAvailability(row) {
     exclusions: [],
     bookings: [],
     teamNotes,
+    otherBackgrounds: String(row?.otherBackgrounds || "").trim(),
+    preferredTeamSize: String(row?.preferredTeamSize || "").trim(),
     siteType: String(row?.siteType || "Partner site").trim() || "Partner site",
     churchName: row?.churchName || row?.siteLabel || "",
     isEdited: Boolean(row?.isEdited),
@@ -210,6 +212,8 @@ function buildEmptyAvailabilityForSite(siteLabel, year) {
     availableEnd: "",
     bookings: [],
     teamNotes: [],
+    otherBackgrounds: "",
+    preferredTeamSize: "",
     siteType: "Partner site",
     churchName: siteLabel,
     isEdited: false,
@@ -486,6 +490,8 @@ function blankEditDraft(availability, year) {
   return {
     availableStart: hasDates ? availability.availableStart : "",
     availableEnd: hasDates ? availability.availableEnd : "",
+    preferredTeamSize: String(availability.preferredTeamSize || "").trim(),
+    otherBackgrounds: String(availability.otherBackgrounds || "").trim(),
     teamNotesText: (availability.teamNotes || []).join("\n"),
   };
 }
@@ -706,6 +712,8 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
       availableEnd: available.end,
       siteType: String(selected.siteType || "").trim() || "Partner site",
       churchName: String(selected.churchName || selected.siteLabel || "").trim() || selected.siteLabel,
+      preferredTeamSize: String(draft.preferredTeamSize || "").trim(),
+      otherBackgrounds: String(draft.otherBackgrounds || "").trim(),
       teamNotes: String(draft.teamNotesText || "")
         .split("\n")
         .map((line) => line.trim())
@@ -972,8 +980,8 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
             <div className="sitesAvailabilityEditPanel">
               <div className="sitesAvailabilityEditTitle">Edit availability</div>
               <p className="small" style={{ margin: "0 0 12px", color: "var(--muted)" }}>
-                Update the season dates and team information. Locked teams stay live from Hub
-                trips for {year} — they are not edited here.
+                Update season dates, preferred team size, other church backgrounds, and notes.
+                Locked teams stay live from Hub trips for {year}.
               </p>
 
               <div className="sitesAvailabilityEditSectionTitle">Season</div>
@@ -999,15 +1007,33 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
               </div>
 
               <div className="sitesAvailabilityEditSection">
-                <div className="sitesAvailabilityEditSectionTitle">Team information</div>
-                <label className="sitesAvailabilityEditField" style={{ marginTop: 8 }}>
+                <label className="sitesAvailabilityEditField">
+                  <span>Preferred team size</span>
+                  <input
+                    className="input"
+                    value={draft.preferredTeamSize}
+                    onChange={(e) => updateDraft({ preferredTeamSize: e.target.value })}
+                    placeholder="e.g. 2–4"
+                  />
+                </label>
+                <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
+                  <span>Will take teams from other church backgrounds</span>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    value={draft.otherBackgrounds}
+                    onChange={(e) => updateDraft({ otherBackgrounds: e.target.value })}
+                    placeholder="Yes / No / notes…"
+                  />
+                </label>
+                <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
                   <span>Notes (one per line)</span>
                   <textarea
                     className="input"
                     rows={5}
                     value={draft.teamNotesText}
                     onChange={(e) => updateDraft({ teamNotesText: e.target.value })}
-                    placeholder="Preferred team size, church backgrounds, hosting notes…"
+                    placeholder="Hosting notes…"
                   />
                 </label>
               </div>
@@ -1070,29 +1096,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
 
             <div className="sitesAvailabilitySideNotes">
               <div className="sitesAvailabilitySideBlock">
-                <div className="sitesAvailabilitySideTitle">Season</div>
-                <div className="small">
-                  <strong>{selected.availableLabel}</strong>
-                </div>
-                <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
-                  {selected.availableStart} → {selected.availableEnd}
-                </div>
-              </div>
-              <div className="sitesAvailabilitySideBlock">
-                <div className="sitesAvailabilitySideTitle">Team information</div>
-                {(selected.teamNotes || []).length ? (
-                  <ul>
-                    {selected.teamNotes.map((note) => (
-                      <li key={note}>{note}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="small" style={{ color: "var(--muted)" }}>
-                    No team notes yet. Use Edit availability to add them.
-                  </div>
-                )}
-              </div>
-              <div className="sitesAvailabilitySideBlock">
                 <div className="sitesAvailabilitySideTitle">Site information</div>
                 <div className="small">
                   <strong>Church / site:</strong> {selected.churchName || selected.siteLabel}
@@ -1102,10 +1105,16 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                 </div>
               </div>
               <div className="sitesAvailabilitySideBlock">
-                <div className="sitesAvailabilitySideTitle">Locked teams · {year}</div>
-                <div className="small" style={{ color: "var(--muted)", marginBottom: 8 }}>
-                  Live from Hub trips on this site (not archived).
+                <div className="sitesAvailabilitySideTitle">Season</div>
+                <div className="small">
+                  <strong>{selected.availableLabel}</strong>
                 </div>
+                <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
+                  {selected.availableStart} → {selected.availableEnd}
+                </div>
+              </div>
+              <div className="sitesAvailabilitySideBlock">
+                <div className="sitesAvailabilitySideTitle">Locked teams · {year}</div>
                 {(selected.bookings || []).length === 0 ? (
                   <div className="small" style={{ color: "var(--muted)" }}>
                     No locked Hub trips on this site for {year}.
@@ -1128,6 +1137,42 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                       </li>
                     ))}
                   </ul>
+                )}
+              </div>
+              <div className="sitesAvailabilitySideBlock">
+                <div className="sitesAvailabilitySideTitle">Preferred team size</div>
+                <div className="small">
+                  {selected.preferredTeamSize ? (
+                    selected.preferredTeamSize
+                  ) : (
+                    <span style={{ color: "var(--muted)" }}>Not set</span>
+                  )}
+                </div>
+              </div>
+              <div className="sitesAvailabilitySideBlock">
+                <div className="sitesAvailabilitySideTitle">
+                  Will take teams from other church backgrounds
+                </div>
+                <div className="small">
+                  {selected.otherBackgrounds ? (
+                    selected.otherBackgrounds
+                  ) : (
+                    <span style={{ color: "var(--muted)" }}>Not set</span>
+                  )}
+                </div>
+              </div>
+              <div className="sitesAvailabilitySideBlock">
+                <div className="sitesAvailabilitySideTitle">Notes</div>
+                {(selected.teamNotes || []).length ? (
+                  <ul>
+                    {selected.teamNotes.map((note) => (
+                      <li key={note}>{note}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="small" style={{ color: "var(--muted)" }}>
+                    No notes yet. Use Edit availability to add them.
+                  </div>
                 )}
               </div>
             </div>
