@@ -2086,6 +2086,15 @@ table.sitesAvailabilityTable tbody tr.sitesAvailabilityRowSelected:hover > td.si
   color:var(--primary, #3254a3);
   text-decoration-color:currentColor;
 }
+.sitesEditorWorkbookGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(120px, 1fr));
+  gap:10px 12px;
+}
+.sitesEditorWorkbookGrid .input{
+  font-weight:600;
+  color:var(--text);
+}
 button.sitesSiteNamePillButton{
   cursor:pointer;
   border:0;

@@ -21,8 +21,17 @@ import {
   updateSiteBudgetNote,
   upsertSiteBudgetNote,
 } from "@/lib/tripBudget";
+import {
+  WORKBOOK_REFERENCE_COLUMNS,
+  workbookNameToCanonicalKey,
+} from "@/lib/workbookCatalog";
+import {
+  mergeSiteWorkbookNotesWithDraft,
+  parseAnyWorkbookInventoryString,
+} from "@/lib/workbookInventory";
 
 const AVAILABILITY_YEAR = 2027;
+const WORKBOOK_COLUMNS = WORKBOOK_REFERENCE_COLUMNS;
 
 function isBuiltInSiteLabel(label) {
   const lower = String(label || "")
@@ -32,13 +41,28 @@ function isBuiltInSiteLabel(label) {
   return SITE_OPTIONS.some((opt) => opt.toLowerCase() === lower);
 }
 
+function qtyDraftFromWorkbookNotes(raw) {
+  const next = {};
+  for (const col of WORKBOOK_COLUMNS) next[col.key] = "";
+  for (const { name, qty } of parseAnyWorkbookInventoryString(raw)) {
+    const key = workbookNameToCanonicalKey(name);
+    if (!key || !(key in next)) continue;
+    const n = Number(qty);
+    if (!Number.isFinite(n) || n < 0) continue;
+    next[key] = String(n);
+  }
+  return next;
+}
+
 function blankDraft(siteLabel, note, availability, siteNotes) {
   const label = String(siteLabel || "").trim();
   const defaultHost = getDefaultSiteHostName(label) || "";
-  const effectiveHost = resolveEffectiveSiteHostName(label, siteNotes) || "";
+  const effectiveHost = label ? resolveEffectiveSiteHostName(label, siteNotes) || "" : "";
   return {
     siteName: label,
-    hostName: String(note?.hostName || "").trim() || (effectiveHost !== defaultHost ? effectiveHost : ""),
+    hostName:
+      String(note?.hostName || "").trim() ||
+      (effectiveHost && effectiveHost !== defaultHost ? effectiveHost : ""),
     logisticsUrl: String(note?.logisticsUrl || "").trim(),
     notes: String(note?.notes || "").trim(),
     availableStart: availability?.availableStart || "",
@@ -51,35 +75,42 @@ function blankDraft(siteLabel, note, availability, siteNotes) {
 }
 
 /**
- * Unified editor for one site across logistics + availability boards.
+ * Unified editor for one site across logistics, workbooks, and availability.
+ * mode: "edit" | "create"
  */
 export default function SiteEditorModal({
   open,
-  siteLabel,
+  mode = "edit",
+  siteLabel = "",
   siteNotes = [],
   allSiteLabels = [],
   onClose,
   onSaved,
 }) {
+  const isCreate = mode === "create";
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState(null);
   const [noteId, setNoteId] = useState("");
-  const [workbookNotes, setWorkbookNotes] = useState("");
+  const [existingWorkbookNotes, setExistingWorkbookNotes] = useState("");
+  const [workbookQtyDraft, setWorkbookQtyDraft] = useState({});
   const [effectiveDate, setEffectiveDate] = useState("");
 
-  const builtIn = useMemo(() => isBuiltInSiteLabel(siteLabel), [siteLabel]);
+  const builtIn = useMemo(
+    () => !isCreate && isBuiltInSiteLabel(siteLabel),
+    [isCreate, siteLabel]
+  );
   const defaultHostHint = useMemo(
-    () => getDefaultSiteHostName(String(siteLabel || "").trim()) || "",
-    [siteLabel]
+    () => getDefaultSiteHostName(String(siteLabel || draft?.siteName || "").trim()) || "",
+    [siteLabel, draft?.siteName]
   );
   const builtInMapUrl = useMemo(
-    () => resolveSiteLogisticsUrl(String(siteLabel || "").trim()) || "",
-    [siteLabel]
+    () => resolveSiteLogisticsUrl(String(siteLabel || draft?.siteName || "").trim()) || "",
+    [siteLabel, draft?.siteName]
   );
 
   useEffect(() => {
-    if (!open || !siteLabel) {
+    if (!open) {
       setDraft(null);
       return;
     }
@@ -88,13 +119,24 @@ export default function SiteEditorModal({
     async function load() {
       setLoading(true);
       try {
+        if (isCreate) {
+          if (cancelled) return;
+          setNoteId("");
+          setExistingWorkbookNotes("");
+          setEffectiveDate("");
+          setWorkbookQtyDraft(qtyDraftFromWorkbookNotes(""));
+          setDraft(blankDraft("", null, null, []));
+          return;
+        }
+
         const note = findSiteBudgetNoteForOption(siteLabel, siteNotes);
         const map = await listSiteAvailabilityEdits(AVAILABILITY_YEAR);
         const availability = map?.[siteLabel] || null;
         if (cancelled) return;
         setNoteId(note?.id || "");
-        setWorkbookNotes(note?.workbookNotes || "");
+        setExistingWorkbookNotes(note?.workbookNotes || "");
         setEffectiveDate(note?.effectiveDate || "");
+        setWorkbookQtyDraft(qtyDraftFromWorkbookNotes(note?.workbookNotes || ""));
         setDraft(blankDraft(siteLabel, note, availability, siteNotes));
       } catch (e) {
         if (!cancelled) {
@@ -110,7 +152,7 @@ export default function SiteEditorModal({
     return () => {
       cancelled = true;
     };
-  }, [open, siteLabel, siteNotes, onClose]);
+  }, [open, isCreate, siteLabel, siteNotes, onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -141,9 +183,9 @@ export default function SiteEditorModal({
       return;
     }
 
-    const original = String(siteLabel || "").trim();
+    const original = isCreate ? "" : String(siteLabel || "").trim();
     let saveLabel = nextName;
-    let renaming = nextName.toLowerCase() !== original.toLowerCase();
+    let renaming = !isCreate && nextName.toLowerCase() !== original.toLowerCase();
 
     if (renaming && builtIn) {
       showToast("Built-in site names can’t be renamed. Saving other fields…");
@@ -152,16 +194,17 @@ export default function SiteEditorModal({
       updateDraft({ siteName: original });
     }
 
-    if (renaming) {
-      const taken = (allSiteLabels || []).some(
-        (label) =>
-          String(label || "").trim().toLowerCase() === nextName.toLowerCase() &&
-          String(label || "").trim().toLowerCase() !== original.toLowerCase()
-      );
-      if (taken) {
-        showToast("That site name is already listed.", "error");
-        return;
-      }
+    const nameTaken = (allSiteLabels || []).some((label) => {
+      const lower = String(label || "")
+        .trim()
+        .toLowerCase();
+      if (!lower) return false;
+      if (isCreate) return lower === nextName.toLowerCase();
+      return lower === nextName.toLowerCase() && lower !== original.toLowerCase();
+    });
+    if (nameTaken) {
+      showToast("That site name is already listed.", "error");
+      return;
     }
 
     const availableStart = String(draft.availableStart || "").trim();
@@ -178,25 +221,32 @@ export default function SiteEditorModal({
       const hostName = String(draft.hostName || "").trim();
       const logisticsUrl = String(draft.logisticsUrl || "").trim();
       const notes = String(draft.notes || "").trim();
+      const workbookNotesStr = mergeSiteWorkbookNotesWithDraft(
+        existingWorkbookNotes,
+        WORKBOOK_COLUMNS,
+        workbookQtyDraft
+      );
 
       let savedNote;
-      if (noteId) {
+      if (noteId && !isCreate) {
         savedNote = await updateSiteBudgetNote(noteId, {
           siteName: saveLabel,
           notes,
-          workbookNotes,
+          workbookNotes: workbookNotesStr,
           logisticsUrl: logisticsUrl || null,
           hostName: hostName || null,
           effectiveDate: effectiveDate || null,
+          setWorkbookNotesUpdatedAt: true,
         });
       } else {
         savedNote = await upsertSiteBudgetNote({
           siteName: saveLabel,
           notes,
-          workbookNotes: workbookNotes || "",
+          workbookNotes: workbookNotesStr,
           logisticsUrl: logisticsUrl || null,
           hostName: hostName || null,
           effectiveDate: effectiveDate || null,
+          setWorkbookNotesUpdatedAt: true,
         });
       }
 
@@ -224,12 +274,13 @@ export default function SiteEditorModal({
         });
       }
 
-      showToast(`Saved ${saveLabel}`);
+      showToast(isCreate ? `Added site ${saveLabel}` : `Saved ${saveLabel}`);
       onSaved?.({
         previousLabel: original,
         siteLabel: saveLabel,
         note: savedNote,
         renamed: renaming,
+        created: isCreate,
       });
       onClose?.();
     } catch (e) {
@@ -261,8 +312,8 @@ export default function SiteEditorModal({
       <div
         className="card pad"
         style={{
-          width: "min(640px, 100%)",
-          maxHeight: "min(90vh, 900px)",
+          width: "min(720px, 100%)",
+          maxHeight: "min(92vh, 960px)",
           overflow: "auto",
         }}
         onClick={(e) => e.stopPropagation()}
@@ -279,10 +330,10 @@ export default function SiteEditorModal({
         >
           <div>
             <h2 id="site-editor-title" style={{ margin: 0, fontSize: 18 }}>
-              Edit site
+              {isCreate ? "Add site" : "Edit site"}
             </h2>
             <p className="small" style={{ margin: "4px 0 0", color: "var(--muted)" }}>
-              Logistics, notes, and {AVAILABILITY_YEAR} availability in one place.
+              Logistics, workbooks, and {AVAILABILITY_YEAR} availability in one place.
             </p>
           </div>
           <button type="button" className="btn" disabled={saving} onClick={() => onClose?.()}>
@@ -305,14 +356,18 @@ export default function SiteEditorModal({
                   value={draft.siteName}
                   onChange={(e) => updateDraft({ siteName: e.target.value })}
                   disabled={saving || builtIn}
-                  placeholder='Country - City'
+                  placeholder="e.g. Brazil - Joao Pessoa"
                 />
               </label>
               {builtIn ? (
                 <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
                   Built-in site names can’t be renamed.
                 </div>
-              ) : null}
+              ) : (
+                <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
+                  Use <strong>Country - City</strong> (spaces around the hyphen).
+                </div>
+              )}
             </section>
 
             <section>
@@ -364,6 +419,35 @@ export default function SiteEditorModal({
                   placeholder="Costs, contacts, utilities, shuttles, etc."
                 />
               </label>
+            </section>
+
+            <section>
+              <div className="sitesAvailabilityEditSectionTitle">Workbooks</div>
+              <p className="small" style={{ margin: "6px 0 10px", color: "var(--muted)" }}>
+                Inventory counts on hand at this site.
+              </p>
+              <div className="sitesEditorWorkbookGrid">
+                {WORKBOOK_COLUMNS.map((col) => (
+                  <label key={col.key} className="sitesAvailabilityEditField">
+                    <span>{col.label}</span>
+                    <input
+                      className="input"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={workbookQtyDraft[col.key] ?? ""}
+                      onChange={(e) =>
+                        setWorkbookQtyDraft((prev) => ({
+                          ...prev,
+                          [col.key]: e.target.value,
+                        }))
+                      }
+                      disabled={saving}
+                      placeholder="—"
+                    />
+                  </label>
+                ))}
+              </div>
             </section>
 
             <section>
@@ -436,7 +520,7 @@ export default function SiteEditorModal({
                 disabled={saving}
                 onClick={() => void saveAll()}
               >
-                {saving ? "Saving…" : "Save site"}
+                {saving ? "Saving…" : isCreate ? "Add site" : "Save site"}
               </button>
             </div>
           </div>

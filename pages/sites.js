@@ -18,8 +18,6 @@ import {
 } from "@/lib/tripBudget";
 import {
   getDefaultSiteHostName,
-  isValidSiteOptionLabelFormat,
-  normalizeSiteOptionLabel,
 } from "@/lib/siteOptions";
 import {
   WORKBOOK_REFERENCE_COLUMNS,
@@ -79,12 +77,8 @@ export default function SitesPage() {
   const [editingWorkbookSite, setEditingWorkbookSite] = useState("");
   const [workbookQtyDraft, setWorkbookQtyDraft] = useState({});
   const [savingWorkbookFor, setSavingWorkbookFor] = useState("");
-  const [addSiteOpen, setAddSiteOpen] = useState(false);
-  const [addSiteNameDraft, setAddSiteNameDraft] = useState("");
-  const [addSiteLogisticsDraft, setAddSiteLogisticsDraft] = useState("");
-  const [addSiteBudgetNotesDraft, setAddSiteBudgetNotesDraft] = useState("");
-  const [savingAddSite, setSavingAddSite] = useState(false);
   const [tab, setTab] = useState("Availability");
+  const [siteEditorMode, setSiteEditorMode] = useState(""); // "" | "edit" | "create"
   const [editingSiteLabel, setEditingSiteLabel] = useState("");
   const [availabilityReloadKey, setAvailabilityReloadKey] = useState(0);
 
@@ -313,17 +307,21 @@ export default function SitesPage() {
   function openSiteEditor(siteLabel) {
     const label = String(siteLabel || "").trim();
     if (!label) return;
+    setSiteEditorMode("edit");
     setEditingSiteLabel(label);
   }
 
-  function closeAddSiteModal() {
-    setAddSiteOpen(false);
-    setAddSiteNameDraft("");
-    setAddSiteLogisticsDraft("");
-    setAddSiteBudgetNotesDraft("");
+  function openAddSiteEditor() {
+    setSiteEditorMode("create");
+    setEditingSiteLabel("");
   }
 
-  function handleSiteEditorSaved({ note, siteLabel }) {
+  function closeSiteEditor() {
+    setSiteEditorMode("");
+    setEditingSiteLabel("");
+  }
+
+  function handleSiteEditorSaved({ note }) {
     if (note) {
       setSiteNotes((prev) => {
         const others = prev.filter((r) => r.id !== note.id);
@@ -335,50 +333,6 @@ export default function SitesPage() {
       void listSiteBudgetNotes().then((rows) => setSiteNotes(rows || []));
     }
     setAvailabilityReloadKey((n) => n + 1);
-  }
-
-  async function submitAddSite() {
-    const name = normalizeSiteOptionLabel(addSiteNameDraft);
-    const url = String(addSiteLogisticsDraft || "").trim();
-    const budgetNotes = String(addSiteBudgetNotesDraft || "");
-    if (!name) {
-      showToast("Enter a site name.", "error");
-      return;
-    }
-    if (!isValidSiteOptionLabelFormat(name)) {
-      showToast('Use the same pattern as other sites: "Country - City" (spaces around the hyphen).', "error");
-      return;
-    }
-    const nameLower = name.toLowerCase();
-    if (siteLabelsOrdered.some((l) => l.toLowerCase() === nameLower)) {
-      showToast("That site is already listed. Edit logistics or workbooks on its row.", "error");
-      return;
-    }
-    try {
-      setSavingAddSite(true);
-      setStatus("");
-      const saved = await upsertSiteBudgetNote({
-        siteName: name,
-        notes: budgetNotes,
-        workbookNotes: "",
-        logisticsUrl: url || null,
-        hostName: null,
-      });
-      setSiteNotes((prev) => {
-        const others = prev.filter((r) => r.id !== saved.id);
-        return [...others, saved].sort((a, b) =>
-          a.siteName.localeCompare(b.siteName, undefined, { sensitivity: "base" })
-        );
-      });
-      closeAddSiteModal();
-      showToast(`Added site ${name}`, "success");
-    } catch (e) {
-      const msg = e.message || "Could not add site.";
-      setStatus(msg);
-      showToast(msg, "error");
-    } finally {
-      setSavingAddSite(false);
-    }
   }
 
   async function saveSiteWorkbookCounts(siteOption, columns) {
@@ -497,12 +451,7 @@ export default function SitesPage() {
           type="button"
           className="btn btnPrimary"
           style={{ fontSize: 13, padding: "8px 16px", borderRadius: 10, flexShrink: 0 }}
-          onClick={() => {
-            setAddSiteNameDraft("");
-            setAddSiteLogisticsDraft("");
-            setAddSiteBudgetNotesDraft("");
-            setAddSiteOpen(true);
-          }}
+          onClick={openAddSiteEditor}
         >
           Add site
         </button>
@@ -898,100 +847,13 @@ export default function SitesPage() {
       </div>
       ) : null}
 
-      {addSiteOpen ? (
-        <div
-          className="appModalOverlay"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,.45)",
-            display: "grid",
-            placeItems: "center",
-            padding: 20,
-            zIndex: 100,
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-site-title"
-          onClick={() => !savingAddSite && closeAddSiteModal()}
-        >
-          <div
-            className="card pad"
-            style={{ width: "min(480px, 100%)", maxHeight: "90vh", overflow: "auto" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="add-site-title" style={{ margin: "0 0 6px 0", fontSize: 18 }}>
-              Add site
-            </h2>
-            <p className="small" style={{ margin: "0 0 16px 0", color: "var(--muted)", lineHeight: 1.45 }}>
-              Name it like the built-in list: <strong>Country - City</strong> (spaces around{" "}
-              <code> - </code>), e.g. <code>Brazil - Joao Pessoa</code>.
-            </p>
-            <div style={{ display: "grid", gap: 12 }}>
-              <div>
-                <label className="small" style={{ display: "block", marginBottom: 4, fontWeight: 700 }}>
-                  Site name
-                </label>
-                <input
-                  className="input"
-                  type="text"
-                  autoComplete="off"
-                  placeholder="e.g. Italy - Padova"
-                  value={addSiteNameDraft}
-                  onChange={(e) => setAddSiteNameDraft(e.target.value)}
-                  disabled={savingAddSite}
-                />
-              </div>
-              <div>
-                <label className="small" style={{ display: "block", marginBottom: 4, fontWeight: 700 }}>
-                  Logistics link
-                </label>
-                <input
-                  className="input"
-                  type="url"
-                  placeholder="https://…"
-                  value={addSiteLogisticsDraft}
-                  onChange={(e) => setAddSiteLogisticsDraft(e.target.value)}
-                  disabled={savingAddSite}
-                />
-              </div>
-              <div>
-                <label className="small" style={{ display: "block", marginBottom: 4, fontWeight: 700 }}>
-                  Notes
-                </label>
-                <textarea
-                  className="input"
-                  rows={4}
-                  placeholder="Costs, contacts, utilities, shuttles, etc."
-                  value={addSiteBudgetNotesDraft}
-                  onChange={(e) => setAddSiteBudgetNotesDraft(e.target.value)}
-                  disabled={savingAddSite}
-                />
-              </div>
-            </div>
-            <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
-              <button type="button" className="btn" disabled={savingAddSite} onClick={closeAddSiteModal}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btnPrimary"
-                disabled={savingAddSite}
-                onClick={() => void submitAddSite()}
-              >
-                {savingAddSite ? "Saving…" : "Add site"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       <SiteEditorModal
-        open={Boolean(editingSiteLabel)}
+        open={siteEditorMode === "create" || siteEditorMode === "edit"}
+        mode={siteEditorMode === "create" ? "create" : "edit"}
         siteLabel={editingSiteLabel}
         siteNotes={siteNotes}
         allSiteLabels={siteLabelsOrdered}
-        onClose={() => setEditingSiteLabel("")}
+        onClose={closeSiteEditor}
         onSaved={handleSiteEditorSaved}
       />
     </Shell>
