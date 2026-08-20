@@ -31,8 +31,8 @@ const WEEK_BLOCKS = [
 /** Soft palette — readable status colors. */
 const CELL = {
   outside: {
-    label: "Unavailable",
-    title: "Unavailable",
+    label: "NA",
+    title: "NA",
     background: "#e8eef5",
     color: "#64748b",
     border: "#cbd5e1",
@@ -347,7 +347,7 @@ function weekStatus(availability, month, weekKey) {
 
   for (const exclusion of availability.exclusions || []) {
     if (rangesOverlap(exclusion.start, exclusion.end, bounds.start, bounds.end)) {
-      return { status: "outside", label: exclusion.note || "Unavailable" };
+      return { status: "outside", label: exclusion.note || "NA" };
     }
   }
 
@@ -719,7 +719,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Sites availability overview</div>
           <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.45 }}>
             Set exact date ranges (e.g. Sep 16 – Nov 14). Months show fully / partially
-            available, unavailable, or team locked; the weekly calendar shows the precise weeks.
+            available, NA, or team locked; the weekly calendar shows the precise weeks.
             {editsLoading ? " Loading saved seasons…" : ""}
           </p>
         </div>
