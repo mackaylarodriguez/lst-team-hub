@@ -83,7 +83,7 @@ export default function SitesPage() {
   const [addSiteLogisticsDraft, setAddSiteLogisticsDraft] = useState("");
   const [addSiteBudgetNotesDraft, setAddSiteBudgetNotesDraft] = useState("");
   const [savingAddSite, setSavingAddSite] = useState(false);
-  const [tab, setTab] = useState("Workbooks");
+  const [tab, setTab] = useState("Availability");
 
   const siteLabelsOrdered = useMemo(() => buildSiteLabelsOrdered(siteNotes), [siteNotes]);
 
@@ -445,17 +445,17 @@ export default function SitesPage() {
         <div className="tabs">
           <button
             type="button"
-            className={"tab " + (tab === "Workbooks" ? "tabActive" : "")}
-            onClick={() => switchSitesTab("Workbooks")}
-          >
-            Workbooks
-          </button>
-          <button
-            type="button"
             className={"tab " + (tab === "Availability" ? "tabActive" : "")}
             onClick={() => switchSitesTab("Availability")}
           >
             Availability
+          </button>
+          <button
+            type="button"
+            className={"tab " + (tab === "Workbooks" ? "tabActive" : "")}
+            onClick={() => switchSitesTab("Workbooks")}
+          >
+            Workbooks
           </button>
           <button
             type="button"

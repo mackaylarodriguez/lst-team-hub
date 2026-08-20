@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   deleteSiteAvailabilityEdit,
   listSiteAvailabilityEdits,
@@ -266,8 +266,8 @@ function bookingsCoverFullOpenWindow(openStart, openEnd, bookings) {
   return coverTo >= open1;
 }
 
-function monthStatus(availability, month) {
-  if (!availability.hasSeason) return "outside";
+function monthOpenWindow(availability, month) {
+  if (!availability.hasSeason) return null;
   const year = availability.year;
   const bounds = monthBounds(year, month);
   if (
@@ -278,7 +278,7 @@ function monthStatus(availability, month) {
       bounds.end
     )
   ) {
-    return "outside";
+    return null;
   }
 
   const openStart =
@@ -290,6 +290,14 @@ function monthStatus(availability, month) {
       ? availability.availableEnd
       : bounds.end;
 
+  return { bounds, openStart, openEnd };
+}
+
+function monthStatus(availability, month) {
+  const window = monthOpenWindow(availability, month);
+  if (!window) return "outside";
+
+  const { bounds, openStart, openEnd } = window;
   const overlappingBookings = (availability.bookings || []).filter((row) =>
     rangesOverlap(row.start, row.end, openStart, openEnd)
   );
@@ -303,6 +311,40 @@ function monthStatus(availability, month) {
     ymdTime(availability.availableStart) <= ymdTime(bounds.start) &&
     ymdTime(availability.availableEnd) >= ymdTime(bounds.end);
   return coversFullMonth ? "open" : "partial";
+}
+
+function monthCellTooltip(availability, month) {
+  const monthMeta = MONTHS.find((m) => m.key === month);
+  const monthName = monthMeta?.label || `Month ${month}`;
+  const year = availability.year;
+  const status = monthStatus(availability, month);
+  const window = monthOpenWindow(availability, month);
+
+  if (status === "outside" || !window) {
+    return `${monthName} ${year}: NA`;
+  }
+
+  const seasonLabel = formatDateRangeLabel(window.openStart, window.openEnd, year);
+  const overlappingBookings = (availability.bookings || []).filter((row) =>
+    rangesOverlap(row.start, row.end, window.openStart, window.openEnd)
+  );
+
+  if (overlappingBookings.length) {
+    const tripLines = overlappingBookings.map((booking) => {
+      const range = formatDateRangeLabel(booking.start, booking.end, year);
+      return `${booking.teamName || "Locked team"} (${range})`;
+    });
+    const lockKind =
+      status === "bookedPartial" ? "Team locked (part of month)" : "Team locked";
+    return [`${monthName} ${year}: ${lockKind}`, `Season in month: ${seasonLabel}`, ...tripLines].join(
+      "\n"
+    );
+  }
+
+  if (status === "partial") {
+    return `${monthName} ${year}: Partially available\n${seasonLabel}`;
+  }
+  return `${monthName} ${year}: Fully available\n${seasonLabel}`;
 }
 
 function weekStatus(availability, month, weekKey) {
@@ -332,11 +374,11 @@ function weekStatus(availability, month, weekKey) {
   return { status: "open", label: "" };
 }
 
-function AvailabilityCell({ status, compact = false }) {
+function AvailabilityCell({ status, compact = false, title }) {
   const style = CELL[status] || CELL.outside;
   return (
     <div
-      title={style.title}
+      title={title || style.title}
       className="sitesAvailabilityCell"
       style={{
         display: "inline-flex",
@@ -361,7 +403,14 @@ function AvailabilityCell({ status, compact = false }) {
   );
 }
 
-function LegendSwatch({ status }) {
+const LEGEND_ITEMS = [
+  { status: "outside", label: "NA" },
+  { status: "open", label: "Available" },
+  { status: "partial", label: "Partial" },
+  { status: "booked", label: "Locked" },
+];
+
+function LegendSwatch({ status, label }) {
   const style = CELL[status];
   return (
     <span className="sitesAvailabilityLegendItem">
@@ -372,7 +421,7 @@ function LegendSwatch({ status }) {
           borderColor: style.border,
         }}
       />
-      {style.title}
+      {label || style.label}
     </span>
   );
 }
@@ -438,6 +487,28 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
   const [savingSites, setSavingSites] = useState(false);
+  const [detailHighlight, setDetailHighlight] = useState(false);
+  const detailRef = useRef(null);
+  const detailHighlightTimer = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (detailHighlightTimer.current) clearTimeout(detailHighlightTimer.current);
+    };
+  }, []);
+
+  function selectSiteRow(label) {
+    setSelectedSite(label);
+    if (detailHighlightTimer.current) clearTimeout(detailHighlightTimer.current);
+    setDetailHighlight(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        detailRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        setDetailHighlight(true);
+        detailHighlightTimer.current = setTimeout(() => setDetailHighlight(false), 900);
+      });
+    });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -652,6 +723,11 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
             trips. Use Choose sites, then Save, to control which sites appear on the grid.
             {editsLoading ? " Loading…" : ""}
           </p>
+          <div className="sitesAvailabilityLegend" aria-label="Availability legend">
+            {LEGEND_ITEMS.map((item) => (
+              <LegendSwatch key={item.status} status={item.status} label={item.label} />
+            ))}
+          </div>
         </div>
         <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <div className="small" style={{ fontWeight: 800, color: "var(--muted)" }}>
@@ -744,17 +820,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
         </div>
       ) : null}
 
-      <div
-        className="row"
-        style={{ gap: 14, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}
-      >
-        <LegendSwatch status="outside" />
-        <LegendSwatch status="open" />
-        <LegendSwatch status="partial" />
-        <LegendSwatch status="booked" />
-        <LegendSwatch status="bookedPartial" />
-      </div>
-
       {visibleRows.length === 0 ? (
         <div className="small" style={{ color: "var(--muted)", marginBottom: 12 }}>
           No sites selected. Use <strong>Choose sites</strong> to check which sites appear on the
@@ -804,19 +869,13 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                 return (
                   <tr
                     key={row.siteLabel}
-                    onClick={() => setSelectedSite(row.siteLabel)}
-                    style={{
-                      cursor: "pointer",
-                      outline: isSelected ? "2px solid rgba(239, 68, 68, 0.35)" : undefined,
-                      outlineOffset: -2,
-                    }}
+                    className={isSelected ? "sitesAvailabilityRowSelected" : undefined}
+                    onClick={() => selectSiteRow(row.siteLabel)}
+                    style={{ cursor: "pointer" }}
                   >
                     <td
                       className="sitesWorkbookSiteCell sitesAvailabilitySiteCell"
-                      style={{
-                        fontWeight: 700,
-                        background: isSelected ? "rgba(239, 68, 68, 0.06)" : undefined,
-                      }}
+                      style={{ fontWeight: 700 }}
                       title={row.siteLabel}
                     >
                       <div style={{ display: "grid", gap: 2 }}>
@@ -832,12 +891,12 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                         <td
                           key={month.key}
                           className="sitesWorkbookQtyCell"
-                          style={{
-                            verticalAlign: "middle",
-                            background: isSelected ? "rgba(239, 68, 68, 0.03)" : undefined,
-                          }}
+                          style={{ verticalAlign: "middle" }}
                         >
-                          <AvailabilityCell status={status} />
+                          <AvailabilityCell
+                            status={status}
+                            title={monthCellTooltip(row, month.key)}
+                          />
                         </td>
                       );
                     })}
@@ -850,7 +909,13 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
       )}
 
       {selected ? (
-        <div className="sitesAvailabilityDetail">
+        <div
+          ref={detailRef}
+          className={
+            "sitesAvailabilityDetail" +
+            (detailHighlight ? " sitesAvailabilityDetailHighlight" : "")
+          }
+        >
           <div
             className="row"
             style={{

@@ -2005,21 +2005,41 @@ table.sitesAvailabilityTable .sitesAvailabilityCell{
   padding:4px 2px;
   min-height:26px;
 }
+.sitesAvailabilityLegend{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px 14px;
+  align-items:center;
+  margin-top:10px;
+}
 .sitesAvailabilityLegendItem{
   display:inline-flex;
   align-items:center;
   gap:6px;
-  font-size:12px;
+  font-size:11px;
   font-weight:700;
   color:var(--muted);
   white-space:nowrap;
 }
 .sitesAvailabilityLegendSwatch{
-  width:14px;
-  height:14px;
-  border-radius:4px;
+  width:12px;
+  height:12px;
+  border-radius:3px;
   border:1px solid;
   flex:0 0 auto;
+}
+table.sitesAvailabilityTable tbody tr.sitesAvailabilityRowSelected > td{
+  background:rgba(15,23,42,.04) !important;
+}
+table.sitesAvailabilityTable tbody tr.sitesAvailabilityRowSelected > td.sitesAvailabilitySiteCell{
+  box-shadow:inset 3px 0 0 #475569;
+  background:rgba(15,23,42,.06) !important;
+}
+table.sitesAvailabilityTable tbody tr.sitesAvailabilityRowSelected:hover > td{
+  background:rgba(15,23,42,.055) !important;
+}
+table.sitesAvailabilityTable tbody tr.sitesAvailabilityRowSelected:hover > td.sitesAvailabilitySiteCell{
+  background:rgba(15,23,42,.075) !important;
 }
 .sitesAvailabilityPicker{
   margin-bottom:14px;
@@ -2052,7 +2072,19 @@ table.sitesAvailabilityTable .sitesAvailabilityCell{
   padding:16px;
   border-radius:12px;
   border:1px solid var(--border);
-  background:linear-gradient(180deg, rgba(255,241,242,.7), #ffffff 40%);
+  background:linear-gradient(180deg, rgba(248,250,252,.95), #ffffff 40%);
+  transition:box-shadow .25s ease, border-color .25s ease, background .25s ease;
+}
+.sitesAvailabilityDetailHighlight{
+  border-color:rgba(71,85,105,.45);
+  box-shadow:0 0 0 3px rgba(71,85,105,.14);
+  background:linear-gradient(180deg, rgba(241,245,249,.98), #ffffff 45%);
+  animation:sitesAvailabilityDetailPulse .85s ease;
+}
+@keyframes sitesAvailabilityDetailPulse{
+  0%{ box-shadow:0 0 0 0 rgba(71,85,105,.22); }
+  55%{ box-shadow:0 0 0 4px rgba(71,85,105,.16); }
+  100%{ box-shadow:0 0 0 3px rgba(71,85,105,.14); }
 }
 .sitesAvailabilityEditPanel{
   margin-bottom:16px;
@@ -2173,7 +2205,7 @@ table.sitesAvailabilityTable .sitesAvailabilityCell{
 .sitesAvailabilitySideTitle{
   font-size:13px;
   font-weight:900;
-  color:#b91c1c;
+  color:#334155;
   margin-bottom:8px;
 }
 .sitesAvailabilitySideBlock ul{
