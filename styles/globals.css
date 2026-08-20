@@ -2216,8 +2216,14 @@ table.sitesAvailabilityTable tbody tr.sitesAvailabilityRowSelected:hover > td.si
 }
 button.sitesSiteNamePillButton{
   cursor:pointer;
-  border:0;
-  font:inherit;
+  border:1px solid rgba(47,73,147,.16);
+  font-family:inherit;
+  font-size:inherit;
+  font-weight:900;
+  letter-spacing:inherit;
+  text-transform:inherit;
+  line-height:inherit;
+  color:inherit;
 }
 button.sitesSiteNamePillButton:hover{
   filter:brightness(0.97);
