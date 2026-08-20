@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
-  deleteSiteAvailabilityEdit,
   listSiteAvailabilityEdits,
   loadSiteAvailabilityVisibleSites,
   migrateLegacySiteAvailabilityFromNotes,
   saveSiteAvailabilityEdit,
   saveSiteAvailabilityVisibleSites,
 } from "@/lib/siteAvailability";
-import { listTripsForCurrentUser } from "@/lib/trips";
+import { listTripsForCurrentUser, TRIPS_UPDATED_EVENT } from "@/lib/trips";
 import { resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import { showToast } from "@/components/Toast";
@@ -426,6 +426,30 @@ function LegendSwatch({ status, label }) {
   );
 }
 
+function resolveAvailabilitySiteLabel(location) {
+  const raw = String(location || "").trim();
+  if (!raw) return "";
+  const resolved =
+    resolveCanonicalSiteLabelForTrip(raw, []) || raw;
+  const lower = resolved.toLowerCase();
+  const exact = SITE_OPTIONS.find((opt) => opt.toLowerCase() === lower);
+  if (exact) return exact;
+  const partial = SITE_OPTIONS.find((opt) => {
+    const optLower = opt.toLowerCase();
+    return lower.includes(optLower) || optLower.includes(lower);
+  });
+  return partial || resolved;
+}
+
+function tripOverlapsYear(start, end, year) {
+  const startYear = Number(String(start || "").slice(0, 4));
+  const endYear = Number(String(end || start || "").slice(0, 4));
+  if (!Number.isFinite(startYear) && !Number.isFinite(endYear)) return false;
+  const y0 = Number.isFinite(startYear) ? startYear : endYear;
+  const y1 = Number.isFinite(endYear) ? endYear : startYear;
+  return y0 <= year && year <= y1;
+}
+
 function buildTripBookingsBySite(trips, year) {
   const bySite = {};
   for (const trip of trips || []) {
@@ -433,16 +457,10 @@ function buildTripBookingsBySite(trips, year) {
     const start = String(trip.startDate || "").trim();
     const end = String(trip.endDate || "").trim() || start;
     if (!start) continue;
-    const startYear = Number(String(start).slice(0, 4));
-    const endYear = Number(String(end).slice(0, 4));
-    if (startYear !== year && endYear !== year) continue;
+    if (!tripOverlapsYear(start, end, year)) continue;
 
-    const resolved =
-      resolveCanonicalSiteLabelForTrip(trip.location || "", []) ||
-      String(trip.location || "").trim();
-    if (!resolved) continue;
-    const siteLabel =
-      SITE_OPTIONS.find((opt) => opt.toLowerCase() === resolved.toLowerCase()) || resolved;
+    const siteLabel = resolveAvailabilitySiteLabel(trip.location || "");
+    if (!siteLabel) continue;
 
     if (!bySite[siteLabel]) bySite[siteLabel] = [];
     bySite[siteLabel].push({
@@ -451,20 +469,24 @@ function buildTripBookingsBySite(trips, year) {
       teamName: String(trip.name || "").trim() || "Locked team",
       start,
       end,
+      teamStatus: String(trip.teamStatus || "").trim(),
     });
+  }
+
+  for (const siteLabel of Object.keys(bySite)) {
+    bySite[siteLabel].sort((a, b) => String(a.start).localeCompare(String(b.start)));
   }
   return bySite;
 }
 
 function blankEditDraft(availability, year) {
-  const y = Number(year) || availability.year || AVAILABILITY_YEAR;
   const hasDates =
     Boolean(parseYmd(availability.availableStart)) &&
     Boolean(parseYmd(availability.availableEnd));
   return {
-    availableStart: hasDates ? availability.availableStart : toYmd(y, 4, 1),
-    availableEnd: hasDates ? availability.availableEnd : toYmd(y, 8, 31),
-    siteType: availability.siteType || "Partner site",
+    availableStart: hasDates ? availability.availableStart : "",
+    availableEnd: hasDates ? availability.availableEnd : "",
+    churchName: availability.churchName || availability.siteLabel || "",
     teamNotesText: (availability.teamNotes || []).join("\n"),
   };
 }
@@ -516,13 +538,11 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
       setEditsLoading(true);
       try {
         let map = await listSiteAvailabilityEdits(year);
-        if (!Object.keys(map).length) {
-          try {
-            await migrateLegacySiteAvailabilityFromNotes(year);
-            map = await listSiteAvailabilityEdits(year);
-          } catch {
-            /* legacy migrate optional */
-          }
+        try {
+          await migrateLegacySiteAvailabilityFromNotes(year);
+          map = await listSiteAvailabilityEdits(year);
+        } catch {
+          /* legacy migrate optional */
         }
         const [trips, visible] = await Promise.all([
           listTripsForCurrentUser(),
@@ -551,6 +571,35 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
       cancelled = true;
     };
   }, [year, siteLabels]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshLockedTeams() {
+      try {
+        const trips = await listTripsForCurrentUser();
+        if (cancelled) return;
+        setTripBookingsBySite(buildTripBookingsBySite(trips, year));
+      } catch {
+        /* keep last known bookings */
+      }
+    }
+
+    function onTripsUpdated() {
+      void refreshLockedTeams();
+    }
+
+    function onVisibility() {
+      if (document.visibilityState === "visible") void refreshLockedTeams();
+    }
+
+    window.addEventListener(TRIPS_UPDATED_EVENT, onTripsUpdated);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(TRIPS_UPDATED_EVENT, onTripsUpdated);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [year]);
 
   const filteredSiteLabels = useMemo(() => {
     const needle = String(siteFilter || "").trim().toLowerCase();
@@ -660,7 +709,8 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
     const payload = {
       availableStart: available.start,
       availableEnd: available.end,
-      siteType: String(draft.siteType || "").trim() || "Partner site",
+      siteType: String(selected.siteType || "").trim() || "Partner site",
+      churchName: String(draft.churchName || "").trim() || selected.siteLabel,
       teamNotes: String(draft.teamNotesText || "")
         .split("\n")
         .map((line) => line.trim())
@@ -669,36 +719,22 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
 
     setSaving(true);
     try {
-      await saveSiteAvailabilityEdit(selected.siteLabel, year, payload);
+      const saved = await saveSiteAvailabilityEdit(selected.siteLabel, year, payload);
       setEditsMap((current) => ({
         ...current,
-        [selected.siteLabel]: payload,
+        [selected.siteLabel]: {
+          ...payload,
+          ...(saved || {}),
+          siteLabel: selected.siteLabel,
+          year,
+          isEdited: true,
+        },
       }));
       setEditing(false);
       setDraft(null);
       showToast("Availability saved.");
     } catch (e) {
       showToast(e?.message || "Unable to save availability.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function clearAvailability() {
-    if (!selected || saving) return;
-    setSaving(true);
-    try {
-      await deleteSiteAvailabilityEdit(selected.siteLabel, year);
-      setEditsMap((current) => {
-        const next = { ...current };
-        delete next[selected.siteLabel];
-        return next;
-      });
-      const base = buildEmptyAvailabilityForSite(selected.siteLabel, year);
-      setDraft(blankEditDraft(base, year));
-      showToast("Availability cleared.");
-    } catch (e) {
-      showToast(e?.message || "Unable to clear availability.");
     } finally {
       setSaving(false);
     }
@@ -935,29 +971,23 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                 {selected.availableLabel} · {selected.siteType}
               </div>
             </div>
-            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-              {!editing ? (
-                <button type="button" className="btn primary" onClick={openEditor}>
-                  Edit availability
-                </button>
-              ) : null}
-              <div className="small" style={{ color: "var(--muted)" }}>
-                Yellow = partially available · Light red = locked part of the month
-              </div>
-            </div>
+            {!editing ? (
+              <button type="button" className="btn primary" onClick={openEditor}>
+                Edit availability
+              </button>
+            ) : null}
           </div>
 
           {editing && draft ? (
             <div className="sitesAvailabilityEditPanel">
               <div className="sitesAvailabilityEditTitle">Edit availability</div>
               <p className="small" style={{ margin: "0 0 12px", color: "var(--muted)" }}>
-                Use exact dates for the season. Example: Available from{" "}
-                <strong>Sep 16</strong> to <strong>Nov 14</strong> — September and November show as{" "}
-                <strong>Part</strong> on the overview; the weekly grid blacks out weeks outside
-                that range.
+                Update the season dates, team information, and church/site name. Locked teams stay
+                live from Hub trips for {year} — they are not edited here.
               </p>
 
-              <div className="sitesAvailabilityEditGrid">
+              <div className="sitesAvailabilityEditSectionTitle">Season</div>
+              <div className="sitesAvailabilityEditGrid" style={{ marginTop: 8 }}>
                 <label className="sitesAvailabilityEditField">
                   <span>Available from</span>
                   <input
@@ -976,27 +1006,36 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                     onChange={(e) => updateDraft({ availableEnd: e.target.value })}
                   />
                 </label>
-                <label className="sitesAvailabilityEditField">
-                  <span>Site type</span>
-                  <input
+              </div>
+
+              <div className="sitesAvailabilityEditSection">
+                <div className="sitesAvailabilityEditSectionTitle">Team information</div>
+                <label className="sitesAvailabilityEditField" style={{ marginTop: 8 }}>
+                  <span>Notes (one per line)</span>
+                  <textarea
                     className="input"
-                    value={draft.siteType}
-                    onChange={(e) => updateDraft({ siteType: e.target.value })}
-                    placeholder="Partner site / Centurion Site"
+                    rows={5}
+                    value={draft.teamNotesText}
+                    onChange={(e) => updateDraft({ teamNotesText: e.target.value })}
+                    placeholder="Preferred team size, church backgrounds, hosting notes…"
                   />
                 </label>
               </div>
 
-              <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
-                <span>Team notes (one per line)</span>
-                <textarea
-                  className="input"
-                  rows={4}
-                  value={draft.teamNotesText}
-                  onChange={(e) => updateDraft({ teamNotesText: e.target.value })}
-                  placeholder="Team size, preferences, best months…"
-                />
-              </label>
+              <div className="sitesAvailabilityEditSection">
+                <div className="sitesAvailabilityEditSectionTitle">Site information</div>
+                <div className="sitesAvailabilityEditGrid" style={{ marginTop: 8 }}>
+                  <label className="sitesAvailabilityEditField">
+                    <span>Church / site</span>
+                    <input
+                      className="input"
+                      value={draft.churchName}
+                      onChange={(e) => updateDraft({ churchName: e.target.value })}
+                      placeholder="Church or host site name"
+                    />
+                  </label>
+                </div>
+              </div>
 
               <div className="row" style={{ gap: 8, marginTop: 14, flexWrap: "wrap" }}>
                 <button
@@ -1009,14 +1048,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                 </button>
                 <button type="button" className="btn" onClick={cancelEditor} disabled={saving}>
                   Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => void clearAvailability()}
-                  disabled={saving}
-                >
-                  Clear
                 </button>
               </div>
             </div>
@@ -1082,21 +1113,24 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                   </ul>
                 ) : (
                   <div className="small" style={{ color: "var(--muted)" }}>
-                    No team notes yet.
+                    No team notes yet. Use Edit availability to add them.
                   </div>
                 )}
               </div>
               <div className="sitesAvailabilitySideBlock">
                 <div className="sitesAvailabilitySideTitle">Site information</div>
                 <div className="small">
-                  <strong>Church / site:</strong> {selected.churchName}
+                  <strong>Church / site:</strong> {selected.churchName || selected.siteLabel}
                 </div>
                 <div className="small" style={{ marginTop: 6 }}>
                   <strong>Site type:</strong> {selected.siteType}
                 </div>
               </div>
               <div className="sitesAvailabilitySideBlock">
-                <div className="sitesAvailabilitySideTitle">Locked teams</div>
+                <div className="sitesAvailabilitySideTitle">Locked teams · {year}</div>
+                <div className="small" style={{ color: "var(--muted)", marginBottom: 8 }}>
+                  Live from Hub trips on this site (not archived).
+                </div>
                 {(selected.bookings || []).length === 0 ? (
                   <div className="small" style={{ color: "var(--muted)" }}>
                     No locked Hub trips on this site for {year}.
@@ -1105,8 +1139,17 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                   <ul>
                     {selected.bookings.map((item) => (
                       <li key={item.id}>
-                        <strong>{item.teamName}</strong> —{" "}
-                        {formatDateRangeLabel(item.start, item.end, year)}
+                        {item.tripId ? (
+                          <Link href={`/trips/${item.tripId}`}>
+                            <strong>{item.teamName}</strong>
+                          </Link>
+                        ) : (
+                          <strong>{item.teamName}</strong>
+                        )}{" "}
+                        — {formatDateRangeLabel(item.start, item.end, year)}
+                        {item.teamStatus ? (
+                          <span style={{ color: "var(--muted)" }}> · {item.teamStatus}</span>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

@@ -35,6 +35,7 @@ import {
 import { resolveSiteLogisticsUrl } from "@/lib/siteInfoLinks";
 import { showToast } from "@/components/Toast";
 import SitesAvailabilityTab from "@/components/sites/SitesAvailabilityTab";
+import { migrateLegacySiteAvailabilityFromNotes } from "@/lib/siteAvailability";
 
 /** Fixed column widths (px) for Sites workbook grid — keeps headers aligned while scrolling. */
 const WB_TABLE = {
@@ -116,6 +117,11 @@ export default function SitesPage() {
 
       try {
         setLoading(true);
+        try {
+          await migrateLegacySiteAvailabilityFromNotes(2027);
+        } catch {
+          /* optional cleanup of hidden availability rows */
+        }
         const rows = await listSiteBudgetNotes();
         if (cancelled) return;
         setSiteNotes(rows || []);
@@ -694,7 +700,7 @@ export default function SitesPage() {
           <div style={{ flex: "1 1 240px", minWidth: 0 }}>
             <div style={{ fontWeight: 900, marginBottom: 6 }}>Site logistics</div>
             <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.45 }}>
-              Host contacts, logistics maps, and budget notes for each site.
+              Host contacts, logistics maps, and notes for each site.
             </p>
           </div>
           <div className="row" style={{ gap: 8, flexWrap: "wrap", marginLeft: "auto" }}>
@@ -731,7 +737,7 @@ export default function SitesPage() {
                 <th>Site</th>
                 <th>Host</th>
                 <th>Map</th>
-                <th>Budget Notes</th>
+                <th>Notes</th>
               </tr>
             </thead>
             <tbody>
@@ -910,7 +916,7 @@ export default function SitesPage() {
               </div>
               <div>
                 <label className="small" style={{ display: "block", marginBottom: 4, fontWeight: 700 }}>
-                  Budget notes
+                  Notes
                 </label>
                 <textarea
                   className="input"

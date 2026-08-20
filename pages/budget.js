@@ -57,6 +57,7 @@ import {
 import { budgetCheckSubmitToast } from "@/lib/budgetCheckSubmitFeedback";
 import { STAFF_TASKS_UPDATED_EVENT } from "@/lib/staffTasks";
 import { buildSiteLabelsOrdered, resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
+import { isSiteAvailabilityStorageName } from "@/lib/siteAvailabilityKeys";
 
 function n(val) {
   return val === null || val === undefined ? "" : String(val).trim();
@@ -1000,6 +1001,7 @@ export default function BudgetPage() {
   const siteHousingNotesForDisplay = useMemo(() => {
     const byCanonicalSite = new Map();
     for (const note of siteHousingNotes || []) {
+      if (isSiteAvailabilityStorageName(note?.siteName)) continue;
       const canonical = resolveCanonicalSiteLabelForTrip(note?.siteName || "", siteHousingNotes);
       const key = String(canonical || note?.siteName || "").trim().toLowerCase();
       if (!key) continue;
