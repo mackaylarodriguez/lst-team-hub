@@ -292,239 +292,229 @@ export default function SiteEditorModal({
 
   if (!open) return null;
 
+  const headerName = String(draft?.siteName || siteLabel || "").trim();
+
   return (
     <div
-      className="appModalOverlay"
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(15,23,42,.45)",
-        display: "grid",
-        placeItems: "center",
-        padding: 20,
-        zIndex: 100,
-      }}
+      className="appModalOverlay siteEditorOverlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="site-editor-title"
       onClick={() => !saving && onClose?.()}
     >
-      <div
-        className="card pad"
-        style={{
-          width: "min(720px, 100%)",
-          maxHeight: "min(92vh, 960px)",
-          overflow: "auto",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          className="row"
-          style={{
-            justifyContent: "space-between",
-            gap: 12,
-            alignItems: "flex-start",
-            marginBottom: 14,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <h2 id="site-editor-title" style={{ margin: 0, fontSize: 18 }}>
-              {isCreate ? "Add site" : "Edit site"}
+      <div className="card siteEditorModal" onClick={(e) => e.stopPropagation()}>
+        <header className="siteEditorModalHeader">
+          <div className="siteEditorModalHeaderText">
+            <div className="cardSectionPill" style={{ marginBottom: 8 }}>
+              {isCreate ? "New site" : "Site details"}
+            </div>
+            <h2 id="site-editor-title" className="siteEditorModalTitle">
+              {isCreate ? "Add site" : headerName || "Edit site"}
             </h2>
-            <p className="small" style={{ margin: "4px 0 0", color: "var(--muted)" }}>
-              Logistics, workbooks, and {AVAILABILITY_YEAR} availability in one place.
+            <p className="siteEditorModalSubtitle">
+              Logistics, workbooks, and {AVAILABILITY_YEAR} availability — saved across all Sites
+              tabs.
             </p>
           </div>
-          <button type="button" className="btn" disabled={saving} onClick={() => onClose?.()}>
-            Close
+          <button
+            type="button"
+            className="btn siteEditorModalClose"
+            disabled={saving}
+            onClick={() => onClose?.()}
+            aria-label="Close"
+          >
+            ✕
           </button>
-        </div>
+        </header>
 
-        {loading || !draft ? (
-          <div className="small" style={{ color: "var(--muted)" }}>
-            Loading…
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: 16 }}>
-            <section>
-              <div className="sitesAvailabilityEditSectionTitle">Site</div>
-              <label className="sitesAvailabilityEditField" style={{ marginTop: 8 }}>
-                <span>Site name</span>
-                <input
-                  className="input"
-                  value={draft.siteName}
-                  onChange={(e) => updateDraft({ siteName: e.target.value })}
-                  disabled={saving || builtIn}
-                  placeholder="e.g. Brazil - Joao Pessoa"
-                />
-              </label>
-              {builtIn ? (
-                <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
-                  Built-in site names can’t be renamed.
+        <div className="siteEditorModalBody">
+          {loading || !draft ? (
+            <div className="siteEditorModalLoading">Loading…</div>
+          ) : (
+            <div className="siteEditorModalSections">
+              <section className="siteEditorSection">
+                <div className="siteEditorSectionHead">
+                  <h3 className="siteEditorSectionTitle">Site</h3>
+                  <p className="siteEditorSectionHint">
+                    {builtIn
+                      ? "Built-in partner site names can’t be renamed."
+                      : "Use Country - City (spaces around the hyphen)."}
+                  </p>
                 </div>
-              ) : (
-                <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
-                  Use <strong>Country - City</strong> (spaces around the hyphen).
-                </div>
-              )}
-            </section>
-
-            <section>
-              <div className="sitesAvailabilityEditSectionTitle">Logistics</div>
-              <div className="sitesAvailabilityEditGrid" style={{ marginTop: 8 }}>
                 <label className="sitesAvailabilityEditField">
-                  <span>Host name</span>
+                  <span>Site name</span>
                   <input
                     className="input"
-                    value={draft.hostName}
-                    onChange={(e) => updateDraft({ hostName: e.target.value })}
-                    disabled={saving}
-                    placeholder={
-                      defaultHostHint ? `Default: ${defaultHostHint}` : "Host name (optional)"
-                    }
+                    value={draft.siteName}
+                    onChange={(e) => updateDraft({ siteName: e.target.value })}
+                    disabled={saving || builtIn}
+                    placeholder="e.g. Brazil - Joao Pessoa"
                   />
                 </label>
-                <label className="sitesAvailabilityEditField">
-                  <span>Logistics map URL</span>
-                  <input
-                    className="input"
-                    type="url"
-                    value={draft.logisticsUrl}
-                    onChange={(e) => updateDraft({ logisticsUrl: e.target.value })}
-                    disabled={saving}
-                    placeholder="https://…"
-                  />
-                </label>
-              </div>
-              {builtInMapUrl && !String(draft.logisticsUrl || "").trim() ? (
-                <a
-                  className="sitesLogisticsOpenLink small"
-                  href={builtInMapUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  style={{ display: "inline-block", marginTop: 8 }}
-                >
-                  Open built-in map ↗
-                </a>
-              ) : null}
-              <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
-                <span>Notes</span>
-                <textarea
-                  className="input"
-                  rows={4}
-                  value={draft.notes}
-                  onChange={(e) => updateDraft({ notes: e.target.value })}
-                  disabled={saving}
-                  placeholder="Costs, contacts, utilities, shuttles, etc."
-                />
-              </label>
-            </section>
+              </section>
 
-            <section>
-              <div className="sitesAvailabilityEditSectionTitle">Workbooks</div>
-              <p className="small" style={{ margin: "6px 0 10px", color: "var(--muted)" }}>
-                Inventory counts on hand at this site.
-              </p>
-              <div className="sitesEditorWorkbookGrid">
-                {WORKBOOK_COLUMNS.map((col) => (
-                  <label key={col.key} className="sitesAvailabilityEditField">
-                    <span>{col.label}</span>
+              <section className="siteEditorSection">
+                <div className="siteEditorSectionHead">
+                  <h3 className="siteEditorSectionTitle">Logistics</h3>
+                  <p className="siteEditorSectionHint">Host contact, map link, and site notes.</p>
+                </div>
+                <div className="sitesAvailabilityEditGrid">
+                  <label className="sitesAvailabilityEditField">
+                    <span>Host name</span>
                     <input
                       className="input"
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={workbookQtyDraft[col.key] ?? ""}
-                      onChange={(e) =>
-                        setWorkbookQtyDraft((prev) => ({
-                          ...prev,
-                          [col.key]: e.target.value,
-                        }))
-                      }
+                      value={draft.hostName}
+                      onChange={(e) => updateDraft({ hostName: e.target.value })}
                       disabled={saving}
-                      placeholder="—"
+                      placeholder={
+                        defaultHostHint ? `Default: ${defaultHostHint}` : "Host name (optional)"
+                      }
                     />
                   </label>
-                ))}
-              </div>
-            </section>
-
-            <section>
-              <div className="sitesAvailabilityEditSectionTitle">
-                Availability · {AVAILABILITY_YEAR}
-              </div>
-              <div className="sitesAvailabilityEditGrid" style={{ marginTop: 8 }}>
-                <label className="sitesAvailabilityEditField">
-                  <span>Available from</span>
-                  <input
+                  <label className="sitesAvailabilityEditField">
+                    <span>Logistics map URL</span>
+                    <input
+                      className="input"
+                      type="url"
+                      value={draft.logisticsUrl}
+                      onChange={(e) => updateDraft({ logisticsUrl: e.target.value })}
+                      disabled={saving}
+                      placeholder="https://…"
+                    />
+                  </label>
+                </div>
+                {builtInMapUrl && !String(draft.logisticsUrl || "").trim() ? (
+                  <a
+                    className="sitesLogisticsOpenLink small"
+                    href={builtInMapUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    style={{ display: "inline-block", marginTop: 10 }}
+                  >
+                    Open built-in map ↗
+                  </a>
+                ) : null}
+                <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
+                  <span>Notes</span>
+                  <textarea
                     className="input"
-                    type="date"
-                    value={draft.availableStart}
-                    onChange={(e) => updateDraft({ availableStart: e.target.value })}
+                    rows={3}
+                    value={draft.notes}
+                    onChange={(e) => updateDraft({ notes: e.target.value })}
                     disabled={saving}
+                    placeholder="Costs, contacts, utilities, shuttles, etc."
                   />
                 </label>
-                <label className="sitesAvailabilityEditField">
-                  <span>Available to</span>
+              </section>
+
+              <section className="siteEditorSection">
+                <div className="siteEditorSectionHead">
+                  <h3 className="siteEditorSectionTitle">Workbooks</h3>
+                  <p className="siteEditorSectionHint">Inventory counts on hand at this site.</p>
+                </div>
+                <div className="sitesEditorWorkbookGrid">
+                  {WORKBOOK_COLUMNS.map((col) => (
+                    <label key={col.key} className="sitesAvailabilityEditField siteEditorWorkbookField">
+                      <span>{col.label}</span>
+                      <input
+                        className="input"
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={workbookQtyDraft[col.key] ?? ""}
+                        onChange={(e) =>
+                          setWorkbookQtyDraft((prev) => ({
+                            ...prev,
+                            [col.key]: e.target.value,
+                          }))
+                        }
+                        disabled={saving}
+                        placeholder="—"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              <section className="siteEditorSection">
+                <div className="siteEditorSectionHead">
+                  <h3 className="siteEditorSectionTitle">Availability · {AVAILABILITY_YEAR}</h3>
+                  <p className="siteEditorSectionHint">
+                    Season dates and hosting preferences for this site.
+                  </p>
+                </div>
+                <div className="sitesAvailabilityEditGrid">
+                  <label className="sitesAvailabilityEditField">
+                    <span>Available from</span>
+                    <input
+                      className="input"
+                      type="date"
+                      value={draft.availableStart}
+                      onChange={(e) => updateDraft({ availableStart: e.target.value })}
+                      disabled={saving}
+                    />
+                  </label>
+                  <label className="sitesAvailabilityEditField">
+                    <span>Available to</span>
+                    <input
+                      className="input"
+                      type="date"
+                      value={draft.availableEnd}
+                      onChange={(e) => updateDraft({ availableEnd: e.target.value })}
+                      disabled={saving}
+                    />
+                  </label>
+                </div>
+                <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
+                  <span>Preferred team size</span>
                   <input
                     className="input"
-                    type="date"
-                    value={draft.availableEnd}
-                    onChange={(e) => updateDraft({ availableEnd: e.target.value })}
+                    value={draft.preferredTeamSize}
+                    onChange={(e) => updateDraft({ preferredTeamSize: e.target.value })}
                     disabled={saving}
+                    placeholder="e.g. 2–4"
                   />
                 </label>
-              </div>
-              <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
-                <span>Preferred team size</span>
-                <input
-                  className="input"
-                  value={draft.preferredTeamSize}
-                  onChange={(e) => updateDraft({ preferredTeamSize: e.target.value })}
-                  disabled={saving}
-                  placeholder="e.g. 2–4"
-                />
-              </label>
-              <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
-                <span>Will take teams from other church backgrounds</span>
-                <textarea
-                  className="input"
-                  rows={2}
-                  value={draft.otherBackgrounds}
-                  onChange={(e) => updateDraft({ otherBackgrounds: e.target.value })}
-                  disabled={saving}
-                  placeholder="Yes / No / notes…"
-                />
-              </label>
-              <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
-                <span>Availability notes (one per line)</span>
-                <textarea
-                  className="input"
-                  rows={4}
-                  value={draft.teamNotesText}
-                  onChange={(e) => updateDraft({ teamNotesText: e.target.value })}
-                  disabled={saving}
-                  placeholder="Hosting notes…"
-                />
-              </label>
-            </section>
-
-            <div className="row" style={{ gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <button type="button" className="btn" disabled={saving} onClick={() => onClose?.()}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btnPrimary"
-                disabled={saving}
-                onClick={() => void saveAll()}
-              >
-                {saving ? "Saving…" : isCreate ? "Add site" : "Save site"}
-              </button>
+                <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
+                  <span>Will take teams from other church backgrounds</span>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    value={draft.otherBackgrounds}
+                    onChange={(e) => updateDraft({ otherBackgrounds: e.target.value })}
+                    disabled={saving}
+                    placeholder="Yes / No / notes…"
+                  />
+                </label>
+                <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
+                  <span>Availability notes (one per line)</span>
+                  <textarea
+                    className="input"
+                    rows={3}
+                    value={draft.teamNotesText}
+                    onChange={(e) => updateDraft({ teamNotesText: e.target.value })}
+                    disabled={saving}
+                    placeholder="Hosting notes…"
+                  />
+                </label>
+              </section>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        <footer className="siteEditorModalFooter">
+          <button type="button" className="btn" disabled={saving} onClick={() => onClose?.()}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btnPrimary"
+            disabled={saving || loading || !draft}
+            onClick={() => void saveAll()}
+          >
+            {saving ? "Saving…" : isCreate ? "Add site" : "Save site"}
+          </button>
+        </footer>
       </div>
     </div>
   );
