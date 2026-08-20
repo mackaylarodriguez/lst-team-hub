@@ -67,7 +67,8 @@ const CELL = {
   },
 };
 
-const VISIBLE_SITES_STORAGE_KEY = "lst-sites-availability-visible-v1";
+const VISIBLE_SITES_STORAGE_KEY = "lst-sites-availability-visible-v2";
+const VISIBLE_SITES_SEEN_KEY = "lst-sites-availability-seen-v2";
 
 function pad2(n) {
   return String(n).padStart(2, "0");
@@ -162,16 +163,6 @@ function weekBounds(year, month, weekKey) {
   };
 }
 
-function normalizeHold(row) {
-  const clamped = clampRange(row?.start, row?.end);
-  return {
-    id: row?.id || `hold-${Math.random().toString(36).slice(2, 9)}`,
-    start: clamped.start,
-    end: clamped.end,
-    note: String(row?.note || "").trim() || "Hold",
-  };
-}
-
 function normalizeBooking(row) {
   const clamped = clampRange(row?.start, row?.end);
   return {
@@ -190,7 +181,6 @@ function normalizeAvailability(row) {
   const available = hasSeason
     ? clampRange(startRaw, endRaw)
     : { start: "", end: "" };
-  const exclusions = hasSeason ? (row?.exclusions || []).map(normalizeHold) : [];
   const bookings = hasSeason ? (row?.bookings || []).map(normalizeBooking) : [];
   const teamNotes = Array.isArray(row?.teamNotes)
     ? row.teamNotes.map((n) => String(n || "").trim()).filter(Boolean)
@@ -208,7 +198,7 @@ function normalizeAvailability(row) {
       ? formatDateRangeLabel(available.start, available.end, year)
       : "Not set",
     hasSeason,
-    exclusions,
+    exclusions: [],
     bookings,
     teamNotes,
     siteType: String(row?.siteType || "Partner site").trim() || "Partner site",
@@ -224,7 +214,6 @@ function buildEmptyAvailabilityForSite(siteLabel, year) {
     year,
     availableStart: "",
     availableEnd: "",
-    exclusions: [],
     bookings: [],
     teamNotes: [],
     siteType: "Partner site",
@@ -293,22 +282,14 @@ function monthStatus(availability, month) {
     return "outside";
   }
 
-  let openStart =
+  const openStart =
     ymdTime(availability.availableStart) > ymdTime(bounds.start)
       ? availability.availableStart
       : bounds.start;
-  let openEnd =
+  const openEnd =
     ymdTime(availability.availableEnd) < ymdTime(bounds.end)
       ? availability.availableEnd
       : bounds.end;
-
-  // Treat holds/blackouts as unavailable time within the month.
-  const holdsInMonth = (availability.exclusions || []).filter((row) =>
-    rangesOverlap(row.start, row.end, openStart, openEnd)
-  );
-  if (holdsInMonth.length && bookingsCoverFullOpenWindow(openStart, openEnd, holdsInMonth)) {
-    return "outside";
-  }
 
   const overlappingBookings = (availability.bookings || []).filter((row) =>
     rangesOverlap(row.start, row.end, openStart, openEnd)
@@ -318,8 +299,6 @@ function monthStatus(availability, month) {
       ? "booked"
       : "bookedPartial";
   }
-
-  if (holdsInMonth.length) return "partial";
 
   const coversFullMonth =
     ymdTime(availability.availableStart) <= ymdTime(bounds.start) &&
@@ -343,12 +322,6 @@ function weekStatus(availability, month, weekKey) {
     )
   ) {
     return { status: "outside", label: "" };
-  }
-
-  for (const exclusion of availability.exclusions || []) {
-    if (rangesOverlap(exclusion.start, exclusion.end, bounds.start, bounds.end)) {
-      return { status: "outside", label: exclusion.note || "NA" };
-    }
   }
 
   for (const booking of availability.bookings || []) {
@@ -409,13 +382,33 @@ function loadVisibleSiteSet(siteLabels) {
   const all = (siteLabels || []).map(String);
   if (typeof window === "undefined") return new Set(all);
   try {
+    const allowed = new Set(all);
     const raw = window.localStorage.getItem(VISIBLE_SITES_STORAGE_KEY);
-    if (!raw) return new Set(all);
+    const seenRaw = window.localStorage.getItem(VISIBLE_SITES_SEEN_KEY);
+    let seenBefore = [];
+    try {
+      const parsedSeen = JSON.parse(seenRaw || "[]");
+      seenBefore = Array.isArray(parsedSeen) ? parsedSeen.map(String) : [];
+    } catch {
+      seenBefore = [];
+    }
+    const seenSet = new Set(seenBefore);
+
+    if (!raw) {
+      window.localStorage.setItem(VISIBLE_SITES_SEEN_KEY, JSON.stringify(all));
+      return new Set(all);
+    }
+
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return new Set(all);
-    const allowed = new Set(all);
-    const next = parsed.map(String).filter((label) => allowed.has(label));
-    return new Set(next.length ? next : all);
+
+    const next = new Set(parsed.map(String).filter((label) => allowed.has(label)));
+    // Newly added sites default to visible so the checkbox list and chart stay aligned.
+    for (const label of all) {
+      if (!seenSet.has(label)) next.add(label);
+    }
+    window.localStorage.setItem(VISIBLE_SITES_SEEN_KEY, JSON.stringify(all));
+    return next.size ? next : new Set(all);
   } catch {
     return new Set(all);
   }
@@ -431,7 +424,6 @@ function blankEditDraft(availability, year) {
     availableEnd: hasDates ? availability.availableEnd : toYmd(y, 8, 31),
     siteType: availability.siteType || "Partner site",
     teamNotesText: (availability.teamNotes || []).join("\n"),
-    exclusions: (availability.exclusions || []).map((row) => ({ ...row })),
     bookings: (availability.bookings || []).map((row) => ({ ...row })),
   };
 }
@@ -443,7 +435,8 @@ function blankEditDraft(availability, year) {
 export default function SitesAvailabilityTab({ siteLabels = [] }) {
   const year = 2027;
   const [selectedSite, setSelectedSite] = useState("");
-  const [visibleSites, setVisibleSites] = useState(() => new Set());
+  const [visibleSites, setVisibleSites] = useState(() => new Set(siteLabels || []));
+  const [visibilityReady, setVisibilityReady] = useState(false);
   const [showSitePicker, setShowSitePicker] = useState(false);
   const [siteFilter, setSiteFilter] = useState("");
   const [editsMap, setEditsMap] = useState({});
@@ -454,6 +447,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
 
   useEffect(() => {
     setVisibleSites(loadVisibleSiteSet(siteLabels));
+    setVisibilityReady(true);
   }, [siteLabels]);
 
   useEffect(() => {
@@ -462,8 +456,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
       setEditsLoading(true);
       try {
         const map = await listSiteAvailabilityEdits(year);
-
-        // Drop any leftover browser-only availability drafts.
         if (typeof window !== "undefined") {
           try {
             window.localStorage.removeItem("lst-sites-availability-edits-v1");
@@ -471,7 +463,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
             /* ignore */
           }
         }
-
         if (!cancelled) setEditsMap(map || {});
       } catch (e) {
         if (!cancelled) {
@@ -489,7 +480,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
   }, [year]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!visibilityReady || typeof window === "undefined") return;
     try {
       window.localStorage.setItem(
         VISIBLE_SITES_STORAGE_KEY,
@@ -498,14 +489,22 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
     } catch {
       /* ignore quota */
     }
-  }, [visibleSites]);
+  }, [visibleSites, visibilityReady]);
+
+  const filteredSiteLabels = useMemo(() => {
+    const needle = String(siteFilter || "").trim().toLowerCase();
+    const labels = siteLabels || [];
+    if (!needle) return labels;
+    return labels.filter((label) => String(label).toLowerCase().includes(needle));
+  }, [siteLabels, siteFilter]);
 
   const rows = useMemo(
     () =>
-      (siteLabels || []).map((siteLabel) => mergeAvailability(siteLabel, year, editsMap)),
-    [siteLabels, year, editsMap]
+      filteredSiteLabels.map((siteLabel) => mergeAvailability(siteLabel, year, editsMap)),
+    [filteredSiteLabels, year, editsMap]
   );
 
+  // Chart and checkboxes use the exact same ordered site list.
   const visibleRows = useMemo(
     () => rows.filter((row) => visibleSites.has(row.siteLabel)),
     [rows, visibleSites]
@@ -527,14 +526,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
     setEditing(false);
     setDraft(null);
   }, [selectedSite, year]);
-
-  const filteredPickerLabels = useMemo(() => {
-    const needle = String(siteFilter || "").trim().toLowerCase();
-    if (!needle) return siteLabels || [];
-    return (siteLabels || []).filter((label) =>
-      String(label).toLowerCase().includes(needle)
-    );
-  }, [siteLabels, siteFilter]);
 
   function toggleSite(label) {
     setVisibleSites((current) => {
@@ -566,44 +557,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
 
   function updateDraft(patch) {
     setDraft((current) => (current ? { ...current, ...patch } : current));
-  }
-
-  function updateHold(id, patch) {
-    setDraft((current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        exclusions: current.exclusions.map((row) =>
-          row.id === id ? { ...row, ...patch } : row
-        ),
-      };
-    });
-  }
-
-  function removeHold(id) {
-    setDraft((current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        exclusions: current.exclusions.filter((row) => row.id !== id),
-      };
-    });
-  }
-
-  function addHold() {
-    if (!selected) return;
-    const start = selected.availableStart;
-    const end = selected.availableStart;
-    setDraft((current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        exclusions: [
-          ...current.exclusions,
-          normalizeHold({ start, end, note: "Host unavailable" }),
-        ],
-      };
-    });
   }
 
   function updateBooking(id, patch) {
@@ -662,7 +615,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
         .split("\n")
         .map((line) => line.trim())
         .filter(Boolean),
-      exclusions: (draft.exclusions || []).map(normalizeHold),
+      exclusions: [],
       bookings: (draft.bookings || []).map(normalizeBooking),
     };
 
@@ -769,7 +722,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
             style={{ marginBottom: 10 }}
           />
           <div className="sitesAvailabilityPickerGrid">
-            {filteredPickerLabels.map((label) => {
+            {filteredSiteLabels.map((label) => {
               const checked = visibleSites.has(label);
               return (
                 <label key={label} className="sitesAvailabilityPickerItem">
@@ -782,6 +735,10 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                 </label>
               );
             })}
+          </div>
+          <div className="small" style={{ marginTop: 10, color: "var(--muted)" }}>
+            Checked sites are the same ones shown on the chart below
+            {siteFilter.trim() ? " (using this filter)." : "."}
           </div>
         </div>
       ) : null}
@@ -861,21 +818,21 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                       }}
                       title={row.siteLabel}
                     >
-                      <div style={{ display: "grid", gap: 2 }}>
-                        <span>
-                          {row.siteLabel}
-                          {row.isEdited ? (
-                            <span
-                              className="small"
-                              style={{ marginLeft: 6, fontWeight: 700, color: "var(--primary)" }}
-                            >
-                              edited
-                            </span>
-                          ) : null}
-                        </span>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>
-                          {row.availableLabel}
-                        </span>
+                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                        <input
+                          type="checkbox"
+                          checked
+                          aria-label={`Show ${row.siteLabel} on chart`}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={() => toggleSite(row.siteLabel)}
+                          style={{ marginTop: 3 }}
+                        />
+                        <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                          <span>{row.siteLabel}</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>
+                            {row.availableLabel}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     {MONTHS.map((month) => {
@@ -984,52 +941,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                   placeholder="Team size, preferences, best months…"
                 />
               </label>
-
-              <div className="sitesAvailabilityEditSection">
-                <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
-                  <div className="sitesAvailabilityEditSectionTitle">Holds / blackouts</div>
-                  <button type="button" className="btn" onClick={addHold}>
-                    Add hold
-                  </button>
-                </div>
-                {(draft.exclusions || []).length === 0 ? (
-                  <div className="small" style={{ color: "var(--muted)" }}>
-                    No holds.
-                  </div>
-                ) : (
-                  <div className="sitesAvailabilityEditList">
-                    {draft.exclusions.map((row) => (
-                      <div key={row.id} className="sitesAvailabilityEditRow">
-                        <input
-                          className="input"
-                          type="date"
-                          value={row.start}
-                          onChange={(e) => updateHold(row.id, { start: e.target.value })}
-                        />
-                        <input
-                          className="input"
-                          type="date"
-                          value={row.end}
-                          onChange={(e) => updateHold(row.id, { end: e.target.value })}
-                        />
-                        <input
-                          className="input"
-                          value={row.note}
-                          onChange={(e) => updateHold(row.id, { note: e.target.value })}
-                          placeholder="Reason"
-                        />
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() => removeHold(row.id)}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
               <div className="sitesAvailabilityEditSection">
                 <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
@@ -1173,22 +1084,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
                 <div className="small" style={{ marginTop: 6 }}>
                   <strong>Site type:</strong> {selected.siteType}
                 </div>
-              </div>
-              <div className="sitesAvailabilitySideBlock">
-                <div className="sitesAvailabilitySideTitle">Holds</div>
-                {(selected.exclusions || []).length === 0 ? (
-                  <div className="small" style={{ color: "var(--muted)" }}>
-                    No holds.
-                  </div>
-                ) : (
-                  <ul>
-                    {selected.exclusions.map((item) => (
-                      <li key={item.id}>
-                        {formatDateRangeLabel(item.start, item.end, year)} — {item.note}
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
               <div className="sitesAvailabilitySideBlock">
                 <div className="sitesAvailabilitySideTitle">Bookings</div>

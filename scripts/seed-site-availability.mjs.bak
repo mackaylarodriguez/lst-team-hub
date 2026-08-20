@@ -174,7 +174,7 @@ function buildRows(year) {
   });
 
   rows.push({
-    siteLabel: "Philippines",
+    siteLabel: "Philippines - Talisay City",
     availableStart: ymd(year, 1, 1),
     availableEnd: ymd(year, 12, 31),
     exclusions: [],
@@ -190,17 +190,45 @@ function buildRows(year) {
   });
 
   rows.push({
-    siteLabel: "South Korea - Seoul",
+    siteLabel: "South Korea - Seoul (Gangseo University)",
     availableStart: ymd(year, 4, 1),
     availableEnd: ymd(year, 11, 30),
-    exclusions: [],
+    exclusions: [
+      hold(
+        `gangseo-summer-${year}`,
+        ymd(year, 7, 1),
+        ymd(year, 9, 30),
+        "Not listed as available July–September"
+      ),
+    ],
     teamNotes: [
-      "— Gangseo University —",
       "Preferred team size: She said 4–5 is ideal; staff note 2–4.",
       "Other church backgrounds: Yes",
       "Season: April, May, June, October, November",
       "Holidays: April and June each have one day off; May and October each have two days off (national holidays).",
-      "— Hangil CofC (SunWoo and Serena Shim) —",
+    ],
+  });
+
+  rows.push({
+    siteLabel: "South Korea - Seoul (Hangil CofC)",
+    availableStart: ymd(year, 3, 1),
+    availableEnd: ymd(year, 11, 30),
+    exclusions: [
+      hold(
+        `hangil-apr-may-${year}`,
+        ymd(year, 4, 1),
+        ymd(year, 5, 31),
+        "Not listed as available April–May"
+      ),
+      hold(
+        `hangil-jul-oct-${year}`,
+        ymd(year, 7, 1),
+        ymd(year, 10, 31),
+        "Not listed as available July–October"
+      ),
+    ],
+    teamNotes: [
+      "Hosts: SunWoo and Serena Shim",
       "Preferred team size: 2",
       "Other church backgrounds: Prefer CofC (may be flexible)",
       "Season: March, June, November",
@@ -222,6 +250,15 @@ function buildRows(year) {
       "Open to week-long team Retreat / Camp LST Connect during off months",
       "Housing: potential hotel discount; housing at the building available — 3 rooms, double occupancy; full kitchen available",
     ],
+  });
+
+  rows.push({
+    siteLabel: "Brazil - Niteroi",
+    availableStart: "",
+    availableEnd: "",
+    exclusions: [],
+    teamNotes: ["Special site — see staff notes (availability not set yet)."],
+    notesOnly: true,
   });
 
   return rows;
@@ -260,7 +297,7 @@ async function saveAvailability(siteLabel, year, values) {
     availableEnd: values.availableEnd || "",
     siteType: values.siteType || "Partner site",
     teamNotes: values.teamNotes || [],
-    exclusions: [],
+    exclusions: values.exclusions || [],
     bookings: values.bookings || [],
   };
 
@@ -280,6 +317,10 @@ async function saveAvailability(siteLabel, year, values) {
 }
 
 const ensureSites = [
+  ["Philippines - Talisay City", "Wayne Pabillion"],
+  ["South Korea - Seoul (Gangseo University)", null],
+  ["South Korea - Seoul (Hangil CofC)", "SunWoo and Serena Shim"],
+  ["Brazil - Niteroi", null],
   ["Brazil - Florianopolis", null],
   ["Brazil - Ponta Grossa", null],
   ["Croatia - Zagreb", "Mislaav Ilic"],

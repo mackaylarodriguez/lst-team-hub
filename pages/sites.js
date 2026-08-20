@@ -20,6 +20,7 @@ import {
   getDefaultSiteHostName,
   isValidSiteOptionLabelFormat,
   normalizeSiteOptionLabel,
+  SITE_OPTIONS,
 } from "@/lib/siteOptions";
 import {
   WORKBOOK_REFERENCE_COLUMNS,
@@ -675,7 +676,7 @@ export default function SitesPage() {
       ) : null}
 
       {tab === "Availability" ? (
-        <SitesAvailabilityTab siteLabels={siteLabelsOrdered} />
+        <SitesAvailabilityTab siteLabels={SITE_OPTIONS} />
       ) : null}
 
       {tab === "Site logistics" ? (
