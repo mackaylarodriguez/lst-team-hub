@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  deleteSiteAvailabilityEdit,
+  listSiteAvailabilityEdits,
+  saveSiteAvailabilityEdit,
+} from "@/lib/siteAvailability";
+import { showToast } from "@/components/Toast";
 
 const MONTHS = [
   { key: 1, label: "January", short: "Jan" },
@@ -62,7 +68,6 @@ const CELL = {
 };
 
 const VISIBLE_SITES_STORAGE_KEY = "lst-sites-availability-visible-v1";
-const EDITS_STORAGE_KEY = "lst-sites-availability-edits-v1";
 
 function pad2(n) {
   return String(n).padStart(2, "0");
@@ -155,31 +160,6 @@ function weekBounds(year, month, weekKey) {
     start: toYmd(year, month, startDay),
     end: toYmd(year, month, endDay),
   };
-}
-
-function editStorageKey(siteLabel, year) {
-  return `${siteLabel}||${year}`;
-}
-
-function loadEditsMap() {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(EDITS_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveEditsMap(map) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(EDITS_STORAGE_KEY, JSON.stringify(map || {}));
-  } catch {
-    /* ignore quota */
-  }
 }
 
 function normalizeHold(row) {
@@ -358,7 +338,7 @@ function buildMockAvailabilityForSite(siteLabel, year) {
 
 function mergeAvailability(siteLabel, year, editsMap) {
   const base = buildMockAvailabilityForSite(siteLabel, year);
-  const saved = editsMap?.[editStorageKey(siteLabel, year)];
+  const saved = editsMap?.[siteLabel];
   if (!saved) return base;
   return normalizeAvailability({
     ...base,
@@ -512,7 +492,7 @@ function blankEditDraft(availability) {
 
 /**
  * Availability overview + weekly detail + edit panel.
- * Edits persist in localStorage until a database is wired.
+ * Edits save to the Hub database (shared for all staff).
  */
 export default function SitesAvailabilityTab({ siteLabels = [] }) {
   const currentYear = new Date().getFullYear();
@@ -522,14 +502,60 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
   const [showSitePicker, setShowSitePicker] = useState(false);
   const [siteFilter, setSiteFilter] = useState("");
   const [editsMap, setEditsMap] = useState({});
+  const [editsLoading, setEditsLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(null);
-  const [saveMessage, setSaveMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setVisibleSites(loadVisibleSiteSet(siteLabels));
-    setEditsMap(loadEditsMap());
   }, [siteLabels]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadEdits() {
+      setEditsLoading(true);
+      try {
+        let map = await listSiteAvailabilityEdits(year);
+
+        // One-time: move any leftover browser-only edits into the Hub DB.
+        if (typeof window !== "undefined") {
+          try {
+            const raw = window.localStorage.getItem("lst-sites-availability-edits-v1");
+            if (raw) {
+              const legacy = JSON.parse(raw);
+              if (legacy && typeof legacy === "object") {
+                const prefix = `||${year}`;
+                for (const [key, value] of Object.entries(legacy)) {
+                  if (!String(key).endsWith(prefix)) continue;
+                  const siteLabel = String(key).slice(0, -prefix.length);
+                  if (!siteLabel || map[siteLabel] || !value) continue;
+                  await saveSiteAvailabilityEdit(siteLabel, year, value);
+                  map = { ...map, [siteLabel]: value };
+                }
+                window.localStorage.removeItem("lst-sites-availability-edits-v1");
+              }
+            }
+          } catch {
+            /* ignore legacy migrate errors */
+          }
+        }
+
+        if (!cancelled) setEditsMap(map || {});
+      } catch (e) {
+        if (!cancelled) {
+          setEditsMap({});
+          showToast(e?.message || "Unable to load availability from the Hub.");
+        }
+      } finally {
+        if (!cancelled) setEditsLoading(false);
+      }
+    }
+    void loadEdits();
+    return () => {
+      cancelled = true;
+    };
+  }, [year]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -569,7 +595,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
   useEffect(() => {
     setEditing(false);
     setDraft(null);
-    setSaveMessage("");
   }, [selectedSite, year]);
 
   const filteredPickerLabels = useMemo(() => {
@@ -579,9 +604,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
       String(label).toLowerCase().includes(needle)
     );
   }, [siteLabels, siteFilter]);
-
-  const visibleCount = visibleRows.length;
-  const totalCount = rows.length;
 
   function toggleSite(label) {
     setVisibleSites((current) => {
@@ -604,13 +626,11 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
     if (!selected) return;
     setDraft(blankEditDraft(selected));
     setEditing(true);
-    setSaveMessage("");
   }
 
   function cancelEditor() {
     setEditing(false);
     setDraft(null);
-    setSaveMessage("");
   }
 
   function updateDraft(patch) {
@@ -695,11 +715,11 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
     });
   }
 
-  function saveEditor() {
-    if (!selected || !draft) return;
+  async function saveEditor() {
+    if (!selected || !draft || saving) return;
     const available = clampRange(draft.availableStart, draft.availableEnd);
     if (!parseYmd(available.start) || !parseYmd(available.end)) {
-      setSaveMessage("Enter valid Available from / to dates.");
+      showToast("Enter valid Available from / to dates.");
       return;
     }
 
@@ -713,28 +733,43 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
         .filter(Boolean),
       exclusions: (draft.exclusions || []).map(normalizeHold),
       bookings: (draft.bookings || []).map(normalizeBooking),
-      churchName: selected.siteLabel,
     };
 
-    const key = editStorageKey(selected.siteLabel, year);
-    const nextMap = { ...editsMap, [key]: payload };
-    setEditsMap(nextMap);
-    saveEditsMap(nextMap);
-    setEditing(false);
-    setDraft(null);
-    setSaveMessage("Saved on this browser (not in the database yet).");
+    setSaving(true);
+    try {
+      await saveSiteAvailabilityEdit(selected.siteLabel, year, payload);
+      setEditsMap((current) => ({
+        ...current,
+        [selected.siteLabel]: payload,
+      }));
+      setEditing(false);
+      setDraft(null);
+      showToast("Availability saved.");
+    } catch (e) {
+      showToast(e?.message || "Unable to save availability.");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function resetToSample() {
-    if (!selected) return;
-    const key = editStorageKey(selected.siteLabel, year);
-    const nextMap = { ...editsMap };
-    delete nextMap[key];
-    setEditsMap(nextMap);
-    saveEditsMap(nextMap);
-    const base = buildMockAvailabilityForSite(selected.siteLabel, year);
-    setDraft(blankEditDraft(base));
-    setSaveMessage("Reset to sample defaults for this site/year.");
+  async function resetToSample() {
+    if (!selected || saving) return;
+    setSaving(true);
+    try {
+      await deleteSiteAvailabilityEdit(selected.siteLabel, year);
+      setEditsMap((current) => {
+        const next = { ...current };
+        delete next[selected.siteLabel];
+        return next;
+      });
+      const base = buildMockAvailabilityForSite(selected.siteLabel, year);
+      setDraft(blankEditDraft(base));
+      showToast("Reset to sample defaults.");
+    } catch (e) {
+      showToast(e?.message || "Unable to reset availability.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -754,6 +789,7 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
           <p className="small" style={{ margin: 0, color: "var(--muted)", lineHeight: 1.45 }}>
             Set exact date ranges (e.g. Sep 16 – Nov 14). Months show Open / Part / Locked /
             Hold; the weekly calendar shows the precise weeks.
+            {editsLoading ? " Loading saved seasons…" : ""}
           </p>
         </div>
         <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -780,11 +816,6 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
             {showSitePicker ? "Hide site list" : "Choose sites"}
           </button>
         </div>
-      </div>
-
-      <div className="sitesAvailabilityBanner">
-        Edits save in this browser for now. Showing {visibleCount} of {totalCount} sites.
-        {saveMessage ? ` ${saveMessage}` : ""}
       </div>
 
       {showSitePicker ? (
@@ -1128,13 +1159,23 @@ export default function SitesAvailabilityTab({ siteLabels = [] }) {
               </div>
 
               <div className="row" style={{ gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-                <button type="button" className="btn primary" onClick={saveEditor}>
-                  Save
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() => void saveEditor()}
+                  disabled={saving}
+                >
+                  {saving ? "Saving…" : "Save"}
                 </button>
-                <button type="button" className="btn" onClick={cancelEditor}>
+                <button type="button" className="btn" onClick={cancelEditor} disabled={saving}>
                   Cancel
                 </button>
-                <button type="button" className="btn" onClick={resetToSample}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => void resetToSample()}
+                  disabled={saving}
+                >
                   Reset to sample
                 </button>
               </div>
