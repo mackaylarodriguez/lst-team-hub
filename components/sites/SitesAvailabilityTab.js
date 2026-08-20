@@ -4,6 +4,7 @@ import {
   listSiteAvailabilityEdits,
   loadSiteAvailabilityVisibleSites,
   migrateLegacySiteAvailabilityFromNotes,
+  normalizeAvailableRanges,
   saveSiteAvailabilityEdit,
   saveSiteAvailabilityVisibleSites,
 } from "@/lib/siteAvailability";
@@ -116,16 +117,6 @@ function rangesOverlap(aStart, aEnd, bStart, bEnd) {
   return a0 <= b1 && b0 <= a1;
 }
 
-function clampRange(startYmd, endYmd) {
-  const start = parseYmd(startYmd);
-  const end = parseYmd(endYmd);
-  if (!start || !end) return { start: startYmd, end: endYmd };
-  if (ymdTime(start.ymd) <= ymdTime(end.ymd)) {
-    return { start: start.ymd, end: end.ymd };
-  }
-  return { start: end.ymd, end: start.ymd };
-}
-
 function formatDateLabel(ymd) {
   const parsed = parseYmd(ymd);
   if (!parsed) return String(ymd || "");
@@ -146,6 +137,13 @@ function formatDateRangeLabel(startYmd, endYmd, year) {
   if (sameYear && start.year === year) return `${left} – ${right}`;
   if (sameYear) return `${left} – ${right}, ${start.year}`;
   return `${left}, ${start.year} – ${right}, ${end.year}`;
+}
+
+function formatSeasonRangesLabel(ranges, year) {
+  const list = Array.isArray(ranges) ? ranges : [];
+  if (!list.length) return "Not set";
+  if (list.length === 1) return formatDateRangeLabel(list[0].start, list[0].end, year);
+  return list.map((r) => formatDateRangeLabel(r.start, r.end, year)).join(" · ");
 }
 
 function monthBounds(year, month) {
@@ -171,12 +169,14 @@ function weekBounds(year, month, weekKey) {
 
 function normalizeAvailability(row) {
   const year = Number(row?.year) || AVAILABILITY_YEAR;
-  const startRaw = String(row?.availableStart || "").trim();
-  const endRaw = String(row?.availableEnd || "").trim();
-  const hasSeason = Boolean(parseYmd(startRaw) && parseYmd(endRaw));
-  const available = hasSeason
-    ? clampRange(startRaw, endRaw)
-    : { start: "", end: "" };
+  const availableRanges = normalizeAvailableRanges({
+    availableRanges: row?.availableRanges,
+    availableStart: row?.availableStart,
+    availableEnd: row?.availableEnd,
+  });
+  const hasSeason = availableRanges.length > 0;
+  const availableStart = hasSeason ? availableRanges[0].start : "";
+  const availableEnd = hasSeason ? availableRanges[availableRanges.length - 1].end : "";
   const teamNotes = Array.isArray(row?.teamNotes)
     ? row.teamNotes.map((n) => String(n || "").trim()).filter(Boolean)
     : String(row?.teamNotesText || "")
@@ -187,11 +187,10 @@ function normalizeAvailability(row) {
   return {
     siteLabel: row?.siteLabel || "",
     year,
-    availableStart: available.start,
-    availableEnd: available.end,
-    availableLabel: hasSeason
-      ? formatDateRangeLabel(available.start, available.end, year)
-      : "Not set",
+    availableStart,
+    availableEnd,
+    availableRanges,
+    availableLabel: formatSeasonRangesLabel(availableRanges, year),
     hasSeason,
     exclusions: [],
     bookings: [],
@@ -271,51 +270,77 @@ function bookingsCoverFullOpenWindow(openStart, openEnd, bookings) {
   return coverTo >= open1;
 }
 
-function monthOpenWindow(availability, month) {
-  if (!availability.hasSeason) return null;
+/** Open season windows that intersect a calendar month (supports split seasons). */
+function monthOpenWindows(availability, month) {
+  if (!availability.hasSeason) return [];
   const year = availability.year;
   const bounds = monthBounds(year, month);
-  if (
-    !rangesOverlap(
-      availability.availableStart,
-      availability.availableEnd,
-      bounds.start,
-      bounds.end
-    )
-  ) {
-    return null;
+  const pieces = [];
+  for (const range of availability.availableRanges || []) {
+    if (!rangesOverlap(range.start, range.end, bounds.start, bounds.end)) continue;
+    const openStart =
+      ymdTime(range.start) > ymdTime(bounds.start) ? range.start : bounds.start;
+    const openEnd =
+      ymdTime(range.end) < ymdTime(bounds.end) ? range.end : bounds.end;
+    pieces.push({ openStart, openEnd });
   }
+  pieces.sort((a, b) => ymdTime(a.openStart) - ymdTime(b.openStart));
+  const merged = [];
+  for (const piece of pieces) {
+    const prev = merged[merged.length - 1];
+    if (prev && ymdTime(piece.openStart) <= ymdTime(prev.openEnd) + 86400000) {
+      if (ymdTime(piece.openEnd) > ymdTime(prev.openEnd)) {
+        prev.openEnd = piece.openEnd;
+      }
+    } else {
+      merged.push({ ...piece });
+    }
+  }
+  return merged.map((w) => ({ ...w, bounds }));
+}
 
-  const openStart =
-    ymdTime(availability.availableStart) > ymdTime(bounds.start)
-      ? availability.availableStart
-      : bounds.start;
-  const openEnd =
-    ymdTime(availability.availableEnd) < ymdTime(bounds.end)
-      ? availability.availableEnd
-      : bounds.end;
+function rangesCoverSpan(ranges, spanStart, spanEnd) {
+  const open0 = ymdTime(spanStart);
+  const open1 = ymdTime(spanEnd);
+  if (Number.isNaN(open0) || Number.isNaN(open1)) return false;
 
-  return { bounds, openStart, openEnd };
+  const clipped = [];
+  for (const range of ranges || []) {
+    const piece = clipRange(range.start, range.end, spanStart, spanEnd);
+    if (piece) clipped.push(piece);
+  }
+  if (!clipped.length) return false;
+
+  clipped.sort((a, b) => a.start - b.start);
+  let coverTo = clipped[0].start;
+  if (coverTo > open0) return false;
+  coverTo = clipped[0].end;
+  for (let i = 1; i < clipped.length; i += 1) {
+    const next = clipped[i];
+    if (next.start > coverTo + 86400000) return false;
+    coverTo = Math.max(coverTo, next.end);
+  }
+  return coverTo >= open1;
 }
 
 function monthStatus(availability, month) {
-  const window = monthOpenWindow(availability, month);
-  if (!window) return "outside";
+  const windows = monthOpenWindows(availability, month);
+  if (!windows.length) return "outside";
 
-  const { bounds, openStart, openEnd } = window;
+  const { bounds } = windows[0];
   const overlappingBookings = (availability.bookings || []).filter((row) =>
-    rangesOverlap(row.start, row.end, openStart, openEnd)
+    windows.some((w) => rangesOverlap(row.start, row.end, w.openStart, w.openEnd))
   );
   if (overlappingBookings.length) {
-    return bookingsCoverFullOpenWindow(openStart, openEnd, overlappingBookings)
-      ? "booked"
-      : "bookedPartial";
+    const fullyBooked = windows.every((w) =>
+      bookingsCoverFullOpenWindow(w.openStart, w.openEnd, overlappingBookings)
+    );
+    return fullyBooked ? "booked" : "bookedPartial";
   }
 
-  const coversFullMonth =
-    ymdTime(availability.availableStart) <= ymdTime(bounds.start) &&
-    ymdTime(availability.availableEnd) >= ymdTime(bounds.end);
-  return coversFullMonth ? "open" : "partial";
+  return rangesCoverSpan(availability.availableRanges, bounds.start, bounds.end)
+    ? "open"
+    : "partial";
 }
 
 function monthCellTooltip(availability, month) {
@@ -323,15 +348,17 @@ function monthCellTooltip(availability, month) {
   const monthName = monthMeta?.label || `Month ${month}`;
   const year = availability.year;
   const status = monthStatus(availability, month);
-  const window = monthOpenWindow(availability, month);
+  const windows = monthOpenWindows(availability, month);
 
-  if (status === "outside" || !window) {
+  if (status === "outside" || !windows.length) {
     return `${monthName} ${year}: NA`;
   }
 
-  const seasonLabel = formatDateRangeLabel(window.openStart, window.openEnd, year);
+  const seasonLabel = windows
+    .map((w) => formatDateRangeLabel(w.openStart, w.openEnd, year))
+    .join(" · ");
   const overlappingBookings = (availability.bookings || []).filter((row) =>
-    rangesOverlap(row.start, row.end, window.openStart, window.openEnd)
+    windows.some((w) => rangesOverlap(row.start, row.end, w.openStart, w.openEnd))
   );
 
   if (overlappingBookings.length) {
@@ -358,15 +385,10 @@ function weekStatus(availability, month, weekKey) {
   }
   const year = availability.year;
   const bounds = weekBounds(year, month, weekKey);
-
-  if (
-    !rangesOverlap(
-      availability.availableStart,
-      availability.availableEnd,
-      bounds.start,
-      bounds.end
-    )
-  ) {
+  const inSeason = (availability.availableRanges || []).some((range) =>
+    rangesOverlap(range.start, range.end, bounds.start, bounds.end)
+  );
+  if (!inSeason) {
     return { status: "outside", label: "" };
   }
 
@@ -484,13 +506,14 @@ function buildTripBookingsBySite(trips, year) {
   return bySite;
 }
 
-function blankEditDraft(availability, year) {
-  const hasDates =
-    Boolean(parseYmd(availability.availableStart)) &&
-    Boolean(parseYmd(availability.availableEnd));
+function blankEditDraft(availability) {
+  const ranges = normalizeAvailableRanges({
+    availableRanges: availability.availableRanges,
+    availableStart: availability.availableStart,
+    availableEnd: availability.availableEnd,
+  });
   return {
-    availableStart: hasDates ? availability.availableStart : "",
-    availableEnd: hasDates ? availability.availableEnd : "",
+    availableRanges: ranges.length ? ranges.map((r) => ({ ...r })) : [{ start: "", end: "" }],
     preferredTeamSize: String(availability.preferredTeamSize || "").trim(),
     otherBackgrounds: String(availability.otherBackgrounds || "").trim(),
     teamNotesText: (availability.teamNotes || []).join("\n"),
@@ -687,7 +710,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
 
   function openEditor() {
     if (!selected) return;
-    setDraft(blankEditDraft(selected, year));
+    setDraft(blankEditDraft(selected));
     setEditing(true);
   }
 
@@ -700,17 +723,57 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
     setDraft((current) => (current ? { ...current, ...patch } : current));
   }
 
+  function updateDraftRange(index, patch) {
+    setDraft((current) => {
+      if (!current) return current;
+      const next = (current.availableRanges || []).map((row, i) =>
+        i === index ? { ...row, ...patch } : row
+      );
+      return { ...current, availableRanges: next };
+    });
+  }
+
+  function addDraftRange() {
+    setDraft((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        availableRanges: [...(current.availableRanges || []), { start: "", end: "" }],
+      };
+    });
+  }
+
+  function removeDraftRange(index) {
+    setDraft((current) => {
+      if (!current) return current;
+      const list = current.availableRanges || [];
+      if (list.length <= 1) {
+        return { ...current, availableRanges: [{ start: "", end: "" }] };
+      }
+      return {
+        ...current,
+        availableRanges: list.filter((_, i) => i !== index),
+      };
+    });
+  }
+
   async function saveEditor() {
     if (!selected || !draft || saving) return;
-    const available = clampRange(draft.availableStart, draft.availableEnd);
-    if (!parseYmd(available.start) || !parseYmd(available.end)) {
-      showToast("Enter valid Available from / to dates.");
-      return;
+    const draftRows = Array.isArray(draft.availableRanges) ? draft.availableRanges : [];
+    for (const row of draftRows) {
+      const hasStart = Boolean(String(row?.start || "").trim());
+      const hasEnd = Boolean(String(row?.end || "").trim());
+      if (hasStart !== hasEnd) {
+        showToast("Each season window needs both Available from and Available to, or leave both empty.");
+        return;
+      }
     }
+    const availableRanges = normalizeAvailableRanges({ availableRanges: draftRows });
 
     const payload = {
-      availableStart: available.start,
-      availableEnd: available.end,
+      availableRanges,
+      availableStart: availableRanges[0]?.start || "",
+      availableEnd: availableRanges[availableRanges.length - 1]?.end || "",
       siteType: String(selected.siteType || "").trim() || "Partner site",
       churchName: String(selected.churchName || selected.siteLabel || "").trim() || selected.siteLabel,
       preferredTeamSize: String(draft.preferredTeamSize || "").trim(),
@@ -1012,30 +1075,48 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
             <div className="sitesAvailabilityEditPanel">
               <div className="sitesAvailabilityEditTitle">Edit availability</div>
               <p className="small" style={{ margin: "0 0 12px", color: "var(--muted)" }}>
-                Update season dates, preferred team size, other church backgrounds, and notes.
-                Locked teams stay live from Hub trips for {year}.
+                Update season windows (optional — e.g. May–June and Sep–Oct), preferred team size,
+                other church backgrounds, and notes. Locked teams stay live from Hub trips for {year}.
               </p>
 
-              <div className="sitesAvailabilityEditSectionTitle">Season</div>
-              <div className="sitesAvailabilityEditGrid" style={{ marginTop: 8 }}>
-                <label className="sitesAvailabilityEditField">
-                  <span>Available from</span>
-                  <input
-                    className="input"
-                    type="date"
-                    value={draft.availableStart}
-                    onChange={(e) => updateDraft({ availableStart: e.target.value })}
-                  />
-                </label>
-                <label className="sitesAvailabilityEditField">
-                  <span>Available to</span>
-                  <input
-                    className="input"
-                    type="date"
-                    value={draft.availableEnd}
-                    onChange={(e) => updateDraft({ availableEnd: e.target.value })}
-                  />
-                </label>
+              <div className="sitesAvailabilityEditSectionTitle">Season windows</div>
+              <div className="sitesAvailabilityEditList">
+                {(draft.availableRanges || []).map((range, index) => (
+                  <div key={`range-${index}`} className="sitesAvailabilityEditRow">
+                    <label className="sitesAvailabilityEditField">
+                      <span>Available from</span>
+                      <input
+                        className="input"
+                        type="date"
+                        value={range.start || ""}
+                        onChange={(e) => updateDraftRange(index, { start: e.target.value })}
+                      />
+                    </label>
+                    <label className="sitesAvailabilityEditField">
+                      <span>Available to</span>
+                      <input
+                        className="input"
+                        type="date"
+                        value={range.end || ""}
+                        onChange={(e) => updateDraftRange(index, { end: e.target.value })}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => removeDraftRange(index)}
+                      disabled={(draft.availableRanges || []).length <= 1}
+                      title="Remove window"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                <button type="button" className="btn" onClick={addDraftRange}>
+                  Add another window
+                </button>
               </div>
 
               <div className="sitesAvailabilityEditSection">
@@ -1132,9 +1213,19 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                 <div className="small">
                   <strong>{selected.availableLabel}</strong>
                 </div>
-                <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
-                  {selected.availableStart} → {selected.availableEnd}
-                </div>
+                {(selected.availableRanges || []).length ? (
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                    {selected.availableRanges.map((range) => (
+                      <li key={`${range.start}-${range.end}`} className="small" style={{ color: "var(--muted)" }}>
+                        {range.start} → {range.end}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
+                    Not set
+                  </div>
+                )}
               </div>
               <div className="sitesAvailabilitySideBlock">
                 <div className="sitesAvailabilitySideTitle">Locked teams · {year}</div>

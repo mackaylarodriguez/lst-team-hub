@@ -46,6 +46,9 @@ alter table public.site_availability
 alter table public.site_availability
   add column if not exists preferred_team_size text;
 
+alter table public.site_availability
+  add column if not exists available_ranges jsonb not null default '[]'::jsonb;
+
 create index if not exists site_availability_year_idx
   on public.site_availability (year);
 
@@ -53,7 +56,7 @@ create index if not exists site_availability_site_name_idx
   on public.site_availability (site_name);
 
 comment on table public.site_availability is
-  'Per-site hosting season for a calendar year (Sites → Availability).';
+  'Per-site hosting season for a calendar year (Sites → Availability). available_ranges holds one or more windows; available_start/end are the outer summary.';
 
 create table if not exists public.site_availability_grid_prefs (
   year integer primary key,

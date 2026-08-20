@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { showToast } from "@/components/Toast";
 import {
   listSiteAvailabilityEdits,
+  normalizeAvailableRanges,
   renameSiteAvailabilityEdit,
   renameSiteInAvailabilityGridPrefs,
   saveSiteAvailabilityEdit,
@@ -32,6 +33,19 @@ import {
 
 const AVAILABILITY_YEAR = 2027;
 const WORKBOOK_COLUMNS = WORKBOOK_REFERENCE_COLUMNS;
+const SITE_TYPE_OPTIONS = ["Partner site", "Centurion Site"];
+
+function normalizeSiteTypeOption(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "Partner site";
+  const match = SITE_TYPE_OPTIONS.find((opt) => opt.toLowerCase() === raw.toLowerCase());
+  if (match) return match;
+  // Map trip/recruiting values into Sites labels when possible.
+  const lower = raw.toLowerCase();
+  if (lower === "partner") return "Partner site";
+  if (lower === "centurion" || lower === "centurion site") return "Centurion Site";
+  return "Partner site";
+}
 
 function isBuiltInSiteLabel(label) {
   const lower = String(label || "")
@@ -58,6 +72,11 @@ function blankDraft(siteLabel, note, availability, siteNotes) {
   const label = String(siteLabel || "").trim();
   const defaultHost = getDefaultSiteHostName(label) || "";
   const effectiveHost = label ? resolveEffectiveSiteHostName(label, siteNotes) || "" : "";
+  const ranges = normalizeAvailableRanges({
+    availableRanges: availability?.availableRanges,
+    availableStart: availability?.availableStart,
+    availableEnd: availability?.availableEnd,
+  });
   return {
     siteName: label,
     hostName:
@@ -65,12 +84,11 @@ function blankDraft(siteLabel, note, availability, siteNotes) {
       (effectiveHost && effectiveHost !== defaultHost ? effectiveHost : ""),
     logisticsUrl: String(note?.logisticsUrl || "").trim(),
     notes: String(note?.notes || "").trim(),
-    availableStart: availability?.availableStart || "",
-    availableEnd: availability?.availableEnd || "",
+    availableRanges: ranges.length ? ranges.map((r) => ({ ...r })) : [{ start: "", end: "" }],
     preferredTeamSize: availability?.preferredTeamSize || "",
     otherBackgrounds: availability?.otherBackgrounds || "",
     teamNotesText: (availability?.teamNotes || []).join("\n"),
-    siteType: availability?.siteType || "Partner site",
+    siteType: normalizeSiteTypeOption(availability?.siteType),
   };
 }
 
@@ -167,6 +185,40 @@ export default function SiteEditorModal({
     setDraft((current) => (current ? { ...current, ...patch } : current));
   }
 
+  function updateDraftRange(index, patch) {
+    setDraft((current) => {
+      if (!current) return current;
+      const next = (current.availableRanges || []).map((row, i) =>
+        i === index ? { ...row, ...patch } : row
+      );
+      return { ...current, availableRanges: next };
+    });
+  }
+
+  function addDraftRange() {
+    setDraft((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        availableRanges: [...(current.availableRanges || []), { start: "", end: "" }],
+      };
+    });
+  }
+
+  function removeDraftRange(index) {
+    setDraft((current) => {
+      if (!current) return current;
+      const list = current.availableRanges || [];
+      if (list.length <= 1) {
+        return { ...current, availableRanges: [{ start: "", end: "" }] };
+      }
+      return {
+        ...current,
+        availableRanges: list.filter((_, i) => i !== index),
+      };
+    });
+  }
+
   async function saveAll() {
     if (!draft || saving) return;
 
@@ -207,14 +259,19 @@ export default function SiteEditorModal({
       return;
     }
 
-    const availableStart = String(draft.availableStart || "").trim();
-    const availableEnd = String(draft.availableEnd || "").trim();
-    const hasStart = Boolean(availableStart);
-    const hasEnd = Boolean(availableEnd);
-    if (hasStart !== hasEnd) {
-      showToast("Set both Available from and Available to, or leave both empty.", "error");
-      return;
+    const draftRows = Array.isArray(draft.availableRanges) ? draft.availableRanges : [];
+    for (const row of draftRows) {
+      const hasStart = Boolean(String(row?.start || "").trim());
+      const hasEnd = Boolean(String(row?.end || "").trim());
+      if (hasStart !== hasEnd) {
+        showToast(
+          "Each season window needs both Available from and Available to, or leave both empty.",
+          "error"
+        );
+        return;
+      }
     }
+    const availableRanges = normalizeAvailableRanges({ availableRanges: draftRows });
 
     setSaving(true);
     try {
@@ -259,20 +316,20 @@ export default function SiteEditorModal({
         }
       }
 
-      if (hasStart && hasEnd) {
-        await saveSiteAvailabilityEdit(saveLabel, AVAILABILITY_YEAR, {
-          availableStart,
-          availableEnd,
-          siteType: draft.siteType || "Partner site",
-          churchName: saveLabel,
-          preferredTeamSize: String(draft.preferredTeamSize || "").trim(),
-          otherBackgrounds: String(draft.otherBackgrounds || "").trim(),
-          teamNotes: String(draft.teamNotesText || "")
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean),
-        });
-      }
+      // Always persist site type / hosting prefs; season windows optional.
+      await saveSiteAvailabilityEdit(saveLabel, AVAILABILITY_YEAR, {
+        availableRanges,
+        availableStart: availableRanges[0]?.start || "",
+        availableEnd: availableRanges[availableRanges.length - 1]?.end || "",
+        siteType: normalizeSiteTypeOption(draft.siteType),
+        churchName: saveLabel,
+        preferredTeamSize: String(draft.preferredTeamSize || "").trim(),
+        otherBackgrounds: String(draft.otherBackgrounds || "").trim(),
+        teamNotes: String(draft.teamNotesText || "")
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean),
+      });
 
       showToast(isCreate ? `Added site ${saveLabel}` : `Saved ${saveLabel}`);
       onSaved?.({
@@ -350,6 +407,21 @@ export default function SiteEditorModal({
                     disabled={saving || builtIn}
                     placeholder="e.g. Brazil - Joao Pessoa"
                   />
+                </label>
+                <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
+                  <span>Site type</span>
+                  <select
+                    className="input"
+                    value={normalizeSiteTypeOption(draft.siteType)}
+                    onChange={(e) => updateDraft({ siteType: e.target.value })}
+                    disabled={saving}
+                  >
+                    {SITE_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </section>
 
@@ -440,30 +512,49 @@ export default function SiteEditorModal({
                 <div className="siteEditorSectionHead">
                   <h3 className="siteEditorSectionTitle">Availability · {AVAILABILITY_YEAR}</h3>
                   <p className="siteEditorSectionHint">
-                    Season dates and hosting preferences for this site.
+                    Season windows and hosting preferences. Add more than one window for split
+                    seasons (e.g. May–June and Sep–Oct).
                   </p>
                 </div>
-                <div className="sitesAvailabilityEditGrid">
-                  <label className="sitesAvailabilityEditField">
-                    <span>Available from</span>
-                    <input
-                      className="input"
-                      type="date"
-                      value={draft.availableStart}
-                      onChange={(e) => updateDraft({ availableStart: e.target.value })}
-                      disabled={saving}
-                    />
-                  </label>
-                  <label className="sitesAvailabilityEditField">
-                    <span>Available to</span>
-                    <input
-                      className="input"
-                      type="date"
-                      value={draft.availableEnd}
-                      onChange={(e) => updateDraft({ availableEnd: e.target.value })}
-                      disabled={saving}
-                    />
-                  </label>
+                <div className="sitesAvailabilityEditList">
+                  {(draft.availableRanges || []).map((range, index) => (
+                    <div key={`editor-range-${index}`} className="sitesAvailabilityEditRow">
+                      <label className="sitesAvailabilityEditField">
+                        <span>Available from</span>
+                        <input
+                          className="input"
+                          type="date"
+                          value={range.start || ""}
+                          onChange={(e) => updateDraftRange(index, { start: e.target.value })}
+                          disabled={saving}
+                        />
+                      </label>
+                      <label className="sitesAvailabilityEditField">
+                        <span>Available to</span>
+                        <input
+                          className="input"
+                          type="date"
+                          value={range.end || ""}
+                          onChange={(e) => updateDraftRange(index, { end: e.target.value })}
+                          disabled={saving}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => removeDraftRange(index)}
+                        disabled={saving || (draft.availableRanges || []).length <= 1}
+                        title="Remove window"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                  <button type="button" className="btn" onClick={addDraftRange} disabled={saving}>
+                    Add another window
+                  </button>
                 </div>
                 <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
                   <span>Preferred team size</span>
