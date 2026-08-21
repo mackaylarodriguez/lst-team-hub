@@ -118,6 +118,10 @@ function joinLabels(labels) {
 const RECRUITING_BOARD_SORT = ["Potential Teams", "Locked Teams"];
 
 const CURRENT_RECRUITING_YEAR = new Date().getFullYear();
+/** Season staff plan against by default (Sites availability is also 2027). */
+const DEFAULT_RECRUITING_YEAR = 2027;
+/** Always offer these year boards even before contacts exist for them. */
+const ENSURED_RECRUITING_YEARS = [2027, 2028];
 
 const RECRUITING_POTENTIAL_COL = {
   select: 44,
@@ -1904,8 +1908,8 @@ export default function RecruitingPage() {
   const [isFormingTeam, setIsFormingTeam] = useState(false);
   const [filterConfig, setFilterConfig] = useState(DEFAULT_FILTER_CONFIG);
   const [activeFilterId, setActiveFilterId] = useState("all");
-  const [years, setYears] = useState(() => [CURRENT_RECRUITING_YEAR, CURRENT_RECRUITING_YEAR + 1]);
-  const [selectedYear, setSelectedYear] = useState(CURRENT_RECRUITING_YEAR);
+  const [years, setYears] = useState(() => [...ENSURED_RECRUITING_YEARS]);
+  const [selectedYear, setSelectedYear] = useState(DEFAULT_RECRUITING_YEAR);
   const [contactActivityByRecordId, setContactActivityByRecordId] = useState({});
   /** Default matches trip Staff Tasks body (13px); use floating +/- for medium/large. */
   const [tableFontSize, setTableFontSize] = useState("small");
@@ -1936,7 +1940,7 @@ export default function RecruitingPage() {
   const [staffTaskModalOpen, setStaffTaskModalOpen] = useState(false);
   const [isSavingStaffTask, setIsSavingStaffTask] = useState(false);
   const [recordDetailsModalOpen, setRecordDetailsModalOpen] = useState(false);
-  const [moveTargetYear, setMoveTargetYear] = useState(CURRENT_RECRUITING_YEAR + 1);
+  const [moveTargetYear, setMoveTargetYear] = useState(2028);
   const [formTeamModalOpen, setFormTeamModalOpen] = useState(false);
   const [teamFormDraft, setTeamFormDraft] = useState(() => buildTeamFormDraft(null));
   const [teamFormShowMemberTripDates, setTeamFormShowMemberTripDates] = useState(false);
@@ -2056,9 +2060,11 @@ export default function RecruitingPage() {
       try {
         const nextYears = await listRecruitingYears();
         setYears(nextYears);
-        setSelectedYear((current) =>
-          nextYears.includes(current) ? current : nextYears[0] || CURRENT_RECRUITING_YEAR
-        );
+        setSelectedYear((current) => {
+          if (nextYears.includes(current)) return current;
+          if (nextYears.includes(DEFAULT_RECRUITING_YEAR)) return DEFAULT_RECRUITING_YEAR;
+          return nextYears[0] || DEFAULT_RECRUITING_YEAR;
+        });
       } catch (yearsError) {
         console.error("Unable to load recruiting years", yearsError);
       }
