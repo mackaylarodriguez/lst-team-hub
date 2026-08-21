@@ -49,6 +49,18 @@ alter table public.site_availability
 alter table public.site_availability
   add column if not exists available_ranges jsonb not null default '[]'::jsonb;
 
+-- Backfill split-season storage from legacy single start/end when ranges are empty.
+update public.site_availability
+set available_ranges = jsonb_build_array(
+  jsonb_build_object(
+    'start', available_start::text,
+    'end', available_end::text
+  )
+)
+where coalesce(jsonb_array_length(available_ranges), 0) = 0
+  and available_start is not null
+  and available_end is not null;
+
 create index if not exists site_availability_year_idx
   on public.site_availability (year);
 

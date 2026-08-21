@@ -174,7 +174,7 @@ function buildRows(year) {
   });
 
   rows.push({
-    siteLabel: "Philippines",
+    siteLabel: "Philippines - Talisay City",
     availableStart: ymd(year, 1, 1),
     availableEnd: ymd(year, 12, 31),
     exclusions: [],

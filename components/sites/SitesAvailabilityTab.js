@@ -91,7 +91,7 @@ function daysInMonth(year, month) {
 
 function parseYmd(value) {
   const raw = String(value || "").trim();
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
   if (!match) return null;
   const year = Number(match[1]);
   const month = Number(match[2]);
@@ -169,11 +169,14 @@ function weekBounds(year, month, weekKey) {
 
 function normalizeAvailability(row) {
   const year = Number(row?.year) || AVAILABILITY_YEAR;
-  const availableRanges = normalizeAvailableRanges({
-    availableRanges: row?.availableRanges,
-    availableStart: row?.availableStart,
-    availableEnd: row?.availableEnd,
-  });
+  const availableRanges = normalizeAvailableRanges(
+    {
+      availableRanges: row?.availableRanges,
+      availableStart: row?.availableStart,
+      availableEnd: row?.availableEnd,
+    },
+    year
+  );
   const hasSeason = availableRanges.length > 0;
   const availableStart = hasSeason ? availableRanges[0].start : "";
   const availableEnd = hasSeason ? availableRanges[availableRanges.length - 1].end : "";
@@ -506,12 +509,15 @@ function buildTripBookingsBySite(trips, year) {
   return bySite;
 }
 
-function blankEditDraft(availability) {
-  const ranges = normalizeAvailableRanges({
-    availableRanges: availability.availableRanges,
-    availableStart: availability.availableStart,
-    availableEnd: availability.availableEnd,
-  });
+function blankEditDraft(availability, year) {
+  const ranges = normalizeAvailableRanges(
+    {
+      availableRanges: availability.availableRanges,
+      availableStart: availability.availableStart,
+      availableEnd: availability.availableEnd,
+    },
+    year
+  );
   return {
     availableRanges: ranges.length ? ranges.map((r) => ({ ...r })) : [{ start: "", end: "" }],
     preferredTeamSize: String(availability.preferredTeamSize || "").trim(),
@@ -710,7 +716,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
 
   function openEditor() {
     if (!selected) return;
-    setDraft(blankEditDraft(selected));
+    setDraft(blankEditDraft(selected, year));
     setEditing(true);
   }
 
@@ -768,7 +774,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
         return;
       }
     }
-    const availableRanges = normalizeAvailableRanges({ availableRanges: draftRows });
+    const availableRanges = normalizeAvailableRanges({ availableRanges: draftRows }, year);
 
     const payload = {
       availableRanges,
@@ -790,8 +796,9 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
       setEditsMap((current) => ({
         ...current,
         [selected.siteLabel]: {
-          ...payload,
           ...(saved || {}),
+          ...payload,
+          availableRanges,
           siteLabel: selected.siteLabel,
           year,
           isEdited: true,
@@ -1079,7 +1086,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                 other church backgrounds, and notes. Locked teams stay live from Hub trips for {year}.
               </p>
 
-              <div className="sitesAvailabilityEditSectionTitle">Season windows</div>
+              <div className="sitesAvailabilityEditSectionTitle">Season windows · {year}</div>
               <div className="sitesAvailabilityEditList">
                 {(draft.availableRanges || []).map((range, index) => (
                   <div key={`range-${index}`} className="sitesAvailabilityEditRow">
@@ -1088,6 +1095,8 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                       <input
                         className="input"
                         type="date"
+                        min={`${year}-01-01`}
+                        max={`${year}-12-31`}
                         value={range.start || ""}
                         onChange={(e) => updateDraftRange(index, { start: e.target.value })}
                       />
@@ -1097,6 +1106,8 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                       <input
                         className="input"
                         type="date"
+                        min={`${year}-01-01`}
+                        max={`${year}-12-31`}
                         value={range.end || ""}
                         onChange={(e) => updateDraftRange(index, { end: e.target.value })}
                       />

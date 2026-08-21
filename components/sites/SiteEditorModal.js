@@ -72,11 +72,14 @@ function blankDraft(siteLabel, note, availability, siteNotes) {
   const label = String(siteLabel || "").trim();
   const defaultHost = getDefaultSiteHostName(label) || "";
   const effectiveHost = label ? resolveEffectiveSiteHostName(label, siteNotes) || "" : "";
-  const ranges = normalizeAvailableRanges({
-    availableRanges: availability?.availableRanges,
-    availableStart: availability?.availableStart,
-    availableEnd: availability?.availableEnd,
-  });
+  const ranges = normalizeAvailableRanges(
+    {
+      availableRanges: availability?.availableRanges,
+      availableStart: availability?.availableStart,
+      availableEnd: availability?.availableEnd,
+    },
+    AVAILABILITY_YEAR
+  );
   return {
     siteName: label,
     hostName:
@@ -271,7 +274,10 @@ export default function SiteEditorModal({
         return;
       }
     }
-    const availableRanges = normalizeAvailableRanges({ availableRanges: draftRows });
+    const availableRanges = normalizeAvailableRanges(
+      { availableRanges: draftRows },
+      AVAILABILITY_YEAR
+    );
 
     setSaving(true);
     try {
@@ -524,6 +530,8 @@ export default function SiteEditorModal({
                         <input
                           className="input"
                           type="date"
+                          min={`${AVAILABILITY_YEAR}-01-01`}
+                          max={`${AVAILABILITY_YEAR}-12-31`}
                           value={range.start || ""}
                           onChange={(e) => updateDraftRange(index, { start: e.target.value })}
                           disabled={saving}
@@ -534,6 +542,8 @@ export default function SiteEditorModal({
                         <input
                           className="input"
                           type="date"
+                          min={`${AVAILABILITY_YEAR}-01-01`}
+                          max={`${AVAILABILITY_YEAR}-12-31`}
                           value={range.end || ""}
                           onChange={(e) => updateDraftRange(index, { end: e.target.value })}
                           disabled={saving}
