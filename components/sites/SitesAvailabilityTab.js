@@ -201,7 +201,7 @@ function normalizeAvailability(row) {
     otherBackgrounds: String(row?.otherBackgrounds || "").trim(),
     preferredTeamSize: String(row?.preferredTeamSize || "").trim(),
     holidays: String(row?.holidays || "").trim(),
-    siteType: String(row?.siteType || "Partner site").trim() || "Partner site",
+    siteType: String(row?.siteType || "Partner managed").trim() || "Partner managed",
     churchName: row?.churchName || row?.siteLabel || "",
     isEdited: Boolean(row?.isEdited),
   };
@@ -219,7 +219,7 @@ function buildEmptyAvailabilityForSite(siteLabel, year) {
     otherBackgrounds: "",
     preferredTeamSize: "",
     holidays: "",
-    siteType: "Partner site",
+    siteType: "Partner managed",
     churchName: siteLabel,
     isEdited: false,
   });
@@ -783,7 +783,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
       availableRanges,
       availableStart: availableRanges[0]?.start || "",
       availableEnd: availableRanges[availableRanges.length - 1]?.end || "",
-      siteType: String(selected.siteType || "").trim() || "Partner site",
+      siteType: String(selected.siteType || "").trim() || "Partner managed",
       churchName: String(selected.churchName || selected.siteLabel || "").trim() || selected.siteLabel,
       preferredTeamSize: String(draft.preferredTeamSize || "").trim(),
       otherBackgrounds: String(draft.otherBackgrounds || "").trim(),

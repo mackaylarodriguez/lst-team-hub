@@ -33,18 +33,27 @@ import {
 
 const AVAILABILITY_YEAR = 2027;
 const WORKBOOK_COLUMNS = WORKBOOK_REFERENCE_COLUMNS;
-const SITE_TYPE_OPTIONS = ["Partner site", "Centurion Site"];
+const SITE_TYPE_OPTIONS = ["Partner managed", "Seasonal"];
 
 function normalizeSiteTypeOption(value) {
   const raw = String(value || "").trim();
-  if (!raw) return "Partner site";
+  if (!raw) return "Partner managed";
   const match = SITE_TYPE_OPTIONS.find((opt) => opt.toLowerCase() === raw.toLowerCase());
   if (match) return match;
-  // Map trip/recruiting values into Sites labels when possible.
+  // Map trip/recruiting / legacy values into Sites labels when possible.
   const lower = raw.toLowerCase();
-  if (lower === "partner") return "Partner site";
-  if (lower === "centurion" || lower === "centurion site") return "Centurion Site";
-  return "Partner site";
+  if (lower === "partner" || lower === "partner site" || lower === "partner managed") {
+    return "Partner managed";
+  }
+  if (
+    lower === "seasonal" ||
+    lower === "seasonal site" ||
+    lower === "centurion" ||
+    lower === "centurion site"
+  ) {
+    return "Seasonal";
+  }
+  return "Partner managed";
 }
 
 function isBuiltInSiteLabel(label) {

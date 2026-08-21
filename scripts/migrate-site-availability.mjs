@@ -61,7 +61,7 @@ async function migrateLegacy() {
         year: YEAR,
         available_start: payload.availableStart || null,
         available_end: payload.availableEnd || null,
-        site_type: payload.siteType || "Partner site",
+        site_type: payload.siteType || "Partner managed",
         team_notes: Array.isArray(payload.teamNotes) ? payload.teamNotes : [],
         updated_at: new Date().toISOString(),
       },
