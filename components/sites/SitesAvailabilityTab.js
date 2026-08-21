@@ -332,11 +332,11 @@ function monthStatus(availability, month) {
   const year = availability.year;
   const bounds = monthBounds(year, month);
   const monthBookings = (availability.bookings || []).filter((row) =>
-    rangesOverlap(row.start, row.end, bounds.start, bounds.end)
+    bookingTouchesMonth(row, year, month)
   );
   const windows = monthOpenWindows(availability, month);
 
-  // Hub trips always win: show Locked even if dates fall outside the open season.
+  // Hub trips always win — including months outside the site's open season (still red Locked).
   if (monthBookings.length) {
     if (windows.length) {
       const fullyBooked = windows.every((w) =>
@@ -344,11 +344,14 @@ function monthStatus(availability, month) {
       );
       return fullyBooked ? "booked" : "bookedPartial";
     }
-    const coversFullMonth = bookingsCoverFullOpenWindow(
-      bounds.start,
-      bounds.end,
-      monthBookings
-    );
+    const coversFullMonth = monthBookings.some((booking) => {
+      const range = bookingCalendarRange(booking, year);
+      if (!range) return false;
+      return (
+        ymdTime(range.start) <= ymdTime(bounds.start) &&
+        ymdTime(range.end) >= ymdTime(bounds.end)
+      );
+    });
     return coversFullMonth ? "booked" : "bookedPartial";
   }
 
@@ -364,10 +367,9 @@ function monthCellTooltip(availability, month) {
   const monthName = monthMeta?.label || `Month ${month}`;
   const year = availability.year;
   const status = monthStatus(availability, month);
-  const bounds = monthBounds(year, month);
   const windows = monthOpenWindows(availability, month);
   const monthBookings = (availability.bookings || []).filter((row) =>
-    rangesOverlap(row.start, row.end, bounds.start, bounds.end)
+    bookingTouchesMonth(row, year, month)
   );
 
   if (monthBookings.length) {
@@ -379,7 +381,7 @@ function monthCellTooltip(availability, month) {
       status === "bookedPartial" ? "Team locked (part of month)" : "Team locked";
     const seasonLabel = windows.length
       ? windows.map((w) => formatDateRangeLabel(w.openStart, w.openEnd, year)).join(" · ")
-      : "Outside saved season windows";
+      : "Outside open season (still locked)";
     return [`${monthName} ${year}: ${lockKind}`, `Season in month: ${seasonLabel}`, ...tripLines].join(
       "\n"
     );
@@ -401,10 +403,9 @@ function monthCellTooltip(availability, month) {
 
 function weekStatus(availability, month, weekKey) {
   const year = availability.year;
-  const bounds = weekBounds(year, month, weekKey);
 
   for (const booking of availability.bookings || []) {
-    if (rangesOverlap(booking.start, booking.end, bounds.start, bounds.end)) {
+    if (bookingTouchesWeek(booking, year, month, weekKey)) {
       return { status: "booked", label: booking.teamName || "Locked" };
     }
   }
@@ -412,6 +413,7 @@ function weekStatus(availability, month, weekKey) {
   if (!availability.hasSeason) {
     return { status: "outside", label: "" };
   }
+  const bounds = weekBounds(year, month, weekKey);
   const inSeason = (availability.availableRanges || []).some((range) =>
     rangesOverlap(range.start, range.end, bounds.start, bounds.end)
   );
@@ -474,36 +476,47 @@ function LegendSwatch({ status, label }) {
   );
 }
 
+function labelsMatch(a, b) {
+  const left = String(a || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+  const right = String(b || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+  if (!left || !right) return false;
+  if (left === right) return true;
+  const leftCanon = (
+    resolveCanonicalSiteLabelForTrip(left, []) || left
+  ).toLowerCase();
+  const rightCanon = (
+    resolveCanonicalSiteLabelForTrip(right, []) || right
+  ).toLowerCase();
+  if (leftCanon === rightCanon) return true;
+  if (leftCanon.startsWith(`${right} - `) || rightCanon.startsWith(`${left} - `)) return true;
+  if (left.includes(right) || right.includes(left)) return true;
+  return false;
+}
+
 function resolveAvailabilitySiteLabel(location, knownLabels = []) {
   const raw = String(location || "").trim();
   if (!raw) return "";
-  const locL = raw.toLowerCase();
 
   for (const label of knownLabels || []) {
-    if (String(label || "").trim().toLowerCase() === locL) return String(label).trim();
+    if (labelsMatch(raw, label)) return String(label).trim();
   }
 
   const resolved = resolveCanonicalSiteLabelForTrip(raw, []) || raw;
-  const lower = resolved.toLowerCase();
-
   for (const label of knownLabels || []) {
-    if (String(label || "").trim().toLowerCase() === lower) return String(label).trim();
+    if (labelsMatch(resolved, label)) return String(label).trim();
   }
 
+  const lower = resolved.toLowerCase();
   const exact = SITE_OPTIONS.find((opt) => opt.toLowerCase() === lower);
   if (exact) return exact;
 
-  const knownHit = (knownLabels || []).find((label) => {
-    const optLower = String(label || "").trim().toLowerCase();
-    if (!optLower) return false;
-    return lower.includes(optLower) || optLower.includes(lower);
-  });
-  if (knownHit) return String(knownHit).trim();
-
-  const partial = SITE_OPTIONS.find((opt) => {
-    const optLower = opt.toLowerCase();
-    return lower.includes(optLower) || optLower.includes(lower);
-  });
+  const partial = SITE_OPTIONS.find((opt) => labelsMatch(resolved, opt) || labelsMatch(raw, opt));
   return partial || resolved;
 }
 
@@ -511,6 +524,57 @@ function toBookingYmd(value) {
   const raw = String(value || "").trim();
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
   return match ? `${match[1]}-${match[2]}-${match[3]}` : "";
+}
+
+/** Map a trip date onto the availability calendar year (month/day kept). */
+function coerceBookingYmdToYear(ymd, year) {
+  const parsed = parseYmd(ymd);
+  if (!parsed || !Number.isFinite(Number(year))) return "";
+  const maxDay = daysInMonth(year, parsed.month);
+  const day = Math.min(parsed.day, maxDay);
+  return toYmd(year, parsed.month, day);
+}
+
+/** Trip window projected onto the season calendar for month/week painting. */
+function bookingCalendarRange(booking, year) {
+  const startRaw = toBookingYmd(booking?.start);
+  const endRaw = toBookingYmd(booking?.end) || startRaw;
+  if (!startRaw) return null;
+  let start = startRaw;
+  let end = endRaw;
+  const startY = Number(start.slice(0, 4));
+  const endY = Number(end.slice(0, 4));
+  // If the trip is outside the season year entirely, still show it on the same months.
+  if (startY !== year && endY !== year && !(startY <= year && year <= endY)) {
+    start = coerceBookingYmdToYear(startRaw, year);
+    end = coerceBookingYmdToYear(endRaw, year);
+  } else {
+    if (startY < year) start = `${year}-01-01`;
+    if (endY > year) end = `${year}-12-31`;
+    if (startY > year) start = coerceBookingYmdToYear(startRaw, year);
+    if (endY < year) end = coerceBookingYmdToYear(endRaw, year);
+  }
+  if (!start || !end) return null;
+  if (ymdTime(start) > ymdTime(end)) {
+    const tmp = start;
+    start = end;
+    end = tmp;
+  }
+  return { start, end };
+}
+
+function bookingTouchesMonth(booking, year, month) {
+  const range = bookingCalendarRange(booking, year);
+  if (!range) return false;
+  const bounds = monthBounds(year, month);
+  return rangesOverlap(range.start, range.end, bounds.start, bounds.end);
+}
+
+function bookingTouchesWeek(booking, year, month, weekKey) {
+  const range = bookingCalendarRange(booking, year);
+  if (!range) return false;
+  const bounds = weekBounds(year, month, weekKey);
+  return rangesOverlap(range.start, range.end, bounds.start, bounds.end);
 }
 
 function tripOverlapsYear(start, end, year) {
@@ -525,13 +589,36 @@ function tripOverlapsYear(start, end, year) {
 function bookingsForSite(tripBookingsBySite, siteLabel) {
   const label = String(siteLabel || "").trim();
   if (!label) return [];
-  const direct = tripBookingsBySite?.[label];
-  if (direct?.length) return direct;
-  const lower = label.toLowerCase();
+  const out = [];
+  const seen = new Set();
   for (const [key, rows] of Object.entries(tripBookingsBySite || {})) {
-    if (String(key).toLowerCase() === lower && rows?.length) return rows;
+    if (!labelsMatch(key, label)) continue;
+    for (const row of rows || []) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      out.push(row);
+    }
   }
-  return [];
+  return out;
+}
+
+function matchingLabelsForTripLocation(location, knownLabels = []) {
+  const matches = [];
+  const seen = new Set();
+  const push = (label) => {
+    const value = String(label || "").trim();
+    if (!value) return;
+    const key = value.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    matches.push(value);
+  };
+
+  push(resolveAvailabilitySiteLabel(location, knownLabels));
+  for (const label of knownLabels || []) {
+    if (labelsMatch(location, label)) push(label);
+  }
+  return matches;
 }
 
 function buildTripBookingsBySite(trips, year, knownLabels = []) {
@@ -543,18 +630,24 @@ function buildTripBookingsBySite(trips, year, knownLabels = []) {
     if (!start) continue;
     if (!tripOverlapsYear(start, end, year)) continue;
 
-    const siteLabel = resolveAvailabilitySiteLabel(trip.location || "", knownLabels);
-    if (!siteLabel) continue;
+    const labels = matchingLabelsForTripLocation(trip.location || "", knownLabels);
+    if (!labels.length) continue;
 
-    if (!bySite[siteLabel]) bySite[siteLabel] = [];
-    bySite[siteLabel].push({
+    const booking = {
       id: `trip-${trip.id}`,
       tripId: trip.id,
       teamName: String(trip.name || "").trim() || "Locked team",
       start,
       end,
       teamStatus: String(trip.teamStatus || "").trim(),
-    });
+    };
+
+    for (const siteLabel of labels) {
+      if (!bySite[siteLabel]) bySite[siteLabel] = [];
+      // Avoid duplicate trip rows when multiple labels match.
+      if (bySite[siteLabel].some((row) => row.id === booking.id)) continue;
+      bySite[siteLabel].push({ ...booking });
+    }
   }
 
   for (const siteLabel of Object.keys(bySite)) {
@@ -1275,14 +1368,20 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                           <td key={week.key}>
                             <div
                               className="sitesAvailabilityWeekCell"
-                              title={style.title}
+                              title={
+                                cell.status === "booked"
+                                  ? `${cell.label || "Locked"} — team locked`
+                                  : style.title
+                              }
                               style={{
                                 background: style.background,
                                 color: style.color,
                                 borderColor: style.border,
                               }}
                             >
-                              {cell.label || (cell.status === "open" ? "" : style.label)}
+                              {cell.status === "booked"
+                                ? cell.label || style.label
+                                : cell.label || (cell.status === "open" ? "" : style.label)}
                             </div>
                           </td>
                         );
