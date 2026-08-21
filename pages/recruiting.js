@@ -2937,13 +2937,6 @@ export default function RecruitingPage() {
   /** Ignore double-clicks on row controls when opening the edit modal. */
   function handleRecruitingTableRowDoubleClick(event, recordId) {
     if (event.target.closest("button, a, input, textarea, select, label")) return;
-    if (activeTab === "outreach") {
-      const record = records.find((item) => item.id === recordId);
-      if (!record) return;
-      const person = recruitingRosterRowsFromRecord(record)[0] || {};
-      openOutreachContactModal(record, person);
-      return;
-    }
     void openRecordDetails(recordId);
   }
 
@@ -3727,12 +3720,8 @@ export default function RecruitingPage() {
             <button
               type="button"
               className="recruitingOutreachRecentEditBtn"
-              title="Double-click or click to edit this contact note"
+              title="Click to edit this contact note"
               onClick={() => openOutreachContactModal(record, person, entry)}
-              onDoubleClick={(event) => {
-                event.stopPropagation();
-                openOutreachContactModal(record, person, entry);
-              }}
             >
               {formatOutreachActivityLine(entry)}
             </button>
@@ -3852,14 +3841,7 @@ export default function RecruitingPage() {
                         {renderDuplicateNotice(duplicateInfo, { compact: true })}
                       </div>
                     </td>
-                    <td
-                      style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project, verticalAlign: "top" }}
-                      onDoubleClick={(event) => {
-                        event.stopPropagation();
-                        openOutreachContactModal(record, person);
-                      }}
-                      title="Double-click to log or edit emailed / called notes"
-                    >
+                    <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project, verticalAlign: "top" }}>
                       <div className="recruitingOutreachProjectCell">
                         <div className="recruitingOutreachProjectSite">{siteLabel}</div>
                         <div className="recruitingOutreachProjectDates">{datesLabel}</div>
@@ -3960,15 +3942,7 @@ export default function RecruitingPage() {
                 </div>
               </div>
               {renderDuplicateNotice(duplicateInfo, { compact: true })}
-              <div
-                className="recruitingOutreachProjectCell"
-                style={{ marginTop: 10 }}
-                onDoubleClick={(event) => {
-                  event.stopPropagation();
-                  openOutreachContactModal(record, person);
-                }}
-                title="Double-click to log or edit emailed / called notes"
-              >
+              <div className="recruitingOutreachProjectCell" style={{ marginTop: 10 }}>
                 <div className="recruitingOutreachProjectSite">{siteLabel}</div>
                 <div className="recruitingOutreachProjectDates">{datesLabel}</div>
               </div>
