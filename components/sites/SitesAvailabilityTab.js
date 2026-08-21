@@ -69,9 +69,9 @@ const CELL = {
   bookedPartial: {
     label: "Locked",
     title: "Team locked (part of month)",
-    background: "#f8d7da",
-    color: "#9b4449",
-    border: "#f1b0b7",
+    background: "#f4b4b4",
+    color: "#7f1d1d",
+    border: "#e57373",
   },
 };
 
@@ -239,7 +239,7 @@ function mergeAvailability(siteLabel, year, editsMap, tripBookingsBySite) {
     : base;
   return {
     ...merged,
-    bookings: tripBookingsBySite?.[siteLabel] || [],
+    bookings: bookingsForSite(tripBookingsBySite, siteLabel),
   };
 }
 
@@ -329,19 +329,30 @@ function rangesCoverSpan(ranges, spanStart, spanEnd) {
 }
 
 function monthStatus(availability, month) {
-  const windows = monthOpenWindows(availability, month);
-  if (!windows.length) return "outside";
-
-  const { bounds } = windows[0];
-  const overlappingBookings = (availability.bookings || []).filter((row) =>
-    windows.some((w) => rangesOverlap(row.start, row.end, w.openStart, w.openEnd))
+  const year = availability.year;
+  const bounds = monthBounds(year, month);
+  const monthBookings = (availability.bookings || []).filter((row) =>
+    rangesOverlap(row.start, row.end, bounds.start, bounds.end)
   );
-  if (overlappingBookings.length) {
-    const fullyBooked = windows.every((w) =>
-      bookingsCoverFullOpenWindow(w.openStart, w.openEnd, overlappingBookings)
+  const windows = monthOpenWindows(availability, month);
+
+  // Hub trips always win: show Locked even if dates fall outside the open season.
+  if (monthBookings.length) {
+    if (windows.length) {
+      const fullyBooked = windows.every((w) =>
+        bookingsCoverFullOpenWindow(w.openStart, w.openEnd, monthBookings)
+      );
+      return fullyBooked ? "booked" : "bookedPartial";
+    }
+    const coversFullMonth = bookingsCoverFullOpenWindow(
+      bounds.start,
+      bounds.end,
+      monthBookings
     );
-    return fullyBooked ? "booked" : "bookedPartial";
+    return coversFullMonth ? "booked" : "bookedPartial";
   }
+
+  if (!windows.length) return "outside";
 
   return rangesCoverSpan(availability.availableRanges, bounds.start, bounds.end)
     ? "open"
@@ -353,7 +364,26 @@ function monthCellTooltip(availability, month) {
   const monthName = monthMeta?.label || `Month ${month}`;
   const year = availability.year;
   const status = monthStatus(availability, month);
+  const bounds = monthBounds(year, month);
   const windows = monthOpenWindows(availability, month);
+  const monthBookings = (availability.bookings || []).filter((row) =>
+    rangesOverlap(row.start, row.end, bounds.start, bounds.end)
+  );
+
+  if (monthBookings.length) {
+    const tripLines = monthBookings.map((booking) => {
+      const range = formatDateRangeLabel(booking.start, booking.end, year);
+      return `${booking.teamName || "Locked team"} (${range})`;
+    });
+    const lockKind =
+      status === "bookedPartial" ? "Team locked (part of month)" : "Team locked";
+    const seasonLabel = windows.length
+      ? windows.map((w) => formatDateRangeLabel(w.openStart, w.openEnd, year)).join(" · ")
+      : "Outside saved season windows";
+    return [`${monthName} ${year}: ${lockKind}`, `Season in month: ${seasonLabel}`, ...tripLines].join(
+      "\n"
+    );
+  }
 
   if (status === "outside" || !windows.length) {
     return `${monthName} ${year}: NA`;
@@ -362,21 +392,6 @@ function monthCellTooltip(availability, month) {
   const seasonLabel = windows
     .map((w) => formatDateRangeLabel(w.openStart, w.openEnd, year))
     .join(" · ");
-  const overlappingBookings = (availability.bookings || []).filter((row) =>
-    windows.some((w) => rangesOverlap(row.start, row.end, w.openStart, w.openEnd))
-  );
-
-  if (overlappingBookings.length) {
-    const tripLines = overlappingBookings.map((booking) => {
-      const range = formatDateRangeLabel(booking.start, booking.end, year);
-      return `${booking.teamName || "Locked team"} (${range})`;
-    });
-    const lockKind =
-      status === "bookedPartial" ? "Team locked (part of month)" : "Team locked";
-    return [`${monthName} ${year}: ${lockKind}`, `Season in month: ${seasonLabel}`, ...tripLines].join(
-      "\n"
-    );
-  }
 
   if (status === "partial") {
     return `${monthName} ${year}: Partially available\n${seasonLabel}`;
@@ -385,22 +400,23 @@ function monthCellTooltip(availability, month) {
 }
 
 function weekStatus(availability, month, weekKey) {
-  if (!availability.hasSeason) {
-    return { status: "outside", label: "" };
-  }
   const year = availability.year;
   const bounds = weekBounds(year, month, weekKey);
-  const inSeason = (availability.availableRanges || []).some((range) =>
-    rangesOverlap(range.start, range.end, bounds.start, bounds.end)
-  );
-  if (!inSeason) {
-    return { status: "outside", label: "" };
-  }
 
   for (const booking of availability.bookings || []) {
     if (rangesOverlap(booking.start, booking.end, bounds.start, bounds.end)) {
       return { status: "booked", label: booking.teamName || "Locked" };
     }
+  }
+
+  if (!availability.hasSeason) {
+    return { status: "outside", label: "" };
+  }
+  const inSeason = (availability.availableRanges || []).some((range) =>
+    rangesOverlap(range.start, range.end, bounds.start, bounds.end)
+  );
+  if (!inSeason) {
+    return { status: "outside", label: "" };
   }
 
   return { status: "open", label: "" };
@@ -458,19 +474,43 @@ function LegendSwatch({ status, label }) {
   );
 }
 
-function resolveAvailabilitySiteLabel(location) {
+function resolveAvailabilitySiteLabel(location, knownLabels = []) {
   const raw = String(location || "").trim();
   if (!raw) return "";
-  const resolved =
-    resolveCanonicalSiteLabelForTrip(raw, []) || raw;
+  const locL = raw.toLowerCase();
+
+  for (const label of knownLabels || []) {
+    if (String(label || "").trim().toLowerCase() === locL) return String(label).trim();
+  }
+
+  const resolved = resolveCanonicalSiteLabelForTrip(raw, []) || raw;
   const lower = resolved.toLowerCase();
+
+  for (const label of knownLabels || []) {
+    if (String(label || "").trim().toLowerCase() === lower) return String(label).trim();
+  }
+
   const exact = SITE_OPTIONS.find((opt) => opt.toLowerCase() === lower);
   if (exact) return exact;
+
+  const knownHit = (knownLabels || []).find((label) => {
+    const optLower = String(label || "").trim().toLowerCase();
+    if (!optLower) return false;
+    return lower.includes(optLower) || optLower.includes(lower);
+  });
+  if (knownHit) return String(knownHit).trim();
+
   const partial = SITE_OPTIONS.find((opt) => {
     const optLower = opt.toLowerCase();
     return lower.includes(optLower) || optLower.includes(lower);
   });
   return partial || resolved;
+}
+
+function toBookingYmd(value) {
+  const raw = String(value || "").trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : "";
 }
 
 function tripOverlapsYear(start, end, year) {
@@ -482,16 +522,28 @@ function tripOverlapsYear(start, end, year) {
   return y0 <= year && year <= y1;
 }
 
-function buildTripBookingsBySite(trips, year) {
+function bookingsForSite(tripBookingsBySite, siteLabel) {
+  const label = String(siteLabel || "").trim();
+  if (!label) return [];
+  const direct = tripBookingsBySite?.[label];
+  if (direct?.length) return direct;
+  const lower = label.toLowerCase();
+  for (const [key, rows] of Object.entries(tripBookingsBySite || {})) {
+    if (String(key).toLowerCase() === lower && rows?.length) return rows;
+  }
+  return [];
+}
+
+function buildTripBookingsBySite(trips, year, knownLabels = []) {
   const bySite = {};
   for (const trip of trips || []) {
     if (String(trip.status || "").toLowerCase() === "archived") continue;
-    const start = String(trip.startDate || "").trim();
-    const end = String(trip.endDate || "").trim() || start;
+    const start = toBookingYmd(trip.startDate);
+    const end = toBookingYmd(trip.endDate) || start;
     if (!start) continue;
     if (!tripOverlapsYear(start, end, year)) continue;
 
-    const siteLabel = resolveAvailabilitySiteLabel(trip.location || "");
+    const siteLabel = resolveAvailabilitySiteLabel(trip.location || "", knownLabels);
     if (!siteLabel) continue;
 
     if (!bySite[siteLabel]) bySite[siteLabel] = [];
@@ -586,7 +638,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
         ]);
         if (cancelled) return;
         setEditsMap(map || {});
-        setTripBookingsBySite(buildTripBookingsBySite(trips, year));
+        setTripBookingsBySite(buildTripBookingsBySite(trips, year, siteLabels));
         setVisibleSites(visible);
         setDraftVisibleSites(new Set(visible));
       } catch (e) {
@@ -612,7 +664,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
       try {
         const trips = await listTripsForCurrentUser();
         if (cancelled) return;
-        setTripBookingsBySite(buildTripBookingsBySite(trips, year));
+        setTripBookingsBySite(buildTripBookingsBySite(trips, year, siteLabels));
       } catch {
         /* keep last known bookings */
       }
@@ -633,7 +685,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
       window.removeEventListener(TRIPS_UPDATED_EVENT, onTripsUpdated);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [year]);
+  }, [year, siteLabels]);
 
   const filteredSiteLabels = useMemo(() => {
     const needle = String(siteFilter || "").trim().toLowerCase();
