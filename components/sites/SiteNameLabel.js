@@ -7,7 +7,7 @@ export default function SiteNameLabel({ siteLabel, className = "" }) {
   return (
     <span className={className || undefined}>
       {isPartner ? (
-        <span className="sitesPartnerStar" title="Partner site" aria-label="Partner site">
+        <span className="sitesPartnerStar" title="Partner Site" aria-label="Partner Site">
           ★{" "}
         </span>
       ) : null}

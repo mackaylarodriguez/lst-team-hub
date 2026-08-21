@@ -259,7 +259,7 @@ async function saveAvailability(siteLabel, year, values) {
     year,
     available_start: values.availableStart || null,
     available_end: values.availableEnd || null,
-    site_type: values.siteType || "Partner managed",
+    site_type: values.siteType || "Partner Site",
     team_notes: values.teamNotes || [],
     updated_at: new Date().toISOString(),
   };
