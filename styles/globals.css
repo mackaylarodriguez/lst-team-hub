@@ -2641,6 +2641,27 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   color:var(--text);
   word-break:break-word;
 }
+.recruitingOutreachRecentEditBtn{
+  appearance:none;
+  background:none;
+  border:0;
+  padding:0;
+  margin:0;
+  width:100%;
+  text-align:left;
+  font:inherit;
+  color:inherit;
+  cursor:pointer;
+  border-radius:6px;
+}
+.recruitingOutreachRecentEditBtn:hover{
+  background:rgba(50,84,163,.08);
+}
+.recruitingOutreachContactHintBtn{
+  font-size:11px;
+  padding:4px 8px;
+  font-weight:700;
+}
 .recruitingOutreachRecentDate{
   color:var(--muted);
 }

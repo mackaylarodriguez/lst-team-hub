@@ -19,6 +19,7 @@ import {
   listRecruitingContactActivityByIds,
   listRecruitingYears,
   logRecruitingCycleContactAction,
+  updateRecruitingContactActivityLog,
   revertRecruitingLockedTeam,
   demoteRecruitingRecordToOutreach,
   moveRecruitingRecordToYear,
@@ -1580,11 +1581,29 @@ function formatCompactDateTime(value) {
   });
 }
 
+function formatOutreachStaffLabel(staffMember) {
+  const raw = String(staffMember || "").trim();
+  if (!raw) return "";
+  const lower = raw.toLowerCase();
+  if (lower.includes("mackayla")) return "Mackayla";
+  if (lower.includes("leslee")) return "Leslee";
+  // Prefer first name / local-part when a full name or email was stored.
+  if (raw.includes("@")) {
+    const local = raw.split("@")[0] || "";
+    const token = local.split(/[._-]/)[0] || local;
+    if (!token) return raw;
+    return token.charAt(0).toUpperCase() + token.slice(1);
+  }
+  const first = raw.split(/\s+/)[0];
+  return first || raw;
+}
+
 function formatOutreachActivityLine(entry) {
   const method = formatOutreachContactMethod(entry?.actionType);
+  const who = formatOutreachStaffLabel(entry?.staffMember);
   const dateLabel = entry?.actionDate ? formatCompactDateTime(entry.actionDate) : "";
   const notes = String(entry?.summary || "").trim();
-  return [method, dateLabel, notes].filter(Boolean).join(" · ");
+  return [method, who, dateLabel, notes].filter(Boolean).join(" · ");
 }
 
 function formatRecruitingUpdateMeta(record) {
@@ -1921,6 +1940,7 @@ export default function RecruitingPage() {
   const [outreachContactModalOpen, setOutreachContactModalOpen] = useState(false);
   const [outreachContactDraft, setOutreachContactDraft] = useState({
     recordId: "",
+    activityId: "",
     personLabel: "",
     method: "email",
     date: "",
@@ -2917,6 +2937,13 @@ export default function RecruitingPage() {
   /** Ignore double-clicks on row controls when opening the edit modal. */
   function handleRecruitingTableRowDoubleClick(event, recordId) {
     if (event.target.closest("button, a, input, textarea, select, label")) return;
+    if (activeTab === "outreach") {
+      const record = records.find((item) => item.id === recordId);
+      if (!record) return;
+      const person = recruitingRosterRowsFromRecord(record)[0] || {};
+      openOutreachContactModal(record, person);
+      return;
+    }
     void openRecordDetails(recordId);
   }
 
@@ -3550,14 +3577,25 @@ export default function RecruitingPage() {
     }
   }
 
-  function openOutreachContactModal(record, person) {
+  function openOutreachContactModal(record, person, activity = null) {
     if (!record?.id) return;
+    const activityId = String(activity?.id || "").trim();
+    const activityDate = activity?.actionDate
+      ? String(activity.actionDate).slice(0, 10)
+      : "";
     setOutreachContactDraft({
       recordId: record.id,
+      activityId,
       personLabel: formatOutreachPersonName(person),
-      method: normalizeLastContactMethodValue(record.lastContactMethod) || "email",
-      date: lastContactDateInputValue(record) || new Date().toISOString().slice(0, 10),
-      notes: "",
+      method:
+        normalizeLastContactMethodValue(activity?.actionType) ||
+        normalizeLastContactMethodValue(record.lastContactMethod) ||
+        "email",
+      date:
+        activityDate ||
+        lastContactDateInputValue(record) ||
+        new Date().toISOString().slice(0, 10),
+      notes: activityId ? String(activity?.summary || "").trim() : "",
     });
     setOutreachContactModalOpen(true);
   }
@@ -3566,6 +3604,7 @@ export default function RecruitingPage() {
     setOutreachContactModalOpen(false);
     setOutreachContactDraft({
       recordId: "",
+      activityId: "",
       personLabel: "",
       method: "email",
       date: "",
@@ -3576,7 +3615,8 @@ export default function RecruitingPage() {
   async function handleSaveOutreachContactModal() {
     const record = records.find((item) => item.id === outreachContactDraft.recordId);
     if (!record) return;
-    if (!normalizeLastContactMethodValue(outreachContactDraft.method)) {
+    const normalizedMethod = normalizeLastContactMethodValue(outreachContactDraft.method);
+    if (!normalizedMethod) {
       setError("Choose how you contacted them.");
       return;
     }
@@ -3584,6 +3624,43 @@ export default function RecruitingPage() {
       setError("Contact date is required.");
       return;
     }
+
+    const activityId = String(outreachContactDraft.activityId || "").trim();
+    if (activityId) {
+      try {
+        setLoggingOutreachRecordId(record.id);
+        await updateRecruitingContactActivityLog({
+          activityId,
+          actionType: normalizedMethod,
+          actionDate: parseLastContactActionDate(outreachContactDraft.date),
+          summary: String(outreachContactDraft.notes || "").trim(),
+          staffMember: session?.name || session?.email || "Staff",
+        });
+        // Keep the cycle row's "last contact" in sync when editing the newest activity.
+        const recent = getRecentContactActivities(record.id, contactActivityByRecordId, 1)[0];
+        if (!recent || recent.id === activityId) {
+          await saveRecruitingCycleContact(
+            buildRecruitingRecordPayload(record, {
+              lastContactedAt: parseLastContactActionDate(outreachContactDraft.date),
+              lastContactMethod: normalizedMethod,
+            })
+          );
+        }
+        setError("");
+        setPageStatus("Contact updated.");
+        showToast("Contact notes updated.", "success");
+        await refreshCurrentYear();
+        closeOutreachContactModal();
+      } catch (updateError) {
+        console.error("Unable to update contact activity", updateError);
+        setError(updateError.message || "Unable to update contact.");
+        showToast(updateError.message || "Unable to update contact.", "error");
+      } finally {
+        setLoggingOutreachRecordId("");
+      }
+      return;
+    }
+
     const saved = await handleSaveLastContact(
       record,
       outreachContactDraft.method,
@@ -3628,15 +3705,37 @@ export default function RecruitingPage() {
     setAddContactModalOpen(true);
   }
 
-  function renderOutreachRecentContacts(recordId) {
+  function renderOutreachRecentContacts(recordId, record, person) {
     const recentContacts = getRecentContactActivities(recordId, contactActivityByRecordId, 3);
-    if (!recentContacts.length) return null;
+    if (!recentContacts.length) {
+      return (
+        <button
+          type="button"
+          className="btn recruitingOutreachContactHintBtn"
+          onClick={() => openOutreachContactModal(record, person)}
+          title="Log emailed / called / texted notes"
+        >
+          Add contact notes
+        </button>
+      );
+    }
 
     return (
       <ul className="recruitingOutreachRecentList" aria-label="Recent contacts">
         {recentContacts.map((entry) => (
           <li key={entry.id} className="recruitingOutreachRecentItem">
-            {formatOutreachActivityLine(entry)}
+            <button
+              type="button"
+              className="recruitingOutreachRecentEditBtn"
+              title="Double-click or click to edit this contact note"
+              onClick={() => openOutreachContactModal(record, person, entry)}
+              onDoubleClick={(event) => {
+                event.stopPropagation();
+                openOutreachContactModal(record, person, entry);
+              }}
+            >
+              {formatOutreachActivityLine(entry)}
+            </button>
           </li>
         ))}
       </ul>
@@ -3753,7 +3852,14 @@ export default function RecruitingPage() {
                         {renderDuplicateNotice(duplicateInfo, { compact: true })}
                       </div>
                     </td>
-                    <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project, verticalAlign: "top" }}>
+                    <td
+                      style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project, verticalAlign: "top" }}
+                      onDoubleClick={(event) => {
+                        event.stopPropagation();
+                        openOutreachContactModal(record, person);
+                      }}
+                      title="Double-click to log or edit emailed / called notes"
+                    >
                       <div className="recruitingOutreachProjectCell">
                         <div className="recruitingOutreachProjectSite">{siteLabel}</div>
                         <div className="recruitingOutreachProjectDates">{datesLabel}</div>
@@ -3789,7 +3895,7 @@ export default function RecruitingPage() {
                       style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.lastContact, verticalAlign: "top" }}
                       onClick={(event) => event.stopPropagation()}
                     >
-                      {renderOutreachRecentContacts(record.id)}
+                      {renderOutreachRecentContacts(record.id, record, person)}
                     </td>
                     <td
                       style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.actions, verticalAlign: "top" }}
@@ -3854,7 +3960,15 @@ export default function RecruitingPage() {
                 </div>
               </div>
               {renderDuplicateNotice(duplicateInfo, { compact: true })}
-              <div className="recruitingOutreachProjectCell" style={{ marginTop: 10 }}>
+              <div
+                className="recruitingOutreachProjectCell"
+                style={{ marginTop: 10 }}
+                onDoubleClick={(event) => {
+                  event.stopPropagation();
+                  openOutreachContactModal(record, person);
+                }}
+                title="Double-click to log or edit emailed / called notes"
+              >
                 <div className="recruitingOutreachProjectSite">{siteLabel}</div>
                 <div className="recruitingOutreachProjectDates">{datesLabel}</div>
               </div>
@@ -3878,7 +3992,7 @@ export default function RecruitingPage() {
               </div>
               <div className="small" style={{ marginTop: 10, fontWeight: 700 }}>Last contact</div>
               <div style={{ marginTop: 4 }} onClick={(event) => event.stopPropagation()}>
-                {renderOutreachRecentContacts(record.id)}
+                {renderOutreachRecentContacts(record.id, record, person)}
               </div>
               <div className="recruitingMobileActions recruitingOutreachActionsCell" onClick={(event) => event.stopPropagation()}>
                 {renderOutreachActionButtons(record, person, isLogging)}
@@ -5458,7 +5572,9 @@ export default function RecruitingPage() {
             style={{ width: "min(420px, 100%)" }}
           >
             <div className="row" style={{ marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>Log contact</div>
+              <div style={{ fontWeight: 900 }}>
+                {outreachContactDraft.activityId ? "Edit contact notes" : "Log contact"}
+              </div>
               <div className="spacer" />
               <button className="btn" type="button" onClick={closeOutreachContactModal}>
                 Close
@@ -5527,7 +5643,11 @@ export default function RecruitingPage() {
                 disabled={loggingOutreachRecordId === outreachContactDraft.recordId}
                 onClick={() => void handleSaveOutreachContactModal()}
               >
-                {loggingOutreachRecordId === outreachContactDraft.recordId ? "Saving..." : "Save contact"}
+                {loggingOutreachRecordId === outreachContactDraft.recordId
+                  ? "Saving..."
+                  : outreachContactDraft.activityId
+                    ? "Save changes"
+                    : "Save contact"}
               </button>
               <button className="btn" type="button" onClick={closeOutreachContactModal}>
                 Cancel
