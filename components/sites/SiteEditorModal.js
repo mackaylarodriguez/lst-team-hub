@@ -90,6 +90,7 @@ function blankDraft(siteLabel, note, availability, siteNotes) {
     availableRanges: ranges.length ? ranges.map((r) => ({ ...r })) : [{ start: "", end: "" }],
     preferredTeamSize: availability?.preferredTeamSize || "",
     otherBackgrounds: availability?.otherBackgrounds || "",
+    holidays: availability?.holidays || "",
     teamNotesText: (availability?.teamNotes || []).join("\n"),
     siteType: normalizeSiteTypeOption(availability?.siteType),
   };
@@ -331,6 +332,7 @@ export default function SiteEditorModal({
         churchName: saveLabel,
         preferredTeamSize: String(draft.preferredTeamSize || "").trim(),
         otherBackgrounds: String(draft.otherBackgrounds || "").trim(),
+        holidays: String(draft.holidays || "").trim(),
         teamNotes: String(draft.teamNotesText || "")
           .split("\n")
           .map((line) => line.trim())
@@ -585,6 +587,17 @@ export default function SiteEditorModal({
                     onChange={(e) => updateDraft({ otherBackgrounds: e.target.value })}
                     disabled={saving}
                     placeholder="Yes / No / notes…"
+                  />
+                </label>
+                <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
+                  <span>Holidays to be aware of</span>
+                  <textarea
+                    className="input"
+                    rows={3}
+                    value={draft.holidays}
+                    onChange={(e) => updateDraft({ holidays: e.target.value })}
+                    disabled={saving}
+                    placeholder="National holidays, school breaks, days off…"
                   />
                 </label>
                 <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>

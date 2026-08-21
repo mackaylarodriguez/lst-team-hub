@@ -31,6 +31,7 @@ create table if not exists public.site_availability (
   church_name text,
   other_backgrounds text,
   preferred_team_size text,
+  holidays text,
   team_notes jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -45,6 +46,9 @@ alter table public.site_availability
 
 alter table public.site_availability
   add column if not exists preferred_team_size text;
+
+alter table public.site_availability
+  add column if not exists holidays text;
 
 alter table public.site_availability
   add column if not exists available_ranges jsonb not null default '[]'::jsonb;

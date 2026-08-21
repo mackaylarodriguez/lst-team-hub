@@ -200,6 +200,7 @@ function normalizeAvailability(row) {
     teamNotes,
     otherBackgrounds: String(row?.otherBackgrounds || "").trim(),
     preferredTeamSize: String(row?.preferredTeamSize || "").trim(),
+    holidays: String(row?.holidays || "").trim(),
     siteType: String(row?.siteType || "Partner site").trim() || "Partner site",
     churchName: row?.churchName || row?.siteLabel || "",
     isEdited: Boolean(row?.isEdited),
@@ -217,6 +218,7 @@ function buildEmptyAvailabilityForSite(siteLabel, year) {
     teamNotes: [],
     otherBackgrounds: "",
     preferredTeamSize: "",
+    holidays: "",
     siteType: "Partner site",
     churchName: siteLabel,
     isEdited: false,
@@ -522,6 +524,7 @@ function blankEditDraft(availability, year) {
     availableRanges: ranges.length ? ranges.map((r) => ({ ...r })) : [{ start: "", end: "" }],
     preferredTeamSize: String(availability.preferredTeamSize || "").trim(),
     otherBackgrounds: String(availability.otherBackgrounds || "").trim(),
+    holidays: String(availability.holidays || "").trim(),
     teamNotesText: (availability.teamNotes || []).join("\n"),
   };
 }
@@ -784,6 +787,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
       churchName: String(selected.churchName || selected.siteLabel || "").trim() || selected.siteLabel,
       preferredTeamSize: String(draft.preferredTeamSize || "").trim(),
       otherBackgrounds: String(draft.otherBackgrounds || "").trim(),
+      holidays: String(draft.holidays || "").trim(),
       teamNotes: String(draft.teamNotesText || "")
         .split("\n")
         .map((line) => line.trim())
@@ -1151,6 +1155,16 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                   />
                 </label>
                 <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
+                  <span>Holidays to be aware of</span>
+                  <textarea
+                    className="input"
+                    rows={3}
+                    value={draft.holidays}
+                    onChange={(e) => updateDraft({ holidays: e.target.value })}
+                    placeholder="National holidays, school breaks, days off…"
+                  />
+                </label>
+                <label className="sitesAvailabilityEditField" style={{ marginTop: 12 }}>
                   <span>Notes (one per line)</span>
                   <textarea
                     className="input"
@@ -1281,6 +1295,16 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                 <div className="small">
                   {selected.otherBackgrounds ? (
                     selected.otherBackgrounds
+                  ) : (
+                    <span style={{ color: "var(--muted)" }}>Not set</span>
+                  )}
+                </div>
+              </div>
+              <div className="sitesAvailabilitySideBlock">
+                <div className="sitesAvailabilitySideTitle">Holidays to be aware of</div>
+                <div className="small" style={{ whiteSpace: "pre-wrap" }}>
+                  {selected.holidays ? (
+                    selected.holidays
                   ) : (
                     <span style={{ color: "var(--muted)" }}>Not set</span>
                   )}
