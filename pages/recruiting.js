@@ -3700,18 +3700,7 @@ export default function RecruitingPage() {
 
   function renderOutreachRecentContacts(recordId, record, person) {
     const recentContacts = getRecentContactActivities(recordId, contactActivityByRecordId, 3);
-    if (!recentContacts.length) {
-      return (
-        <button
-          type="button"
-          className="btn recruitingOutreachContactHintBtn"
-          onClick={() => openOutreachContactModal(record, person)}
-          title="Log emailed / called / texted notes"
-        >
-          Add contact notes
-        </button>
-      );
-    }
+    if (!recentContacts.length) return null;
 
     return (
       <ul className="recruitingOutreachRecentList" aria-label="Recent contacts">

@@ -2657,11 +2657,6 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .recruitingOutreachRecentEditBtn:hover{
   background:rgba(50,84,163,.08);
 }
-.recruitingOutreachContactHintBtn{
-  font-size:11px;
-  padding:4px 8px;
-  font-weight:700;
-}
 .recruitingOutreachRecentDate{
   color:var(--muted);
 }
