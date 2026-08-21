@@ -34,7 +34,7 @@ import { showToast } from "@/components/Toast";
 import SitesAvailabilityTab from "@/components/sites/SitesAvailabilityTab";
 import SiteEditorModal from "@/components/sites/SiteEditorModal";
 import SiteNameLabel from "@/components/sites/SiteNameLabel";
-import { migrateLegacySiteAvailabilityFromNotes } from "@/lib/siteAvailability";
+import { migrateLegacySiteAvailabilityFromNotes, listSiteAvailabilityEdits } from "@/lib/siteAvailability";
 
 /** Fixed column widths (px) for Sites workbook grid — keeps headers aligned while scrolling. */
 const WB_TABLE = {
@@ -82,8 +82,30 @@ export default function SitesPage() {
   const [siteEditorMode, setSiteEditorMode] = useState(""); // "" | "edit" | "create"
   const [editingSiteLabel, setEditingSiteLabel] = useState("");
   const [availabilityReloadKey, setAvailabilityReloadKey] = useState(0);
+  const [siteTypeByLabel, setSiteTypeByLabel] = useState({});
 
   const siteLabelsOrdered = useMemo(() => buildSiteLabelsOrdered(siteNotes), [siteNotes]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSiteTypes() {
+      try {
+        const map = await listSiteAvailabilityEdits(2027);
+        if (cancelled) return;
+        const next = {};
+        for (const [label, row] of Object.entries(map || {})) {
+          if (row?.siteType) next[label] = row.siteType;
+        }
+        setSiteTypeByLabel(next);
+      } catch {
+        if (!cancelled) setSiteTypeByLabel({});
+      }
+    }
+    void loadSiteTypes();
+    return () => {
+      cancelled = true;
+    };
+  }, [availabilityReloadKey]);
 
   useEffect(() => {
     const t = String(router.query.tab || "").toLowerCase();
@@ -549,7 +571,10 @@ export default function SitesPage() {
                       className="sitesSiteNameButton"
                       onClick={() => openSiteEditor(row.siteLabel)}
                     >
-                      <SiteNameLabel siteLabel={row.siteLabel} />
+                      <SiteNameLabel
+                        siteLabel={row.siteLabel}
+                        siteType={siteTypeByLabel[row.siteLabel]}
+                      />
                     </button>
                   </td>
                   {cols.map((col) => {
@@ -738,7 +763,10 @@ export default function SitesPage() {
                         onClick={() => openSiteEditor(row.siteLabel)}
                         title={`${row.siteLabel} — click to edit site`}
                       >
-                        <SiteNameLabel siteLabel={row.siteLabel} />
+                        <SiteNameLabel
+                        siteLabel={row.siteLabel}
+                        siteType={siteTypeByLabel[row.siteLabel]}
+                      />
                       </button>
                     </td>
                     <td className="sitesLogisticsHostCell">

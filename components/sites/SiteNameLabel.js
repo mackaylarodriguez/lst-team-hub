@@ -1,12 +1,12 @@
-import { isBuiltInPartnerSiteLabel } from "@/lib/siteOptions";
+import { isPartnerSiteType } from "@/lib/siteOptions";
 
-/** Renders a site label with a star for built-in partner sites. */
-export default function SiteNameLabel({ siteLabel, className = "" }) {
+/** Renders a site label with a star when site type is Partner Site. */
+export default function SiteNameLabel({ siteLabel, siteType = "", className = "" }) {
   const label = String(siteLabel || "").trim();
-  const isPartner = isBuiltInPartnerSiteLabel(label);
+  const showStar = isPartnerSiteType(siteType);
   return (
     <span className={className || undefined}>
-      {isPartner ? (
+      {showStar ? (
         <span className="sitesPartnerStar" title="Partner Site" aria-label="Partner Site">
           ★{" "}
         </span>

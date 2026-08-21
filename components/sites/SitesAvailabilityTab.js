@@ -894,7 +894,10 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                     onChange={() => toggleSite(label)}
                   />
                   <span>
-                    <SiteNameLabel siteLabel={label} />
+                    <SiteNameLabel
+                      siteLabel={label}
+                      siteType={editsMap?.[label]?.siteType}
+                    />
                   </span>
                 </label>
               );
@@ -1000,7 +1003,10 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                           }}
                           title={`${row.siteLabel} — click to edit site`}
                         >
-                          <SiteNameLabel siteLabel={row.siteLabel} />
+                          <SiteNameLabel
+                            siteLabel={row.siteLabel}
+                            siteType={row.siteType}
+                          />
                         </button>
                         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)" }}>
                           {row.availableLabel}
@@ -1068,7 +1074,10 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                   }}
                   title="Edit all site details"
                 >
-                  <SiteNameLabel siteLabel={selected.siteLabel} />
+                  <SiteNameLabel
+                    siteLabel={selected.siteLabel}
+                    siteType={selected.siteType}
+                  />
                 </button>
                 <div className="small" style={{ color: "var(--muted)", fontWeight: 700 }}>
                   {selected.siteType}
