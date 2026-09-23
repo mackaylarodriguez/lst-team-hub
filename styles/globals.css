@@ -2721,6 +2721,12 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-size:12px;
   padding:6px 10px;
 }
+.recruitingExportBar{
+  display:flex;
+  justify-content:flex-start;
+  align-items:center;
+  margin-top:12px;
+}
 .recruitingTemplateButton{
   white-space:nowrap;
   flex:0 0 auto;

@@ -371,6 +371,51 @@ async function parseRecruitingImportRows(file) {
   }));
 }
 
+function recruitingExportPeopleFromRecords(records) {
+  const people = [];
+  for (const record of records || []) {
+    const members = recruitingRosterRowsFromRecord(record);
+    for (const member of members) {
+      const firstName = String(member.firstName || "").trim();
+      const lastName = String(member.lastName || "").trim();
+      const email = String(member.email || "").trim();
+      const phone = String(member.phone || "").trim();
+      if (!firstName && !lastName && !email && !phone) continue;
+      people.push({ firstName, lastName, email, phone });
+    }
+  }
+  return people;
+}
+
+function downloadRecruitingContactsWorkbook(people, { year } = {}) {
+  const headers = ["First Name", "Last Name", "Email", "Phone Number"];
+  const rows = (people || []).map((person) => [
+    person.firstName || "",
+    person.lastName || "",
+    person.email || "",
+    person.phone || "",
+  ]);
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  worksheet["!cols"] = [{ wch: 18 }, { wch: 18 }, { wch: 32 }, { wch: 18 }];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Recruiting list");
+  const output = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([output], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  const yearPart = Number.isFinite(Number(year)) ? `-${year}` : "";
+  const dateStr = new Date().toISOString().slice(0, 10);
+  link.download = `recruiting-list${yearPart}-${dateStr}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  return link.download;
+}
+
 function sortRecruitingBoardLabels(labels) {
   return [...labels].sort(
     (a, b) => RECRUITING_BOARD_SORT.indexOf(a) - RECRUITING_BOARD_SORT.indexOf(b)
@@ -2583,6 +2628,16 @@ export default function RecruitingPage() {
         {hasSelection ? (
           <div className="row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {extraActions}
+            {activeTab === "outreach" ? (
+              <button
+                className="btn btnPrimary"
+                type="button"
+                disabled={isBulkDeleting}
+                onClick={handleExportSelectedRecruitingContacts}
+              >
+                Export
+              </button>
+            ) : null}
             {bulkYearOptions.length ? (
               <>
                 <select
@@ -2657,6 +2712,37 @@ export default function RecruitingPage() {
         ) : null}
       </div>
     );
+  }
+
+  function handleExportSelectedRecruitingContacts() {
+    const selectedIdSet = new Set(selectedBulkRecordIds);
+    if (!selectedIdSet.size) return;
+
+    const orderedIds = (activeTab === "outreach" ? visibleOutreachRecordIds : visibleBulkRecordIds).filter(
+      (id) => selectedIdSet.has(id)
+    );
+    const leftoverIds = selectedBulkRecordIds.filter((id) => !orderedIds.includes(id));
+    const recordById = new Map(records.map((record) => [record.id, record]));
+    const orderedRecords = [...orderedIds, ...leftoverIds]
+      .map((id) => recordById.get(id))
+      .filter(Boolean);
+
+    const people = recruitingExportPeopleFromRecords(orderedRecords);
+    if (!people.length) {
+      showToast("No names with contact details to export.", "error");
+      return;
+    }
+
+    try {
+      const filename = downloadRecruitingContactsWorkbook(people, { year: selectedYear });
+      const noun = people.length === 1 ? "contact" : "contacts";
+      setPageStatus(`Exported ${people.length} ${noun}.`);
+      showToast(`Exported ${people.length} ${noun} to ${filename}.`, "success");
+    } catch (exportError) {
+      console.error("Unable to export recruiting contacts", exportError);
+      setError(exportError.message || "Unable to export contacts.");
+      showToast(exportError.message || "Unable to export contacts.", "error");
+    }
   }
 
   async function handleBulkDeleteSelected() {
@@ -4726,6 +4812,18 @@ export default function RecruitingPage() {
                 {renderBulkDeleteToolbar("")}
                 <div className="recruitingDesktopOnly">{renderOutreachTable(sortedOutreachPersonRows)}</div>
                 <div className="recruitingMobileOnly">{renderOutreachCards(sortedOutreachPersonRows)}</div>
+                {selectedBulkRecordIds.length > 0 ? (
+                  <div className="recruitingExportBar">
+                    <button
+                      className="btn btnPrimary"
+                      type="button"
+                      disabled={isBulkDeleting}
+                      onClick={handleExportSelectedRecruitingContacts}
+                    >
+                      Export
+                    </button>
+                  </div>
+                ) : null}
               </>
             ) : null}
 
