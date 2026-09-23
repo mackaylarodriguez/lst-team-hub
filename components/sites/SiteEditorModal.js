@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { showToast } from "@/components/Toast";
 import {
   listSiteAvailabilityEdits,
@@ -75,7 +75,8 @@ function qtyDraftFromWorkbookNotes(raw) {
     if (!key || !(key in next)) continue;
     const n = Number(qty);
     if (!Number.isFinite(n) || n < 0) continue;
-    next[key] = String(n);
+    const prev = Number.parseInt(String(next[key] || "0"), 10);
+    next[key] = String((Number.isFinite(prev) ? prev : 0) + n);
   }
   return next;
 }
@@ -143,9 +144,15 @@ export default function SiteEditorModal({
     [siteLabel, draft?.siteName]
   );
 
+  const siteNotesRef = useRef(siteNotes);
+  siteNotesRef.current = siteNotes;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) {
       setDraft(null);
+      setWorkbookQtyDraft({});
       return;
     }
 
@@ -163,7 +170,8 @@ export default function SiteEditorModal({
           return;
         }
 
-        const note = findSiteBudgetNoteForOption(siteLabel, siteNotes);
+        const notes = siteNotesRef.current;
+        const note = findSiteBudgetNoteForOption(siteLabel, notes);
         const map = await listSiteAvailabilityEdits(AVAILABILITY_YEAR);
         const availability = map?.[siteLabel] || null;
         if (cancelled) return;
@@ -171,11 +179,11 @@ export default function SiteEditorModal({
         setExistingWorkbookNotes(note?.workbookNotes || "");
         setEffectiveDate(note?.effectiveDate || "");
         setWorkbookQtyDraft(qtyDraftFromWorkbookNotes(note?.workbookNotes || ""));
-        setDraft(blankDraft(siteLabel, note, availability, siteNotes));
+        setDraft(blankDraft(siteLabel, note, availability, notes));
       } catch (e) {
         if (!cancelled) {
           showToast(e?.message || "Unable to load site details.");
-          onClose?.();
+          onCloseRef.current?.();
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -186,7 +194,9 @@ export default function SiteEditorModal({
     return () => {
       cancelled = true;
     };
-  }, [open, isCreate, siteLabel, siteNotes, onClose]);
+    // Reload only when the modal opens or the site changes — not when parent
+    // re-renders (new onClose / siteNotes identity), which was wiping counts.
+  }, [open, isCreate, siteLabel]);
 
   useEffect(() => {
     if (!open) return;
