@@ -256,7 +256,18 @@ export default function BusyOverlay() {
       const control = e.target?.closest?.("button, input[type='submit'], input[type='button']");
       if (!isSaveActionControl(control)) return;
       rememberSaveControl(control);
-      showBusy("Saving…");
+      busyActive = true;
+      // Disabling a submit button while its click is still dispatching cancels the form submit,
+      // so the Saving… label is applied after the event finishes.
+      setTimeout(() => {
+        if (activeSaveControl !== control || !busyActive) return;
+        if (!control.isConnected) {
+          busyActive = false;
+          restoreSaveControl();
+          return;
+        }
+        showBusy("Saving…");
+      }, 0);
     }
 
     window.addEventListener(BUSY_EVENT, handle);
