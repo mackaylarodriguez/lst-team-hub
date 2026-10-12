@@ -11,7 +11,8 @@ import {
   getNextPrototypeSectionIdFromModules,
   getPreviousPrototypeSectionIdFromModules,
   loadPrototypeModules,
-  savePrototypeModules,
+  loadSharedPrototypeModules,
+  saveSharedPrototypeModule,
   applyPrototypeTrainingDeadlines,
 } from "@/lib/trainingPrototypeStorage";
 import { getPrototypeSectionQuiz } from "@/lib/trainingCenterPrototypeMock";
@@ -99,6 +100,16 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
 
   useEffect(() => {
     let cancelled = false;
+    loadSharedPrototypeModules().then((sharedModules) => {
+      if (!cancelled) setModules(sharedModules);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
 
     async function loadStaff() {
       setStaffLoading(true);
@@ -108,7 +119,6 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
         if (cancelled) return;
         setStaffProfiles(profiles);
         const participants = buildDemoTripParticipants(profiles, session);
-        setModules(loadPrototypeModules());
 
         const stored = loadStaffTrainingProgressFromStorage();
         const dbByUserId = await listStaffTrainingSectionStatesByUserId(
@@ -263,14 +273,13 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
     setActiveSectionId("");
   }
 
-  function handleSaveModule(updatedModule) {
-    setModules((current) => {
-      const next = applyPrototypeTrainingDeadlines(
+  async function handleSaveModule(updatedModule) {
+    await saveSharedPrototypeModule(updatedModule, { updatedByEmail: session?.email });
+    setModules((current) =>
+      applyPrototypeTrainingDeadlines(
         current.map((module) => (module.id === updatedModule.id ? updatedModule : module))
-      );
-      savePrototypeModules(next);
-      return next;
-    });
+      )
+    );
     setEditingModuleId("");
   }
 

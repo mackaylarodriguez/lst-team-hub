@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { hideBusy, isBusyActive, showBusyDone } from "@/components/BusyOverlay";
 import TrainingPrototypeRichTextEditor from "./TrainingPrototypeRichTextEditor";
 import TrainingPrototypeQuizEditor, {
   createQuizQuestionDraft,
@@ -168,6 +169,7 @@ function applyDraft(module, draft) {
 
 export default function TrainingPrototypeModuleEditModal({ module, onSave, onCancel }) {
   const [draft, setDraft] = useState(() => buildDraft(module));
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     setDraft(buildDraft(module));
@@ -272,9 +274,16 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
     }));
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    onSave?.(applyDraft(module, draft));
+    setSaveError("");
+    try {
+      await onSave?.(applyDraft(module, draft));
+      if (isBusyActive()) showBusyDone("Saved");
+    } catch (error) {
+      hideBusy();
+      setSaveError(error?.message || "Unable to save training changes.");
+    }
   }
 
   return (
@@ -296,7 +305,7 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
               Edit module
             </h2>
             <p className="small trainingPrototypeMuted" style={{ margin: "6px 0 0" }}>
-              Prototype changes save in this browser only.
+              Changes are shared with all staff and workers.
             </p>
           </div>
           <button type="button" className="btn" onClick={onCancel}>
@@ -442,6 +451,12 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
             Add quiz
           </button>
         </div>
+
+        {saveError ? (
+          <div className="small" role="alert" style={{ color: "var(--danger)" }}>
+            {saveError}
+          </div>
+        ) : null}
 
         <div className="trainingPrototypeEditModalFooter">
           <button type="button" className="btn" onClick={onCancel}>

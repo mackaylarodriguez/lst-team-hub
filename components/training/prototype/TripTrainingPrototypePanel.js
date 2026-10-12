@@ -13,7 +13,8 @@ import {
   getNextPrototypeSectionIdFromModules,
   getPreviousPrototypeSectionIdFromModules,
   loadPrototypeModules,
-  savePrototypeModules,
+  loadSharedPrototypeModules,
+  saveSharedPrototypeModule,
   applyPrototypeTrainingDeadlines,
 } from "@/lib/trainingPrototypeStorage";
 import { getPrototypeSectionQuiz } from "@/lib/trainingCenterPrototypeMock";
@@ -31,6 +32,7 @@ export default function TripTrainingPrototypePanel() {
     prototypeSectionCompletionRosters,
     prototypeTrainingProgress,
     requiredTrainingResources,
+    session,
     trainingProgress,
     trip,
     updateTrainingDate,
@@ -49,7 +51,14 @@ export default function TripTrainingPrototypePanel() {
   const canEditWorkshopRegistration = !!currentTrainingProgress && !!activeParticipantEmail;
 
   useEffect(() => {
+    let cancelled = false;
     setModules(loadPrototypeModules(tripDeadlineContext));
+    loadSharedPrototypeModules(tripDeadlineContext).then((sharedModules) => {
+      if (!cancelled) setModules(sharedModules);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [trip?.startDate, trip?.endDate, trip?.trainingTimelineType]);
 
   function markSectionComplete(sectionId) {
@@ -78,15 +87,14 @@ export default function TripTrainingPrototypePanel() {
     setActiveSectionId("");
   }
 
-  function handleSaveModule(updatedModule) {
-    setModules((current) => {
-      const next = applyPrototypeTrainingDeadlines(
+  async function handleSaveModule(updatedModule) {
+    await saveSharedPrototypeModule(updatedModule, { updatedByEmail: session?.email });
+    setModules((current) =>
+      applyPrototypeTrainingDeadlines(
         current.map((module) => (module.id === updatedModule.id ? updatedModule : module)),
         tripDeadlineContext
-      );
-      savePrototypeModules(next);
-      return next;
-    });
+      )
+    );
     setEditingModuleId("");
   }
 
