@@ -614,6 +614,7 @@ export default function StaffAssignments() {
         onInvite={handleInviteWorker}
         invitingWorkerEmail={invitingWorkerEmail}
         invitedEmails={invitedEmails}
+        registeredEmails={registeredEmails}
         onDelete={handleDeleteWorker}
         deletingWorkerId={deletingWorkerId}
         confirmingDeleteWorkerId={confirmingDeleteWorkerId}
@@ -633,6 +634,7 @@ export default function StaffAssignments() {
         onInvite={handleInviteWorker}
         invitingWorkerEmail={invitingWorkerEmail}
         invitedEmails={invitedEmails}
+        registeredEmails={registeredEmails}
         onDelete={handleDeleteWorker}
         deletingWorkerId={deletingWorkerId}
         confirmingDeleteWorkerId={confirmingDeleteWorkerId}
@@ -823,6 +825,7 @@ function WorkerDirectorySection({
   onInvite,
   invitingWorkerEmail,
   invitedEmails,
+  registeredEmails,
   onDelete,
   deletingWorkerId,
   confirmingDeleteWorkerId,
@@ -904,7 +907,7 @@ function WorkerDirectorySection({
                               key={`${worker.id}-${assignment.id || assignment.tripId}`}
                               href={`/trips/${encodeURIComponent(assignment.tripId)}`}
                             >
-                              {assignment.trip.name}
+                              {assignment.trip?.name || "Trip"}
                             </Link>
                           ))}
                         </div>
