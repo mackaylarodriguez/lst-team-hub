@@ -136,7 +136,7 @@ async function sendWeeklyTasksTest(req, res, testEmail) {
     const digest = buildWeeklyTaskDigestForStaff(staff, data, { todayYmd, baseUrl });
     const testNote = digest.hasTasks
       ? `Test preview of ${staff.firstName}'s Monday email. The real one goes to ${staff.email}.`
-      : `${staff.firstName} has nothing overdue or due this week, so the real Monday email would be skipped.`;
+      : `${staff.firstName} has no overdue or upcoming tasks, so the real Monday email would be skipped.`;
     const { subject, html } = buildWeeklyTaskDigestEmail(digest, { baseUrl, testNote });
 
     const emailResult = await sendResendEmail({
@@ -159,7 +159,7 @@ async function sendWeeklyTasksTest(req, res, testEmail) {
       sentTo: testEmail,
       staffName: staff.firstName,
       overdue: digest.overdue.length,
-      upcoming: digest.upcoming.length,
+      upcoming: digest.upcomingTotal,
       wouldSkip: !digest.hasTasks,
       email: emailResult,
     });

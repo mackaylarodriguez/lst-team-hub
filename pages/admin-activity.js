@@ -162,7 +162,7 @@ export default function AdminActivityPage() {
           const counts = `${result?.overdue ?? 0} overdue, ${result?.upcoming ?? 0} upcoming`;
           setEmailTestStatus(
             result?.wouldSkip
-              ? `Weekly tasks test for ${result?.staffName} sent to ${sentTo}. They have no tasks this week, so the real email would be skipped.`
+              ? `Weekly tasks test for ${result?.staffName} sent to ${sentTo}. They have no overdue or upcoming tasks, so the real email would be skipped.`
               : `Weekly tasks test for ${result?.staffName} (${counts}) sent to ${sentTo}.`
           );
           return;
