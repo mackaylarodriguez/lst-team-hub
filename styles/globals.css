@@ -5377,6 +5377,9 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   gap:8px;
   align-items:center;
 }
+.adminEmailTestGridWeekly{
+  grid-template-columns:minmax(180px, 1.4fr) auto;
+}
 @media (max-width: 720px){
   .adminEmailTestGrid{
     grid-template-columns:1fr;

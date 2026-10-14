@@ -13,6 +13,7 @@ import {
   ADMIN_ACTIVITY_DAYS_OPTIONS,
   listAdminActivityDashboard,
 } from "@/lib/adminActivity";
+import { WEEKLY_TASK_DIGEST_STAFF } from "@/lib/weeklyTaskDigestStaff";
 
 const CATEGORY_OPTIONS = [
   { id: "all", label: "Everything" },
@@ -59,6 +60,7 @@ export default function AdminActivityPage() {
   const [emailTestTo, setEmailTestTo] = useState("");
   const [emailTestStatus, setEmailTestStatus] = useState("");
   const [emailTestSending, setEmailTestSending] = useState("");
+  const [weeklyTasksStaffKey, setWeeklyTasksStaffKey] = useState(WEEKLY_TASK_DIGEST_STAFF[0].key);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +76,10 @@ export default function AdminActivityPage() {
 
       setSession(nextSession);
       setEmailTestTo(String(nextSession.email || "").trim());
+      const ownDigestEntry = WEEKLY_TASK_DIGEST_STAFF.find(
+        (staff) => staff.email === String(nextSession.email || "").trim().toLowerCase()
+      );
+      if (ownDigestEntry) setWeeklyTasksStaffKey(ownDigestEntry.key);
     }
 
     init();
@@ -108,7 +114,12 @@ export default function AdminActivityPage() {
 
   const sendTestEmail = useCallback(
     async (template) => {
-      if (!emailTestTripId || !emailTestTo) {
+      const isWeeklyTasks = template === "weekly_tasks";
+      if (!emailTestTo) {
+        setEmailTestStatus("Enter a test email address.");
+        return;
+      }
+      if (!isWeeklyTasks && !emailTestTripId) {
         setEmailTestStatus("Pick a trip and enter a test email address.");
         return;
       }
@@ -137,6 +148,7 @@ export default function AdminActivityPage() {
             tripId: emailTestTripId,
             testEmail: emailTestTo,
             senderName: session?.name || session?.email || "LST staff",
+            staffKey: weeklyTasksStaffKey,
           }),
         });
 
@@ -145,8 +157,19 @@ export default function AdminActivityPage() {
           throw new Error(result?.error || "Unable to send test email.");
         }
 
+        const sentTo = result?.sentTo || emailTestTo;
+        if (isWeeklyTasks) {
+          const counts = `${result?.overdue ?? 0} overdue, ${result?.upcoming ?? 0} upcoming`;
+          setEmailTestStatus(
+            result?.wouldSkip
+              ? `Weekly tasks test for ${result?.staffName} sent to ${sentTo}. They have no tasks this week, so the real email would be skipped.`
+              : `Weekly tasks test for ${result?.staffName} (${counts}) sent to ${sentTo}.`
+          );
+          return;
+        }
+
         const label = template === "worker_invite" ? "Worker invite" : "Team lock";
-        setEmailTestStatus(`${label} test sent to ${result?.sentTo || emailTestTo}.`);
+        setEmailTestStatus(`${label} test sent to ${sentTo}.`);
       } catch (error) {
         console.error("Unable to send admin test email", error);
         setEmailTestStatus(error?.message || "Unable to send test email.");
@@ -154,7 +177,7 @@ export default function AdminActivityPage() {
         setEmailTestSending("");
       }
     },
-    [emailTestTo, emailTestTripId, session]
+    [emailTestTo, emailTestTripId, session, weeklyTasksStaffKey]
   );
 
   const loadDashboard = useCallback(async () => {
@@ -254,6 +277,28 @@ export default function AdminActivityPage() {
               onClick={() => void sendTestEmail("team_lock")}
             >
               {emailTestSending === "team_lock" ? "Sending…" : "Test lock email"}
+            </button>
+          </div>
+          <div className="adminEmailTestGrid adminEmailTestGridWeekly">
+            <select
+              className="input"
+              value={weeklyTasksStaffKey}
+              onChange={(event) => setWeeklyTasksStaffKey(event.target.value)}
+              aria-label="Whose tasks to preview in the weekly email"
+            >
+              {WEEKLY_TASK_DIGEST_STAFF.map((staff) => (
+                <option key={staff.key} value={staff.key}>
+                  Weekly tasks email: {staff.firstName}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn"
+              disabled={!emailTestTo || !!emailTestSending}
+              onClick={() => void sendTestEmail("weekly_tasks")}
+            >
+              {emailTestSending === "weekly_tasks" ? "Sending…" : "Test weekly tasks"}
             </button>
           </div>
           {emailTestStatus ? <div className="small adminActivityToolbarStatus">{emailTestStatus}</div> : null}
