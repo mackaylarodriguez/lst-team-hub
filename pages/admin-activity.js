@@ -7,7 +7,7 @@ import { useRouter } from "next/router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { ROLE_ADMIN } from "@/lib/roles";
-import { listTripsForCurrentUser } from "@/lib/trips";
+import { listTripParticipants, listTripsForCurrentUser } from "@/lib/trips";
 import { isNonTravelingLeaderMember, listTripTeamMembers } from "@/lib/tripTeamMembers";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import {
@@ -110,7 +110,13 @@ export default function AdminActivityPage() {
         const nextTrips = await listTripsForCurrentUser();
         if (cancelled) return;
         setTrips(nextTrips || []);
-        setEmailTestTripId((current) => current || nextTrips?.[0]?.id || "");
+        setEmailTestTripId((current) => {
+          if (current) return current;
+          const openTrip = (nextTrips || []).find(
+            (trip) => String(trip.status || "").toLowerCase() !== "archived"
+          );
+          return openTrip?.id || nextTrips?.[0]?.id || "";
+        });
       } catch (error) {
         console.error("Unable to load trips for email test", error);
       }
@@ -124,9 +130,7 @@ export default function AdminActivityPage() {
   }, [session]);
 
   useEffect(() => {
-    const selectedTrip = trips.find((trip) => trip.id === emailTestTripId);
-    const selectedTripArchived = String(selectedTrip?.status || "").toLowerCase() === "archived";
-    if (!session || !emailTestTripId || selectedTripArchived) {
+    if (!session || !emailTestTripId) {
       setWeeklyWorkerOptions([]);
       setWeeklyWorkerEmail("");
       return;
@@ -134,23 +138,41 @@ export default function AdminActivityPage() {
 
     let cancelled = false;
 
+    function addWorkerOption(options, seen, email, label) {
+      const normalized = String(email || "").trim().toLowerCase();
+      if (!normalized || seen.has(normalized)) return;
+      seen.add(normalized);
+      options.push({ email: normalized, label: String(label || normalized).trim() || normalized });
+    }
+
     async function loadWorkers() {
       try {
-        const members = await listTripTeamMembers(emailTestTripId);
+        const [members, participants] = await Promise.all([
+          listTripTeamMembers(emailTestTripId).catch((error) => {
+            console.error("Unable to load roster for weekly email test", error);
+            return [];
+          }),
+          listTripParticipants(emailTestTripId).catch((error) => {
+            console.error("Unable to load trip participants for weekly email test", error);
+            return [];
+          }),
+        ]);
         if (cancelled) return;
+
         const seen = new Set();
-        const options = (members || [])
-          .filter((member) => member?.email && !isNonTravelingLeaderMember(member))
-          .map((member) => ({
-            email: String(member.email).trim().toLowerCase(),
-            label: member.name || member.email,
-          }))
-          .filter((option) => {
-            if (!option.email || seen.has(option.email)) return false;
-            seen.add(option.email);
-            return true;
-          })
-          .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+        const options = [];
+        for (const member of members || []) {
+          if (isNonTravelingLeaderMember(member)) continue;
+          const role = String(member.teamRole || "").trim().toLowerCase();
+          if (role === "admin" || role === "staff") continue;
+          addWorkerOption(options, seen, member.email, member.name);
+        }
+        for (const participant of participants || []) {
+          const role = String(participant.role || "").trim().toLowerCase();
+          if (role === "admin" || role === "staff") continue;
+          addWorkerOption(options, seen, participant.email, participant.name);
+        }
+        options.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
         setWeeklyWorkerOptions(options);
         setWeeklyWorkerEmail((current) =>
           options.some((option) => option.email === current) ? current : options[0]?.email || ""
@@ -169,7 +191,7 @@ export default function AdminActivityPage() {
     return () => {
       cancelled = true;
     };
-  }, [emailTestTripId, session, trips]);
+  }, [emailTestTripId, session]);
 
   const sendTestEmail = useCallback(
     async (template) => {
@@ -319,6 +341,17 @@ export default function AdminActivityPage() {
     loadDashboard();
   }, [loadDashboard, session]);
 
+  const emailTestTrips = useMemo(() => {
+    return [...trips].sort((left, right) => {
+      const leftArchived = String(left.status || "").toLowerCase() === "archived" ? 1 : 0;
+      const rightArchived = String(right.status || "").toLowerCase() === "archived" ? 1 : 0;
+      if (leftArchived !== rightArchived) return leftArchived - rightArchived;
+      return String(left.name || "").localeCompare(String(right.name || ""), undefined, {
+        sensitivity: "base",
+      });
+    });
+  }, [trips]);
+
   const filteredEvents = useMemo(() => {
     const events = dashboard?.events || [];
     if (categoryFilter === "all") return events;
@@ -363,7 +396,7 @@ export default function AdminActivityPage() {
               aria-label="Trip for email test"
             >
               <option value="">Trip for email test…</option>
-              {trips.map((trip) => (
+              {emailTestTrips.map((trip) => (
                 <option key={trip.id} value={trip.id}>
                   {trip.name}
                   {trip.location ? ` — ${trip.location}` : ""}
@@ -424,24 +457,17 @@ export default function AdminActivityPage() {
               value={weeklyWorkerEmail}
               onChange={(event) => setWeeklyWorkerEmail(event.target.value)}
               aria-label="Whose weekly worker email to preview"
-              disabled={!weeklyWorkerOptions.length}
             >
-              {weeklyWorkerOptions.length ? (
-                weeklyWorkerOptions.map((worker) => (
-                  <option key={worker.email} value={worker.email}>
-                    Weekly worker email: {worker.label}
-                  </option>
-                ))
-              ) : (
+              {!weeklyWorkerOptions.length ? (
                 <option value="">
-                  {String(trips.find((trip) => trip.id === emailTestTripId)?.status || "").toLowerCase() ===
-                  "archived"
-                    ? "Archived trips do not get the weekly email"
-                    : emailTestTripId
-                      ? "No workers on this trip"
-                      : "Pick a trip to choose a worker"}
+                  {emailTestTripId ? "No workers with an email on this trip" : "Pick a trip to choose a worker"}
                 </option>
-              )}
+              ) : null}
+              {weeklyWorkerOptions.map((worker) => (
+                <option key={worker.email} value={worker.email}>
+                  Weekly worker email: {worker.label}
+                </option>
+              ))}
             </select>
             <button
               type="button"
