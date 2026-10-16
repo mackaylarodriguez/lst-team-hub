@@ -1,5 +1,6 @@
 /**
- * Vercel Cron: Monday 7am Central "your tasks this week" email for staff.
+ * Vercel Cron: Monday 7am Central weekly emails.
+ * Staff get their task digest. Workers get meetings, training, tasks, and fundraising.
  *
  * Vercel crons run in UTC, so vercel.json schedules this at both 12:00 and 13:00 UTC on Mondays
  * and only the run that lands in the 7am Central hour sends (CDT = UTC-5, CST = UTC-6).
@@ -14,6 +15,7 @@ import {
   sendWeeklyTaskDigests,
   WEEKLY_TASK_DIGEST_SEND_HOUR,
 } from "@/lib/weeklyTaskDigest";
+import { sendWeeklyWorkerDigests } from "@/lib/weeklyWorkerDigest";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -59,16 +61,42 @@ export default async function handler(req, res) {
     });
   }
 
+  let admin;
   try {
-    const admin = getSupabaseAdminClient();
-    const outcome = await sendWeeklyTaskDigests(admin, {
-      baseUrl: getBaseUrl(req),
-      dryRun,
-    });
-    console.log("[weekly-task-digest]", JSON.stringify(outcome));
-    return res.status(200).json({ ok: true, dryRun, ...outcome });
+    admin = getSupabaseAdminClient();
   } catch (error) {
     console.error("[weekly-task-digest]", error);
-    return res.status(500).json({ error: error?.message || "Weekly task digest failed." });
+    return res.status(500).json({ error: error?.message || "Weekly digest failed." });
   }
+  const baseUrl = getBaseUrl(req);
+  let staffOutcome = null;
+  let staffError = null;
+  let workerOutcome = null;
+  let workerError = null;
+
+  try {
+    staffOutcome = await sendWeeklyTaskDigests(admin, { baseUrl, dryRun });
+    console.log("[weekly-task-digest]", JSON.stringify(staffOutcome));
+  } catch (error) {
+    staffError = error?.message || "Weekly task digest failed.";
+    console.error("[weekly-task-digest]", error);
+  }
+
+  try {
+    workerOutcome = await sendWeeklyWorkerDigests(admin, { baseUrl, dryRun });
+    console.log("[weekly-worker-digest]", JSON.stringify(workerOutcome));
+  } catch (error) {
+    workerError = error?.message || "Weekly worker digest failed.";
+    console.error("[weekly-worker-digest]", error);
+  }
+
+  const ok = !staffError && !workerError;
+  return res.status(ok ? 200 : 500).json({
+    ok,
+    dryRun,
+    ...(staffOutcome || {}),
+    staffError,
+    workers: workerOutcome,
+    workerError,
+  });
 }

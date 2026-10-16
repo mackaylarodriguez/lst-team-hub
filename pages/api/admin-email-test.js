@@ -2,9 +2,10 @@
  * Admin-only: send test copies of Hub notification emails without locking teams or creating invites.
  *
  * POST body:
- * - template: "worker_invite" | "team_lock" | "fundraising_ready" | "weekly_tasks"
- * - tripId: uuid (not used by weekly_tasks)
+ * - template: "worker_invite" | "team_lock" | "fundraising_ready" | "weekly_tasks" | "weekly_worker"
+ * - tripId: uuid (not used by weekly_tasks or weekly_worker)
  * - staffKey: whose tasks to preview for weekly_tasks ("craig" | "leslee" | "mackayla" | "donna")
+ * - workerEmail: whose weekly worker email to preview
  * - testEmail: recipient (defaults to admin profile email)
  * - recipientName: optional, for worker invite / fundraising ready greeting
  * - memberId: optional roster member id for fundraising_ready (otherwise first member with email)
@@ -39,6 +40,12 @@ import {
   getCentralClock,
   loadWeeklyTaskDigestData,
 } from "@/lib/weeklyTaskDigest";
+import {
+  buildWeeklyWorkerDigestEmail,
+  buildWeeklyWorkerDigestForEmail,
+  loadWeeklyWorkerDigestData,
+} from "@/lib/weeklyWorkerDigest";
+import { recordWeeklyEmailSend } from "@/lib/weeklyEmailLog";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -145,6 +152,19 @@ async function sendWeeklyTasksTest(req, res, testEmail) {
       html,
     });
 
+    await recordWeeklyEmailSend(getSupabaseAdminClient(), {
+      resendId: emailResult.id,
+      kind: "weekly_tasks",
+      source: "test",
+      status: emailResult.sent ? "sent" : "failed",
+      email: testEmail,
+      name: staff.name,
+      subject: `[TEST] ${subject}`,
+      detail: emailResult.sent
+        ? `Test for ${staff.firstName}`
+        : emailResult.reason || "failed",
+    });
+
     if (!emailResult.sent) {
       return res.status(500).json({
         error: "Test email was not sent. Check RESEND_API_KEY and BUDGET_CHECK_FROM_EMAIL.",
@@ -167,6 +187,81 @@ async function sendWeeklyTasksTest(req, res, testEmail) {
     console.error("[admin-email-test] weekly_tasks", error);
     return res.status(500).json({
       error: error?.message || "Unable to send weekly tasks test email.",
+    });
+  }
+}
+
+async function sendWeeklyWorkerTest(req, res, testEmail) {
+  const workerEmail = normalizeEmail(req.body?.workerEmail);
+  if (!workerEmail) {
+    return res.status(400).json({ error: "Pick a worker to preview." });
+  }
+
+  try {
+    const admin = getSupabaseAdminClient();
+    const baseUrl = getBaseUrl(req);
+    const { todayYmd } = getCentralClock();
+    const data = await loadWeeklyWorkerDigestData(admin);
+    const digest = buildWeeklyWorkerDigestForEmail(workerEmail, data, { todayYmd, baseUrl });
+    const workerName = digest.worker?.name || workerEmail;
+    const testNote = digest.hasContent
+      ? `Test preview of ${workerName}'s weekly email. The real one goes to ${workerEmail}.`
+      : digest.skipReason;
+    const { subject, html } = buildWeeklyWorkerDigestEmail(digest, { baseUrl, testNote });
+
+    const emailResult = await sendResendEmail({
+      to: testEmail,
+      subject: `[TEST] ${subject}`,
+      html,
+    });
+
+    await recordWeeklyEmailSend(getSupabaseAdminClient(), {
+      resendId: emailResult.id,
+      kind: "weekly_worker",
+      source: "test",
+      status: emailResult.sent ? "sent" : "failed",
+      email: testEmail,
+      name: workerName,
+      subject: `[TEST] ${subject}`,
+      tripNames: digest.trips.map((trip) => trip.name).filter(Boolean).join(", "),
+      detail: emailResult.sent ? `Test for ${workerName}` : emailResult.reason || "failed",
+    });
+
+    if (!emailResult.sent) {
+      return res.status(500).json({
+        error: "Test email was not sent. Check RESEND_API_KEY and BUDGET_CHECK_FROM_EMAIL.",
+        reason: emailResult.reason,
+        detail: emailResult.detail || null,
+      });
+    }
+
+    const meetingCount = digest.trips.reduce((sum, trip) => sum + trip.meetings.length, 0);
+    const trainingLeft = digest.trips.reduce(
+      (sum, trip) => sum + (trip.training?.incomplete?.length || 0),
+      0
+    );
+    const openTasks = digest.trips.reduce((sum, trip) => {
+      const tasks = trip.tasks || {};
+      return sum + (tasks.overdue?.length || 0) + (tasks.upcoming?.length || 0) + (tasks.undated?.length || 0);
+    }, 0);
+
+    return res.status(200).json({
+      ok: true,
+      template: "weekly_worker",
+      sentTo: testEmail,
+      workerName,
+      tripCount: digest.trips.length,
+      meetingCount,
+      trainingLeft,
+      openTasks,
+      wouldSkip: !digest.hasContent,
+      skipReason: digest.skipReason || "",
+      email: emailResult,
+    });
+  } catch (error) {
+    console.error("[admin-email-test] weekly_worker", error);
+    return res.status(500).json({
+      error: error?.message || "Unable to send weekly worker test email.",
     });
   }
 }
@@ -194,6 +289,10 @@ export default async function handler(req, res) {
     return sendWeeklyTasksTest(req, res, testEmail);
   }
 
+  if (template === "weekly_worker") {
+    return sendWeeklyWorkerTest(req, res, testEmail);
+  }
+
   if (!tripId) {
     return res.status(400).json({ error: "tripId is required." });
   }
@@ -204,7 +303,7 @@ export default async function handler(req, res) {
   ) {
     return res.status(400).json({
       error:
-        'template must be "worker_invite", "team_lock", "fundraising_ready", or "weekly_tasks".',
+        'template must be "worker_invite", "team_lock", "fundraising_ready", "weekly_tasks", or "weekly_worker".',
     });
   }
 

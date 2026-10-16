@@ -560,6 +560,18 @@ export function useTripPageModel() {
     if (tabKey === "materials") {
       setTab("Materials");
     }
+    if (tabKey === "training") {
+      setTab("Training");
+    }
+    if (tabKey === "tasks") {
+      setTab("Tasks");
+    }
+    if (tabKey === "fundraising") {
+      setTab("Fundraising");
+    }
+    if (tabKey === "overview") {
+      setTab("Overview");
+    }
 
     if (requestedStaffTaskId) {
       setPendingStaffTaskJumpId(String(requestedStaffTaskId));

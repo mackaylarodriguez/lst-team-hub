@@ -5371,6 +5371,10 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .adminActivitySectionTitle{
   margin:0 0 12px;
 }
+.adminActivitySubsectionTitle{
+  margin:16px 0 8px;
+  font-size:15px;
+}
 .adminEmailTestGrid{
   display:grid;
   grid-template-columns:minmax(180px, 1.4fr) minmax(160px, 1fr) auto auto;
@@ -5381,7 +5385,8 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   grid-template-columns:minmax(180px, 1.4fr) auto;
 }
 @media (max-width: 720px){
-  .adminEmailTestGrid{
+  .adminEmailTestGrid,
+  .adminEmailTestGridWeekly{
     grid-template-columns:1fr;
   }
 }

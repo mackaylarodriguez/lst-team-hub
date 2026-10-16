@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
 import { ROLE_ADMIN } from "@/lib/roles";
 import { listTripsForCurrentUser } from "@/lib/trips";
+import { isNonTravelingLeaderMember, listTripTeamMembers } from "@/lib/tripTeamMembers";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import {
   ADMIN_ACTIVITY_DAYS_OPTIONS,
@@ -33,6 +34,10 @@ const CATEGORY_LABELS = {
   team_created: "Team created",
   trip_event: "Trip event",
 };
+
+function emailKindLabel(kind) {
+  return kind === "weekly_tasks" ? "Staff tasks" : "Worker weekly";
+}
 
 function formatTimestamp(value) {
   if (!value) return "Unknown time";
@@ -61,6 +66,12 @@ export default function AdminActivityPage() {
   const [emailTestStatus, setEmailTestStatus] = useState("");
   const [emailTestSending, setEmailTestSending] = useState("");
   const [weeklyTasksStaffKey, setWeeklyTasksStaffKey] = useState(WEEKLY_TASK_DIGEST_STAFF[0].key);
+  const [weeklyWorkerEmail, setWeeklyWorkerEmail] = useState("");
+  const [weeklyWorkerOptions, setWeeklyWorkerOptions] = useState([]);
+  const [emailSchedule, setEmailSchedule] = useState(null);
+  const [emailScheduleError, setEmailScheduleError] = useState("");
+  const [emailScheduleLoading, setEmailScheduleLoading] = useState(false);
+  const [emailScheduleTick, setEmailScheduleTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,14 +123,67 @@ export default function AdminActivityPage() {
     };
   }, [session]);
 
+  useEffect(() => {
+    const selectedTrip = trips.find((trip) => trip.id === emailTestTripId);
+    const selectedTripArchived = String(selectedTrip?.status || "").toLowerCase() === "archived";
+    if (!session || !emailTestTripId || selectedTripArchived) {
+      setWeeklyWorkerOptions([]);
+      setWeeklyWorkerEmail("");
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadWorkers() {
+      try {
+        const members = await listTripTeamMembers(emailTestTripId);
+        if (cancelled) return;
+        const seen = new Set();
+        const options = (members || [])
+          .filter((member) => member?.email && !isNonTravelingLeaderMember(member))
+          .map((member) => ({
+            email: String(member.email).trim().toLowerCase(),
+            label: member.name || member.email,
+          }))
+          .filter((option) => {
+            if (!option.email || seen.has(option.email)) return false;
+            seen.add(option.email);
+            return true;
+          })
+          .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+        setWeeklyWorkerOptions(options);
+        setWeeklyWorkerEmail((current) =>
+          options.some((option) => option.email === current) ? current : options[0]?.email || ""
+        );
+      } catch (error) {
+        console.error("Unable to load workers for weekly email test", error);
+        if (!cancelled) {
+          setWeeklyWorkerOptions([]);
+          setWeeklyWorkerEmail("");
+        }
+      }
+    }
+
+    loadWorkers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [emailTestTripId, session, trips]);
+
   const sendTestEmail = useCallback(
     async (template) => {
       const isWeeklyTasks = template === "weekly_tasks";
+      const isWeeklyWorker = template === "weekly_worker";
       if (!emailTestTo) {
         setEmailTestStatus("Enter a test email address.");
         return;
       }
-      if (!isWeeklyTasks && !emailTestTripId) {
+      if (isWeeklyWorker && !weeklyWorkerEmail) {
+        setEmailTestStatus("Pick a trip and a worker to preview.");
+        return;
+      }
+      if (!isWeeklyTasks && !isWeeklyWorker && !emailTestTripId) {
         setEmailTestStatus("Pick a trip and enter a test email address.");
         return;
       }
@@ -149,6 +213,7 @@ export default function AdminActivityPage() {
             testEmail: emailTestTo,
             senderName: session?.name || session?.email || "LST staff",
             staffKey: weeklyTasksStaffKey,
+            workerEmail: weeklyWorkerEmail,
           }),
         });
 
@@ -165,10 +230,26 @@ export default function AdminActivityPage() {
               ? `Weekly tasks test for ${result?.staffName} sent to ${sentTo}. They have no overdue or upcoming tasks, so the real email would be skipped.`
               : `Weekly tasks test for ${result?.staffName} (${counts}) sent to ${sentTo}.`
           );
+          setEmailScheduleTick((tick) => tick + 1);
           return;
         }
 
-        const label = template === "worker_invite" ? "Worker invite" : "Team lock";
+        if (isWeeklyWorker) {
+          setEmailTestStatus(
+            result?.wouldSkip
+              ? `Weekly worker test for ${result?.workerName} sent to ${sentTo}. ${result?.skipReason || "The real email would be skipped."}`
+              : `Weekly worker test for ${result?.workerName} sent to ${sentTo} (${result?.tripCount ?? 0} trips, ${result?.meetingCount ?? 0} meetings, ${result?.trainingLeft ?? 0} training items left, ${result?.openTasks ?? 0} open tasks).`
+          );
+          setEmailScheduleTick((tick) => tick + 1);
+          return;
+        }
+
+        const label =
+          template === "worker_invite"
+            ? "Worker invite"
+            : template === "fundraising_ready"
+              ? "Fundraising ready"
+              : "Team lock";
         setEmailTestStatus(`${label} test sent to ${sentTo}.`);
       } catch (error) {
         console.error("Unable to send admin test email", error);
@@ -177,8 +258,43 @@ export default function AdminActivityPage() {
         setEmailTestSending("");
       }
     },
-    [emailTestTo, emailTestTripId, session, weeklyTasksStaffKey]
+    [emailTestTo, emailTestTripId, session, weeklyTasksStaffKey, weeklyWorkerEmail]
   );
+
+  const loadEmailSchedule = useCallback(async () => {
+    if (!session) return;
+
+    setEmailScheduleLoading(true);
+    setEmailScheduleError("");
+
+    try {
+      const supabase = getSupabaseClient();
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error("Not signed in.");
+
+      const response = await fetch("/api/admin-weekly-emails", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.error || "Unable to load weekly emails.");
+      }
+      setEmailSchedule(result);
+    } catch (error) {
+      console.error("Unable to load weekly email schedule", error);
+      setEmailSchedule(null);
+      setEmailScheduleError(error?.message || "Unable to load weekly emails.");
+    } finally {
+      setEmailScheduleLoading(false);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    loadEmailSchedule();
+  }, [emailScheduleTick, loadEmailSchedule, session]);
 
   const loadDashboard = useCallback(async () => {
     if (!session) return;
@@ -251,6 +367,7 @@ export default function AdminActivityPage() {
                 <option key={trip.id} value={trip.id}>
                   {trip.name}
                   {trip.location ? ` — ${trip.location}` : ""}
+                  {String(trip.status || "").toLowerCase() === "archived" ? " (archived)" : ""}
                 </option>
               ))}
             </select>
@@ -301,6 +418,40 @@ export default function AdminActivityPage() {
               {emailTestSending === "weekly_tasks" ? "Sending…" : "Test weekly tasks"}
             </button>
           </div>
+          <div className="adminEmailTestGrid adminEmailTestGridWeekly">
+            <select
+              className="input"
+              value={weeklyWorkerEmail}
+              onChange={(event) => setWeeklyWorkerEmail(event.target.value)}
+              aria-label="Whose weekly worker email to preview"
+              disabled={!weeklyWorkerOptions.length}
+            >
+              {weeklyWorkerOptions.length ? (
+                weeklyWorkerOptions.map((worker) => (
+                  <option key={worker.email} value={worker.email}>
+                    Weekly worker email: {worker.label}
+                  </option>
+                ))
+              ) : (
+                <option value="">
+                  {String(trips.find((trip) => trip.id === emailTestTripId)?.status || "").toLowerCase() ===
+                  "archived"
+                    ? "Archived trips do not get the weekly email"
+                    : emailTestTripId
+                      ? "No workers on this trip"
+                      : "Pick a trip to choose a worker"}
+                </option>
+              )}
+            </select>
+            <button
+              type="button"
+              className="btn"
+              disabled={!emailTestTo || !weeklyWorkerEmail || !!emailTestSending}
+              onClick={() => void sendTestEmail("weekly_worker")}
+            >
+              {emailTestSending === "weekly_worker" ? "Sending…" : "Test weekly worker email"}
+            </button>
+          </div>
           {emailTestStatus ? <div className="small adminActivityToolbarStatus">{emailTestStatus}</div> : null}
 
           <div className="adminActivityToolbarRow">
@@ -328,10 +479,109 @@ export default function AdminActivityPage() {
                 </option>
               ))}
             </select>
-            <button className="btn" type="button" onClick={loadDashboard} disabled={isLoading}>
+            <button
+              className="btn"
+              type="button"
+              onClick={() => {
+                loadDashboard();
+                loadEmailSchedule();
+              }}
+              disabled={isLoading || emailScheduleLoading}
+            >
               Refresh
             </button>
           </div>
+        </div>
+
+        <div className="card pad adminActivitySection">
+          <h2 className="sectionTitle adminActivitySectionTitle">Weekly emails</h2>
+          <p className="small" style={{ marginTop: 0 }}>
+            Next send: {emailSchedule?.nextSend?.label || "Monday at 7:00 AM Central"}. Archived trips
+            are left out.
+          </p>
+          {emailScheduleError ? <div className="adminActivityError">{emailScheduleError}</div> : null}
+          {emailScheduleLoading && !emailSchedule ? (
+            <div className="adminActivityLoading">
+              <Spinner />
+            </div>
+          ) : (
+            <>
+              <h3 className="adminActivitySubsectionTitle">Scheduled</h3>
+              {(emailSchedule?.scheduled || []).length ? (
+                <div className="tableWrap">
+                  <table className="table adminActivityStaffTable">
+                    <thead>
+                      <tr>
+                        <th>Email</th>
+                        <th>Who</th>
+                        <th>Trips</th>
+                        <th>Included</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {emailSchedule.scheduled.map((row) => (
+                        <tr key={`${row.kind}:${row.email}`}>
+                          <td>{emailKindLabel(row.kind)}</td>
+                          <td>
+                            {row.name || row.email}
+                            {row.email ? <div className="small">{row.email}</div> : null}
+                          </td>
+                          <td>{(row.tripNames || []).join(", ") || "—"}</td>
+                          <td>{row.detail || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <EmptyState
+                  title="Nothing scheduled"
+                  description="No worker or staff weekly email is queued. Archived trips are excluded."
+                />
+              )}
+
+              <h3 className="adminActivitySubsectionTitle">Sent</h3>
+              {(emailSchedule?.sent || []).length ? (
+                <div className="tableWrap">
+                  <table className="table adminActivityStaffTable">
+                    <thead>
+                      <tr>
+                        <th>When</th>
+                        <th>Email</th>
+                        <th>To</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {emailSchedule.sent.map((row) => (
+                        <tr key={row.id || `${row.sentAt}:${row.email}:${row.subject}`}>
+                          <td>{formatTimestamp(row.sentAt)}</td>
+                          <td>
+                            {emailKindLabel(row.kind)}
+                            {row.source === "test" ? " · test" : ""}
+                          </td>
+                          <td>
+                            {row.name || row.email}
+                            {row.email ? <div className="small">{row.email}</div> : null}
+                            {row.tripNames ? <div className="small">{row.tripNames}</div> : null}
+                          </td>
+                          <td>{row.status || "sent"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <EmptyState title="No weekly emails sent yet" />
+              )}
+              {emailSchedule?.missingTable ? (
+                <p className="small">
+                  Recent sends are read from the mail provider. Run supabase/hub_weekly_email_sends.sql
+                  once so the Hub keeps its own history.
+                </p>
+              ) : null}
+            </>
+          )}
         </div>
 
         {loadError ? <div className="card pad adminActivityError">{loadError}</div> : null}
