@@ -4792,13 +4792,43 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   }
   .trainingPrototypeEditModalOverlay{
     place-items:end center;
-    padding:10px;
+    padding:0;
   }
   .trainingPrototypeEditModal{
     width:100%;
-    max-height:min(92vh, 760px);
+    height:min(94vh, 860px);
+    max-height:min(94vh, 860px);
     border-bottom-left-radius:0;
     border-bottom-right-radius:0;
+  }
+  .trainingPrototypeEditWorkspace{
+    grid-template-columns:1fr;
+    grid-template-rows:auto minmax(0, 1fr);
+  }
+  .trainingPrototypeEditNav{
+    border-right:0;
+    border-bottom:1px solid rgba(15,23,42,.08);
+    padding:10px 12px;
+  }
+  .trainingPrototypeEditNavList{
+    display:flex;
+    flex:none;
+    gap:8px;
+    overflow:auto;
+  }
+  .trainingPrototypeEditNavBtn{
+    width:auto;
+    min-width:180px;
+  }
+  .trainingPrototypeEditMetaRow{
+    grid-template-columns:1fr;
+  }
+  .trainingPrototypeEditModalFooter{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .trainingPrototypeEditFooterActions .btn{
+    flex:1;
   }
 }
 /* Trip → Staff Tasks tab: match Checklists / My Tasks copy (13px) and compact controls */
@@ -5757,59 +5787,170 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   z-index:5100;
   display:grid;
   place-items:center;
-  padding:20px;
-  background:rgba(15,23,42,.45);
+  padding:24px;
+  background:rgba(15,23,42,.48);
 }
 .trainingPrototypeEditModal{
-  width:min(760px, 100%);
-  max-height:min(88vh, 900px);
-  overflow:auto;
+  width:min(1080px, 100%);
+  height:min(88vh, 860px);
+  max-height:min(88vh, 860px);
+  overflow:hidden;
   display:grid;
-  gap:16px;
+  grid-template-rows:auto auto minmax(0, 1fr) auto;
+  padding:0;
+  border-radius:18px;
 }
 .trainingPrototypeEditModalHeader,
 .trainingPrototypeEditModalFooter{
   display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-  flex-wrap:wrap;
-}
-.trainingPrototypeEditModalFooter{
-  justify-content:flex-end;
-  padding-top:4px;
-  border-top:1px solid rgba(15,23,42,.08);
-}
-.trainingPrototypeEditModalTitle{
-  margin:0;
-  font-size:18px;
-}
-.trainingPrototypeEditSectionList{
-  display:grid;
-  gap:14px;
-}
-.trainingPrototypeEditSectionCard{
-  display:grid;
-  gap:12px;
-  padding:14px;
-  border:1px solid rgba(15,23,42,.1);
-  border-radius:12px;
-  background:rgba(255,255,255,.72);
-}
-.trainingPrototypeEditSectionHeading{
-  font-size:14px;
-  font-weight:700;
-}
-.trainingPrototypeEditSectionHeadingRow{
-  display:flex;
   align-items:center;
   justify-content:space-between;
   gap:12px;
+  padding:16px 20px;
+}
+.trainingPrototypeEditModalHeader{
+  border-bottom:1px solid rgba(15,23,42,.08);
+}
+.trainingPrototypeEditModalFooter{
+  border-top:1px solid rgba(15,23,42,.08);
+  background:rgba(248,250,252,.9);
+}
+.trainingPrototypeEditEyebrow{
+  margin:0 0 2px;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.trainingPrototypeEditModalTitle{
+  margin:0;
+  font-size:20px;
+  line-height:1.2;
+}
+.trainingPrototypeEditModuleBar{
+  padding:14px 20px;
+  border-bottom:1px solid rgba(15,23,42,.08);
+  background:rgba(255,255,255,.72);
+}
+.trainingPrototypeEditWorkspace{
+  display:grid;
+  grid-template-columns:280px minmax(0, 1fr);
+  min-height:0;
+}
+.trainingPrototypeEditNav{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  min-height:0;
+  padding:12px;
+  border-right:1px solid rgba(15,23,42,.08);
+  background:rgba(248,250,252,.85);
+}
+.trainingPrototypeEditNavList{
+  display:grid;
+  gap:6px;
+  align-content:start;
+  overflow:auto;
+  flex:1;
+  min-height:0;
+}
+.trainingPrototypeEditNavBtn{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  width:100%;
+  padding:8px 10px;
+  border:1px solid transparent;
+  border-radius:12px;
+  background:transparent;
+  text-align:left;
+  cursor:pointer;
+  color:inherit;
+}
+.trainingPrototypeEditNavBtn:hover{
+  background:rgba(255,255,255,.8);
+}
+.trainingPrototypeEditNavBtn.isActive{
+  border-color:rgba(47,73,147,.18);
+  background:#fff;
+  box-shadow:0 1px 2px rgba(15,23,42,.06);
+}
+.trainingPrototypeEditNavIndex{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:22px;
+  height:22px;
+  margin-top:1px;
+  border-radius:999px;
+  background:rgba(47,73,147,.1);
+  color:#2f4993;
+  font-size:11px;
+  font-weight:700;
+  flex-shrink:0;
+}
+.trainingPrototypeEditNavCopy{
+  display:grid;
+  gap:2px;
+  min-width:0;
+}
+.trainingPrototypeEditNavTitle{
+  font-size:13px;
+  font-weight:700;
+  line-height:1.3;
+}
+.trainingPrototypeEditNavMeta{
+  font-size:11px;
+  color:var(--muted);
+}
+.trainingPrototypeEditPane{
+  overflow:auto;
+  min-height:0;
+  padding:18px 20px 24px;
+  display:grid;
+  align-content:start;
+  gap:14px;
+}
+.trainingPrototypeEditPaneHeader{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.trainingPrototypeEditPaneTitle{
+  margin:0;
+  font-size:16px;
+}
+.trainingPrototypeEditMetaRow{
+  display:grid;
+  grid-template-columns:minmax(0, 220px) minmax(0, 1fr);
+  gap:16px;
+  align-items:start;
+}
+.trainingPrototypeEditSectionHeading{
+  font-size:13px;
+  font-weight:700;
 }
 .trainingPrototypeEditAddRow{
   display:flex;
   flex-wrap:wrap;
   gap:8px;
+}
+.trainingPrototypeEditSaveHint,
+.trainingPrototypeEditSaveError{
+  margin:0;
+  min-width:0;
+}
+.trainingPrototypeEditSaveError{
+  color:var(--danger);
+}
+.trainingPrototypeEditFooterActions{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:8px;
+  margin-left:auto;
 }
 .trainingPrototypeQuizEditor{
   display:grid;

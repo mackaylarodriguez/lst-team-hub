@@ -4,6 +4,7 @@ import TrainingPrototypeRichTextEditor from "./TrainingPrototypeRichTextEditor";
 import TrainingPrototypeQuizEditor, {
   createQuizQuestionDraft,
 } from "./TrainingPrototypeQuizEditor";
+import { formatPrototypeDueDate } from "@/lib/trainingCenterPrototypeMock";
 import {
   embedUrlToYoutubeUrl,
   youtubeUrlToEmbedUrl,
@@ -13,12 +14,33 @@ function createDraftSectionId(prefix = "section") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function buildBlocksDraft(section) {
+  const sourceBlocks = section.fullSessionBlocks || [];
+  if (sourceBlocks.length) {
+    return sourceBlocks.map((block, index) => ({
+      key: `${section.id}-block-${index}`,
+      heading: block.heading || "",
+      body: block.body || "",
+      card: !!block.card,
+    }));
+  }
+
+  return [
+    {
+      key: `${section.id}-body`,
+      heading: "",
+      body: section.body || "",
+      card: false,
+    },
+  ];
+}
+
 function buildSectionDraft(section) {
   return {
     id: section.id,
     title: section.title || "",
     dueDate: section.dueDate || "",
-    body: section.body || "",
+    dueDateOverride: section.dueDateOverride || "",
     showVideo: !!section.showVideo,
     videoUrl: section.showVideo ? embedUrlToYoutubeUrl(section.videoEmbedUrl) : "",
     isQuiz: !!section.isQuiz,
@@ -27,13 +49,7 @@ function buildSectionDraft(section) {
       prompt: question.prompt || "",
       options: question.options?.length ? [...question.options] : ["Yes", "No"],
     })),
-    cards: (section.fullSessionBlocks || [])
-      .filter((block) => block.card)
-      .map((block) => ({
-        heading: block.heading || "",
-        body: block.body || "",
-      })),
-    hideHeading: !!section.fullSessionBlocks?.some((block) => block.hideHeading),
+    blocks: section.isQuiz ? [] : buildBlocksDraft(section),
     isNew: false,
   };
 }
@@ -51,13 +67,12 @@ function createNewSectionDraft() {
     id,
     title: "New section",
     dueDate: "",
-    body: "",
+    dueDateOverride: "",
     showVideo: false,
     videoUrl: "",
     isQuiz: false,
     quizQuestions: [],
-    cards: [],
-    hideHeading: false,
+    blocks: [{ key: `${id}-block-0`, heading: "", body: "", card: false }],
     isNew: true,
   };
 }
@@ -68,24 +83,52 @@ function createNewQuizDraft() {
     id,
     title: "Module Quiz",
     dueDate: "",
-    body: "",
+    dueDateOverride: "",
     showVideo: false,
     videoUrl: "",
     isQuiz: true,
     quizQuestions: [createQuizQuestionDraft(`${id}-q1`)],
-    cards: [],
-    hideHeading: false,
+    blocks: [],
     isNew: true,
   };
 }
 
+function resolveDueDateOverride(existingSection, sectionDraft) {
+  const previousDate = existingSection?.dueDate || "";
+  if (sectionDraft.dueDate === previousDate) {
+    return existingSection?.dueDateOverride || null;
+  }
+  return sectionDraft.dueDate || null;
+}
+
+function applyBlocks(existingSection, sectionDraft) {
+  const sourceBlocks = existingSection?.fullSessionBlocks || [];
+  return sectionDraft.blocks.map((block, index) => {
+    const original = sourceBlocks[index] || {};
+    const heading = String(block.heading || "").trim();
+    const next = {
+      ...original,
+      heading: heading || sectionDraft.title,
+      body: block.body || "",
+    };
+    if (block.card) next.card = true;
+    if (heading && heading !== String(sectionDraft.title || "").trim()) {
+      delete next.hideHeading;
+    }
+    return next;
+  });
+}
+
 function applySectionDraft(existingSection, sectionDraft) {
+  const dueDateOverride = resolveDueDateOverride(existingSection, sectionDraft);
+
   if (sectionDraft.isQuiz) {
     return {
       ...(existingSection || {}),
       id: sectionDraft.id,
       title: sectionDraft.title,
       dueDate: sectionDraft.dueDate,
+      dueDateOverride,
       isQuiz: true,
       quizQuestions: sectionDraft.quizQuestions
         .map((question, index) => ({
@@ -100,57 +143,21 @@ function applySectionDraft(existingSection, sectionDraft) {
   const videoEmbedUrl = sectionDraft.showVideo
     ? youtubeUrlToEmbedUrl(sectionDraft.videoUrl)
     : existingSection?.videoEmbedUrl;
-
-  if (sectionDraft.isNew || !existingSection) {
-    return {
-      id: sectionDraft.id,
-      title: sectionDraft.title,
-      dueDate: sectionDraft.dueDate,
-      body: sectionDraft.body,
-      showVideo: sectionDraft.showVideo,
-      videoEmbedUrl: sectionDraft.showVideo ? videoEmbedUrl : undefined,
-      fullSessionBlocks: [
-        {
-          heading: sectionDraft.title,
-          body: sectionDraft.body,
-          hideHeading: sectionDraft.hideHeading,
-        },
-      ],
-    };
-  }
-
-  let fullSessionBlocks = existingSection.fullSessionBlocks;
-  if (sectionDraft.cards.length > 0) {
-    fullSessionBlocks = sectionDraft.cards.map((card) => ({
-      heading: card.heading,
-      body: card.body,
-      card: true,
-    }));
-  } else if (existingSection.fullSessionBlocks?.length === 1 && !existingSection.fullSessionBlocks[0]?.card) {
-    fullSessionBlocks = [
-      {
-        ...existingSection.fullSessionBlocks[0],
-        heading: sectionDraft.title,
-        body: sectionDraft.body,
-        hideHeading: sectionDraft.hideHeading,
-      },
-    ];
-  } else if (
-    existingSection.fullSessionBlocks?.length > 1 &&
-    !existingSection.fullSessionBlocks.some((block) => block.card)
-  ) {
-    fullSessionBlocks = existingSection.fullSessionBlocks.map((block, index) =>
-      index === 0 ? { ...block, body: sectionDraft.body } : block
-    );
-  }
+  const fullSessionBlocks = applyBlocks(existingSection, sectionDraft);
+  const body = fullSessionBlocks
+    .map((block) => String(block.body || "").trim())
+    .filter(Boolean)
+    .join("\n\n");
 
   return {
-    ...existingSection,
+    ...(existingSection || {}),
+    id: sectionDraft.id,
     title: sectionDraft.title,
     dueDate: sectionDraft.dueDate,
-    body: sectionDraft.body,
+    dueDateOverride,
+    body,
     showVideo: sectionDraft.showVideo,
-    videoEmbedUrl: sectionDraft.showVideo ? videoEmbedUrl : existingSection.videoEmbedUrl,
+    videoEmbedUrl: sectionDraft.showVideo ? videoEmbedUrl : existingSection?.videoEmbedUrl,
     fullSessionBlocks,
   };
 }
@@ -169,11 +176,15 @@ function applyDraft(module, draft) {
 
 export default function TrainingPrototypeModuleEditModal({ module, onSave, onCancel }) {
   const [draft, setDraft] = useState(() => buildDraft(module));
+  const [activeSectionId, setActiveSectionId] = useState(() => module?.sections?.[0]?.id || "");
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
-    setDraft(buildDraft(module));
-  }, [module]);
+    const nextDraft = buildDraft(module);
+    setDraft(nextDraft);
+    setActiveSectionId(nextDraft.sections[0]?.id || "");
+    setSaveError("");
+  }, [module?.id]);
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -186,6 +197,9 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
 
   if (!module) return null;
 
+  const activeSection =
+    draft.sections.find((section) => section.id === activeSectionId) || draft.sections[0] || null;
+
   function updateSection(sectionId, patch) {
     setDraft((current) => ({
       ...current,
@@ -195,15 +209,17 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
     }));
   }
 
-  function updateCard(sectionId, cardIndex, patch) {
+  function updateBlock(sectionId, blockKey, patch) {
     setDraft((current) => ({
       ...current,
       sections: current.sections.map((section) => {
         if (section.id !== sectionId) return section;
-        const cards = section.cards.map((card, index) =>
-          index === cardIndex ? { ...card, ...patch } : card
-        );
-        return { ...section, cards };
+        return {
+          ...section,
+          blocks: section.blocks.map((block) =>
+            block.key === blockKey ? { ...block, ...patch } : block
+          ),
+        };
       }),
     }));
   }
@@ -254,28 +270,41 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
   }
 
   function addSection() {
-    setDraft((current) => ({
-      ...current,
-      sections: [...current.sections, createNewSectionDraft()],
-    }));
+    const section = createNewSectionDraft();
+    setDraft((current) => ({ ...current, sections: [...current.sections, section] }));
+    setActiveSectionId(section.id);
   }
 
   function addQuiz() {
-    setDraft((current) => ({
-      ...current,
-      sections: [...current.sections, createNewQuizDraft()],
-    }));
+    const section = createNewQuizDraft();
+    setDraft((current) => ({ ...current, sections: [...current.sections, section] }));
+    setActiveSectionId(section.id);
   }
 
   function removeSection(sectionId) {
+    const remaining = draft.sections.filter((section) => section.id !== sectionId);
     setDraft((current) => ({
       ...current,
       sections: current.sections.filter((section) => section.id !== sectionId),
     }));
+    if (activeSectionId === sectionId) {
+      setActiveSectionId(remaining[0]?.id || "");
+    }
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
+    const missingTitle = draft.sections.find((section) => !String(section.title || "").trim());
+    if (missingTitle) {
+      setActiveSectionId(missingTitle.id);
+      setSaveError("Every section needs a title.");
+      return;
+    }
+    if (!String(draft.title || "").trim()) {
+      setSaveError("The module needs a title.");
+      return;
+    }
+
     setSaveError("");
     try {
       await onSave?.(applyDraft(module, draft));
@@ -295,176 +324,231 @@ export default function TrainingPrototypeModuleEditModal({ module, onSave, onCan
       onClick={onCancel}
     >
       <form
-        className="card pad trainingPrototypeEditModal"
+        className="card trainingPrototypeEditModal"
         onSubmit={handleSubmit}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="trainingPrototypeEditModalHeader">
           <div>
+            <p className="trainingPrototypeEditEyebrow">Training</p>
             <h2 id="trainingPrototypeEditModalTitle" className="trainingPrototypeEditModalTitle">
               Edit module
             </h2>
-            <p className="small trainingPrototypeMuted" style={{ margin: "6px 0 0" }}>
-              Changes are shared with all staff and workers.
-            </p>
           </div>
           <button type="button" className="btn" onClick={onCancel}>
-            Cancel
+            Close
           </button>
         </div>
 
-        <label className="trainingPrototypeEditField">
-          <span className="trainingPrototypeEditLabel">Module title</span>
-          <input
-            className="input"
-            value={draft.title}
-            onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-            required
-          />
-        </label>
+        <div className="trainingPrototypeEditModuleBar">
+          <label className="trainingPrototypeEditField">
+            <span className="trainingPrototypeEditLabel">Module title</span>
+            <input
+              className="input"
+              value={draft.title}
+              onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+              required
+            />
+          </label>
+        </div>
 
-        <div className="trainingPrototypeEditSectionList">
-          {draft.sections.map((section, index) => (
-            <div key={section.id} className="trainingPrototypeEditSectionCard">
-              <div className="trainingPrototypeEditSectionHeadingRow">
-                <div className="trainingPrototypeEditSectionHeading">
-                  {section.isQuiz ? `Quiz ${index + 1}` : `Section ${index + 1}`}
-                </div>
-                {draft.sections.length > 1 ? (
-                  <button type="button" className="btn" onClick={() => removeSection(section.id)}>
-                    Remove
-                  </button>
-                ) : null}
-              </div>
-
-              <label className="trainingPrototypeEditField">
-                <span className="trainingPrototypeEditLabel">
-                  {section.isQuiz ? "Quiz title" : "Section title"}
-                </span>
-                <input
-                  className="input"
-                  value={section.title}
-                  onChange={(event) => updateSection(section.id, { title: event.target.value })}
-                  required
-                />
-              </label>
-
-              <label className="trainingPrototypeEditField">
-                <span className="trainingPrototypeEditLabel">Due date</span>
-                <input
-                  className="input"
-                  type="date"
-                  value={section.dueDate}
-                  onChange={(event) => updateSection(section.id, { dueDate: event.target.value })}
-                />
-              </label>
-
-              {!section.isQuiz ? (
-                <div className="trainingPrototypeEditField">
-                  <label className="trainingPrototypeEditCheckboxRow">
-                    <input
-                      type="checkbox"
-                      checked={section.showVideo}
-                      onChange={(event) =>
-                        updateSection(section.id, { showVideo: event.target.checked })
-                      }
-                    />
-                    <span className="trainingPrototypeEditLabel">Include embedded video</span>
-                  </label>
-                  {section.showVideo ? (
-                    <label className="trainingPrototypeEditField" style={{ marginTop: 10 }}>
-                      <span className="trainingPrototypeEditLabel">YouTube video URL</span>
-                      <input
-                        className="input"
-                        value={section.videoUrl}
-                        onChange={(event) =>
-                          updateSection(section.id, { videoUrl: event.target.value })
-                        }
-                        placeholder="https://youtu.be/..."
-                      />
-                      <span className="small trainingPrototypeMuted">
-                        Paste a YouTube link. The Hub converts it to an embedded player automatically.
+        <div className="trainingPrototypeEditWorkspace">
+          <aside className="trainingPrototypeEditNav" aria-label="Sections">
+            <div className="trainingPrototypeEditNavList">
+              {draft.sections.map((section, index) => {
+                const isActive = section.id === activeSection?.id;
+                const meta = section.isQuiz
+                  ? "Quiz"
+                  : section.dueDate
+                    ? `Due ${formatPrototypeDueDate(section.dueDate)}`
+                    : "Automatic due date";
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    className={`trainingPrototypeEditNavBtn${isActive ? " isActive" : ""}`}
+                    aria-current={isActive ? "true" : undefined}
+                    onClick={() => setActiveSectionId(section.id)}
+                  >
+                    <span className="trainingPrototypeEditNavIndex">{index + 1}</span>
+                    <span className="trainingPrototypeEditNavCopy">
+                      <span className="trainingPrototypeEditNavTitle">
+                        {section.title || (section.isQuiz ? "Quiz" : "Section")}
                       </span>
-                    </label>
+                      <span className="trainingPrototypeEditNavMeta">{meta}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="trainingPrototypeEditAddRow">
+              <button type="button" className="btn" onClick={addSection}>
+                Add section
+              </button>
+              <button type="button" className="btn" onClick={addQuiz}>
+                Add quiz
+              </button>
+            </div>
+          </aside>
+
+          <div className="trainingPrototypeEditPane">
+            {activeSection ? (
+              <>
+                <div className="trainingPrototypeEditPaneHeader">
+                  <div>
+                    <h3 className="trainingPrototypeEditPaneTitle">
+                      {activeSection.isQuiz ? "Quiz" : "Section"}
+                    </h3>
+                    <p className="small trainingPrototypeMuted">
+                      {activeSection.isQuiz
+                        ? "Questions workers answer before this module is complete."
+                        : "This is the text workers see in the section."}
+                    </p>
+                  </div>
+                  {draft.sections.length > 1 ? (
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => removeSection(activeSection.id)}
+                    >
+                      Remove
+                    </button>
                   ) : null}
                 </div>
-              ) : null}
 
-              {section.cards.length > 0 ? (
-                <div className="trainingPrototypeEditCardList">
-                  {section.cards.map((card, cardIndex) => (
-                    <div key={`${section.id}-card-${cardIndex}`} className="trainingPrototypeEditCard">
-                      <label className="trainingPrototypeEditField">
-                        <span className="trainingPrototypeEditLabel">Card title</span>
-                        <input
-                          className="input"
-                          value={card.heading}
-                          onChange={(event) =>
-                            updateCard(section.id, cardIndex, { heading: event.target.value })
-                          }
-                          required
-                        />
-                      </label>
-                      <div className="trainingPrototypeEditField">
-                        <span className="trainingPrototypeEditLabel">Card content</span>
-                        <TrainingPrototypeRichTextEditor
-                          value={card.body}
-                          onChange={(nextValue) =>
-                            updateCard(section.id, cardIndex, { body: nextValue })
-                          }
-                          rows={8}
-                          required
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : section.isQuiz ? (
-                <TrainingPrototypeQuizEditor
-                  questions={section.quizQuestions}
-                  onAddQuestion={() => addQuizQuestion(section.id)}
-                  onRemoveQuestion={(questionId) => removeQuizQuestion(section.id, questionId)}
-                  onUpdateQuestion={(questionId, patch) =>
-                    updateQuizQuestion(section.id, questionId, patch)
-                  }
-                />
-              ) : (
-                <div className="trainingPrototypeEditField">
-                  <span className="trainingPrototypeEditLabel">Content</span>
-                  <TrainingPrototypeRichTextEditor
-                    value={section.body}
-                    onChange={(nextValue) => updateSection(section.id, { body: nextValue })}
-                    rows={10}
+                <label className="trainingPrototypeEditField">
+                  <span className="trainingPrototypeEditLabel">
+                    {activeSection.isQuiz ? "Quiz title" : "Section title"}
+                  </span>
+                  <input
+                    className="input"
+                    value={activeSection.title}
+                    onChange={(event) =>
+                      updateSection(activeSection.id, { title: event.target.value })
+                    }
                     required
                   />
+                </label>
+
+                <div className="trainingPrototypeEditMetaRow">
+                  <label className="trainingPrototypeEditField">
+                    <span className="trainingPrototypeEditLabel">Due date</span>
+                    <input
+                      className="input"
+                      type="date"
+                      value={activeSection.dueDate}
+                      onChange={(event) =>
+                        updateSection(activeSection.id, { dueDate: event.target.value })
+                      }
+                    />
+                    <span className="small trainingPrototypeMuted">
+                      Clear the date to use the automatic training deadline.
+                    </span>
+                  </label>
+
+                  {!activeSection.isQuiz ? (
+                    <div className="trainingPrototypeEditField">
+                      <label className="trainingPrototypeEditCheckboxRow">
+                        <input
+                          type="checkbox"
+                          checked={activeSection.showVideo}
+                          onChange={(event) =>
+                            updateSection(activeSection.id, { showVideo: event.target.checked })
+                          }
+                        />
+                        <span className="trainingPrototypeEditLabel">Include embedded video</span>
+                      </label>
+                      {activeSection.showVideo ? (
+                        <input
+                          className="input"
+                          value={activeSection.videoUrl}
+                          onChange={(event) =>
+                            updateSection(activeSection.id, { videoUrl: event.target.value })
+                          }
+                          placeholder="https://youtu.be/..."
+                        />
+                      ) : (
+                        <span className="small trainingPrototypeMuted">
+                          Optional YouTube video under the written section.
+                        </span>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
 
-        <div className="trainingPrototypeEditAddRow">
-          <button type="button" className="btn" onClick={addSection}>
-            Add section
-          </button>
-          <button type="button" className="btn" onClick={addQuiz}>
-            Add quiz
-          </button>
-        </div>
-
-        {saveError ? (
-          <div className="small" role="alert" style={{ color: "var(--danger)" }}>
-            {saveError}
+                {activeSection.isQuiz ? (
+                  <TrainingPrototypeQuizEditor
+                    questions={activeSection.quizQuestions}
+                    onAddQuestion={() => addQuizQuestion(activeSection.id)}
+                    onRemoveQuestion={(questionId) =>
+                      removeQuizQuestion(activeSection.id, questionId)
+                    }
+                    onUpdateQuestion={(questionId, patch) =>
+                      updateQuizQuestion(activeSection.id, questionId, patch)
+                    }
+                  />
+                ) : (
+                  <div className="trainingPrototypeEditCardList">
+                    {activeSection.blocks.map((block, blockIndex) => (
+                      <div key={block.key} className="trainingPrototypeEditCard">
+                        <div className="trainingPrototypeEditSectionHeading">
+                          {activeSection.blocks.length > 1 ? `Part ${blockIndex + 1}` : "Content"}
+                        </div>
+                        {block.card || activeSection.blocks.length > 1 ? (
+                          <label className="trainingPrototypeEditField">
+                            <span className="trainingPrototypeEditLabel">Heading</span>
+                            <input
+                              className="input"
+                              value={block.heading}
+                              onChange={(event) =>
+                                updateBlock(activeSection.id, block.key, {
+                                  heading: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                        ) : null}
+                        <div className="trainingPrototypeEditField">
+                          <span className="trainingPrototypeEditLabel">
+                            {block.card ? "Card text" : "Section text"}
+                          </span>
+                          <TrainingPrototypeRichTextEditor
+                            value={block.body}
+                            onChange={(nextValue) =>
+                              updateBlock(activeSection.id, block.key, { body: nextValue })
+                            }
+                            rows={8}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="small trainingPrototypeMuted">Add a section to start editing.</p>
+            )}
           </div>
-        ) : null}
+        </div>
 
         <div className="trainingPrototypeEditModalFooter">
-          <button type="button" className="btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="submit" className="btn btnPrimary">
-            Save changes
-          </button>
+          {saveError ? (
+            <div className="small trainingPrototypeEditSaveError" role="alert">
+              {saveError}
+            </div>
+          ) : (
+            <p className="small trainingPrototypeMuted trainingPrototypeEditSaveHint">
+              Saved changes show for every staff member and worker.
+            </p>
+          )}
+          <div className="trainingPrototypeEditFooterActions">
+            <button type="button" className="btn" onClick={onCancel}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btnPrimary">
+              Save changes
+            </button>
+          </div>
         </div>
       </form>
     </div>
