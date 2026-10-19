@@ -126,7 +126,6 @@ const ENSURED_RECRUITING_YEARS = [2027, 2028];
 
 const RECRUITING_POTENTIAL_COL = {
   select: 44,
-  stage: 64,
   team: 168,
   roster: 210,
   projectDates: 150,
@@ -4123,7 +4122,6 @@ export default function RecruitingPage() {
         >
           <colgroup>
             <col style={{ width: RECRUITING_POTENTIAL_COL.select }} />
-            <col style={{ width: RECRUITING_POTENTIAL_COL.stage }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.team }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.roster }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.projectDates }} />
@@ -4146,10 +4144,6 @@ export default function RecruitingPage() {
                   onChange={toggleSelectAllVisibleBulk}
                 />
               </th>
-              {renderPotentialSortableHeader("#", "stage", {
-                minWidth: RECRUITING_POTENTIAL_COL.stage,
-                textAlign: "center",
-              })}
               {renderPotentialSortableHeader("Team", "team", { minWidth: RECRUITING_POTENTIAL_COL.team })}
               {renderPotentialSortableHeader("Team roster", "roster", { minWidth: RECRUITING_POTENTIAL_COL.roster })}
               {renderPotentialSortableHeader("Project dates", "projectDates", {
@@ -4202,28 +4196,6 @@ export default function RecruitingPage() {
                       />
                       <RecruitingBoardCopyRowButton record={record} />
                     </div>
-                  </td>
-                  <td
-                    className="recruitingPotentialStageCell"
-                    style={{ minWidth: RECRUITING_POTENTIAL_COL.stage, verticalAlign: "middle", textAlign: "center" }}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <select
-                      className="input recruitingPotentialSheetInput recruitingPotentialStageSelect"
-                      value={Number(record.stage) || 0}
-                      onChange={(event) =>
-                        updateRecordField(record.id, "stage", Number(event.target.value))
-                      }
-                      onBlur={() => void handleSaveRecord(record.id)}
-                      aria-label={`Status for ${record.teamName || formatContactName(record)}`}
-                      title={getRecruitingStageLabel(record.stage)}
-                    >
-                      {RECRUITING_STAGES.map((stage) => (
-                        <option key={stage.value} value={stage.value} title={stage.label}>
-                          {stage.value}
-                        </option>
-                      ))}
-                    </select>
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.team, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <div className="recruitingTeamCellMain">
@@ -4398,23 +4370,6 @@ export default function RecruitingPage() {
               </div>
               <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} showGender={false} /></div>
               <div className="recruitingMobileMeta" onClick={(event) => event.stopPropagation()} style={{ display: "grid", gap: 8 }}>
-                <select
-                  className="input recruitingPotentialSheetInput recruitingPotentialStageSelect"
-                  value={Number(record.stage) || 0}
-                  onChange={(event) =>
-                    updateRecordField(record.id, "stage", Number(event.target.value))
-                  }
-                  onBlur={() => void handleSaveRecord(record.id)}
-                  aria-label={`Status for ${record.teamName || formatContactName(record)}`}
-                  title={getRecruitingStageLabel(record.stage)}
-                  style={{ maxWidth: 72, textAlign: "center", justifySelf: "start" }}
-                >
-                  {RECRUITING_STAGES.map((stage) => (
-                    <option key={stage.value} value={stage.value} title={stage.label}>
-                      {stage.value}
-                    </option>
-                  ))}
-                </select>
                 <input
                   className="input recruitingPotentialSheetInput"
                   value={record.teamName || ""}
