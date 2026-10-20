@@ -4,7 +4,7 @@
  * Env:
  * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL (or RESEND_FROM_EMAIL)
  * - TEAM_LOCK_NOTIFY_EMAIL — comma-separated staff recipients
- * - WORKER_INVITE_CC_EMAIL — optional CC on each worker invite (defaults to Mackayla, Leslee, Craig)
+ * - WORKER_INVITE_CC_EMAIL — optional CC on each worker invite (defaults to Mackayla and Leslee)
  */
 
 import { createClient } from "@supabase/supabase-js";
