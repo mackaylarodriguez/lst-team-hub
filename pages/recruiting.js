@@ -261,6 +261,26 @@ function compareNullableNumber(a, b, dir) {
   return dir === "desc" ? b - a : a - b;
 }
 
+function orderByPinnedIds(items, ids, getId) {
+  if (!ids?.length) return items;
+  const byId = new Map(items.map((item) => [getId(item), item]));
+  const ordered = [];
+  const used = new Set();
+  ids.forEach((id) => {
+    const item = byId.get(id);
+    if (!item || used.has(id)) return;
+    ordered.push(item);
+    used.add(id);
+  });
+  items.forEach((item) => {
+    const id = getId(item);
+    if (!id || used.has(id)) return;
+    ordered.push(item);
+    used.add(id);
+  });
+  return ordered;
+}
+
 function sortPotentialTeamRecords(records, sortKey, sortDir) {
   if (!sortKey) return records;
   const dir = sortDir === "desc" ? "desc" : "asc";
@@ -2138,6 +2158,8 @@ export default function RecruitingPage() {
   const [contactActivityByRecordId, setContactActivityByRecordId] = useState({});
   /** Default matches trip Staff Tasks body (13px); use floating +/- for medium/large. */
   const [tableFontSize, setTableFontSize] = useState("small");
+  /** Keep the visible row order steady while a board field is focused, so typing does not jump the card. */
+  const [pinnedBoardOrder, setPinnedBoardOrder] = useState(null);
   const [activeTab, setActiveTab] = useState("outreach");
   const [outreachBoardSort, setOutreachBoardSort] = useState({ key: null, dir: "asc" });
   const [potentialBoardSort, setPotentialBoardSort] = useState({ key: "team", dir: "asc" });
@@ -2230,7 +2252,7 @@ export default function RecruitingPage() {
     }
     const rec = records.find((row) => row.id === selectedRecordId);
     if (!rec || rec.isConvertedToTeam) return;
-    const snap = `${rec.id}:${rec.updatedAt || ""}`;
+    const snap = String(rec.id || "");
     if (potentialEditSnapshotKey.current === snap) return;
     potentialEditSnapshotKey.current = snap;
     setPotentialTeamEditDraft(buildTeamFormDraft(rec));
@@ -2521,6 +2543,27 @@ export default function RecruitingPage() {
     () =>
       sortPotentialTeamRecords(convertedTeams, convertedBoardSort.key, convertedBoardSort.dir),
     [convertedBoardSort.dir, convertedBoardSort.key, convertedTeams]
+  );
+  const outreachRowsForBoard = useMemo(
+    () =>
+      pinnedBoardOrder?.tab === "outreach"
+        ? orderByPinnedIds(sortedOutreachPersonRows, pinnedBoardOrder.ids, (row) => row.id)
+        : sortedOutreachPersonRows,
+    [pinnedBoardOrder, sortedOutreachPersonRows]
+  );
+  const potentialRecordsForBoard = useMemo(
+    () =>
+      pinnedBoardOrder?.tab === "potential"
+        ? orderByPinnedIds(sortedPotentialTeamRecords, pinnedBoardOrder.ids, (record) => record.id)
+        : sortedPotentialTeamRecords,
+    [pinnedBoardOrder, sortedPotentialTeamRecords]
+  );
+  const convertedRecordsForBoard = useMemo(
+    () =>
+      pinnedBoardOrder?.tab === "converted"
+        ? orderByPinnedIds(sortedConvertedTeams, pinnedBoardOrder.ids, (record) => record.id)
+        : sortedConvertedTeams,
+    [pinnedBoardOrder, sortedConvertedTeams]
   );
 
   const visibleOutreachRecordIds = useMemo(() => {
@@ -3464,7 +3507,8 @@ export default function RecruitingPage() {
     }));
   }
 
-  async function handleSaveRecord(recordId = selectedRecordId) {
+  async function handleSaveRecord(recordId = selectedRecordId, options = {}) {
+    const closeModal = options.closeModal === true;
     const recordToSave = records.find((record) => record.id === recordId);
     if (!recordToSave) return;
     if (notifyDuplicateTeamName(recordToSave.teamName, { excludeRecordId: recordToSave.id })) {
@@ -3476,7 +3520,7 @@ export default function RecruitingPage() {
       setIsSavingNotes(true);
       await saveRecruitingCycleContact(buildRecruitingRecordPayload(recordToSave));
       await refreshCurrentYear();
-      closeRecordDetailsModal();
+      if (closeModal) closeRecordDetailsModal();
       setPageStatus("Saved.");
       if (isBusyActive()) showBusyDone("Saved");
     } catch (saveError) {
@@ -5038,6 +5082,28 @@ export default function RecruitingPage() {
     );
   }
 
+  function pinBoardOrder() {
+    setPinnedBoardOrder((current) => {
+      if (current?.tab === activeTab) return current;
+      const ids =
+        activeTab === "outreach"
+          ? outreachRowsForBoard.map((row) => row.id)
+          : activeTab === "potential"
+            ? potentialRecordsForBoard.map((record) => record.id)
+            : convertedRecordsForBoard.map((record) => record.id);
+      return { tab: activeTab, ids: ids.filter(Boolean) };
+    });
+  }
+
+  function releaseBoardOrder(event) {
+    const root = event.currentTarget;
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (root.contains(active) && active?.closest?.("input, textarea, select")) return;
+      setPinnedBoardOrder(null);
+    });
+  }
+
   return (
     <Shell>
       <div className="recruitingTopRow" style={{ marginBottom: 14 }}>
@@ -5093,7 +5159,11 @@ export default function RecruitingPage() {
 
       <div className="recruitingPageStack" style={{ display: "grid", gap: 16 }}>
         <div className="recruitingPageStack" style={{ display: "grid", gap: 16 }}>
-          <div className="card pad recruitingBoardCard">
+          <div
+            className="card pad recruitingBoardCard"
+            onFocusCapture={pinBoardOrder}
+            onBlurCapture={releaseBoardOrder}
+          >
             <div className="recruitingBoardTabs" style={{ marginBottom: 10 }}>
               {RECRUITING_TABS.map((tab) => (
                 <button
@@ -5116,8 +5186,8 @@ export default function RecruitingPage() {
             {activeTab === "outreach" ? (
               <>
                 {renderBulkDeleteToolbar("")}
-                <div className="recruitingDesktopOnly">{renderOutreachTable(sortedOutreachPersonRows)}</div>
-                <div className="recruitingMobileOnly">{renderOutreachCards(sortedOutreachPersonRows)}</div>
+                <div className="recruitingDesktopOnly">{renderOutreachTable(outreachRowsForBoard)}</div>
+                <div className="recruitingMobileOnly">{renderOutreachCards(outreachRowsForBoard)}</div>
                 {selectedBulkRecordIds.length > 0 ? (
                   <div className="recruitingExportBar">
                     <button
@@ -5146,15 +5216,15 @@ export default function RecruitingPage() {
                     Move to Recruiting list
                   </button>
                 )}
-                <div className="recruitingDesktopOnly">{renderPotentialTable(sortedPotentialTeamRecords)}</div>
-                <div className="recruitingMobileOnly">{renderPotentialCards(sortedPotentialTeamRecords)}</div>
+                <div className="recruitingDesktopOnly">{renderPotentialTable(potentialRecordsForBoard)}</div>
+                <div className="recruitingMobileOnly">{renderPotentialCards(potentialRecordsForBoard)}</div>
               </>
             ) : null}
 
             {activeTab === "converted" ? (
               <>
-                <div className="recruitingDesktopOnly">{renderConvertedTable(sortedConvertedTeams)}</div>
-                <div className="recruitingMobileOnly">{renderConvertedCards(sortedConvertedTeams)}</div>
+                <div className="recruitingDesktopOnly">{renderConvertedTable(convertedRecordsForBoard)}</div>
+                <div className="recruitingMobileOnly">{renderConvertedCards(convertedRecordsForBoard)}</div>
               </>
             ) : null}
           </div>
@@ -5731,7 +5801,11 @@ export default function RecruitingPage() {
                         borderTop: "1px solid rgba(15, 23, 42, 0.06)",
                       }}
                     >
-                      <button className="btn btnPrimary" type="button" onClick={() => handleSaveRecord()}>
+                      <button
+                        className="btn btnPrimary"
+                        type="button"
+                        onClick={() => void handleSaveRecord(selectedRecordId, { closeModal: true })}
+                      >
                         {isSavingNotes ? "Saving..." : "Save record"}
                       </button>
                       {!selectedRecord.isConvertedToTeam && !selectedRecord.isPotentialTeam ? (
