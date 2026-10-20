@@ -35,7 +35,7 @@ import {
 } from "@/lib/teamLockProjectLength";
 import { listSiteBudgetNotes } from "@/lib/tripBudget";
 import { listTripTeamMembersForDuplicateCheck } from "@/lib/tripTeamMembers";
-import { assignRecruitingContactStaffTask, saveStaffMiscTask } from "@/lib/staffTasks";
+import { assignRecruitingContactStaffTask } from "@/lib/staffTasks";
 import {
   listRegisteredWorkersForPicker,
   resolveRegisteredWorker,
@@ -61,7 +61,7 @@ function formatRecruitingTaskTargetName(record) {
   );
 }
 
-function buildRecruitingStaffTaskDraft(record) {
+function buildRecruitingStaffTaskDraft(record, assignee = null) {
   const targetName = formatRecruitingTaskTargetName(record);
   const details = [
     record?.contact?.email ? `Email: ${record.contact.email}` : "",
@@ -73,8 +73,10 @@ function buildRecruitingStaffTaskDraft(record) {
   return {
     recordId: record?.id || "",
     taskName: `Contact ${targetName}`,
-    dueDate: String(record?.nextFollowUp || "").slice(0, 10),
+    dueDate: localTodayYmd(),
     notes: details.join("\n"),
+    assigneeEmail: String(assignee?.email || "").trim().toLowerCase(),
+    assigneeName: String(assignee?.name || "").trim(),
   };
 }
 
@@ -2101,10 +2103,11 @@ export default function RecruitingPage() {
     taskName: "",
     dueDate: "",
     notes: "",
+    assigneeEmail: "",
+    assigneeName: "",
   });
   const [assignableStaff, setAssignableStaff] = useState([]);
   const [contactAssignMenu, setContactAssignMenu] = useState(null);
-  const [assigningContactRecordId, setAssigningContactRecordId] = useState("");
 
   function normalizeTeamNameKey(value) {
     return String(value || "")
@@ -3759,39 +3762,14 @@ export default function RecruitingPage() {
     );
   }
 
-  async function assignRecruitingContactTask(record, assignee) {
-    if (!record?.id || !assignee?.email) return;
-    if (!session?.email) {
-      setError("Sign in before assigning a contact task.");
-      return;
-    }
-    const draft = buildRecruitingStaffTaskDraft(record);
-    try {
-      setAssigningContactRecordId(record.id);
-      setContactAssignMenu(null);
-      await assignRecruitingContactStaffTask({
-        assigneeEmail: assignee.email,
-        assigneeName: assignee.name || assignee.email,
-        taskName: draft.taskName,
-        dueDate: draft.dueDate,
-        notes: draft.notes,
-      });
-      const who = assignee.isSelf ? "you" : assignee.name;
-      setError("");
-      setPageStatus(`Contact task assigned to ${who}.`);
-      showToast(`Assigned “${draft.taskName}” to ${who}.`, "success");
-    } catch (saveError) {
-      console.error("Unable to assign recruiting contact task", saveError);
-      setError(saveError.message || "Unable to assign contact task.");
-      showToast(saveError.message || "Unable to assign contact task.", "error");
-    } finally {
-      setAssigningContactRecordId("");
-    }
-  }
-
-  function openStaffTaskModal(record) {
+  function openStaffTaskModal(record, assignee = null) {
     if (!record?.id) return;
-    setStaffTaskDraft(buildRecruitingStaffTaskDraft(record));
+    const selfAssignee = assignee || {
+      email: normalizeEmailValue(session?.email),
+      name: String(session?.name || session?.email || "").trim(),
+    };
+    setContactAssignMenu(null);
+    setStaffTaskDraft(buildRecruitingStaffTaskDraft(record, selfAssignee));
     setError("");
     setStaffTaskModalOpen(true);
   }
@@ -3808,16 +3786,17 @@ export default function RecruitingPage() {
       setError("Sign in before creating a staff task.");
       return;
     }
+    const assigneeEmail = normalizeEmailValue(staffTaskDraft.assigneeEmail || session.email);
+    const assigneeName =
+      String(staffTaskDraft.assigneeName || "").trim() || session.name || session.email || "Staff";
 
     try {
       setIsSavingStaffTask(true);
-      await saveStaffMiscTask({
-        staffEmail: session.email,
-        staffName: session.name || session.email || "Staff",
-        workArea: "Recruiting",
+      await assignRecruitingContactStaffTask({
+        assigneeEmail,
+        assigneeName,
         taskName,
         dueDate: String(staffTaskDraft.dueDate || "").trim(),
-        progress: "Not started",
         notes: String(staffTaskDraft.notes || "").trim(),
       });
       setStaffTaskModalOpen(false);
@@ -3826,10 +3805,14 @@ export default function RecruitingPage() {
         taskName: "",
         dueDate: "",
         notes: "",
+        assigneeEmail: "",
+        assigneeName: "",
       });
       setError("");
-      setPageStatus("Staff task added.");
-      showToast(`Added task for ${formatRecruitingTaskTargetName(record)}.`, "success");
+      const who =
+        assigneeEmail === normalizeEmailValue(session.email) ? "you" : assigneeName;
+      setPageStatus(`Contact task assigned to ${who}.`);
+      showToast(`Assigned “${taskName}” to ${who}.`, "success");
     } catch (saveError) {
       console.error("Unable to create recruiting staff task", saveError);
       setError(saveError.message || "Unable to create staff task.");
@@ -4043,7 +4026,6 @@ export default function RecruitingPage() {
 
   function renderOutreachActionButtons(record, person, isLogging) {
     const assignMenuOpen = contactAssignMenu?.recordId === record.id;
-    const isAssigning = assigningContactRecordId === record.id;
     return (
       <>
         <div className="recruitingContactSplit" data-contact-assign-root="">
@@ -4060,7 +4042,6 @@ export default function RecruitingPage() {
             type="button"
             aria-label="Assign contact task"
             aria-expanded={assignMenuOpen}
-            disabled={isAssigning}
             title="Assign this contact task"
             onClick={(event) => {
               event.stopPropagation();
@@ -5754,10 +5735,9 @@ export default function RecruitingPage() {
               key={person.email}
               type="button"
               role="menuitem"
-              disabled={assigningContactRecordId === contactAssignMenu.recordId}
               onClick={() => {
                 const record = records.find((entry) => entry.id === contactAssignMenu.recordId);
-                if (record) void assignRecruitingContactTask(record, person);
+                if (record) openStaffTaskModal(record, person);
               }}
             >
               {person.isSelf ? `${person.name} (me)` : person.name}
@@ -5782,9 +5762,11 @@ export default function RecruitingPage() {
           <div className="card pad appModalCard" style={{ width: "min(560px, 100%)" }}>
             <div className="row" style={{ marginBottom: 10 }}>
               <div>
-                <div style={{ fontWeight: 900 }}>Add staff task</div>
+                <div style={{ fontWeight: 900 }}>Assign contact task</div>
                 <div className="small" style={{ marginTop: 2, color: "var(--muted)" }}>
-                  This will show in your My Tasks page.
+                  {normalizeEmailValue(staffTaskDraft.assigneeEmail) === normalizeEmailValue(session?.email)
+                    ? "This will show on your My Tasks page."
+                    : `This will show on ${staffTaskDraft.assigneeName || "their"} My Tasks page.`}
                 </div>
               </div>
               <div className="spacer" />
@@ -5793,6 +5775,28 @@ export default function RecruitingPage() {
               </button>
             </div>
             <div style={{ display: "grid", gap: 10 }}>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Assign to</div>
+                <select
+                  className="input"
+                  value={staffTaskDraft.assigneeEmail}
+                  onChange={(event) => {
+                    const email = normalizeEmailValue(event.target.value);
+                    const person = contactTaskAssignees().find((entry) => entry.email === email);
+                    setStaffTaskDraft((current) => ({
+                      ...current,
+                      assigneeEmail: email,
+                      assigneeName: person?.name || email,
+                    }));
+                  }}
+                >
+                  {contactTaskAssignees().map((person) => (
+                    <option key={person.email} value={person.email}>
+                      {person.isSelf ? `${person.name} (me)` : person.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>Task</div>
                 <input
@@ -5822,7 +5826,7 @@ export default function RecruitingPage() {
                 />
               </div>
               <div>
-                <div className="small" style={{ marginBottom: 6 }}>Notes</div>
+                <div className="small" style={{ marginBottom: 6 }}>Message</div>
                 <textarea
                   className="input"
                   rows={4}
@@ -5833,7 +5837,7 @@ export default function RecruitingPage() {
                       notes: event.target.value,
                     }))
                   }
-                  placeholder="Details to remember"
+                  placeholder="What should they say or remember?"
                 />
               </div>
             </div>
@@ -5844,7 +5848,7 @@ export default function RecruitingPage() {
                 onClick={() => void handleSaveRecruitingStaffTask()}
                 disabled={isSavingStaffTask}
               >
-                {isSavingStaffTask ? "Saving..." : "Save Staff Task"}
+                {isSavingStaffTask ? "Saving..." : "Assign task"}
               </button>
               <button className="btn" type="button" onClick={() => setStaffTaskModalOpen(false)}>
                 Cancel
