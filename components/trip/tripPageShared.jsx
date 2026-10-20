@@ -666,6 +666,8 @@ function OptionalTripWideDocumentCard({
   const available = !!(d.pdfUrl || d.link);
   const isEditing = editingDocId === d.id;
   const isPdf = !!d.pdfUrl;
+  const isBuiltIn = !!d.isBuiltIn;
+  const fileLabel = d.fileKind === "image" ? "Image" : isPdf ? "PDF" : "Link";
   const tileNarrow = compactTile && !isEditing;
   const workerLabel = getTripDocumentWorkerLabel(d);
   const workAreaMeta = parseTripDocumentWorkAreaMeta(d.workArea);
@@ -679,10 +681,10 @@ function OptionalTripWideDocumentCard({
             <span className={"badge badgeInfo"}>{workerLabel}</span>
           ) : null}
           <div className="tripDocumentSquareTileMeta small">
-            {isPdf ? "PDF" : "Link"}
+            {fileLabel}
             {d.category ? ` · ${d.category}` : ""}
           </div>
-          {canManageTripDocuments ? (
+          {canManageTripDocuments && !isBuiltIn ? (
             <div className="small tripDocumentSquareTileMeta">
               {d.visibleToParticipants === false ? "Hidden from participants" : "Visible to participants"}
             </div>
@@ -694,7 +696,7 @@ function OptionalTripWideDocumentCard({
               Open
             </a>
           ) : null}
-          {canManageTripDocuments ? (
+          {canManageTripDocuments && !isBuiltIn ? (
             <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
               Edit
             </button>
@@ -789,12 +791,12 @@ function OptionalTripWideDocumentCard({
             <>
               <div style={{ fontWeight: 900 }}>{d.title}</div>
               <div className="small" style={{ marginTop: 4 }}>
-                {isPdf ? "PDF" : "Link"}
+                {fileLabel}
                 {d.category ? ` • ${d.category}` : ""}
                 {workAreaMeta.notes ? ` • ${workAreaMeta.notes}` : ""}
                 {d.createdAt ? ` • ${new Date(d.createdAt).toLocaleDateString()}` : ""}
               </div>
-              {canManageTripDocuments ? (
+              {canManageTripDocuments && !isBuiltIn ? (
                 <div className="small" style={{ marginTop: 4 }}>
                   {d.visibleToParticipants === false
                     ? "Hidden from participants"
@@ -815,7 +817,7 @@ function OptionalTripWideDocumentCard({
               Open
             </a>
           ) : null}
-          {canManageTripDocuments ? (
+          {canManageTripDocuments && !isBuiltIn ? (
             <button className="btn" type="button" onClick={() => handleEditDoc(d)}>
               Edit
             </button>

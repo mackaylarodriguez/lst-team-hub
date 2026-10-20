@@ -72,6 +72,7 @@ import {
   DOCUMENT_CATEGORY_OPTIONS,
   getDocumentSlotByKey,
   getSmartsheetBudgetTutorialCards,
+  LST_LOGO_TRIP_DOCUMENT,
   REQUIRED_TRIP_DOCUMENT_SLOTS,
 } from "@/lib/tripDocumentSlots";
 import { isWorkerTaskCompletedInState, percentComplete } from "@/lib/tasks";
@@ -6850,6 +6851,13 @@ normalizeEmail(participant.email) === activeParticipantEmail
       if (rk === "site-info-link") continue;
       if (rk === "housing-accommodation-link") continue;
       pushEntry(categoryForTripResourceDoc(d), { kind: "doc", doc: d });
+    }
+
+    const alreadyHasLogo = buckets.Other.some(
+      (entry) => String(entry.doc?.title || "").trim().toLowerCase() === "lst logo"
+    );
+    if (!alreadyHasLogo) {
+      pushEntry("Other", { kind: "doc", doc: LST_LOGO_TRIP_DOCUMENT });
     }
 
     for (const c of DOCUMENT_CATEGORY_OPTIONS) {
