@@ -1442,15 +1442,6 @@ function formatChartDatePair(start, end) {
   return "";
 }
 
-/** Leave and return saved on the card, shown as-is on the recruiting chart. */
-function cardLeaveReturnLabel(record) {
-  const pending = getPendingLockSetupRecord(record);
-  const start = String(pending.startDate || "").trim();
-  const end = String(pending.endDate || "").trim();
-  if (!start || !end) return "";
-  return formatChartDatePair(start, end);
-}
-
 /** Chart dates follow the card's leave and return, then a written range from the recruiting list. */
 function recruitingBoardProjectDatesLabel(record) {
   const pending = getPendingLockSetupRecord(record);
@@ -3452,6 +3443,47 @@ export default function RecruitingPage() {
     );
   }
 
+  function overviewDateInputValue(record) {
+    const pending = getPendingLockSetupRecord(record);
+    const savedStart = String(pending.startDate || "").trim();
+    const savedEnd = String(pending.endDate || "").trim();
+    if (savedStart && savedEnd) return formatChartDatePair(savedStart, savedEnd);
+    const written = String(record?.projectDates || "");
+    if (written.trim()) return written;
+    return recruitingBoardProjectDatesLabel(record);
+  }
+
+  function updateOverviewProjectDates(recordId, value) {
+    setRecords((current) =>
+      current.map((record) => {
+        if (record.id !== recordId) return record;
+        const prior =
+          record.pendingLockTeamSetup && typeof record.pendingLockTeamSetup === "object"
+            ? record.pendingLockTeamSetup
+            : {};
+        return {
+          ...record,
+          projectDates: value,
+          pendingLockTeamSetup: { ...prior, startDate: "", endDate: "" },
+        };
+      })
+    );
+  }
+
+  function renderOverviewDateInput(record) {
+    return (
+      <input
+        className="input recruitingPotentialSheetInput"
+        value={overviewDateInputValue(record)}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => updateOverviewProjectDates(record.id, event.target.value)}
+        onBlur={() => void handleSaveRecord(record.id)}
+        placeholder="Dates or season"
+        aria-label={`Project dates for ${record.teamName || formatContactName(record)}`}
+      />
+    );
+  }
+
   function updateRecordOwner(recordId, owner) {
     updateRecordField(recordId, "assignedTo", owner);
   }
@@ -3934,7 +3966,6 @@ export default function RecruitingPage() {
                 const { person, record } = row;
                 const draft = buildTeamFormDraft(record);
                 const siteLabel = chartDashText(record.site || draft.location);
-                const datesLabel = chartDashText(recruitingBoardProjectDatesLabel(record));
                 const rowClass = rowIndex % 2 === 1 ? "recruitingRowAlt" : "";
                 const isLogging = loggingOutreachRecordId === record.id;
                 const duplicateInfo = person.email
@@ -3970,7 +4001,7 @@ export default function RecruitingPage() {
                     <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project, verticalAlign: "top" }}>
                       <div className="recruitingOutreachProjectCell">
                         <div className="recruitingOutreachProjectSite">{siteLabel}</div>
-                        <div className="recruitingOutreachProjectDates">{datesLabel}</div>
+                        {renderOverviewDateInput(record)}
                       </div>
                     </td>
                     <td
@@ -4040,7 +4071,6 @@ export default function RecruitingPage() {
           const { person, record } = row;
           const draft = buildTeamFormDraft(record);
           const siteLabel = chartDashText(record.site || draft.location);
-          const datesLabel = chartDashText(recruitingBoardProjectDatesLabel(record));
           const isLogging = loggingOutreachRecordId === record.id;
           const duplicateInfo = person.email
             ? getDuplicateInfoForEmail(person.email, { excludeRecordId: record.id })
@@ -4070,7 +4100,7 @@ export default function RecruitingPage() {
               {renderDuplicateNotice(duplicateInfo, { compact: true })}
               <div className="recruitingOutreachProjectCell" style={{ marginTop: 10 }}>
                 <div className="recruitingOutreachProjectSite">{siteLabel}</div>
-                <div className="recruitingOutreachProjectDates">{datesLabel}</div>
+                {renderOverviewDateInput(record)}
               </div>
               <div className="recruitingMobileNotes" style={{ marginTop: 10 }} onClick={(event) => event.stopPropagation()}>
                 <textarea
@@ -4229,7 +4259,6 @@ export default function RecruitingPage() {
                 record?.pendingLockTeamSetup?.fundraisingGoalAmount ??
                 d.fundraisingGoalAmount ??
                 "";
-              const cardDatesLabel = cardLeaveReturnLabel(record);
 
               return (
                 <tr
@@ -4271,17 +4300,7 @@ export default function RecruitingPage() {
                     <RecruitingRosterBoardColumn record={record} showGender={false} />
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.projectDates, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
-                    {cardDatesLabel ? (
-                      <div className="recruitingChartCell">{cardDatesLabel}</div>
-                    ) : (
-                      <input
-                        className="input recruitingPotentialSheetInput"
-                        value={record.projectDates || ""}
-                        onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
-                        onBlur={() => void handleSaveRecord(record.id)}
-                        placeholder="Dates or season"
-                      />
-                    )}
+                    {renderOverviewDateInput(record)}
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.site, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <select
@@ -4384,7 +4403,6 @@ export default function RecruitingPage() {
           const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
           const d = buildTeamFormDraft(record);
           const isSelected = selectedBulkRecordIds.includes(record.id);
-          const cardDatesLabel = cardLeaveReturnLabel(record);
 
           return (
             <div
@@ -4435,17 +4453,7 @@ export default function RecruitingPage() {
                   onBlur={() => void handleSaveRecord(record.id)}
                   placeholder="Team name"
                 />
-                {cardDatesLabel ? (
-                  <div className="recruitingChartCell">{cardDatesLabel}</div>
-                ) : (
-                  <input
-                    className="input recruitingPotentialSheetInput"
-                    value={record.projectDates || ""}
-                    onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
-                    onBlur={() => void handleSaveRecord(record.id)}
-                    placeholder="Project dates"
-                  />
-                )}
+                {renderOverviewDateInput(record)}
                 <select
                   className="input recruitingPotentialSheetInput"
                   value={record.site || d.location || ""}
@@ -4588,8 +4596,8 @@ export default function RecruitingPage() {
                     </div>
                   </td>
                   <td style={{ width: RECRUITING_CONVERTED_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
-                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.projectDates, verticalAlign: "top" }}>
-                    <div className="recruitingChartCell">{chartDashText(recruitingBoardProjectDatesLabel(record))}</div>
+                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.projectDates, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                    {renderOverviewDateInput(record)}
                   </td>
                   <td style={{ width: RECRUITING_CONVERTED_COL_PCT.site, verticalAlign: "top" }}>
                     <div className="recruitingChartCell">{chartDashText(d.location)}</div>
@@ -4694,7 +4702,7 @@ export default function RecruitingPage() {
             </div>
             <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} /></div>
             <div className="recruitingMobileMeta">
-              <span title="Project dates">{chartDashText(recruitingBoardProjectDatesLabel(record))}</span>
+              <span title="Project dates">{renderOverviewDateInput(record)}</span>
               <span title="Site">{chartDashText(d.location)}</span>
               <span title="Weeks">{chartDashText(recruitingBoardWeeksLabel(record))}</span>
             </div>

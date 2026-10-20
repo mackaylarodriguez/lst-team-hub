@@ -23,6 +23,7 @@ import {
   STAFF_TASKS_UPDATED_EVENT,
   toCalendarDatePart,
 } from "@/lib/staffTasks";
+import { notifyStaffTaskAssigned } from "@/lib/hubNotifications";
 
 const PROGRESS_OPTIONS = [
   "Not started",
@@ -350,6 +351,7 @@ export default function Admin() {
       return;
     }
 
+    const previous = (staffTasksByTripRef.current[tripId] || []).find((task) => task.id === taskId);
     const nextTripTasks = setLocalTaskField(tripId, taskId, field, value);
     console.log("[adminPage] updateTask", {
       tripId,
@@ -382,6 +384,18 @@ export default function Admin() {
       };
       setStaffTaskStatus("Saved.");
       setStaffTaskRowFeedback(getTaskKey(tripId, taskId), "success", "Saved");
+      if (field === "assignedTo") {
+        const previousAssignee = String(previous?.assignedTo || "").trim();
+        const nextAssignee = String(value || "").trim();
+        if (nextAssignee && nextAssignee.toLowerCase() !== previousAssignee.toLowerCase()) {
+          void notifyStaffTaskAssigned({
+            tripId,
+            session,
+            assignee: nextAssignee,
+            taskName: previous?.taskName || previous?.title,
+          });
+        }
+      }
     } catch (error) {
       console.error("Unable to save staff tasks", error);
       if (latestStaffTaskSaveRef.current !== requestId) return;

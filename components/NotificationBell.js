@@ -6,6 +6,24 @@ import {
 } from "@/lib/hubNotifications";
 
 const SEEN_KEY = "lst-hub-notification-seen";
+const SINCE_KEY = "lst-hub-notification-since";
+
+function notificationSince(session) {
+  const email = String(session?.email || "").trim().toLowerCase();
+  if (!email || typeof window === "undefined") return "";
+  const key = `${SINCE_KEY}:${email}`;
+  const stored = window.localStorage.getItem(key);
+  if (stored) return stored;
+
+  const accountTime = Date.parse(session?.accountCreatedAt || "");
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const since =
+    Number.isFinite(accountTime) && accountTime > weekAgo
+      ? new Date(accountTime).toISOString()
+      : new Date().toISOString();
+  window.localStorage.setItem(key, since);
+  return since;
+}
 
 function readSeenIds() {
   if (typeof window === "undefined") return [];
@@ -59,7 +77,7 @@ export default function NotificationBell({ session }) {
     async function load() {
       setLoading(true);
       try {
-        const next = await listHubNotifications(session);
+        const next = await listHubNotifications(session, { since: notificationSince(session) });
         if (!cancelled) setItems(next);
       } catch (error) {
         console.error("Unable to load notifications", error);
@@ -150,7 +168,7 @@ export default function NotificationBell({ session }) {
           <div className="hubNotificationPanelHeader">
             <div>
               <div className="hubNotificationPanelTitle">Notifications</div>
-              <div className="small">Announcements, flights, and tasks assigned to you.</div>
+              <div className="small">New assignments and other important updates.</div>
             </div>
           </div>
           <div className="hubNotificationList">
@@ -159,7 +177,7 @@ export default function NotificationBell({ session }) {
             ) : null}
             {!loading && !items.length ? (
               <div className="small hubNotificationEmpty">
-                Nothing new. Announcements, added flights, and tasks assigned to you will show up here.
+                Nothing new. When someone assigns you a task, it will show up here.
               </div>
             ) : null}
             {items.map((item) => (
