@@ -28,6 +28,7 @@ import {
 } from "@/lib/recruitingCycles";
 import { buildSiteLabelsOrdered, resolveEffectiveSiteHostName } from "@/lib/siteMaterials";
 import { sendTeamLockStaffNotify, buildTeamLockNotifyPayload } from "@/lib/teamLockNotify";
+import { firstRecruitingDateRange } from "@/lib/recruitingDateRange";
 import {
   computeWeeksBetweenDepartAndEnd,
   resolveProjectLengthForLock,
@@ -1348,6 +1349,7 @@ function buildTeamFormDraft(record) {
     .filter(Boolean)
     .join(" - ");
   const recruitingDepartureDate = String(record?.departureDate || "").trim();
+  const parsedDateRange = recruitingLooseDateRange(record);
   const savedProjectLength = String(pending.projectLengthSummary ?? "").trim();
   const recruitingWeeks =
     record?.weeks === null || record?.weeks === undefined || record?.weeks === ""
@@ -1359,8 +1361,11 @@ function buildTeamFormDraft(record) {
       ? pending.startDate
       : /^\d{4}-\d{2}-\d{2}$/.test(recruitingDepartureDate)
         ? recruitingDepartureDate
-        : "";
-  const endDate = pending.endDate ?? "";
+        : parsedDateRange?.start || "";
+  const endDate =
+    pending.endDate !== undefined && String(pending.endDate).trim() !== ""
+      ? pending.endDate
+      : parsedDateRange?.end || "";
 
   const builtMembers = buildTeamMemberDrafts(record);
   const teamMembers =
@@ -1409,19 +1414,56 @@ function getPendingLockSetupRecord(record) {
   return p;
 }
 
-/** Slim board "Project dates" column: row `project_dates`, else Site & logistics leave/return. */
-function recruitingBoardProjectDatesLabel(record) {
-  const pd = String(record?.projectDates || "").trim();
-  if (pd) return pd;
-  const pending = getPendingLockSetupRecord(record);
-  const a = String(pending.startDate || "").trim();
-  const b = String(pending.endDate || "").trim();
-  if (a && b) {
-    return `${formatDate(a)} → ${formatDate(b)}`;
-  }
+function recruitingYearForRecord(record) {
+  const year = Number(record?.recruitingYear);
+  if (Number.isFinite(year) && year >= 2000) return year;
+  return DEFAULT_RECRUITING_YEAR;
+}
+
+/** Dates written on the recruiting list ("May 25 - June 6") or in notes that carry over. */
+function recruitingLooseDateRange(record) {
+  return firstRecruitingDateRange(
+    [
+      record?.projectDates,
+      record?.departureDate,
+      stripHandoffSummary(record?.mackaylaNotes),
+      record?.lesleeNotes,
+    ],
+    recruitingYearForRecord(record)
+  );
+}
+
+function formatChartDatePair(start, end) {
+  const a = String(start || "").trim();
+  const b = String(end || "").trim();
+  if (a && b) return `${formatDate(a)} → ${formatDate(b)}`;
   if (a) return formatDate(a);
   if (b) return formatDate(b);
   return "";
+}
+
+/** Leave and return saved on the card, shown as-is on the recruiting chart. */
+function cardLeaveReturnLabel(record) {
+  const pending = getPendingLockSetupRecord(record);
+  const start = String(pending.startDate || "").trim();
+  const end = String(pending.endDate || "").trim();
+  if (!start || !end) return "";
+  return formatChartDatePair(start, end);
+}
+
+/** Chart dates follow the card's leave and return, then a written range from the recruiting list. */
+function recruitingBoardProjectDatesLabel(record) {
+  const pending = getPendingLockSetupRecord(record);
+  const savedStart = String(pending.startDate || "").trim();
+  const savedEnd = String(pending.endDate || "").trim();
+  if (savedStart && savedEnd) return formatChartDatePair(savedStart, savedEnd);
+
+  const parsed = recruitingLooseDateRange(record);
+  if (parsed?.start && parsed?.end) return formatChartDatePair(parsed.start, parsed.end);
+
+  if (savedStart || savedEnd) return formatChartDatePair(savedStart, savedEnd);
+
+  return String(record?.projectDates || "").trim();
 }
 
 /** Slim board "Weeks" column: numeric `weeks`, else length-of-projects from lock setup draft. */
@@ -3093,9 +3135,16 @@ export default function RecruitingPage() {
         domesticFeeAmount: teamFormDraft.domesticFeeAmount,
         domesticMaterialsFeeAmount: teamFormDraft.domesticMaterialsFeeAmount,
         weeks: teamFormDraft.recruitingWeeks,
-        projectDates: teamFormDraft.recruitingProjectDates,
         departureDate: teamFormDraft.recruitingDepartureDate,
         ...teamFormDraft,
+        projectDates:
+          String(teamFormDraft.startDate || "").trim() && String(teamFormDraft.endDate || "").trim()
+            ? formatChartDatePair(teamFormDraft.startDate, teamFormDraft.endDate)
+            : teamFormDraft.recruitingProjectDates,
+        pendingLockTeamSetup: buildPendingLockTeamSetupFromDraft(
+          teamFormDraft,
+          teamFormShowMemberTripDates
+        ),
       });
 
       await refreshCurrentYear();
@@ -3339,7 +3388,10 @@ export default function RecruitingPage() {
           ...synced,
           teamName: d.name,
           site: d.location,
-          projectDates: d.recruitingProjectDates,
+          projectDates:
+            String(d.startDate || "").trim() && String(d.endDate || "").trim()
+              ? formatChartDatePair(d.startDate, d.endDate)
+              : d.recruitingProjectDates,
           weeks: Number.isFinite(weeksParsed) ? weeksParsed : null,
           departureDate: d.recruitingDepartureDate,
           mackaylaNotes: d.mackaylaNotes,
@@ -4177,6 +4229,9 @@ export default function RecruitingPage() {
                 record?.pendingLockTeamSetup?.fundraisingGoalAmount ??
                 d.fundraisingGoalAmount ??
                 "";
+              const projectDatesLabel = recruitingBoardProjectDatesLabel(record);
+              const rawProjectDates = String(record.projectDates || "").trim();
+              const cardDatesLabel = cardLeaveReturnLabel(record);
 
               return (
                 <tr
@@ -4218,13 +4273,24 @@ export default function RecruitingPage() {
                     <RecruitingRosterBoardColumn record={record} showGender={false} />
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.projectDates, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
-                    <input
-                      className="input recruitingPotentialSheetInput"
-                      value={record.projectDates || ""}
-                      onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
-                      onBlur={() => void handleSaveRecord(record.id)}
-                      placeholder="Dates or season"
-                    />
+                    {cardDatesLabel ? (
+                      <div className="recruitingChartCell">{cardDatesLabel}</div>
+                    ) : (
+                      <>
+                        {projectDatesLabel && projectDatesLabel !== rawProjectDates ? (
+                          <div className="recruitingOutreachProjectDates" style={{ marginBottom: 6 }}>
+                            {projectDatesLabel}
+                          </div>
+                        ) : null}
+                        <input
+                          className="input recruitingPotentialSheetInput"
+                          value={record.projectDates || ""}
+                          onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
+                          onBlur={() => void handleSaveRecord(record.id)}
+                          placeholder="Dates or season"
+                        />
+                      </>
+                    )}
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.site, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
                     <select
@@ -4327,6 +4393,9 @@ export default function RecruitingPage() {
           const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
           const d = buildTeamFormDraft(record);
           const isSelected = selectedBulkRecordIds.includes(record.id);
+          const projectDatesLabel = recruitingBoardProjectDatesLabel(record);
+          const rawProjectDates = String(record.projectDates || "").trim();
+          const cardDatesLabel = cardLeaveReturnLabel(record);
 
           return (
             <div
@@ -4377,13 +4446,22 @@ export default function RecruitingPage() {
                   onBlur={() => void handleSaveRecord(record.id)}
                   placeholder="Team name"
                 />
-                <input
-                  className="input recruitingPotentialSheetInput"
-                  value={record.projectDates || ""}
-                  onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
-                  onBlur={() => void handleSaveRecord(record.id)}
-                  placeholder="Project dates"
-                />
+                {cardDatesLabel ? (
+                  <div className="recruitingChartCell">{cardDatesLabel}</div>
+                ) : (
+                  <>
+                    {projectDatesLabel && projectDatesLabel !== rawProjectDates ? (
+                      <div className="recruitingOutreachProjectDates">{projectDatesLabel}</div>
+                    ) : null}
+                    <input
+                      className="input recruitingPotentialSheetInput"
+                      value={record.projectDates || ""}
+                      onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
+                      onBlur={() => void handleSaveRecord(record.id)}
+                      placeholder="Project dates"
+                    />
+                  </>
+                )}
                 <select
                   className="input recruitingPotentialSheetInput"
                   value={record.site || d.location || ""}
