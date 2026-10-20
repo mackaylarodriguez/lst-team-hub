@@ -61,6 +61,13 @@ function formatRecruitingTaskTargetName(record) {
   );
 }
 
+function contactMethodTaskVerb(method) {
+  const normalized = normalizeLastContactMethodValue(method) || "email";
+  if (normalized === "call") return "Call";
+  if (normalized === "text") return "Text";
+  return "Email";
+}
+
 function buildRecruitingStaffTaskDraft(record, assignee = null) {
   const targetName = formatRecruitingTaskTargetName(record);
   const details = [
@@ -72,7 +79,8 @@ function buildRecruitingStaffTaskDraft(record, assignee = null) {
 
   return {
     recordId: record?.id || "",
-    taskName: `Contact ${targetName}`,
+    contactMethod: "email",
+    taskName: `Email ${targetName}`,
     dueDate: localTodayYmd(),
     notes: details.join("\n"),
     assigneeEmail: String(assignee?.email || "").trim().toLowerCase(),
@@ -2100,6 +2108,7 @@ export default function RecruitingPage() {
   const importInputRef = useRef(null);
   const [staffTaskDraft, setStaffTaskDraft] = useState({
     recordId: "",
+    contactMethod: "email",
     taskName: "",
     dueDate: "",
     notes: "",
@@ -3737,7 +3746,6 @@ export default function RecruitingPage() {
       email: normalizeEmailValue(session?.email),
       name: String(session?.name || session?.email || "").trim(),
     };
-    setContactAssignMenu(null);
     setStaffTaskDraft(buildRecruitingStaffTaskDraft(record, selfAssignee));
     setError("");
     setStaffTaskModalOpen(true);
@@ -3758,6 +3766,11 @@ export default function RecruitingPage() {
     const assigneeEmail = normalizeEmailValue(staffTaskDraft.assigneeEmail || session.email);
     const assigneeName =
       String(staffTaskDraft.assigneeName || "").trim() || session.name || session.email || "Staff";
+    const contactLabel = contactMethodTaskVerb(staffTaskDraft.contactMethod);
+    const notesBody = String(staffTaskDraft.notes || "").trim();
+    const notes = notesBody.startsWith("Contact:")
+      ? notesBody
+      : [`Contact: ${contactLabel}`, notesBody].filter(Boolean).join("\n");
 
     try {
       setIsSavingStaffTask(true);
@@ -3766,11 +3779,12 @@ export default function RecruitingPage() {
         assigneeName,
         taskName,
         dueDate: String(staffTaskDraft.dueDate || "").trim(),
-        notes: String(staffTaskDraft.notes || "").trim(),
+        notes,
       });
       setStaffTaskModalOpen(false);
       setStaffTaskDraft({
         recordId: "",
+        contactMethod: "email",
         taskName: "",
         dueDate: "",
         notes: "",
@@ -3862,7 +3876,6 @@ export default function RecruitingPage() {
         ? activityDate || lastContactDateInputValue(record) || localTodayYmd()
         : localTodayYmd(),
       notes: activityId ? String(activity?.summary || "").trim() : "",
-      assigneeEmail: "",
     });
     setOutreachContactModalOpen(true);
   }
@@ -3876,7 +3889,6 @@ export default function RecruitingPage() {
       method: "email",
       date: "",
       notes: "",
-      assigneeEmail: "",
     });
   }
 
@@ -3936,27 +3948,6 @@ export default function RecruitingPage() {
       outreachContactDraft.notes
     );
     if (!saved) return;
-
-    const assigneeEmail = normalizeEmailValue(outreachContactDraft.assigneeEmail);
-    if (assigneeEmail) {
-      const assignee = contactTaskAssignees().find((person) => person.email === assigneeEmail);
-      try {
-        await assignRecruitingContactStaffTask({
-          assigneeEmail,
-          assigneeName: assignee?.name || assigneeEmail,
-          taskName: `Contact ${formatRecruitingTaskTargetName(record)}`,
-          dueDate: String(outreachContactDraft.date || "").trim(),
-          notes: String(outreachContactDraft.notes || "").trim(),
-        });
-        const who = assignee?.isSelf ? "you" : assignee?.name || assigneeEmail;
-        showToast(`Assigned the contact task to ${who}.`, "success");
-      } catch (assignError) {
-        console.error("Unable to assign contact task", assignError);
-        setError(assignError.message || "Contact was saved, but the task could not be assigned.");
-        showToast(assignError.message || "Contact was saved, but the task could not be assigned.", "error");
-        return;
-      }
-    }
 
     closeOutreachContactModal();
   }
@@ -5728,7 +5719,7 @@ export default function RecruitingPage() {
             </div>
             <div style={{ display: "grid", gap: 10 }}>
               <div>
-                <div className="small" style={{ marginBottom: 6 }}>Assign to</div>
+                <div className="small" style={{ marginBottom: 6 }}>Staff</div>
                 <select
                   className="input"
                   value={staffTaskDraft.assigneeEmail}
@@ -5747,6 +5738,28 @@ export default function RecruitingPage() {
                       {person.isSelf ? `${person.name} (me)` : person.name}
                     </option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <div className="small" style={{ marginBottom: 6 }}>Contact</div>
+                <select
+                  className="input"
+                  value={staffTaskDraft.contactMethod || "email"}
+                  onChange={(event) => {
+                    const contactMethod = event.target.value;
+                    const verb = contactMethodTaskVerb(contactMethod);
+                    setStaffTaskDraft((current) => ({
+                      ...current,
+                      contactMethod,
+                      taskName: /^(Email|Call|Text|Contact)\b/.test(current.taskName || "")
+                        ? String(current.taskName).replace(/^(Email|Call|Text|Contact)\b/, verb)
+                        : current.taskName,
+                    }));
+                  }}
+                >
+                  <option value="email">Email</option>
+                  <option value="call">Call</option>
+                  <option value="text">Text</option>
                 </select>
               </div>
               <div>
@@ -5880,29 +5893,6 @@ export default function RecruitingPage() {
                   }
                 />
               </div>
-              {!outreachContactDraft.activityId ? (
-                <div>
-                  <div className="small" style={{ marginBottom: 6 }}>Assign task to</div>
-                  <select
-                    className="input"
-                    value={outreachContactDraft.assigneeEmail || ""}
-                    disabled={loggingOutreachRecordId === outreachContactDraft.recordId}
-                    onChange={(event) =>
-                      setOutreachContactDraft((current) => ({
-                        ...current,
-                        assigneeEmail: event.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">No task</option>
-                    {contactTaskAssignees().map((person) => (
-                      <option key={person.email} value={person.email}>
-                        {person.isSelf ? `${person.name} (me)` : person.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>Message</div>
                 <textarea
