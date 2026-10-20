@@ -35,7 +35,7 @@ import {
 } from "@/lib/teamLockProjectLength";
 import { listSiteBudgetNotes } from "@/lib/tripBudget";
 import { listTripTeamMembersForDuplicateCheck } from "@/lib/tripTeamMembers";
-import { saveStaffMiscTask } from "@/lib/staffTasks";
+import { assignRecruitingContactStaffTask, saveStaffMiscTask } from "@/lib/staffTasks";
 import {
   listRegisteredWorkersForPicker,
   resolveRegisteredWorker,
@@ -3769,13 +3769,11 @@ export default function RecruitingPage() {
     try {
       setAssigningContactRecordId(record.id);
       setContactAssignMenu(null);
-      await saveStaffMiscTask({
-        staffEmail: assignee.email,
-        staffName: assignee.name || assignee.email,
-        workArea: "Recruiting",
+      await assignRecruitingContactStaffTask({
+        assigneeEmail: assignee.email,
+        assigneeName: assignee.name || assignee.email,
         taskName: draft.taskName,
         dueDate: draft.dueDate,
-        progress: "Not started",
         notes: draft.notes,
       });
       const who = assignee.isSelf ? "you" : assignee.name;
