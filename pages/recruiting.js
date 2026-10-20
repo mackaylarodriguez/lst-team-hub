@@ -18,6 +18,7 @@ import {
   listRecruitingCycleContacts,
   listRecruitingContactActivityByIds,
   listRecruitingYears,
+  deleteRecruitingContactActivityLog,
   logRecruitingCycleContactAction,
   updateRecruitingContactActivityLog,
   revertRecruitingLockedTeam,
@@ -2076,6 +2077,7 @@ export default function RecruitingPage() {
   const [convertedBoardSort, setConvertedBoardSort] = useState({ key: "team", dir: "asc" });
   const [loggingOutreachRecordId, setLoggingOutreachRecordId] = useState("");
   const [outreachContactModalOpen, setOutreachContactModalOpen] = useState(false);
+  const [isDeletingOutreachContact, setIsDeletingOutreachContact] = useState(false);
   const [outreachContactDraft, setOutreachContactDraft] = useState({
     recordId: "",
     activityId: "",
@@ -3952,6 +3954,31 @@ export default function RecruitingPage() {
     closeOutreachContactModal();
   }
 
+  async function handleDeleteOutreachContact() {
+    const activityId = String(outreachContactDraft.activityId || "").trim();
+    const record = records.find((item) => item.id === outreachContactDraft.recordId);
+    if (!activityId || !record) return;
+    if (!window.confirm("Delete this contact? It will be removed from the last contact list.")) {
+      return;
+    }
+
+    try {
+      setIsDeletingOutreachContact(true);
+      await deleteRecruitingContactActivityLog({ activityId });
+      setError("");
+      setPageStatus("Contact deleted.");
+      showToast("Contact deleted.", "success");
+      await refreshCurrentYear();
+      closeOutreachContactModal();
+    } catch (deleteError) {
+      console.error("Unable to delete contact activity", deleteError);
+      setError(deleteError.message || "Unable to delete contact.");
+      showToast(deleteError.message || "Unable to delete contact.", "error");
+    } finally {
+      setIsDeletingOutreachContact(false);
+    }
+  }
+
   async function handleImportFileChange(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -3996,7 +4023,7 @@ export default function RecruitingPage() {
             <button
               type="button"
               className="recruitingOutreachRecentEditBtn"
-              title="Click to edit this contact note"
+              title="Click to edit or delete this contact"
               onClick={() => openOutreachContactModal(record, person, entry)}
             >
               {formatOutreachActivityLine(entry)}
@@ -5865,7 +5892,10 @@ export default function RecruitingPage() {
                 <select
                   className="input"
                   value={outreachContactDraft.method}
-                  disabled={loggingOutreachRecordId === outreachContactDraft.recordId}
+                  disabled={
+                    isDeletingOutreachContact ||
+                    loggingOutreachRecordId === outreachContactDraft.recordId
+                  }
                   onChange={(event) =>
                     setOutreachContactDraft((current) => ({
                       ...current,
@@ -5884,7 +5914,10 @@ export default function RecruitingPage() {
                   className="input"
                   type="date"
                   value={outreachContactDraft.date}
-                  disabled={loggingOutreachRecordId === outreachContactDraft.recordId}
+                  disabled={
+                    isDeletingOutreachContact ||
+                    loggingOutreachRecordId === outreachContactDraft.recordId
+                  }
                   onChange={(event) =>
                     setOutreachContactDraft((current) => ({
                       ...current,
@@ -5899,7 +5932,10 @@ export default function RecruitingPage() {
                   className="input"
                   rows={4}
                   value={outreachContactDraft.notes}
-                  disabled={loggingOutreachRecordId === outreachContactDraft.recordId}
+                  disabled={
+                    isDeletingOutreachContact ||
+                    loggingOutreachRecordId === outreachContactDraft.recordId
+                  }
                   onChange={(event) =>
                     setOutreachContactDraft((current) => ({
                       ...current,
@@ -5914,7 +5950,10 @@ export default function RecruitingPage() {
               <button
                 className="btn btnPrimary"
                 type="button"
-                disabled={loggingOutreachRecordId === outreachContactDraft.recordId}
+                disabled={
+                  isDeletingOutreachContact ||
+                  loggingOutreachRecordId === outreachContactDraft.recordId
+                }
                 onClick={() => void handleSaveOutreachContactModal()}
               >
                 {loggingOutreachRecordId === outreachContactDraft.recordId
@@ -5926,6 +5965,22 @@ export default function RecruitingPage() {
               <button className="btn" type="button" onClick={closeOutreachContactModal}>
                 Cancel
               </button>
+              {outreachContactDraft.activityId ? (
+                <>
+                  <div className="spacer" />
+                  <button
+                    className="btn btnDanger"
+                    type="button"
+                    disabled={
+                      isDeletingOutreachContact ||
+                      loggingOutreachRecordId === outreachContactDraft.recordId
+                    }
+                    onClick={() => void handleDeleteOutreachContact()}
+                  >
+                    {isDeletingOutreachContact ? "Deleting..." : "Delete"}
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
