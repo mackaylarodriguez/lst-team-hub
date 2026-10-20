@@ -9,6 +9,11 @@ import {
   saveSiteAvailabilityVisibleSites,
 } from "@/lib/siteAvailability";
 import { listTripsForCurrentUser, TRIPS_UPDATED_EVENT } from "@/lib/trips";
+import {
+  listUnconvertedPotentialTeams,
+  RECRUITING_UPDATED_EVENT,
+} from "@/lib/recruitingCycles";
+import { firstRecruitingDateRange } from "@/lib/recruitingDateRange";
 import { resolveCanonicalSiteLabelForTrip } from "@/lib/siteMaterials";
 import { SITE_OPTIONS } from "@/lib/siteOptions";
 import { showToast } from "@/components/Toast";
@@ -72,6 +77,20 @@ const CELL = {
     background: "#f4b4b4",
     color: "#7f1d1d",
     border: "#e57373",
+  },
+  potential: {
+    label: "Potential",
+    title: "Potential team — dates may be taken",
+    background: "#ddd6fe",
+    color: "#4c1d95",
+    border: "#c4b5fd",
+  },
+  potentialPartial: {
+    label: "Potential",
+    title: "Potential team (part of month)",
+    background: "#ede9fe",
+    color: "#5b21b6",
+    border: "#ddd6fe",
   },
 };
 
@@ -225,7 +244,7 @@ function buildEmptyAvailabilityForSite(siteLabel, year) {
   });
 }
 
-function mergeAvailability(siteLabel, year, editsMap, tripBookingsBySite) {
+function mergeAvailability(siteLabel, year, editsMap, tripBookingsBySite, potentialBookingsBySite) {
   const base = buildEmptyAvailabilityForSite(siteLabel, year);
   const saved = editsMap?.[siteLabel];
   const merged = saved
@@ -240,6 +259,7 @@ function mergeAvailability(siteLabel, year, editsMap, tripBookingsBySite) {
   return {
     ...merged,
     bookings: bookingsForSite(tripBookingsBySite, siteLabel),
+    potentialBookings: bookingsForSite(potentialBookingsBySite, siteLabel),
   };
 }
 
@@ -328,38 +348,64 @@ function rangesCoverSpan(ranges, spanStart, spanEnd) {
   return coverTo >= open1;
 }
 
-function monthStatus(availability, month) {
+function monthOccupancyStatus(availability, month, bookings, fullStatus, partialStatus) {
   const year = availability.year;
   const bounds = monthBounds(year, month);
-  const monthBookings = (availability.bookings || []).filter((row) =>
-    bookingTouchesMonth(row, year, month)
-  );
-  const windows = monthOpenWindows(availability, month);
+  const monthBookings = (bookings || []).filter((row) => bookingTouchesMonth(row, year, month));
+  if (!monthBookings.length) return "";
 
-  // Hub trips always win — including months outside the site's open season (still red Locked).
-  if (monthBookings.length) {
-    if (windows.length) {
-      const fullyBooked = windows.every((w) =>
-        bookingsCoverFullOpenWindow(w.openStart, w.openEnd, monthBookings)
-      );
-      return fullyBooked ? "booked" : "bookedPartial";
-    }
-    const coversFullMonth = monthBookings.some((booking) => {
-      const range = bookingCalendarRange(booking, year);
-      if (!range) return false;
-      return (
-        ymdTime(range.start) <= ymdTime(bounds.start) &&
-        ymdTime(range.end) >= ymdTime(bounds.end)
-      );
-    });
-    return coversFullMonth ? "booked" : "bookedPartial";
+  const windows = monthOpenWindows(availability, month);
+  if (windows.length) {
+    const fullyBooked = windows.every((w) =>
+      bookingsCoverFullOpenWindow(w.openStart, w.openEnd, monthBookings)
+    );
+    return fullyBooked ? fullStatus : partialStatus;
   }
 
+  const coversFullMonth = monthBookings.some((booking) => {
+    const range = bookingCalendarRange(booking, year);
+    if (!range) return false;
+    return (
+      ymdTime(range.start) <= ymdTime(bounds.start) && ymdTime(range.end) >= ymdTime(bounds.end)
+    );
+  });
+  return coversFullMonth ? fullStatus : partialStatus;
+}
+
+function monthStatus(availability, month) {
+  // Locked Hub trips win, including months outside the open season.
+  const locked = monthOccupancyStatus(
+    availability,
+    month,
+    availability.bookings,
+    "booked",
+    "bookedPartial"
+  );
+  if (locked) return locked;
+
+  const potential = monthOccupancyStatus(
+    availability,
+    month,
+    availability.potentialBookings,
+    "potential",
+    "potentialPartial"
+  );
+  if (potential) return potential;
+
+  const windows = monthOpenWindows(availability, month);
   if (!windows.length) return "outside";
 
+  const bounds = monthBounds(availability.year, month);
   return rangesCoverSpan(availability.availableRanges, bounds.start, bounds.end)
     ? "open"
     : "partial";
+}
+
+function formatHoldLines(bookings, year, fallbackName) {
+  return (bookings || []).map((booking) => {
+    const range = formatDateRangeLabel(booking.start, booking.end, year);
+    return `${booking.teamName || fallbackName} (${range})`;
+  });
 }
 
 function monthCellTooltip(availability, month) {
@@ -371,20 +417,42 @@ function monthCellTooltip(availability, month) {
   const monthBookings = (availability.bookings || []).filter((row) =>
     bookingTouchesMonth(row, year, month)
   );
+  const monthPotential = (availability.potentialBookings || []).filter((row) =>
+    bookingTouchesMonth(row, year, month)
+  );
 
   if (monthBookings.length) {
-    const tripLines = monthBookings.map((booking) => {
-      const range = formatDateRangeLabel(booking.start, booking.end, year);
-      return `${booking.teamName || "Locked team"} (${range})`;
-    });
+    const tripLines = formatHoldLines(monthBookings, year, "Locked team");
+    const potentialLines = formatHoldLines(monthPotential, year, "Potential team").map(
+      (line) => `Potential: ${line}`
+    );
     const lockKind =
       status === "bookedPartial" ? "Team locked (part of month)" : "Team locked";
     const seasonLabel = windows.length
       ? windows.map((w) => formatDateRangeLabel(w.openStart, w.openEnd, year)).join(" · ")
       : "Outside open season (still locked)";
-    return [`${monthName} ${year}: ${lockKind}`, `Season in month: ${seasonLabel}`, ...tripLines].join(
-      "\n"
-    );
+    return [
+      `${monthName} ${year}: ${lockKind}`,
+      `Season in month: ${seasonLabel}`,
+      ...tripLines,
+      ...potentialLines,
+    ].join("\n");
+  }
+
+  if (monthPotential.length) {
+    const potentialLines = formatHoldLines(monthPotential, year, "Potential team");
+    const holdKind =
+      status === "potentialPartial"
+        ? "Potential team (part of month)"
+        : "Potential team — dates may be taken";
+    const seasonLabel = windows.length
+      ? windows.map((w) => formatDateRangeLabel(w.openStart, w.openEnd, year)).join(" · ")
+      : "Outside open season (still marked potential)";
+    return [
+      `${monthName} ${year}: ${holdKind}`,
+      `Season in month: ${seasonLabel}`,
+      ...potentialLines,
+    ].join("\n");
   }
 
   if (status === "outside" || !windows.length) {
@@ -401,13 +469,28 @@ function monthCellTooltip(availability, month) {
   return `${monthName} ${year}: Fully available\n${seasonLabel}`;
 }
 
+function weekHoldLabel(bookings) {
+  if (!bookings.length) return "";
+  const first = bookings[0].teamName || "Team";
+  if (bookings.length === 1) return first;
+  return `${first} +${bookings.length - 1}`;
+}
+
 function weekStatus(availability, month, weekKey) {
   const year = availability.year;
 
-  for (const booking of availability.bookings || []) {
-    if (bookingTouchesWeek(booking, year, month, weekKey)) {
-      return { status: "booked", label: booking.teamName || "Locked" };
-    }
+  const locked = (availability.bookings || []).filter((booking) =>
+    bookingTouchesWeek(booking, year, month, weekKey)
+  );
+  if (locked.length) {
+    return { status: "booked", label: weekHoldLabel(locked) || "Locked" };
+  }
+
+  const potential = (availability.potentialBookings || []).filter((booking) =>
+    bookingTouchesWeek(booking, year, month, weekKey)
+  );
+  if (potential.length) {
+    return { status: "potential", label: weekHoldLabel(potential) || "Potential" };
   }
 
   if (!availability.hasSeason) {
@@ -424,28 +507,77 @@ function weekStatus(availability, month, weekKey) {
   return { status: "open", label: "" };
 }
 
-function AvailabilityCell({ status, compact = false, title }) {
+function AvailabilityCell({ status, compact = false, title, secondaryStatus }) {
   const style = CELL[status] || CELL.outside;
+  const secondary = secondaryStatus ? CELL[secondaryStatus] : null;
+  const shared = {
+    minHeight: secondary ? 44 : compact ? 26 : 30,
+    width: "100%",
+    borderRadius: 8,
+    fontSize: compact ? 10 : 11,
+    fontWeight: 900,
+    letterSpacing: "0.01em",
+    boxSizing: "border-box",
+    textShadow: "none",
+    overflow: "hidden",
+  };
+
+  if (secondary) {
+    return (
+      <div
+        title={title || `${style.title}\n${secondary.title}`}
+        className="sitesAvailabilityCell"
+        style={{
+          ...shared,
+          display: "grid",
+          gridTemplateRows: "1fr 1fr",
+          padding: 0,
+          border: `1px solid ${style.border}`,
+          background: style.background,
+        }}
+      >
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: style.background,
+            color: style.color,
+            padding: "2px 4px",
+          }}
+        >
+          {style.label}
+        </span>
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: secondary.background,
+            color: secondary.color,
+            borderTop: `1px solid ${secondary.border}`,
+            padding: "2px 4px",
+          }}
+        >
+          {secondary.label}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
       title={title || style.title}
       className="sitesAvailabilityCell"
       style={{
+        ...shared,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        minHeight: compact ? 26 : 30,
-        width: "100%",
         padding: compact ? "3px 4px" : "5px 6px",
-        borderRadius: 8,
-        fontSize: compact ? 10 : 11,
-        fontWeight: 900,
-        letterSpacing: "0.01em",
         background: style.background,
         color: style.color,
         border: `1px solid ${style.border}`,
-        boxSizing: "border-box",
-        textShadow: "none",
       }}
     >
       {style.label}
@@ -457,6 +589,7 @@ const LEGEND_ITEMS = [
   { status: "outside", label: "NA" },
   { status: "open", label: "Available" },
   { status: "partial", label: "Partial" },
+  { status: "potential", label: "Potential" },
   { status: "booked", label: "Locked" },
 ];
 
@@ -656,6 +789,68 @@ function buildTripBookingsBySite(trips, year, knownLabels = []) {
   return bySite;
 }
 
+function orderYmdRange(start, end) {
+  if (!start) return null;
+  const resolvedEnd = end || start;
+  if (ymdTime(start) > ymdTime(resolvedEnd)) return { start: resolvedEnd, end: start };
+  return { start, end: resolvedEnd };
+}
+
+/** Same date priority as the Potential Teams board: lock draft, then written project dates. */
+function potentialHoldRange(record, fallbackYear) {
+  const pending =
+    record?.pendingLockTeamSetup && typeof record.pendingLockTeamSetup === "object"
+      ? record.pendingLockTeamSetup
+      : {};
+  const savedStart = toBookingYmd(pending.startDate);
+  const savedEnd = toBookingYmd(pending.endDate);
+  if (savedStart && savedEnd) return orderYmdRange(savedStart, savedEnd);
+
+  const year =
+    Number(record?.recruitingYear) >= 2000 ? Number(record.recruitingYear) : fallbackYear;
+  const parsed = firstRecruitingDateRange(
+    [String(record?.projectDates || "").replace(/→/g, " - "), record?.departureDate],
+    year
+  );
+  if (parsed?.start && parsed?.end) return parsed;
+  if (savedStart || savedEnd) return orderYmdRange(savedStart || savedEnd, savedEnd || savedStart);
+
+  const departure = toBookingYmd(record?.departureDate);
+  if (departure) return { start: departure, end: departure };
+  return null;
+}
+
+function buildPotentialBookingsBySite(records, year, knownLabels = []) {
+  const bySite = {};
+  for (const record of records || []) {
+    const range = potentialHoldRange(record, year);
+    if (!range?.start) continue;
+    if (!tripOverlapsYear(range.start, range.end, year)) continue;
+
+    const labels = matchingLabelsForTripLocation(record.site || "", knownLabels);
+    if (!labels.length) continue;
+
+    const booking = {
+      id: `potential-${record.id}`,
+      recordId: record.id,
+      teamName: String(record.teamName || "").trim() || "Potential team",
+      start: range.start,
+      end: range.end,
+    };
+
+    for (const siteLabel of labels) {
+      if (!bySite[siteLabel]) bySite[siteLabel] = [];
+      if (bySite[siteLabel].some((row) => row.id === booking.id)) continue;
+      bySite[siteLabel].push({ ...booking });
+    }
+  }
+
+  for (const siteLabel of Object.keys(bySite)) {
+    bySite[siteLabel].sort((a, b) => String(a.start).localeCompare(String(b.start)));
+  }
+  return bySite;
+}
+
 function blankEditDraft(availability, year) {
   const ranges = normalizeAvailableRanges(
     {
@@ -676,7 +871,8 @@ function blankEditDraft(availability, year) {
 
 /**
  * Availability overview + weekly detail + edit panel.
- * Seasons save to site_availability; locked teams come from Hub trips.
+ * Seasons save to site_availability. Locked teams come from Hub trips.
+ * Potential Teams dates paint in a separate color so tentative holds stay visible.
  */
 export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
   const year = AVAILABILITY_YEAR;
@@ -687,6 +883,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
   const [siteFilter, setSiteFilter] = useState("");
   const [editsMap, setEditsMap] = useState({});
   const [tripBookingsBySite, setTripBookingsBySite] = useState({});
+  const [potentialBookingsBySite, setPotentialBookingsBySite] = useState({});
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -725,19 +922,25 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
         } catch {
           /* legacy migrate optional */
         }
-        const [trips, visible] = await Promise.all([
+        const [trips, visible, potentialTeams] = await Promise.all([
           listTripsForCurrentUser(),
           loadSiteAvailabilityVisibleSites(year, siteLabels),
+          listUnconvertedPotentialTeams().catch((potentialError) => {
+            console.error("Unable to load potential teams for site availability", potentialError);
+            return [];
+          }),
         ]);
         if (cancelled) return;
         setEditsMap(map || {});
         setTripBookingsBySite(buildTripBookingsBySite(trips, year, siteLabels));
+        setPotentialBookingsBySite(buildPotentialBookingsBySite(potentialTeams, year, siteLabels));
         setVisibleSites(visible);
         setDraftVisibleSites(new Set(visible));
       } catch (e) {
         if (!cancelled) {
           setEditsMap({});
           setTripBookingsBySite({});
+          setPotentialBookingsBySite({});
           const fallback = new Set(siteLabels || []);
           setVisibleSites(fallback);
           setDraftVisibleSites(new Set(fallback));
@@ -780,6 +983,35 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
     };
   }, [year, siteLabels]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshPotentialTeams() {
+      try {
+        const records = await listUnconvertedPotentialTeams();
+        if (cancelled) return;
+        setPotentialBookingsBySite(buildPotentialBookingsBySite(records, year, siteLabels));
+      } catch {
+        /* keep last known potential holds */
+      }
+    }
+
+    function onRecruitingUpdated() {
+      void refreshPotentialTeams();
+    }
+
+    function onVisibility() {
+      if (document.visibilityState === "visible") void refreshPotentialTeams();
+    }
+
+    window.addEventListener(RECRUITING_UPDATED_EVENT, onRecruitingUpdated);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(RECRUITING_UPDATED_EVENT, onRecruitingUpdated);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [year, siteLabels]);
+
   const filteredSiteLabels = useMemo(() => {
     const needle = String(siteFilter || "").trim().toLowerCase();
     const labels = siteLabels || [];
@@ -790,9 +1022,9 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
   const rows = useMemo(
     () =>
       filteredSiteLabels.map((siteLabel) =>
-        mergeAvailability(siteLabel, year, editsMap, tripBookingsBySite)
+        mergeAvailability(siteLabel, year, editsMap, tripBookingsBySite, potentialBookingsBySite)
       ),
-    [filteredSiteLabels, year, editsMap, tripBookingsBySite]
+    [filteredSiteLabels, year, editsMap, tripBookingsBySite, potentialBookingsBySite]
   );
 
   const visibleRows = useMemo(
@@ -1160,6 +1392,20 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                     </td>
                     {MONTHS.map((month) => {
                       const status = monthStatus(row, month.key);
+                      const lockedStatus = monthOccupancyStatus(
+                        row,
+                        month.key,
+                        row.bookings,
+                        "booked",
+                        "bookedPartial"
+                      );
+                      const potentialStatus = monthOccupancyStatus(
+                        row,
+                        month.key,
+                        row.potentialBookings,
+                        "potential",
+                        "potentialPartial"
+                      );
                       return (
                         <td
                           key={month.key}
@@ -1167,7 +1413,8 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                           style={{ verticalAlign: "middle" }}
                         >
                           <AvailabilityCell
-                            status={status}
+                            status={lockedStatus || status}
+                            secondaryStatus={lockedStatus && potentialStatus ? potentialStatus : ""}
                             title={monthCellTooltip(row, month.key)}
                           />
                         </td>
@@ -1242,6 +1489,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
               <p className="small" style={{ margin: "0 0 12px", color: "var(--muted)" }}>
                 Update season windows (optional — e.g. May–June and Sep–Oct), preferred team size,
                 other church backgrounds, and notes. Locked teams stay live from Hub trips for {year}.
+                Potential dates come from the Potential Teams list.
               </p>
 
               <div className="sitesAvailabilityEditSectionTitle">Season windows · {year}</div>
@@ -1371,7 +1619,9 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                               title={
                                 cell.status === "booked"
                                   ? `${cell.label || "Locked"} — team locked`
-                                  : style.title
+                                  : cell.status === "potential"
+                                    ? `${cell.label || "Potential"} — potential team`
+                                    : style.title
                               }
                               style={{
                                 background: style.background,
@@ -1379,7 +1629,7 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                                 borderColor: style.border,
                               }}
                             >
-                              {cell.status === "booked"
+                              {cell.status === "booked" || cell.status === "potential"
                                 ? cell.label || style.label
                                 : cell.label || (cell.status === "open" ? "" : style.label)}
                             </div>
@@ -1433,6 +1683,25 @@ export default function SitesAvailabilityTab({ siteLabels = [], onEditSite }) {
                         {item.teamStatus ? (
                           <span style={{ color: "var(--muted)" }}> · {item.teamStatus}</span>
                         ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="sitesAvailabilitySideBlock">
+                <div className="sitesAvailabilitySideTitle">Potential teams · {year}</div>
+                {(selected.potentialBookings || []).length === 0 ? (
+                  <div className="small" style={{ color: "var(--muted)" }}>
+                    No potential teams on this site for {year}.
+                  </div>
+                ) : (
+                  <ul>
+                    {selected.potentialBookings.map((item) => (
+                      <li key={item.id}>
+                        <Link href="/recruiting">
+                          <strong>{item.teamName}</strong>
+                        </Link>{" "}
+                        — {formatDateRangeLabel(item.start, item.end, year)}
                       </li>
                     ))}
                   </ul>
