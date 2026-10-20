@@ -145,6 +145,7 @@ const RECRUITING_POTENTIAL_COL = {
   site: 280,
   weeks: 88,
   fundraising: 130,
+  references: 210,
   mackayla: 230,
   leslee: 230,
   actions: 190,
@@ -1607,6 +1608,17 @@ function RecruitingBoardCopyRowButton({ record }) {
 
 const ROSTER_BOARD_PREVIEW_COUNT = 4;
 
+const POTENTIAL_REFERENCE_FLAGS = [
+  { field: "referenceSent", label: "References sent?" },
+  { field: "referenceReceived", label: "Reference received" },
+  { field: "referenceApproved", label: "Approved?" },
+];
+
+function potentialReferenceWorkerLabel(member) {
+  const name = [member?.firstName, member?.lastName].filter(Boolean).join(" ").trim();
+  return name || String(member?.email || "").trim() || "Unnamed worker";
+}
+
 /** Roster column for board tables: name + email + phone under email when present; “See more” when more than four people. */
 function RecruitingRosterBoardColumn({ record, showGender = true }) {
   const [expanded, setExpanded] = useState(false);
@@ -1649,6 +1661,60 @@ function RecruitingRosterBoardColumn({ record, showGender = true }) {
             className="recruitingRosterSeeMoreBtn"
             aria-expanded={expanded}
             onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? "See less" : `See more (${hiddenCount} more)`}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function RecruitingPotentialReferencesColumn({ record, onToggle }) {
+  const [expanded, setExpanded] = useState(false);
+  const members = buildTeamFormDraft(record).teamMembers || [];
+  const namedMembers = members.filter(
+    (member) =>
+      [member.firstName, member.lastName, member.email].some((value) => String(value || "").trim())
+  );
+  const needsToggle = namedMembers.length > ROSTER_BOARD_PREVIEW_COUNT;
+  const visibleMembers =
+    needsToggle && !expanded ? namedMembers.slice(0, ROSTER_BOARD_PREVIEW_COUNT) : namedMembers;
+  const hiddenCount = namedMembers.length - ROSTER_BOARD_PREVIEW_COUNT;
+
+  if (namedMembers.length === 0) {
+    return <div className="small">No workers yet</div>;
+  }
+
+  return (
+    <div className="recruitingReferenceStack" onClick={(event) => event.stopPropagation()}>
+      {visibleMembers.map((member) => {
+        const memberIndex = members.indexOf(member);
+        const label = potentialReferenceWorkerLabel(member);
+        return (
+          <div key={`${record.id}-reference-${memberIndex}`} className="recruitingReferenceWorker">
+            <div className="recruitingReferenceWorkerName">{label}</div>
+            {POTENTIAL_REFERENCE_FLAGS.map((flag) => (
+              <label key={flag.field} className="recruitingReferenceCheck">
+                <input
+                  type="checkbox"
+                  checked={!!member[flag.field]}
+                  aria-label={`${flag.label} for ${label}`}
+                  onChange={(event) => onToggle(record.id, memberIndex, flag.field, event.target.checked)}
+                />
+                <span>{flag.label}</span>
+              </label>
+            ))}
+          </div>
+        );
+      })}
+      {needsToggle ? (
+        <div className="recruitingRosterSeeMoreWrap">
+          <button
+            type="button"
+            className="recruitingRosterSeeMoreBtn"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
           >
             {expanded ? "See less" : `See more (${hiddenCount} more)`}
           </button>
@@ -3565,6 +3631,34 @@ export default function RecruitingPage() {
     );
   }
 
+  async function handlePotentialReferenceToggle(recordId, memberIndex, field, checked) {
+    const record = records.find((item) => item.id === recordId);
+    if (!record) return;
+
+    const members = buildTeamFormDraft(record).teamMembers || [];
+    const nextMembers = members.map((member, index) =>
+      index === memberIndex ? { ...member, [field]: checked } : member
+    );
+    const nextRecord = {
+      ...record,
+      pendingLockTeamSetup: {
+        ...getPendingLockSetupRecord(record),
+        teamMembers: nextMembers,
+      },
+    };
+
+    setRecords((current) => current.map((item) => (item.id === recordId ? nextRecord : item)));
+    setError("");
+
+    try {
+      await saveRecruitingCycleContact(buildRecruitingRecordPayload(nextRecord));
+    } catch (saveError) {
+      console.error("Unable to save worker reference status", saveError);
+      setRecords((current) => current.map((item) => (item.id === recordId ? record : item)));
+      setError(saveError.message || "Unable to save reference status.");
+    }
+  }
+
   function updateRecordOwner(recordId, owner) {
     updateRecordField(recordId, "assignedTo", owner);
   }
@@ -4362,6 +4456,7 @@ export default function RecruitingPage() {
             <col style={{ width: RECRUITING_POTENTIAL_COL.select }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.team }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.roster }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.references }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.projectDates }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.site }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.weeks }} />
@@ -4384,6 +4479,7 @@ export default function RecruitingPage() {
               </th>
               {renderPotentialSortableHeader("Team", "team", { minWidth: RECRUITING_POTENTIAL_COL.team })}
               {renderPotentialSortableHeader("Team roster", "roster", { minWidth: RECRUITING_POTENTIAL_COL.roster })}
+              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.references }}>References</th>
               {renderPotentialSortableHeader(
                 "Project dates",
                 "projectDates",
@@ -4457,6 +4553,12 @@ export default function RecruitingPage() {
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.roster, verticalAlign: "top" }}>
                     <RecruitingRosterBoardColumn record={record} showGender={false} />
+                  </td>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.references, verticalAlign: "top" }}>
+                    <RecruitingPotentialReferencesColumn
+                      record={record}
+                      onToggle={handlePotentialReferenceToggle}
+                    />
                   </td>
                   <td
                     className="recruitingProjectDatesCell"
@@ -4608,6 +4710,15 @@ export default function RecruitingPage() {
                 <strong>Team roster</strong>
               </div>
               <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} showGender={false} /></div>
+              <div className="small" style={{ marginTop: 10 }}>
+                <strong>References</strong>
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <RecruitingPotentialReferencesColumn
+                  record={record}
+                  onToggle={handlePotentialReferenceToggle}
+                />
+              </div>
               <div className="recruitingMobileMeta" onClick={(event) => event.stopPropagation()} style={{ display: "grid", gap: 8 }}>
                 <input
                   className="input recruitingPotentialSheetInput"
