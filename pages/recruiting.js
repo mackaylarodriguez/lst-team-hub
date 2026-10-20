@@ -178,6 +178,13 @@ function outreachLastContactTimestamp(record) {
   return Number.isNaN(date.getTime()) ? null : date.getTime();
 }
 
+function localTodayYmd() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
 function lastContactDateInputValue(record) {
   if (!record?.lastContactedAt) return "";
   const raw = String(record.lastContactedAt).trim();
@@ -3901,10 +3908,9 @@ export default function RecruitingPage() {
         normalizeLastContactMethodValue(activity?.actionType) ||
         normalizeLastContactMethodValue(record.lastContactMethod) ||
         "email",
-      date:
-        activityDate ||
-        lastContactDateInputValue(record) ||
-        new Date().toISOString().slice(0, 10),
+      date: activityId
+        ? activityDate || lastContactDateInputValue(record) || localTodayYmd()
+        : localTodayYmd(),
       notes: activityId ? String(activity?.summary || "").trim() : "",
     });
     setOutreachContactModalOpen(true);
