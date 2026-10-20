@@ -13,11 +13,14 @@ import {
   effectiveStaffTaskDueDate,
   syncStaffTaskDueDatesForTrip,
   deleteStaffMiscTask,
+  deleteStaffMiscTaskAsAdmin,
   isTaskAssignedToUser,
   isMissingStaffMiscTasksTableError,
   listStaffMiscTasksForUser,
+  listStaffMiscTasksForUserAsAdmin,
   listStaffTasksForTrip,
   saveStaffMiscTask,
+  saveStaffMiscTaskAsAdmin,
   saveStaffTasks,
   STAFF_MISC_TASKS_UPDATED_EVENT,
   STAFF_TASKS_UPDATED_EVENT,
@@ -178,7 +181,9 @@ export default function Admin() {
       }
 
       try {
-        const nextTasks = await listStaffMiscTasksForUser(session.email);
+        const nextTasks = session.isImpersonating
+          ? await listStaffMiscTasksForUserAsAdmin(session.email)
+          : await listStaffMiscTasksForUser(session.email);
         if (!cancelled) {
           setMiscTasks(nextTasks);
         }
@@ -203,7 +208,7 @@ export default function Admin() {
       cancelled = true;
       window.removeEventListener(STAFF_MISC_TASKS_UPDATED_EVENT, handleMiscTaskUpdate);
     };
-  }, [session?.email]);
+  }, [session?.email, session?.isImpersonating]);
 
   useEffect(() => {
     staffTasksByTripRef.current = staffTasksByTrip;
@@ -247,10 +252,17 @@ export default function Admin() {
 
   const myTasks = useMemo(
     () =>
-      allTasks.filter((task) =>
-        isTaskAssignedToUser(task.assignedTo, session?.name || session?.email) ||
-        isTaskAssignedToUser(task.assignedTo, session?.email)
-      ),
+      allTasks.filter((task) => {
+        if (task.isMiscTask) {
+          const taskEmail = String(task.staffEmail || "").trim().toLowerCase();
+          const sessionEmail = String(session?.email || "").trim().toLowerCase();
+          if (taskEmail && sessionEmail && taskEmail === sessionEmail) return true;
+        }
+        return (
+          isTaskAssignedToUser(task.assignedTo, session?.name || session?.email) ||
+          isTaskAssignedToUser(task.assignedTo, session?.email)
+        );
+      }),
     [allTasks, session]
   );
 
@@ -320,12 +332,15 @@ export default function Admin() {
       setStaffTaskRowFeedback(getTaskKey(tripId, taskId), "info", "Saving...");
       try {
         setStaffTaskStatus("Saving...");
-        const savedTask = await saveStaffMiscTask({
+        const miscTaskPayload = {
           ...nextTask,
           staffEmail: session?.email || "",
           staffName: session?.name || session?.email || "Staff",
           updatedAt: new Date().toISOString(),
-        });
+        };
+        const savedTask = session?.isImpersonating
+          ? await saveStaffMiscTaskAsAdmin(miscTaskPayload)
+          : await saveStaffMiscTask(miscTaskPayload);
         if (latestMiscTaskSaveRef.current !== requestId) return;
 
         setMiscTasks((current) =>
@@ -431,11 +446,14 @@ export default function Admin() {
 
     try {
       setStaffTaskStatus("Saving...");
-      const savedTask = await saveStaffMiscTask({
+      const miscTaskPayload = {
         ...newMiscTaskDraft,
         staffEmail: session?.email || "",
         staffName: session?.name || session?.email || "Staff",
-      });
+      };
+      const savedTask = session?.isImpersonating
+        ? await saveStaffMiscTaskAsAdmin(miscTaskPayload)
+        : await saveStaffMiscTask(miscTaskPayload);
       setMiscTasks((current) => [...current, savedTask]);
       miscTasksRef.current = [...miscTasksRef.current, savedTask];
       setNewMiscTaskDraft({
@@ -463,7 +481,11 @@ export default function Admin() {
     if (!task?.isMiscTask || !task?.id) return;
 
     try {
-      await deleteStaffMiscTask(task.id);
+      if (session?.isImpersonating) {
+        await deleteStaffMiscTaskAsAdmin(task.id, session.email);
+      } else {
+        await deleteStaffMiscTask(task.id);
+      }
       setMiscTasks((current) => current.filter((entry) => entry.id !== task.id));
       miscTasksRef.current = miscTasksRef.current.filter((entry) => entry.id !== task.id);
       setStaffTaskStatus("Deleted.");
