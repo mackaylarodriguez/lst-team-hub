@@ -514,7 +514,7 @@ function RecruitingWorkerLookupSearch({ person, workers, workersLoadError, onLin
             <div className="recruitingWorkerSuggestListInline" role="listbox">
               {suggestions.map((worker) => (
                 <button
-                  key={worker.id || worker.email || worker.name}
+                  key={`${worker.id || "worker"}-${worker.email || worker.nameKey || worker.name}`}
                   type="button"
                   className="recruitingWorkerSuggestItem"
                   onClick={() => {
@@ -4456,11 +4456,11 @@ export default function RecruitingPage() {
             <col style={{ width: RECRUITING_POTENTIAL_COL.select }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.team }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.roster }} />
-            <col style={{ width: RECRUITING_POTENTIAL_COL.references }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.projectDates }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.site }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.weeks }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.fundraising }} />
+            <col style={{ width: RECRUITING_POTENTIAL_COL.references }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.mackayla }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.leslee }} />
             <col style={{ width: RECRUITING_POTENTIAL_COL.actions }} />
@@ -4479,7 +4479,6 @@ export default function RecruitingPage() {
               </th>
               {renderPotentialSortableHeader("Team", "team", { minWidth: RECRUITING_POTENTIAL_COL.team })}
               {renderPotentialSortableHeader("Team roster", "roster", { minWidth: RECRUITING_POTENTIAL_COL.roster })}
-              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.references }}>References</th>
               {renderPotentialSortableHeader(
                 "Project dates",
                 "projectDates",
@@ -4494,6 +4493,7 @@ export default function RecruitingPage() {
                 { minWidth: RECRUITING_POTENTIAL_COL.fundraising },
                 "recruitingPotentialFundraisingTh"
               )}
+              <th style={{ minWidth: RECRUITING_POTENTIAL_COL.references }}>References</th>
               {renderPotentialSortableHeader("Mackayla notes", "mackayla", {
                 minWidth: RECRUITING_POTENTIAL_COL.mackayla,
               })}
@@ -4554,12 +4554,6 @@ export default function RecruitingPage() {
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.roster, verticalAlign: "top" }}>
                     <RecruitingRosterBoardColumn record={record} showGender={false} />
                   </td>
-                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.references, verticalAlign: "top" }}>
-                    <RecruitingPotentialReferencesColumn
-                      record={record}
-                      onToggle={handlePotentialReferenceToggle}
-                    />
-                  </td>
                   <td
                     className="recruitingProjectDatesCell"
                     style={{ minWidth: RECRUITING_POTENTIAL_COL.projectDates, verticalAlign: "top" }}
@@ -4605,6 +4599,12 @@ export default function RecruitingPage() {
                       }
                       onBlur={() => void handleSaveRecord(record.id)}
                       placeholder="Goal $"
+                    />
+                  </td>
+                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.references, verticalAlign: "top" }}>
+                    <RecruitingPotentialReferencesColumn
+                      record={record}
+                      onToggle={handlePotentialReferenceToggle}
                     />
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.mackayla, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
@@ -4710,15 +4710,6 @@ export default function RecruitingPage() {
                 <strong>Team roster</strong>
               </div>
               <div style={{ marginTop: 4 }}><RecruitingRosterBoardColumn record={record} showGender={false} /></div>
-              <div className="small" style={{ marginTop: 10 }}>
-                <strong>References</strong>
-              </div>
-              <div style={{ marginTop: 4 }}>
-                <RecruitingPotentialReferencesColumn
-                  record={record}
-                  onToggle={handlePotentialReferenceToggle}
-                />
-              </div>
               <div className="recruitingMobileMeta" onClick={(event) => event.stopPropagation()} style={{ display: "grid", gap: 8 }}>
                 <input
                   className="input recruitingPotentialSheetInput"
@@ -4763,6 +4754,15 @@ export default function RecruitingPage() {
                   }
                   onBlur={() => void handleSaveRecord(record.id)}
                   placeholder="Fundraising goal $"
+                />
+              </div>
+              <div className="small" style={{ marginTop: 10 }}>
+                <strong>References</strong>
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <RecruitingPotentialReferencesColumn
+                  record={record}
+                  onToggle={handlePotentialReferenceToggle}
                 />
               </div>
               <div className="recruitingMobileNotes">
@@ -5314,7 +5314,7 @@ export default function RecruitingPage() {
                             </button>
                           ) : null}
                           {!selectedRecord.isConvertedToTeam ? (
-                            <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginLeft: "auto" }}>
                               <select
                                 className="input"
                                 style={{ width: "auto", minWidth: 110 }}
@@ -5755,7 +5755,7 @@ export default function RecruitingPage() {
                         </button>
                       ) : null}
                       {!selectedRecord.isConvertedToTeam ? (
-                        <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginLeft: "auto" }}>
                           <select
                             className="input"
                             style={{ width: "auto", minWidth: 110 }}
