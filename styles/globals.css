@@ -2988,6 +2988,36 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   padding:7px 9px;
   font-size:13px;
 }
+.recruitingProjectDatesTh{
+  white-space:normal;
+}
+.recruitingProjectDatesCell{
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.recruitingProjectDatesWrap{
+  display:block;
+  min-width:0;
+  max-width:100%;
+}
+.recruitingPotentialBoardTable .recruitingProjectDatesWrap{
+  width:150px;
+  max-width:150px;
+}
+.recruitingProjectDatesInput{
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:auto;
+  min-height:36px;
+  resize:none;
+  overflow:hidden;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  line-height:1.35;
+}
 .recruitingPotentialBoardTable textarea.recruitingInlineNoteInput{
   min-height:72px;
 }

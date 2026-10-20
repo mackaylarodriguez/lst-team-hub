@@ -1991,6 +1991,50 @@ function DraggableTable({ children }) {
   );
 }
 
+function RecruitingProjectDatesField({ value, onChange, onBlur, ariaLabel }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const fit = () => {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    };
+    fit();
+    const parent = el.parentElement;
+    if (!parent || typeof ResizeObserver === "undefined") return undefined;
+    let lastWidth = parent.getBoundingClientRect().width;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect?.width || 0;
+      if (width === lastWidth) return;
+      lastWidth = width;
+      fit();
+    });
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, [value]);
+
+  return (
+    <span className="recruitingProjectDatesWrap">
+      <textarea
+        ref={ref}
+        className="input recruitingPotentialSheetInput recruitingProjectDatesInput"
+        value={value}
+        rows={1}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.preventDefault();
+        }}
+        onChange={(event) => onChange(event.target.value.replace(/\s*\n+\s*/g, " "))}
+        onBlur={onBlur}
+        placeholder="Dates or season"
+        aria-label={ariaLabel}
+      />
+    </span>
+  );
+}
+
 export default function RecruitingPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
@@ -3472,14 +3516,11 @@ export default function RecruitingPage() {
 
   function renderOverviewDateInput(record) {
     return (
-      <input
-        className="input recruitingPotentialSheetInput"
+      <RecruitingProjectDatesField
         value={overviewDateInputValue(record)}
-        onClick={(event) => event.stopPropagation()}
-        onChange={(event) => updateOverviewProjectDates(record.id, event.target.value)}
+        onChange={(nextValue) => updateOverviewProjectDates(record.id, nextValue)}
         onBlur={() => void handleSaveRecord(record.id)}
-        placeholder="Dates or season"
-        aria-label={`Project dates for ${record.teamName || formatContactName(record)}`}
+        ariaLabel={`Project dates for ${record.teamName || formatContactName(record)}`}
       />
     );
   }
@@ -3998,7 +4039,10 @@ export default function RecruitingPage() {
                         {renderDuplicateNotice(duplicateInfo, { compact: true })}
                       </div>
                     </td>
-                    <td style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project, verticalAlign: "top" }}>
+                    <td
+                      className="recruitingProjectDatesCell"
+                      style={{ width: RECRUITING_OUTREACH_LIST_COL_PCT.project, verticalAlign: "top" }}
+                    >
                       <div className="recruitingOutreachProjectCell">
                         <div className="recruitingOutreachProjectSite">{siteLabel}</div>
                         {renderOverviewDateInput(record)}
@@ -4181,8 +4225,15 @@ export default function RecruitingPage() {
     return renderBoardSortableHeader(label, key, outreachBoardSort, toggleOutreachBoardSort, style);
   }
 
-  function renderConvertedSortableHeader(label, key, style = {}) {
-    return renderBoardSortableHeader(label, key, convertedBoardSort, toggleConvertedBoardSort, style);
+  function renderConvertedSortableHeader(label, key, style = {}, className = "") {
+    return renderBoardSortableHeader(
+      label,
+      key,
+      convertedBoardSort,
+      toggleConvertedBoardSort,
+      style,
+      className
+    );
   }
 
   function renderPotentialTable(recordsToRender) {
@@ -4228,9 +4279,12 @@ export default function RecruitingPage() {
               </th>
               {renderPotentialSortableHeader("Team", "team", { minWidth: RECRUITING_POTENTIAL_COL.team })}
               {renderPotentialSortableHeader("Team roster", "roster", { minWidth: RECRUITING_POTENTIAL_COL.roster })}
-              {renderPotentialSortableHeader("Project dates", "projectDates", {
-                minWidth: RECRUITING_POTENTIAL_COL.projectDates,
-              })}
+              {renderPotentialSortableHeader(
+                "Project dates",
+                "projectDates",
+                { minWidth: RECRUITING_POTENTIAL_COL.projectDates },
+                "recruitingProjectDatesTh"
+              )}
               {renderPotentialSortableHeader("Site", "site", { minWidth: RECRUITING_POTENTIAL_COL.site })}
               {renderPotentialSortableHeader("Weeks", "weeks", { minWidth: RECRUITING_POTENTIAL_COL.weeks }, "recruitingPotentialWeeksTh")}
               {renderPotentialSortableHeader(
@@ -4299,7 +4353,11 @@ export default function RecruitingPage() {
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.roster, verticalAlign: "top" }}>
                     <RecruitingRosterBoardColumn record={record} showGender={false} />
                   </td>
-                  <td style={{ minWidth: RECRUITING_POTENTIAL_COL.projectDates, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td
+                    className="recruitingProjectDatesCell"
+                    style={{ minWidth: RECRUITING_POTENTIAL_COL.projectDates, verticalAlign: "top" }}
+                    onClick={(event) => event.stopPropagation()}
+                  >
                     {renderOverviewDateInput(record)}
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.site, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
@@ -4552,9 +4610,12 @@ export default function RecruitingPage() {
               {renderConvertedSortableHeader("Team roster", "roster", {
                 width: RECRUITING_CONVERTED_COL_PCT.roster,
               })}
-              {renderConvertedSortableHeader("Project dates", "projectDates", {
-                width: RECRUITING_CONVERTED_COL_PCT.projectDates,
-              })}
+              {renderConvertedSortableHeader(
+                "Project dates",
+                "projectDates",
+                { width: RECRUITING_CONVERTED_COL_PCT.projectDates },
+                "recruitingProjectDatesTh"
+              )}
               {renderConvertedSortableHeader("Site", "site", { width: RECRUITING_CONVERTED_COL_PCT.site })}
               {renderConvertedSortableHeader("Weeks", "weeks", { width: RECRUITING_CONVERTED_COL_PCT.weeks })}
               {renderConvertedSortableHeader("Mackayla notes", "mackayla", {
@@ -4596,7 +4657,11 @@ export default function RecruitingPage() {
                     </div>
                   </td>
                   <td style={{ width: RECRUITING_CONVERTED_COL_PCT.roster, verticalAlign: "top" }}><RecruitingRosterBoardColumn record={record} /></td>
-                  <td style={{ width: RECRUITING_CONVERTED_COL_PCT.projectDates, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
+                  <td
+                    className="recruitingProjectDatesCell"
+                    style={{ width: RECRUITING_CONVERTED_COL_PCT.projectDates, verticalAlign: "top" }}
+                    onClick={(event) => event.stopPropagation()}
+                  >
                     {renderOverviewDateInput(record)}
                   </td>
                   <td style={{ width: RECRUITING_CONVERTED_COL_PCT.site, verticalAlign: "top" }}>
