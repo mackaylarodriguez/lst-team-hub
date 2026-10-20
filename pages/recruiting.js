@@ -4229,8 +4229,6 @@ export default function RecruitingPage() {
                 record?.pendingLockTeamSetup?.fundraisingGoalAmount ??
                 d.fundraisingGoalAmount ??
                 "";
-              const projectDatesLabel = recruitingBoardProjectDatesLabel(record);
-              const rawProjectDates = String(record.projectDates || "").trim();
               const cardDatesLabel = cardLeaveReturnLabel(record);
 
               return (
@@ -4276,20 +4274,13 @@ export default function RecruitingPage() {
                     {cardDatesLabel ? (
                       <div className="recruitingChartCell">{cardDatesLabel}</div>
                     ) : (
-                      <>
-                        {projectDatesLabel && projectDatesLabel !== rawProjectDates ? (
-                          <div className="recruitingOutreachProjectDates" style={{ marginBottom: 6 }}>
-                            {projectDatesLabel}
-                          </div>
-                        ) : null}
-                        <input
-                          className="input recruitingPotentialSheetInput"
-                          value={record.projectDates || ""}
-                          onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
-                          onBlur={() => void handleSaveRecord(record.id)}
-                          placeholder="Dates or season"
-                        />
-                      </>
+                      <input
+                        className="input recruitingPotentialSheetInput"
+                        value={record.projectDates || ""}
+                        onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
+                        onBlur={() => void handleSaveRecord(record.id)}
+                        placeholder="Dates or season"
+                      />
                     )}
                   </td>
                   <td style={{ minWidth: RECRUITING_POTENTIAL_COL.site, verticalAlign: "top" }} onClick={(event) => event.stopPropagation()}>
@@ -4393,8 +4384,6 @@ export default function RecruitingPage() {
           const duplicateInfo = duplicateInfoByRecordId[record.id] || null;
           const d = buildTeamFormDraft(record);
           const isSelected = selectedBulkRecordIds.includes(record.id);
-          const projectDatesLabel = recruitingBoardProjectDatesLabel(record);
-          const rawProjectDates = String(record.projectDates || "").trim();
           const cardDatesLabel = cardLeaveReturnLabel(record);
 
           return (
@@ -4449,18 +4438,13 @@ export default function RecruitingPage() {
                 {cardDatesLabel ? (
                   <div className="recruitingChartCell">{cardDatesLabel}</div>
                 ) : (
-                  <>
-                    {projectDatesLabel && projectDatesLabel !== rawProjectDates ? (
-                      <div className="recruitingOutreachProjectDates">{projectDatesLabel}</div>
-                    ) : null}
-                    <input
-                      className="input recruitingPotentialSheetInput"
-                      value={record.projectDates || ""}
-                      onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
-                      onBlur={() => void handleSaveRecord(record.id)}
-                      placeholder="Project dates"
-                    />
-                  </>
+                  <input
+                    className="input recruitingPotentialSheetInput"
+                    value={record.projectDates || ""}
+                    onChange={(event) => updateRecordField(record.id, "projectDates", event.target.value)}
+                    onBlur={() => void handleSaveRecord(record.id)}
+                    placeholder="Project dates"
+                  />
                 )}
                 <select
                   className="input recruitingPotentialSheetInput"
