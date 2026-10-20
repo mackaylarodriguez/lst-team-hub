@@ -94,7 +94,7 @@ export default function Admin() {
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
   const [confirmingDeleteTaskKey, setConfirmingDeleteTaskKey] = useState("");
   const staffTaskRowTimeoutsRef = useRef({});
-  const staffTaskNoteSaveTimeoutsRef = useRef({});
+  const dirtyTaskNoteKeysRef = useRef(new Set());
   const focusedTaskNoteKeyRef = useRef("");
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
 
@@ -221,9 +221,6 @@ export default function Admin() {
   useEffect(() => {
     return () => {
       Object.values(staffTaskRowTimeoutsRef.current || {}).forEach((timeoutId) => {
-        clearTimeout(timeoutId);
-      });
-      Object.values(staffTaskNoteSaveTimeoutsRef.current || {}).forEach((timeoutId) => {
         clearTimeout(timeoutId);
       });
     };
@@ -503,17 +500,6 @@ export default function Admin() {
     }
   }
 
-  function clearPendingTaskNoteSave(taskKey) {
-    const existingTimeout = staffTaskNoteSaveTimeoutsRef.current[taskKey];
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-      delete staffTaskNoteSaveTimeoutsRef.current[taskKey];
-      return true;
-    }
-
-    return false;
-  }
-
   function handleTaskNotesChange(tripId, taskId, value) {
     const taskKey = getTaskKey(tripId, taskId);
     if (tripId === "misc") {
@@ -522,12 +508,7 @@ export default function Admin() {
       setLocalTaskField(tripId, taskId, "notes", value);
     }
     setStaffTaskStatus("");
-    clearPendingTaskNoteSave(taskKey);
-
-    staffTaskNoteSaveTimeoutsRef.current[taskKey] = setTimeout(() => {
-      delete staffTaskNoteSaveTimeoutsRef.current[taskKey];
-      void updateTask(tripId, taskId, "notes", value);
-    }, 700);
+    dirtyTaskNoteKeysRef.current.add(taskKey);
   }
 
   function handleTaskNotesFocus(tripId, taskId) {
@@ -537,10 +518,9 @@ export default function Admin() {
   function flushTaskNotesSave(tripId, taskId, value) {
     const taskKey = getTaskKey(tripId, taskId);
     focusedTaskNoteKeyRef.current = "";
-    const hadPendingSave = clearPendingTaskNoteSave(taskKey);
-    if (hadPendingSave) {
-      void updateTask(tripId, taskId, "notes", value);
-    }
+    if (!dirtyTaskNoteKeysRef.current.has(taskKey)) return;
+    dirtyTaskNoteKeysRef.current.delete(taskKey);
+    void updateTask(tripId, taskId, "notes", value);
   }
 
   function setStaffTaskRowFeedback(taskKey, type, message) {

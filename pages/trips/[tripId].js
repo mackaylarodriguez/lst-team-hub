@@ -468,7 +468,6 @@ export default function TripPage() {
     staffList,
     staffSiteWorkbookPlan,
     staffTaskDueDateDraft,
-    staffTaskNoteSaveTimeoutsRef,
     staffTaskRowStatus,
     staffTaskRowTimeoutsRef,
     staffTaskStatus,

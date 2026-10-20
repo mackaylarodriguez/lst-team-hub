@@ -312,7 +312,7 @@ export function useTripPageModel() {
   const [referenceEmails, setReferenceEmails] = useState({});
   const [referenceSaveStatusByKey, setReferenceSaveStatusByKey] = useState({});
   const referenceEmailsRef = useRef({});
-  const referenceFieldSaveTimeoutsRef = useRef({});
+  const dirtyReferenceFieldKeysRef = useRef(new Set());
   const [docsError, setDocsError] = useState("");
   const [tripDocsUndoBanner, setTripDocsUndoBanner] = useState(null);
   const tripDocsUndoRunRef = useRef(null);
@@ -439,7 +439,7 @@ export function useTripPageModel() {
   const editableStaffTasksRef = useRef([]);
   const [staffTaskRowStatus, setStaffTaskRowStatus] = useState({});
   const staffTaskRowTimeoutsRef = useRef({});
-  const staffTaskNoteSaveTimeoutsRef = useRef({});
+  const dirtyStaffTaskNoteIdsRef = useRef(new Set());
   const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
   const isAdminUser = isAdminRole(session?.actualRole || session?.role);
   const isLeader = isLeaderRole(session?.permissionRole || session?.role);
@@ -1520,12 +1520,6 @@ export function useTripPageModel() {
   useEffect(() => {
     return () => {
       Object.values(staffTaskRowTimeoutsRef.current || {}).forEach((timeoutId) => {
-        clearTimeout(timeoutId);
-      });
-      Object.values(staffTaskNoteSaveTimeoutsRef.current || {}).forEach((timeoutId) => {
-        clearTimeout(timeoutId);
-      });
-      Object.values(referenceFieldSaveTimeoutsRef.current || {}).forEach((timeoutId) => {
         clearTimeout(timeoutId);
       });
     };
@@ -2821,10 +2815,8 @@ export function useTripPageModel() {
 
   function clearPendingReferenceFieldSave(refKey) {
     const key = normalizeReferenceRefKey(refKey);
-    const existingTimeout = referenceFieldSaveTimeoutsRef.current[key];
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-      delete referenceFieldSaveTimeoutsRef.current[key];
+    if (dirtyReferenceFieldKeysRef.current.has(key)) {
+      dirtyReferenceFieldKeysRef.current.delete(key);
       return true;
     }
     return false;
@@ -2901,13 +2893,7 @@ export function useTripPageModel() {
       [key]: nextStatus,
     }));
 
-    // Debounce text-field saves so typing is not interrupted by per-keystroke requests.
-    clearPendingReferenceFieldSave(key);
-    referenceFieldSaveTimeoutsRef.current[key] = setTimeout(() => {
-      delete referenceFieldSaveTimeoutsRef.current[key];
-      const latest = referenceEmailsRef.current[key] || nextStatus;
-      void saveReferenceStatus(key, latest);
-    }, 700);
+    dirtyReferenceFieldKeysRef.current.add(key);
   }
 
   function toggleTask(taskId, ownerEmail = session?.email) {
@@ -3959,10 +3945,8 @@ export function useTripPageModel() {
   }
 
   function clearPendingStaffTaskNoteSave(taskId) {
-    const existingTimeout = staffTaskNoteSaveTimeoutsRef.current[taskId];
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-      delete staffTaskNoteSaveTimeoutsRef.current[taskId];
+    if (dirtyStaffTaskNoteIdsRef.current.has(taskId)) {
+      dirtyStaffTaskNoteIdsRef.current.delete(taskId);
       return true;
     }
 
@@ -3972,19 +3956,13 @@ export function useTripPageModel() {
   function handleStaffTaskNotesChange(taskId, value) {
     setLocalStaffTaskField(taskId, "notes", value);
     setStaffTaskStatus("");
-    clearPendingStaffTaskNoteSave(taskId);
-
-    staffTaskNoteSaveTimeoutsRef.current[taskId] = setTimeout(() => {
-      delete staffTaskNoteSaveTimeoutsRef.current[taskId];
-      updateStaffTask(taskId, "notes", value);
-    }, 700);
+    dirtyStaffTaskNoteIdsRef.current.add(taskId);
   }
 
   function flushStaffTaskNotesSave(taskId, value) {
-    const hadPendingSave = clearPendingStaffTaskNoteSave(taskId);
-    if (hadPendingSave) {
-      updateStaffTask(taskId, "notes", value);
-    }
+    if (!dirtyStaffTaskNoteIdsRef.current.has(taskId)) return;
+    dirtyStaffTaskNoteIdsRef.current.delete(taskId);
+    updateStaffTask(taskId, "notes", value);
   }
 
   function handleEditStaffTask(task) {
@@ -8069,7 +8047,6 @@ normalizeEmail(participant.email) === activeParticipantEmail
     staffList,
     staffSiteWorkbookPlan,
     staffTaskDueDateDraft,
-    staffTaskNoteSaveTimeoutsRef,
     staffTaskRowStatus,
     staffTaskRowTimeoutsRef,
     staffTaskStatus,
