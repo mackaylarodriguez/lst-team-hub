@@ -2107,7 +2107,6 @@ export default function RecruitingPage() {
     assigneeName: "",
   });
   const [assignableStaff, setAssignableStaff] = useState([]);
-  const [contactAssignMenu, setContactAssignMenu] = useState(null);
 
   function normalizeTeamNameKey(value) {
     return String(value || "")
@@ -2242,23 +2241,6 @@ export default function RecruitingPage() {
       cancelled = true;
     };
   }, [session]);
-
-  useEffect(() => {
-    if (!contactAssignMenu) return undefined;
-    function closeMenu(event) {
-      if (event?.target?.closest?.("[data-contact-assign-root]")) return;
-      setContactAssignMenu(null);
-    }
-    function closeOnScroll() {
-      setContactAssignMenu(null);
-    }
-    document.addEventListener("mousedown", closeMenu);
-    window.addEventListener("scroll", closeOnScroll, true);
-    return () => {
-      document.removeEventListener("mousedown", closeMenu);
-      window.removeEventListener("scroll", closeOnScroll, true);
-    };
-  }, [contactAssignMenu]);
 
   useEffect(() => {
     if (!session) return;
@@ -3749,19 +3731,6 @@ export default function RecruitingPage() {
     });
   }
 
-  function toggleContactAssignMenu(event, recordId) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    setContactAssignMenu((current) =>
-      current?.recordId === recordId
-        ? null
-        : {
-            recordId,
-            top: rect.bottom + 4,
-            left: Math.max(8, rect.right - 220),
-          }
-    );
-  }
-
   function openStaffTaskModal(record, assignee = null) {
     if (!record?.id) return;
     const selfAssignee = assignee || {
@@ -3893,6 +3862,7 @@ export default function RecruitingPage() {
         ? activityDate || lastContactDateInputValue(record) || localTodayYmd()
         : localTodayYmd(),
       notes: activityId ? String(activity?.summary || "").trim() : "",
+      assigneeEmail: "",
     });
     setOutreachContactModalOpen(true);
   }
@@ -3906,6 +3876,7 @@ export default function RecruitingPage() {
       method: "email",
       date: "",
       notes: "",
+      assigneeEmail: "",
     });
   }
 
@@ -3964,9 +3935,30 @@ export default function RecruitingPage() {
       outreachContactDraft.date,
       outreachContactDraft.notes
     );
-    if (saved) {
-      closeOutreachContactModal();
+    if (!saved) return;
+
+    const assigneeEmail = normalizeEmailValue(outreachContactDraft.assigneeEmail);
+    if (assigneeEmail) {
+      const assignee = contactTaskAssignees().find((person) => person.email === assigneeEmail);
+      try {
+        await assignRecruitingContactStaffTask({
+          assigneeEmail,
+          assigneeName: assignee?.name || assigneeEmail,
+          taskName: `Contact ${formatRecruitingTaskTargetName(record)}`,
+          dueDate: String(outreachContactDraft.date || "").trim(),
+          notes: String(outreachContactDraft.notes || "").trim(),
+        });
+        const who = assignee?.isSelf ? "you" : assignee?.name || assigneeEmail;
+        showToast(`Assigned the contact task to ${who}.`, "success");
+      } catch (assignError) {
+        console.error("Unable to assign contact task", assignError);
+        setError(assignError.message || "Contact was saved, but the task could not be assigned.");
+        showToast(assignError.message || "Contact was saved, but the task could not be assigned.", "error");
+        return;
+      }
     }
+
+    closeOutreachContactModal();
   }
 
   async function handleImportFileChange(event) {
@@ -4025,32 +4017,16 @@ export default function RecruitingPage() {
   }
 
   function renderOutreachActionButtons(record, person, isLogging) {
-    const assignMenuOpen = contactAssignMenu?.recordId === record.id;
     return (
       <>
-        <div className="recruitingContactSplit" data-contact-assign-root="">
-          <button
-            className="btn recruitingOutreachContactBtn"
-            type="button"
-            disabled={isLogging}
-            onClick={() => openOutreachContactModal(record, person)}
-          >
-            Contact
-          </button>
-          <button
-            className="btn recruitingContactAssignToggle"
-            type="button"
-            aria-label="Assign contact task"
-            aria-expanded={assignMenuOpen}
-            title="Assign this contact task"
-            onClick={(event) => {
-              event.stopPropagation();
-              toggleContactAssignMenu(event, record.id);
-            }}
-          >
-            ▾
-          </button>
-        </div>
+        <button
+          className="btn recruitingOutreachContactBtn"
+          type="button"
+          disabled={isLogging}
+          onClick={() => openOutreachContactModal(record, person)}
+        >
+          Contact
+        </button>
         <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>
           Task
         </button>
@@ -5722,30 +5698,6 @@ export default function RecruitingPage() {
         </button>
       </div>
 
-      {contactAssignMenu ? (
-        <div
-          className="recruitingContactAssignMenu"
-          data-contact-assign-root=""
-          role="menu"
-          style={{ top: contactAssignMenu.top, left: contactAssignMenu.left }}
-        >
-          <div className="recruitingContactAssignMenuLabel">Assign contact task</div>
-          {contactTaskAssignees().map((person) => (
-            <button
-              key={person.email}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                const record = records.find((entry) => entry.id === contactAssignMenu.recordId);
-                if (record) openStaffTaskModal(record, person);
-              }}
-            >
-              {person.isSelf ? `${person.name} (me)` : person.name}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
       {staffTaskModalOpen ? (
         <div
           className="appModalOverlay"
@@ -5928,8 +5880,31 @@ export default function RecruitingPage() {
                   }
                 />
               </div>
+              {!outreachContactDraft.activityId ? (
+                <div>
+                  <div className="small" style={{ marginBottom: 6 }}>Assign task to</div>
+                  <select
+                    className="input"
+                    value={outreachContactDraft.assigneeEmail || ""}
+                    disabled={loggingOutreachRecordId === outreachContactDraft.recordId}
+                    onChange={(event) =>
+                      setOutreachContactDraft((current) => ({
+                        ...current,
+                        assigneeEmail: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">No task</option>
+                    {contactTaskAssignees().map((person) => (
+                      <option key={person.email} value={person.email}>
+                        {person.isSelf ? `${person.name} (me)` : person.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <div>
-                <div className="small" style={{ marginBottom: 6 }}>Notes</div>
+                <div className="small" style={{ marginBottom: 6 }}>Message</div>
                 <textarea
                   className="input"
                   rows={4}
