@@ -207,6 +207,15 @@ function finishBusySave(ok = true, label = "Saved") {
   else hideBusy();
 }
 
+/** Classroom modules are the LST training curriculum. Live sessions stay separate. */
+function modulesRequiredForLstTrainingTask(modules) {
+  const list = modules || [];
+  const classroom = list.filter(
+    (module) => String(module?.category || "").trim().toLowerCase() === "classroom"
+  );
+  return classroom.length ? classroom : list;
+}
+
 const {
   CollapsibleSection,
   AppStatusMessage,
@@ -1348,6 +1357,43 @@ export function useTripPageModel() {
             })
           );
         }
+      }
+
+      const trainingCompleteTask = (tasks || []).find(
+        (item) => findWorkerTaskTemplate(item)?.id === "worker-task-training-complete"
+      );
+      const lstTrainingModules = modulesRequiredForLstTrainingTask(modules);
+      const trainingTaskSaves = [];
+      if (trainingCompleteTask && lstTrainingModules.length) {
+        for (const [emailKey, trainingState] of Object.entries(nextTrainingStates)) {
+          const allModulesComplete = lstTrainingModules.every(
+            (module) => !!trainingState?.[module.id]
+          );
+          if (!allModulesComplete) continue;
+          if (
+            isWorkerTaskCompletedInState(trainingCompleteTask, nextTaskStates[emailKey] || {})
+          ) {
+            continue;
+          }
+          const userId = userIdByEmail.get(emailKey);
+          if (!userId) continue;
+          if (!nextTaskStates[emailKey]) nextTaskStates[emailKey] = {};
+          nextTaskStates[emailKey][trainingCompleteTask.id] = true;
+          trainingTaskSaves.push(
+            saveUserTaskProgress({
+              tripId: trip.id,
+              userId,
+              taskName: trainingCompleteTask.id,
+              completed: true,
+              dueDate: trainingCompleteTask.due || null,
+            })
+          );
+        }
+      }
+      if (trainingTaskSaves.length) {
+        Promise.all(trainingTaskSaves).catch((error) => {
+          console.error("Unable to auto-complete LST training task", error);
+        });
       }
 
       setParticipantTrainingStates(nextTrainingStates);
@@ -2915,6 +2961,44 @@ export function useTripPageModel() {
     })();
   }
 
+  async function syncCompletedAllLstTrainingTask(ownerEmail, trainingState) {
+    if (!trip?.id || !ownerEmail) return;
+    const modules = modulesRequiredForLstTrainingTask(allTrainingModules);
+    if (!modules.length) return;
+    if (!modules.every((module) => !!trainingState?.[module.id])) return;
+
+    const trainingTask = (trip.tasks || []).find(
+      (item) => findWorkerTaskTemplate(item)?.id === "worker-task-training-complete"
+    );
+    if (!trainingTask) return;
+
+    const emailKey = normalizeEmail(ownerEmail);
+    if (!emailKey) return;
+
+    const taskState = participantTaskStates[emailKey] || {};
+    if (isWorkerTaskCompletedInState(trainingTask, taskState)) return;
+
+    const userId = await resolveTrainingSubjectUserId(ownerEmail);
+    if (!userId) return;
+
+    setParticipantTaskStates((prev) => ({
+      ...prev,
+      [emailKey]: { ...(prev[emailKey] || {}), [trainingTask.id]: true },
+    }));
+
+    try {
+      await saveUserTaskProgress({
+        tripId: trip.id,
+        userId,
+        taskName: trainingTask.id,
+        completed: true,
+        dueDate: trainingTask.due || null,
+      });
+    } catch (error) {
+      console.error("Unable to auto-complete LST training task", error);
+    }
+  }
+
   async function syncMaterialsPageWorkerTasksFromLogistics(logisticsRow) {
     if (!trip?.id || !isTeamMaterialsLogisticsComplete(logisticsRow)) return;
 
@@ -3307,6 +3391,7 @@ export function useTripPageModel() {
         }
 
         if (!nextValue) return;
+        void syncCompletedAllLstTrainingTask(ownerEmail, next);
         const activityEntry = await logTripActivity({
           tripId: trip.id,
           actorUserId: userId,
@@ -3386,6 +3471,10 @@ export function useTripPageModel() {
           completedAt,
         });
 
+        const nextTrainingState = {
+          ...currentTrainingState,
+          [dbModule.id]: true,
+        };
         setParticipantTrainingStates((prev) => ({
           ...prev,
           [emailKey]: {
@@ -3393,6 +3482,7 @@ export function useTripPageModel() {
             [dbModule.id]: true,
           },
         }));
+        void syncCompletedAllLstTrainingTask(ownerEmail, nextTrainingState);
 
         const activityEntry = await logTripActivity({
           tripId: trip.id,
@@ -3463,6 +3553,12 @@ export function useTripPageModel() {
             [id]: !!saved.completed,
           },
         }));
+        if (saved.completed) {
+          void syncCompletedAllLstTrainingTask(ownerEmail, {
+            ...next,
+            [id]: true,
+          });
+        }
         if (!value || currentState[id]) return;
         const module = moduleMeta;
         const activityEntry = await logTripActivity({
