@@ -6,7 +6,7 @@ import { hideBusy, isBusyActive, showBusyDone } from "@/components/BusyOverlay";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { requireSession } from "@/lib/auth";
+import { listAssignableHubStaff, requireSession } from "@/lib/auth";
 import { isManagerRole } from "@/lib/roles";
 import {
   RECRUITING_STAGES,
@@ -2095,6 +2095,9 @@ export default function RecruitingPage() {
     dueDate: "",
     notes: "",
   });
+  const [assignableStaff, setAssignableStaff] = useState([]);
+  const [contactAssignMenu, setContactAssignMenu] = useState(null);
+  const [assigningContactRecordId, setAssigningContactRecordId] = useState("");
 
   function normalizeTeamNameKey(value) {
     return String(value || "")
@@ -2213,6 +2216,39 @@ export default function RecruitingPage() {
 
     void loadYears();
   }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    listAssignableHubStaff()
+      .then((people) => {
+        if (!cancelled) setAssignableStaff(people || []);
+      })
+      .catch((staffError) => {
+        console.error("Unable to load staff for contact assignment", staffError);
+        if (!cancelled) setAssignableStaff([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  useEffect(() => {
+    if (!contactAssignMenu) return undefined;
+    function closeMenu(event) {
+      if (event?.target?.closest?.("[data-contact-assign-root]")) return;
+      setContactAssignMenu(null);
+    }
+    function closeOnScroll() {
+      setContactAssignMenu(null);
+    }
+    document.addEventListener("mousedown", closeMenu);
+    window.addEventListener("scroll", closeOnScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", closeMenu);
+      window.removeEventListener("scroll", closeOnScroll, true);
+    };
+  }, [contactAssignMenu]);
 
   useEffect(() => {
     if (!session) return;
@@ -3677,6 +3713,77 @@ export default function RecruitingPage() {
     });
   }
 
+  function contactTaskAssignees() {
+    const byEmail = new Map();
+    const selfEmail = normalizeEmailValue(session?.email);
+    if (selfEmail) {
+      byEmail.set(selfEmail, {
+        email: selfEmail,
+        name: String(session?.name || "").trim() || selfEmail,
+        isSelf: true,
+      });
+    }
+    for (const person of assignableStaff) {
+      const email = normalizeEmailValue(person?.email);
+      if (!email) continue;
+      const existing = byEmail.get(email);
+      byEmail.set(email, {
+        email,
+        name: String(person?.name || existing?.name || email).trim() || email,
+        isSelf: email === selfEmail,
+      });
+    }
+    return [...byEmail.values()].sort((left, right) => {
+      if (left.isSelf !== right.isSelf) return left.isSelf ? -1 : 1;
+      return left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
+    });
+  }
+
+  function toggleContactAssignMenu(event, recordId) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setContactAssignMenu((current) =>
+      current?.recordId === recordId
+        ? null
+        : {
+            recordId,
+            top: rect.bottom + 4,
+            left: Math.max(8, rect.right - 220),
+          }
+    );
+  }
+
+  async function assignRecruitingContactTask(record, assignee) {
+    if (!record?.id || !assignee?.email) return;
+    if (!session?.email) {
+      setError("Sign in before assigning a contact task.");
+      return;
+    }
+    const draft = buildRecruitingStaffTaskDraft(record);
+    try {
+      setAssigningContactRecordId(record.id);
+      setContactAssignMenu(null);
+      await saveStaffMiscTask({
+        staffEmail: assignee.email,
+        staffName: assignee.name || assignee.email,
+        workArea: "Recruiting",
+        taskName: draft.taskName,
+        dueDate: draft.dueDate,
+        progress: "Not started",
+        notes: draft.notes,
+      });
+      const who = assignee.isSelf ? "you" : assignee.name;
+      setError("");
+      setPageStatus(`Contact task assigned to ${who}.`);
+      showToast(`Assigned “${draft.taskName}” to ${who}.`, "success");
+    } catch (saveError) {
+      console.error("Unable to assign recruiting contact task", saveError);
+      setError(saveError.message || "Unable to assign contact task.");
+      showToast(saveError.message || "Unable to assign contact task.", "error");
+    } finally {
+      setAssigningContactRecordId("");
+    }
+  }
+
   function openStaffTaskModal(record) {
     if (!record?.id) return;
     setStaffTaskDraft(buildRecruitingStaffTaskDraft(record));
@@ -3931,16 +4038,34 @@ export default function RecruitingPage() {
   }
 
   function renderOutreachActionButtons(record, person, isLogging) {
+    const assignMenuOpen = contactAssignMenu?.recordId === record.id;
+    const isAssigning = assigningContactRecordId === record.id;
     return (
       <>
-        <button
-          className="btn recruitingOutreachContactBtn"
-          type="button"
-          disabled={isLogging}
-          onClick={() => openOutreachContactModal(record, person)}
-        >
-          Contact
-        </button>
+        <div className="recruitingContactSplit" data-contact-assign-root="">
+          <button
+            className="btn recruitingOutreachContactBtn"
+            type="button"
+            disabled={isLogging}
+            onClick={() => openOutreachContactModal(record, person)}
+          >
+            Contact
+          </button>
+          <button
+            className="btn recruitingContactAssignToggle"
+            type="button"
+            aria-label="Assign contact task"
+            aria-expanded={assignMenuOpen}
+            disabled={isAssigning}
+            title="Assign this contact task"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleContactAssignMenu(event, record.id);
+            }}
+          >
+            ▾
+          </button>
+        </div>
         <button className="btn" type="button" onClick={() => openStaffTaskModal(record)}>
           Task
         </button>
@@ -5611,6 +5736,31 @@ export default function RecruitingPage() {
           A
         </button>
       </div>
+
+      {contactAssignMenu ? (
+        <div
+          className="recruitingContactAssignMenu"
+          data-contact-assign-root=""
+          role="menu"
+          style={{ top: contactAssignMenu.top, left: contactAssignMenu.left }}
+        >
+          <div className="recruitingContactAssignMenuLabel">Assign contact task</div>
+          {contactTaskAssignees().map((person) => (
+            <button
+              key={person.email}
+              type="button"
+              role="menuitem"
+              disabled={assigningContactRecordId === contactAssignMenu.recordId}
+              onClick={() => {
+                const record = records.find((entry) => entry.id === contactAssignMenu.recordId);
+                if (record) void assignRecruitingContactTask(record, person);
+              }}
+            >
+              {person.isSelf ? `${person.name} (me)` : person.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {staffTaskModalOpen ? (
         <div
