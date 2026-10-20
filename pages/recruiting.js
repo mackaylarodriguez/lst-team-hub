@@ -39,6 +39,7 @@ import { listTripTeamMembersForDuplicateCheck } from "@/lib/tripTeamMembers";
 import { assignRecruitingContactStaffTask } from "@/lib/staffTasks";
 import {
   listRegisteredWorkersForPicker,
+  profileIdForWorkerLink,
   resolveRegisteredWorker,
   searchRegisteredWorkers,
 } from "@/lib/workerLookup";
@@ -493,7 +494,7 @@ function RecruitingWorkerLookupSearch({ person, workers, workersLoadError, onLin
     <>
       <div className="recruitingWorkerMemberSearch">
         <div className="small" style={{ marginBottom: 4, color: "var(--muted)" }}>
-          Find registered worker
+          Find worker
           {workers.length > 0 ? ` (${workers.length} in directory)` : ""}
         </div>
         <input
@@ -522,9 +523,9 @@ function RecruitingWorkerLookupSearch({ person, workers, workersLoadError, onLin
                 >
                   <div style={{ fontWeight: 700 }}>{worker.name}</div>
                   {worker.email ? <div className="small">{worker.email}</div> : null}
-                  {!worker.hasAccount && worker.email ? (
+                  {!worker.hasAccount ? (
                     <div className="small" style={{ color: "var(--muted)" }}>
-                      On a trip roster (no account yet)
+                      No account yet
                     </div>
                   ) : null}
                 </button>
@@ -541,7 +542,7 @@ function RecruitingWorkerLookupSearch({ person, workers, workersLoadError, onLin
       </div>
       {linkedWorker ? (
         <div className="recruitingWorkerLinkedBadge small">
-          Linked to registered worker: {linkedWorker.name}
+          Linked to worker: {linkedWorker.name}
           {linkedWorker.email ? ` (${linkedWorker.email})` : ""}
         </div>
       ) : null}
@@ -786,7 +787,7 @@ function LockTeamFormCards({
       <RecruitingFormCard
         tone="team"
         title="Team name & members"
-        subtitle="Search for registered workers by name or email to link them instead of creating a duplicate profile. Email and phone are optional. Use Different Trip Dates when someone’s leave/return differs from the project."
+        subtitle="Search all workers by name or email to link them instead of creating a duplicate profile. Email and phone are optional. Use Different Trip Dates when someone’s leave/return differs from the project."
       >
         <div>
           <div className="small" style={{ marginBottom: 6 }}>Team Name</div>
@@ -1264,7 +1265,7 @@ function linkTeamMemberToWorker(member, worker) {
   if (!worker) return member;
   return {
     ...member,
-    profileId: worker.id || "",
+    profileId: profileIdForWorkerLink(worker),
     firstName: String(member.firstName || "").trim() || worker.firstName || "",
     lastName: String(member.lastName || "").trim() || worker.lastName || "",
     email: normalizeEmailValue(member.email) || worker.email || "",
@@ -6016,7 +6017,7 @@ export default function RecruitingPage() {
             </div>
             <div className="small recruitingFormModalLead" style={{ marginBottom: 14 }}>
               Same layout as Edit. First and last name are required on the starred primary row; everything else is optional.
-              Search for registered workers on each roster row to link an existing profile.
+              Search all workers on each roster row to link an existing person.
             </div>
             {error ? (
               <div className="card pad" style={{ marginBottom: 14, color: "var(--danger)" }}>
@@ -6126,7 +6127,7 @@ export default function RecruitingPage() {
               <RecruitingFormCard
                 tone="team"
                 title="Team name & roster"
-                subtitle="Star (★) is the primary contact. Search for registered workers to link existing profiles. Everyone is on one roster row with first, last, email, phone, gender."
+                subtitle="Star (★) is the primary contact. Search all workers to link an existing person. Everyone is on one roster row with first, last, email, phone, gender."
               >
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Team name</div>
