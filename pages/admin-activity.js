@@ -197,15 +197,16 @@ export default function AdminActivityPage() {
     async (template) => {
       const isWeeklyTasks = template === "weekly_tasks";
       const isWeeklyWorker = template === "weekly_worker";
+      const isFlightDocuments = template === "flight_documents";
       if (!emailTestTo) {
         setEmailTestStatus("Enter a test email address.");
         return;
       }
-      if (isWeeklyWorker && !weeklyWorkerEmail) {
+      if ((isWeeklyWorker || isFlightDocuments) && !weeklyWorkerEmail) {
         setEmailTestStatus("Pick a trip and a worker to preview.");
         return;
       }
-      if (!isWeeklyTasks && !isWeeklyWorker && !emailTestTripId) {
+      if (!isWeeklyTasks && !emailTestTripId) {
         setEmailTestStatus("Pick a trip and enter a test email address.");
         return;
       }
@@ -236,6 +237,8 @@ export default function AdminActivityPage() {
             senderName: session?.name || session?.email || "LST staff",
             staffKey: weeklyTasksStaffKey,
             workerEmail: weeklyWorkerEmail,
+            recipientName:
+              weeklyWorkerOptions.find((worker) => worker.email === weeklyWorkerEmail)?.label || "",
           }),
         });
 
@@ -266,6 +269,15 @@ export default function AdminActivityPage() {
           return;
         }
 
+        if (isFlightDocuments) {
+          setEmailTestStatus(
+            result?.liveEnabled
+              ? `Flight documents test for ${result?.workerName} sent to ${sentTo}. Live emails are on and would also copy Leslee Altrock.`
+              : `Flight documents test for ${result?.workerName} sent to ${sentTo}. Live sending is still off. When you turn it on, this goes to the worker and CCs Leslee Altrock.`
+          );
+          return;
+        }
+
         const label =
           template === "worker_invite"
             ? "Worker invite"
@@ -280,7 +292,7 @@ export default function AdminActivityPage() {
         setEmailTestSending("");
       }
     },
-    [emailTestTo, emailTestTripId, session, weeklyTasksStaffKey, weeklyWorkerEmail]
+    [emailTestTo, emailTestTripId, session, weeklyTasksStaffKey, weeklyWorkerEmail, weeklyWorkerOptions]
   );
 
   const loadEmailSchedule = useCallback(async () => {
@@ -476,6 +488,19 @@ export default function AdminActivityPage() {
               onClick={() => void sendTestEmail("weekly_worker")}
             >
               {emailTestSending === "weekly_worker" ? "Sending…" : "Test weekly worker email"}
+            </button>
+          </div>
+          <div className="adminEmailTestGrid adminEmailTestGridWeekly">
+            <span className="small">
+              Flight email for the worker selected above. The test goes only to the address in the test email field.
+            </span>
+            <button
+              type="button"
+              className="btn"
+              disabled={!emailTestTo || !weeklyWorkerEmail || !!emailTestSending}
+              onClick={() => void sendTestEmail("flight_documents")}
+            >
+              {emailTestSending === "flight_documents" ? "Sending…" : "Test flight email"}
             </button>
           </div>
           {emailTestStatus ? <div className="small adminActivityToolbarStatus">{emailTestStatus}</div> : null}

@@ -30,6 +30,7 @@ import {
   hasFundraisingLinkAndAmount,
   sendFundraisingReadyNotify,
 } from "@/lib/fundraisingReadyNotify";
+import { sendFlightDocumentsNotify } from "@/lib/flightDocumentsNotify";
 import { pruneTripTicketsForNonTravelingLeaders, listTripTickets } from "@/lib/tripTickets";
 import {
   getTrainingModuleDeadline,
@@ -1758,6 +1759,7 @@ export function useTripPageModel() {
       );
       setDocsError("");
       setPendingPdfDraft(null);
+      maybeEmailFlightDocuments(null, created);
     } catch (error) {
       console.error("Unable to add PDF resource", error);
       setDocsError(error.message || "Unable to save resources.");
@@ -1856,6 +1858,7 @@ export function useTripPageModel() {
         });
         setDocsError("");
         handleCancelAddLink();
+        maybeEmailFlightDocuments(existing, updated);
         return;
       }
 
@@ -1876,6 +1879,7 @@ export function useTripPageModel() {
       );
       setDocsError("");
       handleCancelAddLink();
+      maybeEmailFlightDocuments(null, created);
     } catch (error) {
       if (isMissingResourceTutorialColumnError(error)) {
         setDocsError(
@@ -2304,6 +2308,41 @@ export function useTripPageModel() {
     return key === "flights" || category === "flights" || category === "flight";
   }
 
+  function isFlightsCategoryDoc(doc) {
+    const category = String(doc?.category || "").trim().toLowerCase();
+    return category === "flights" || category === "flight";
+  }
+
+  function flightDocIsReady(doc) {
+    if (!doc || doc.visibleToParticipants === false) return false;
+    if (!isFlightsCategoryDoc(doc)) return false;
+    return resourceHasContent(doc);
+  }
+
+  function maybeEmailFlightDocuments(previous, next, { resend = false } = {}) {
+    if (!trip?.id || !next?.id) return;
+    if (!flightDocIsReady(next)) return;
+    const nextWorker = getTripDocumentWorkerLabel(next);
+    const previousWorker = getTripDocumentWorkerLabel(previous);
+    const workerChanged =
+      nextWorker.trim().toLowerCase() !== previousWorker.trim().toLowerCase();
+    if (!resend && flightDocIsReady(previous) && !workerChanged) return;
+    void sendFlightDocumentsNotify({ tripId: trip.id, resourceId: next.id })
+      .then((result) => {
+        if (result?.sent && result?.workerName) {
+          showToast(`Flight email sent to ${result.workerName}.`, "success");
+          return;
+        }
+        if (result?.live && result?.skipped && result?.reason) {
+          showToast(result.reason, "error");
+        }
+      })
+      .catch((error) => {
+        console.error("Unable to send flight documents email", error);
+        showToast(error?.message || "Flight document saved, but the email was not sent.", "error");
+      });
+  }
+
   function maybeNotifyFlightsAdded(previous, next) {
     if (!trip?.id || !isFlightResource(next || previous)) return;
     if (!resourceHasContent(next) || resourceHasContent(previous)) return;
@@ -2359,10 +2398,9 @@ export function useTripPageModel() {
         current.map((doc) => (doc.id === updated.id ? updated : doc))
       );
       setDocsError("");
-      maybeNotifyFlightsAdded(
-        (docs || []).find((doc) => doc.id === docDraft.id),
-        updated
-      );
+      const previousDoc = (docs || []).find((doc) => doc.id === docDraft.id);
+      maybeNotifyFlightsAdded(previousDoc, updated);
+      maybeEmailFlightDocuments(previousDoc, updated);
       handleCancelEditDoc();
     } catch (error) {
       if (isMissingResourceTutorialColumnError(error)) {
@@ -2381,11 +2419,15 @@ export function useTripPageModel() {
     if (!file || !docDraft) return;
 
     try {
+      const nextWorkArea = buildTripDocumentWorkAreaMeta({
+        workerName: docDraft.workerName,
+        notes: docDraft.workArea,
+      });
       const created = await addPdfResource({
         title: docDraft.title || file.name,
         file,
         category: docDraft.category,
-        workArea: docDraft.workArea,
+        workArea: nextWorkArea,
         resourceKey: docDraft.resourceKey,
         tutorialTitle: docDraft.tutorialTitle,
         tutorialUrl: docDraft.tutorialUrl,
@@ -2400,7 +2442,7 @@ export function useTripPageModel() {
         pdfUrl: created.pdfUrl,
         category: created.category,
         resourceKey: created.resourceKey,
-        workArea: created.workArea,
+        workArea: nextWorkArea,
         tutorialTitle: docDraft.tutorialTitle,
         tutorialUrl: docDraft.tutorialUrl,
         tutorialDescription: docDraft.tutorialDescription,
@@ -2410,10 +2452,9 @@ export function useTripPageModel() {
         current.map((doc) => (doc.id === updated.id ? updated : doc))
       );
       setDocsError("");
-      maybeNotifyFlightsAdded(
-        (docs || []).find((doc) => doc.id === docDraft.id),
-        updated
-      );
+      const previousDoc = (docs || []).find((doc) => doc.id === docDraft.id);
+      maybeNotifyFlightsAdded(previousDoc, updated);
+      maybeEmailFlightDocuments(previousDoc, updated, { resend: true });
       handleCancelEditDoc();
     } catch (error) {
       if (isMissingResourceTutorialColumnError(error)) {

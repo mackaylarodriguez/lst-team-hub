@@ -2,7 +2,7 @@
  * Admin-only: send test copies of Hub notification emails without locking teams or creating invites.
  *
  * POST body:
- * - template: "worker_invite" | "team_lock" | "fundraising_ready" | "weekly_tasks" | "weekly_worker"
+ * - template: "worker_invite" | "team_lock" | "fundraising_ready" | "weekly_tasks" | "weekly_worker" | "flight_documents"
  * - tripId: uuid (not used by weekly_tasks or weekly_worker)
  * - staffKey: whose tasks to preview for weekly_tasks ("craig" | "leslee" | "mackayla" | "donna")
  * - workerEmail: whose weekly worker email to preview
@@ -46,6 +46,12 @@ import {
   loadWeeklyWorkerDigestData,
 } from "@/lib/weeklyWorkerDigest";
 import { recordWeeklyEmailSend } from "@/lib/weeklyEmailLog";
+import {
+  buildFlightDocumentsEmailHtml,
+  buildFlightDocumentsEmailSubject,
+  flightDocumentsEmailsEnabled,
+  FLIGHT_DOCUMENTS_CC_EMAIL,
+} from "@/lib/flightDocumentsEmail";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -266,6 +272,68 @@ async function sendWeeklyWorkerTest(req, res, testEmail) {
   }
 }
 
+async function sendFlightDocumentsTest(req, res, testEmail) {
+  const tripId = normalizeText(req.body?.tripId);
+  const recipientName = normalizeText(req.body?.recipientName) || "there";
+  const workerEmail = normalizeEmail(req.body?.workerEmail);
+
+  if (!tripId) {
+    return res.status(400).json({ error: "tripId is required." });
+  }
+
+  try {
+    const admin = getSupabaseAdminClient();
+    const context = await loadTripEmailContext(admin, tripId);
+    const baseUrl = getBaseUrl(req);
+    const tripDocumentsUrl = baseUrl
+      ? `${baseUrl}/trips/${encodeURIComponent(tripId)}?tab=trip-documents`
+      : "";
+    const live = flightDocumentsEmailsEnabled();
+    const liveTarget = workerEmail
+      ? `${recipientName} (${workerEmail})`
+      : recipientName;
+    const testNote = live
+      ? `Test preview. Live flight emails are on and would go to ${liveTarget}, with Leslee Altrock copied.`
+      : `Test preview only. Live flight emails are off. When turned on, this goes to ${liveTarget} and CCs Leslee Altrock (${FLIGHT_DOCUMENTS_CC_EMAIL}).`;
+    const subject = `[TEST] ${buildFlightDocumentsEmailSubject()}`;
+    const html = buildFlightDocumentsEmailHtml({
+      recipientName,
+      tripDocumentsUrl,
+      testNote,
+    });
+
+    const emailResult = await sendResendEmail({
+      to: testEmail,
+      subject,
+      html,
+    });
+
+    if (!emailResult.sent) {
+      return res.status(500).json({
+        error: "Test email was not sent. Check RESEND_API_KEY and BUDGET_CHECK_FROM_EMAIL.",
+        reason: emailResult.reason,
+        detail: emailResult.detail || null,
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      template: "flight_documents",
+      sentTo: testEmail,
+      workerName: recipientName,
+      tripName: context.tripName,
+      liveEnabled: live,
+      ccWhenLive: FLIGHT_DOCUMENTS_CC_EMAIL,
+      email: emailResult,
+    });
+  } catch (error) {
+    console.error("[admin-email-test] flight_documents", error);
+    return res.status(500).json({
+      error: error?.message || "Unable to send flight documents test email.",
+    });
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -293,6 +361,10 @@ export default async function handler(req, res) {
     return sendWeeklyWorkerTest(req, res, testEmail);
   }
 
+  if (template === "flight_documents") {
+    return sendFlightDocumentsTest(req, res, testEmail);
+  }
+
   if (!tripId) {
     return res.status(400).json({ error: "tripId is required." });
   }
@@ -303,7 +375,7 @@ export default async function handler(req, res) {
   ) {
     return res.status(400).json({
       error:
-        'template must be "worker_invite", "team_lock", "fundraising_ready", "weekly_tasks", or "weekly_worker".',
+        'template must be "worker_invite", "team_lock", "fundraising_ready", "weekly_tasks", "weekly_worker", or "flight_documents".',
     });
   }
 
