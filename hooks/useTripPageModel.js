@@ -119,6 +119,7 @@ import {
   computeTeamFundraisingGoalTotal,
 } from "@/lib/tripFundraising";
 import { listTripActivity, logTripActivity } from "@/lib/tripActivity";
+import { HUB_NOTIFICATIONS_UPDATED_EVENT } from "@/lib/hubNotifications";
 import {
   buildParticipantDocumentTypesPayload,
   getTripUserDocumentTypes,
@@ -2241,6 +2242,58 @@ export function useTripPageModel() {
     setDocDraft(null);
   }
 
+  async function notifyHub(entryPromise) {
+    try {
+      await entryPromise;
+    } catch (error) {
+      console.error("Unable to record notification", error);
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(HUB_NOTIFICATIONS_UPDATED_EVENT));
+    }
+  }
+
+  function resourceHasContent(doc) {
+    return Boolean(String(doc?.link || "").trim() || String(doc?.pdfUrl || "").trim());
+  }
+
+  function isFlightResource(doc) {
+    const key = String(doc?.resourceKey || "").trim().toLowerCase();
+    const category = String(doc?.category || "").trim().toLowerCase();
+    return key === "flights" || category === "flights" || category === "flight";
+  }
+
+  function maybeNotifyFlightsAdded(previous, next) {
+    if (!trip?.id || !isFlightResource(next || previous)) return;
+    if (!resourceHasContent(next) || resourceHasContent(previous)) return;
+    void notifyHub(
+      logTripActivity({
+        tripId: trip.id,
+        actorUserId: session?.profileId || session?.id || "",
+        actorName: session?.name || session?.email || "Staff",
+        actorEmail: session?.email || "",
+        eventType: "flights_added",
+        message: "Flights were added",
+      })
+    );
+  }
+
+  function maybeNotifyTaskAssigned(previousAssignee, nextAssignee, taskName) {
+    const next = String(nextAssignee || "").trim();
+    const previous = String(previousAssignee || "").trim();
+    if (!trip?.id || !next || next.toLowerCase() === previous.toLowerCase()) return;
+    void notifyHub(
+      logTripActivity({
+        tripId: trip.id,
+        actorUserId: session?.profileId || session?.id || "",
+        actorName: session?.name || session?.email || "Staff",
+        actorEmail: session?.email || "",
+        eventType: "staff_task_assigned",
+        message: `Assigned to ${next}: ${String(taskName || "Task").trim() || "Task"}`,
+      })
+    );
+  }
+
   async function handleSaveDoc() {
     if (!docDraft) return;
 
@@ -2265,6 +2318,10 @@ export function useTripPageModel() {
         current.map((doc) => (doc.id === updated.id ? updated : doc))
       );
       setDocsError("");
+      maybeNotifyFlightsAdded(
+        (docs || []).find((doc) => doc.id === docDraft.id),
+        updated
+      );
       handleCancelEditDoc();
     } catch (error) {
       if (isMissingResourceTutorialColumnError(error)) {
@@ -2312,6 +2369,10 @@ export function useTripPageModel() {
         current.map((doc) => (doc.id === updated.id ? updated : doc))
       );
       setDocsError("");
+      maybeNotifyFlightsAdded(
+        (docs || []).find((doc) => doc.id === docDraft.id),
+        updated
+      );
       handleCancelEditDoc();
     } catch (error) {
       if (isMissingResourceTutorialColumnError(error)) {
@@ -3764,6 +3825,7 @@ export function useTripPageModel() {
   }
 
   function updateStaffTask(taskId, field, value) {
+    const previous = (editableStaffTasksRef.current || []).find((task) => task.id === taskId);
     const nextTasks = setLocalStaffTaskField(taskId, field, value);
     console.log("[tripPage] updateStaffTask", {
       tripId: trip?.id,
@@ -3777,6 +3839,9 @@ export function useTripPageModel() {
       .then(() => {
         setStaffTaskRowFeedback(taskId, "success", "Saved");
         setStaffTaskStatus("");
+        if (field === "assignedTo") {
+          maybeNotifyTaskAssigned(previous?.assignedTo, value, previous?.taskName || previous?.title);
+        }
       })
       .catch((error) => {
         const errMsg = error.message || "Could not save task changes.";
@@ -3878,6 +3943,7 @@ export function useTripPageModel() {
     try {
       setStaffTaskStatus("");
       await saveStaffTasks([...(editableStaffTasksRef.current || []), nextTask]);
+      maybeNotifyTaskAssigned("", nextTask.assignedTo, nextTask.taskName);
       setIsAddingStaffTask(false);
       setNewStaffTaskDraft({
         workArea: newStaffTaskDraft.workArea || "Project Formation",

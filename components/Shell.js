@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import BusyOverlay from "@/components/BusyOverlay";
+import NotificationBell from "@/components/NotificationBell";
 import Toast from "@/components/Toast";
 import {
   clearImpersonatedProfile,
@@ -379,6 +380,11 @@ export default function Shell({ children }) {
       </aside>
 
       <main className="main">
+        {session ? (
+          <div className="hubNotificationBar">
+            <NotificationBell session={session} />
+          </div>
+        ) : null}
         {showInstallHint ? (
           <div className="installHintBanner">
             <div>

@@ -704,6 +704,101 @@ textarea.input{
   padding-left:max(24px, env(safe-area-inset-left));
   padding-right:max(24px, env(safe-area-inset-right));
   padding-bottom:max(40px, env(safe-area-inset-bottom));
+  position:relative;
+}
+.hubNotificationBar{
+  display:flex;
+  justify-content:flex-end;
+  margin:-6px 0 10px;
+  min-height:42px;
+}
+.hubNotificationBell{
+  position:relative;
+  z-index:30;
+}
+.hubNotificationBellButton{
+  position:relative;
+  width:42px;
+  height:42px;
+  border-radius:999px;
+  border:1px solid rgba(47,73,147,.22);
+  background:#fff;
+  color:var(--primary);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(47,73,147,.12);
+}
+.hubNotificationBellButton svg{
+  width:20px;
+  height:20px;
+}
+.hubNotificationBadge{
+  position:absolute;
+  top:-4px;
+  right:-4px;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:999px;
+  background:#dc2626;
+  color:#fff;
+  font-size:11px;
+  font-weight:800;
+  line-height:18px;
+  text-align:center;
+}
+.hubNotificationPanel{
+  position:absolute;
+  top:50px;
+  right:0;
+  width:min(380px, calc(100vw - 36px));
+  max-height:min(70vh, 520px);
+  overflow:auto;
+  background:#fff;
+  border:1px solid rgba(47,73,147,.16);
+  border-radius:16px;
+  box-shadow:0 18px 40px rgba(15,23,42,.16);
+}
+.hubNotificationPanelHeader{
+  padding:14px 14px 10px;
+  border-bottom:1px solid rgba(47,73,147,.1);
+}
+.hubNotificationPanelTitle{
+  font-weight:900;
+}
+.hubNotificationList{
+  display:grid;
+}
+.hubNotificationEmpty{
+  padding:16px 14px 18px;
+}
+.hubNotificationItem{
+  display:grid;
+  gap:3px;
+  width:100%;
+  text-align:left;
+  padding:12px 14px;
+  border:0;
+  border-bottom:1px solid rgba(47,73,147,.08);
+  background:#fff;
+  cursor:pointer;
+}
+.hubNotificationItem:hover{
+  background:rgba(67,164,213,.08);
+}
+.hubNotificationItem.isUnread{
+  background:rgba(47,73,147,.06);
+}
+.hubNotificationItemTitle{
+  font-weight:800;
+  color:var(--text, #172033);
+}
+.hubNotificationItemDetail,
+.hubNotificationItemMeta{
+  font-size:13px;
+  color:var(--muted, #5b6780);
+  line-height:1.4;
 }
 .budgetPage{
   min-width:0;
