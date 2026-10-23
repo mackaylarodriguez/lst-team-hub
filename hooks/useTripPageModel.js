@@ -3826,7 +3826,7 @@ export function useTripPageModel() {
   }
 
   async function handleRemoveParticipantDocumentType(documentTypeKey) {
-    if (!trip?.id || !documentTypeKey) return;
+    if (!staffViewAllParticipants || !trip?.id || !documentTypeKey) return;
 
     const key = String(documentTypeKey || "").trim().toLowerCase();
     const { excludedKeys, customTypes } = parseTripParticipantDocumentConfig(

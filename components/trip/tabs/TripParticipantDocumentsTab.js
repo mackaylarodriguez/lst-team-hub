@@ -14,6 +14,7 @@ export default function TripParticipantDocumentsTab() {
   const {
     canUploadOwnParticipantDocuments,
     canViewTeamDashboard,
+    staffViewAllParticipants,
     confirmingParticipantDocumentDeleteId,
     currentParticipant,
     handleAddParticipantDocumentType,
@@ -97,14 +98,16 @@ export default function TripParticipantDocumentsTab() {
                   <span className="small" style={{ fontWeight: 600 }}>
                     {uploadType.label}
                   </span>
-                  <button
-                    className="btn"
-                    type="button"
-                    style={{ padding: "2px 8px", fontSize: 12 }}
-                    onClick={() => void handleRemoveParticipantDocumentType(uploadType.key)}
-                  >
-                    Remove
-                  </button>
+                  {staffViewAllParticipants ? (
+                    <button
+                      className="btn"
+                      type="button"
+                      style={{ padding: "2px 8px", fontSize: 12 }}
+                      onClick={() => void handleRemoveParticipantDocumentType(uploadType.key)}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
                 </div>
               ))}
             </div>
