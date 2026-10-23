@@ -474,15 +474,25 @@ export default function TripFundraisingTab() {
                       {formatMoney(Number(trip.fundraisingGoalAmount || 0))}
                     </div>
                     {trip.teamFundraisingUrl ? (
-                      <a
-                        className="btn btnPrimary"
-                        href={trip.teamFundraisingUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ justifySelf: "start" }}
-                      >
-                        Open Neon Page
-                      </a>
+                      <>
+                        <a
+                          className="btn btnPrimary"
+                          href={trip.teamFundraisingUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ justifySelf: "start" }}
+                        >
+                          Open Neon Page
+                        </a>
+                        {canViewFundraisingTeamDashboard && !canManageTripFundraising ? (
+                          <div
+                            className="small"
+                            style={{ wordBreak: "break-all", lineHeight: 1.35, color: "var(--muted)" }}
+                          >
+                            {trip.teamFundraisingUrl}
+                          </div>
+                        ) : null}
+                      </>
                     ) : canManageTripFundraising ? (
                       <div className="small" style={{ color: "var(--danger)" }}>
                         Add the shared Neon link in Edit setup.
@@ -604,15 +614,30 @@ export default function TripFundraisingTab() {
                                 {formatMoney(goalAmount)}
                               </div>
                               {participant.fundraisingUrl ? (
-                                <a
-                                  className="btn btnPrimary"
-                                  href={participant.fundraisingUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  style={{ justifySelf: "start", padding: "6px 10px", fontSize: 12 }}
-                                >
-                                  Open Neon Page
-                                </a>
+                                <>
+                                  <a
+                                    className="btn btnPrimary"
+                                    href={participant.fundraisingUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ justifySelf: "start", padding: "6px 10px", fontSize: 12 }}
+                                  >
+                                    Open Neon Page
+                                  </a>
+                                  {canViewFundraisingTeamDashboard && !canManageTripFundraising ? (
+                                    <div
+                                      className="small"
+                                      style={{
+                                        wordBreak: "break-all",
+                                        maxWidth: 280,
+                                        lineHeight: 1.35,
+                                        color: "var(--muted)",
+                                      }}
+                                    >
+                                      {participant.fundraisingUrl}
+                                    </div>
+                                  ) : null}
+                                </>
                               ) : (
                                 <div className="small" style={{ color: "var(--muted)" }}>
                                   Neon page not added yet.

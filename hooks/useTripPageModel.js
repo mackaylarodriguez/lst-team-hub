@@ -457,10 +457,9 @@ export function useTripPageModel() {
   const canViewTeamDashboard =
     staffViewAllParticipants || (effectiveIsLeader && !isPreviewingParticipant);
   /** Edit team fundraising setup and per-person links: staff only (trip leaders see read-only). */
-  const canManageTripFundraising =
-    staffViewAllParticipants || (canManageTrips && isStaffPreviewingLeader);
-  /** Fundraising team-wide view: staff-only (workers should only see their own card). */
-  const canViewFundraisingTeamDashboard = canManageTripFundraising;
+  const canManageTripFundraising = staffViewAllParticipants;
+  /** Fundraising team-wide view: staff and trip leaders. Workers only see their own card. */
+  const canViewFundraisingTeamDashboard = canViewTeamDashboard;
 
   const sessionTripRosterRow = useMemo(() => {
     if (!trip?.teamMembers?.length || !session?.email) return null;
@@ -2532,7 +2531,7 @@ export function useTripPageModel() {
   }
 
   async function handleSaveFundraising(participant) {
-    if (!trip || !participant?.id) return;
+    if (!canManageTripFundraising || !trip || !participant?.id) return;
 
     const draft = fundraisingDrafts[participant.id] || {
       fundraisingUrl: "",
@@ -2676,7 +2675,7 @@ export function useTripPageModel() {
   }
 
   async function handleSaveTeamFundraising() {
-    if (!trip?.id) return;
+    if (!canManageTripFundraising || !trip?.id) return;
 
     const mode =
       teamFundraisingDraft.fundraisingMode === "team" ? "team" : "individual";
