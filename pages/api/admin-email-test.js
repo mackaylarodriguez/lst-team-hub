@@ -432,6 +432,25 @@ export default async function handler(req, res) {
         }
       }
 
+      const workerEmail = normalizeEmail(req.body?.workerEmail);
+      if (!member && workerEmail) {
+        const { data: memberRow } = await admin
+          .from("trip_team_members")
+          .select("id, first_name, last_name, email, fundraising_url, fundraising_goal_amount")
+          .eq("trip_id", tripId)
+          .ilike("email", workerEmail)
+          .maybeSingle();
+        if (memberRow) {
+          member = {
+            firstName: memberRow.first_name,
+            lastName: memberRow.last_name,
+            email: memberRow.email,
+            fundraisingUrl: memberRow.fundraising_url,
+            fundraisingGoalAmount: memberRow.fundraising_goal_amount,
+          };
+        }
+      }
+
       if (!member) {
         const { data: firstMember } = await admin
           .from("trip_team_members")

@@ -492,6 +492,19 @@ export default function AdminActivityPage() {
           </div>
           <div className="adminEmailTestGrid adminEmailTestGridWeekly">
             <span className="small">
+              Fundraising email for the worker selected above. The test goes only to the address in the test email field.
+            </span>
+            <button
+              type="button"
+              className="btn"
+              disabled={!emailTestTo || !emailTestTripId || !weeklyWorkerEmail || !!emailTestSending}
+              onClick={() => void sendTestEmail("fundraising_ready")}
+            >
+              {emailTestSending === "fundraising_ready" ? "Sending…" : "Test fundraising email"}
+            </button>
+          </div>
+          <div className="adminEmailTestGrid adminEmailTestGridWeekly">
+            <span className="small">
               Flight email for the worker selected above. The test goes only to the address in the test email field.
             </span>
             <button
