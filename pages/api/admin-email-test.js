@@ -463,7 +463,10 @@ export default async function handler(req, res) {
         explicitWeeks || (computedWeeks == null ? "" : String(computedWeeks))
       );
 
-      subject = `[TEST] ${buildFundraisingReadyEmailSubject({ recipientName: memberName })}`;
+      subject = `[TEST] ${buildFundraisingReadyEmailSubject({
+        teamName: context.tripName,
+        site: context.tripLocation,
+      })}`;
       html = buildFundraisingReadyEmailHtml({
         recipientName: memberName,
         teamName: context.tripName,
@@ -475,6 +478,7 @@ export default async function handler(req, res) {
         fundraisingGoalAmount:
           member?.fundraisingGoalAmount ?? member?.fundraising_goal_amount ?? 2500,
         projectWeeksLabel: projectWeeksLabel || "3 weeks",
+        startDate: context.startDate,
         tutorialUrl: FUNDRAISING_PAGE_TUTORIAL_URL,
       });
     } else {

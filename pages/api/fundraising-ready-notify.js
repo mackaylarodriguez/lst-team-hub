@@ -5,8 +5,6 @@
  * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL (or RESEND_FROM_EMAIL)
  * - FUNDRAISING_READY_CC_EMAIL — optional CC (none by default)
  * - FUNDRAISING_READY_BCC_EMAIL — optional BCC (defaults to Mackayla)
- *
- * Temporarily disabled: set FUNDRAISING_READY_EMAILS_ENABLED to true to resume sending.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -23,7 +21,7 @@ import {
   buildFundraisingReadyEmailSubject,
 } from "@/lib/fundraisingReadyEmail";
 
-const FUNDRAISING_READY_EMAILS_ENABLED = false;
+const FUNDRAISING_READY_EMAILS_ENABLED = true;
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -183,7 +181,10 @@ export default async function handler(req, res) {
     const recipientName = [member.first_name, member.last_name].filter(Boolean).join(" ").trim();
     const projectWeeksLabel = resolveProjectWeeksLabel(context);
 
-    const subject = buildFundraisingReadyEmailSubject({ recipientName });
+    const subject = buildFundraisingReadyEmailSubject({
+      teamName: context.tripName,
+      site: context.tripLocation,
+    });
     const html = buildFundraisingReadyEmailHtml({
       recipientName,
       teamName: context.tripName,
@@ -191,6 +192,7 @@ export default async function handler(req, res) {
       fundraisingUrl: member.fundraising_url,
       fundraisingGoalAmount: member.fundraising_goal_amount,
       projectWeeksLabel,
+      startDate: context.startDate,
     });
 
     const emailResult = await sendResendEmail({
