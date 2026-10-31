@@ -1,3 +1,4 @@
+import CollapsibleSection from "@/components/CollapsibleSection";
 import TrainingPrototypeRichText from "./TrainingPrototypeRichText";
 import TrainingPrototypeBlockExtras from "./TrainingPrototypeBlockExtras";
 
@@ -9,9 +10,22 @@ function normalizeHeading(value) {
 }
 
 function shouldShowBlockHeading(block, sectionTitle) {
-  if (block.hideHeading || !block.heading) return false;
+  if (block.collapsible || block.hideHeading || !block.heading) return false;
   if (!sectionTitle) return true;
   return normalizeHeading(block.heading) !== normalizeHeading(sectionTitle);
+}
+
+function SampleCollapsible({ title, body, className = "" }) {
+  return (
+    <CollapsibleSection
+      variant="slim"
+      title={title}
+      defaultOpen={false}
+      className={["trainingPrototypeSampleCollapse", className].filter(Boolean).join(" ")}
+    >
+      <TrainingPrototypeRichText text={body} />
+    </CollapsibleSection>
+  );
 }
 
 export default function TrainingPrototypeWrittenBlocks({ blocks = [], sectionTitle }) {
@@ -40,18 +54,37 @@ export default function TrainingPrototypeWrittenBlocks({ blocks = [], sectionTit
           ? `trainingPrototypeWrittenSection trainingPrototypeTimelineCard${toneClass}`
           : "trainingPrototypeWrittenSection";
         const showHeading = shouldShowBlockHeading(block, sectionTitle);
+        const samples = Array.isArray(block.samples) ? block.samples : [];
 
         return (
           <div key={block.heading || `block-${blockIndex}`} className={sectionClassName}>
-            {showHeading ? (
-              block.card ? (
-                <p className="trainingPrototypeTimelineCardTitle">{block.heading}</p>
-              ) : (
-                <h3>{block.heading}</h3>
-              )
+            {block.collapsible ? (
+              <SampleCollapsible title={block.heading} body={block.body} />
+            ) : (
+              <>
+                {showHeading ? (
+                  block.card ? (
+                    <p className="trainingPrototypeTimelineCardTitle">{block.heading}</p>
+                  ) : (
+                    <h3>{block.heading}</h3>
+                  )
+                ) : null}
+                <TrainingPrototypeRichText text={block.body} />
+                <TrainingPrototypeBlockExtras block={block} />
+              </>
+            )}
+            {samples.length ? (
+              <div className="trainingPrototypeSampleStack">
+                {samples.map((sample) => (
+                  <SampleCollapsible
+                    key={sample.title}
+                    title={sample.title}
+                    body={sample.body}
+                    className="trainingPrototypeSampleItem"
+                  />
+                ))}
+              </div>
             ) : null}
-            <TrainingPrototypeRichText text={block.body} />
-            <TrainingPrototypeBlockExtras block={block} />
           </div>
         );
       })}

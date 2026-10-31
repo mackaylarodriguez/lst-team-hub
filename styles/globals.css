@@ -6212,6 +6212,43 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeSectionStack .collapsibleSectionSlimPanel{
   background:#fff;
 }
+.trainingPrototypeSampleStack{
+  display:grid;
+  gap:8px;
+  margin-top:12px;
+}
+.trainingPrototypeSectionStack .trainingPrototypeSampleCollapse.collapsibleSectionSlim:not(.trainingPrototypeSampleItem),
+.trainingPrototypeWrittenBody .trainingPrototypeSampleCollapse.collapsibleSectionSlim:not(.trainingPrototypeSampleItem){
+  position:relative;
+  border:1px solid rgba(50,84,163,.12);
+  border-radius:14px;
+  background:linear-gradient(180deg, #fff, rgba(248,250,252,.96));
+  box-shadow:0 4px 14px rgba(15,23,42,.04);
+}
+.trainingPrototypeSectionStack .trainingPrototypeSampleCollapse.collapsibleSectionSlim:not(.trainingPrototypeSampleItem)::before,
+.trainingPrototypeWrittenBody .trainingPrototypeSampleCollapse.collapsibleSectionSlim:not(.trainingPrototypeSampleItem)::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:3px;
+  background:linear-gradient(180deg, var(--primary), var(--primary2));
+}
+.trainingPrototypeSectionStack .trainingPrototypeSampleItem.collapsibleSectionSlim,
+.trainingPrototypeWrittenBody .trainingPrototypeSampleItem.collapsibleSectionSlim{
+  border:1px solid rgba(15,23,42,.08);
+  border-radius:10px;
+  background:#fff;
+  box-shadow:none;
+}
+.trainingPrototypeSectionStack .trainingPrototypeSampleCollapse > .collapsibleSectionSlimHeader,
+.trainingPrototypeWrittenBody .trainingPrototypeSampleCollapse > .collapsibleSectionSlimHeader{
+  background:#f8fafc;
+}
+.trainingPrototypeSampleCollapse .collapsibleSectionSlimPanel{
+  background:#fff;
+}
 .trainingPrototypeSectionInner{
   display:grid;
   gap:8px;
