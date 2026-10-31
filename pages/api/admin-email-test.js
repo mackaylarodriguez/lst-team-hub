@@ -26,7 +26,6 @@ import {
 import {
   buildFundraisingReadyEmailHtml,
   buildFundraisingReadyEmailSubject,
-  FUNDRAISING_PAGE_TUTORIAL_URL,
 } from "@/lib/fundraisingReadyEmail";
 import {
   computeWeeksBetweenDepartAndEnd,
@@ -498,7 +497,6 @@ export default async function handler(req, res) {
           member?.fundraisingGoalAmount ?? member?.fundraising_goal_amount ?? 2500,
         projectWeeksLabel: projectWeeksLabel || "3 weeks",
         startDate: context.startDate,
-        tutorialUrl: FUNDRAISING_PAGE_TUTORIAL_URL,
       });
     } else {
       const lockPayload = {

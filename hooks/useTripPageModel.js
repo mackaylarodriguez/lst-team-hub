@@ -2753,10 +2753,27 @@ export function useTripPageModel() {
     );
   }
 
+  function referenceStatusCarriedFromRoster(refKey) {
+    if (!refKey.startsWith("user:") || !trip) return null;
+    const userId = refKey.slice(5);
+    const participant = (trip.participants || []).find((row) => String(row.id) === String(userId));
+    const email = normalizeEmail(participant?.email);
+    if (!email) return null;
+    const members = (trip.teamMembers || []).filter(
+      (row) => row?.id && normalizeEmail(row.email) === email
+    );
+    for (const member of members) {
+      const status = referenceEmails[`roster:${member.id}`];
+      if (status) return status;
+    }
+    return null;
+  }
+
   function getReferenceStatus(refKey) {
     const key = normalizeReferenceRefKey(refKey);
     return (
-      referenceEmails[key] || {
+      referenceEmails[key] ||
+      referenceStatusCarriedFromRoster(key) || {
         referenceName: "",
         referenceEmail: "",
         referencePhone: "",
