@@ -291,9 +291,7 @@ async function sendFlightDocumentsTest(req, res, testEmail) {
     const liveTarget = workerEmail
       ? `${recipientName} (${workerEmail})`
       : recipientName;
-    const testNote = live
-      ? `Test preview. Live flight emails are on and would go to ${liveTarget}, with Leslee Altrock copied.`
-      : `Test preview only. Live flight emails are off. When turned on, this goes to ${liveTarget} and CCs Leslee Altrock (${FLIGHT_DOCUMENTS_CC_EMAIL}).`;
+    const testNote = `Test preview. Live flight emails go to ${liveTarget}, with Leslee Altrock copied (${FLIGHT_DOCUMENTS_CC_EMAIL}).`;
     const subject = `[TEST] ${buildFlightDocumentsEmailSubject()}`;
     const html = buildFlightDocumentsEmailHtml({
       recipientName,

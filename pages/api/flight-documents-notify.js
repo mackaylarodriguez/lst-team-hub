@@ -2,13 +2,11 @@
  * Email the worker labeled on a Trip Documents upload when the category is Flights.
  * CCs Leslee Altrock.
  *
- * Live sends require FLIGHT_DOCUMENTS_EMAILS_ENABLED=true.
- * Until then this endpoint records nothing and does not email anyone.
- * Use Admin Activity → Test flight email to preview the message.
+ * Live sends are on. The worker on the document is emailed, and Leslee Altrock is copied.
+ * Use Admin Activity → Test flight email to preview the message without emailing the worker.
  *
  * Env:
  * - RESEND_API_KEY + BUDGET_CHECK_FROM_EMAIL (or RESEND_FROM_EMAIL)
- * - FLIGHT_DOCUMENTS_EMAILS_ENABLED=true to turn live sends on
  */
 
 import { createClient } from "@supabase/supabase-js";
