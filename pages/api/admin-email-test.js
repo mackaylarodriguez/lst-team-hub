@@ -49,7 +49,7 @@ import {
   buildFlightDocumentsEmailHtml,
   buildFlightDocumentsEmailSubject,
   flightDocumentsEmailsEnabled,
-  FLIGHT_DOCUMENTS_CC_EMAIL,
+  FLIGHT_DOCUMENTS_BCC_EMAILS,
 } from "@/lib/flightDocumentsEmail";
 
 function normalizeText(value) {
@@ -291,7 +291,7 @@ async function sendFlightDocumentsTest(req, res, testEmail) {
     const liveTarget = workerEmail
       ? `${recipientName} (${workerEmail})`
       : recipientName;
-    const testNote = `Test preview. Live flight emails go to ${liveTarget}, with Leslee Altrock copied (${FLIGHT_DOCUMENTS_CC_EMAIL}).`;
+    const testNote = `Test preview. Live flight emails go to ${liveTarget}. Leslee Altrock and Mackayla Rodriguez are blind-copied (${FLIGHT_DOCUMENTS_BCC_EMAILS.join(", ")}).`;
     const subject = `[TEST] ${buildFlightDocumentsEmailSubject()}`;
     const html = buildFlightDocumentsEmailHtml({
       recipientName,
@@ -320,7 +320,7 @@ async function sendFlightDocumentsTest(req, res, testEmail) {
       workerName: recipientName,
       tripName: context.tripName,
       liveEnabled: live,
-      ccWhenLive: FLIGHT_DOCUMENTS_CC_EMAIL,
+      bccWhenLive: FLIGHT_DOCUMENTS_BCC_EMAILS,
       email: emailResult,
     });
   } catch (error) {

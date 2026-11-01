@@ -271,9 +271,7 @@ export default function AdminActivityPage() {
 
         if (isFlightDocuments) {
           setEmailTestStatus(
-            result?.liveEnabled
-              ? `Flight documents test for ${result?.workerName} sent to ${sentTo}. Live emails are on and would also copy Leslee Altrock.`
-              : `Flight documents test for ${result?.workerName} sent to ${sentTo}. Live sending is still off. When you turn it on, this goes to the worker and CCs Leslee Altrock.`
+            `Flight documents test for ${result?.workerName} sent to ${sentTo}. Live emails go to the worker and blind-copy Leslee Altrock and Mackayla Rodriguez.`
           );
           return;
         }

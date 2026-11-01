@@ -1,8 +1,8 @@
 /**
  * Email the worker labeled on a Trip Documents upload when the category is Flights.
- * CCs Leslee Altrock.
+ * Blind-copies Leslee Altrock and Mackayla Rodriguez.
  *
- * Live sends are on. The worker on the document is emailed, and Leslee Altrock is copied.
+ * Live sends are on. The worker on the document is emailed. Leslee and Mackayla are blind-copied.
  * Use Admin Activity → Test flight email to preview the message without emailing the worker.
  *
  * Env:
@@ -13,7 +13,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { sendResendEmail } from "@/lib/resendMail";
 import {
-  FLIGHT_DOCUMENTS_CC_EMAIL,
+  FLIGHT_DOCUMENTS_BCC_EMAILS,
   buildFlightDocumentsEmailHtml,
   buildFlightDocumentsEmailSubject,
   flightDocumentsEmailsEnabled,
@@ -224,7 +224,7 @@ export default async function handler(req, res) {
 
     const emailResult = await sendResendEmail({
       to: recipient.email,
-      cc: FLIGHT_DOCUMENTS_CC_EMAIL,
+      bcc: FLIGHT_DOCUMENTS_BCC_EMAILS,
       subject,
       html,
     });
@@ -243,7 +243,7 @@ export default async function handler(req, res) {
       sent: true,
       live: true,
       sentTo: recipient.email,
-      cc: FLIGHT_DOCUMENTS_CC_EMAIL,
+      bcc: FLIGHT_DOCUMENTS_BCC_EMAILS,
       workerName,
       email: emailResult,
     });
