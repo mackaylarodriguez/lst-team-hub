@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  clearSession,
   getSession,
   signInWithPassword,
   signUpWithPassword,
@@ -9,13 +10,34 @@ import {
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { TSHIRT_SIZE_OPTIONS } from "@/lib/tshirtSizes";
 
+const recoveryVerifications = new Map();
+
+function verifyRecoveryToken(token) {
+  if (!recoveryVerifications.has(token)) {
+    const supabase = getSupabaseClient();
+    recoveryVerifications.set(
+      token,
+      supabase.auth.verifyOtp({
+        token_hash: token,
+        type: "recovery",
+      })
+    );
+  }
+
+  return recoveryVerifications.get(token);
+}
+
 export default function Login() {
   const router = useRouter();
   const nextPath = typeof router.query.next === "string" && router.query.next.startsWith("/")
     ? router.query.next
     : "/trips";
   const isResetMode = router.query.mode === "reset";
+  const recoveryToken = typeof router.query.token_hash === "string" ? router.query.token_hash : "";
+  const skipSessionRedirectRef = useRef(false);
+  const recoveryVerifiedRef = useRef(false);
   const [mode, setMode] = useState("signin");
+  const [linkStatus, setLinkStatus] = useState("idle");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [resetPassword, setResetPassword] = useState("");
@@ -30,11 +52,19 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!router.isReady) return undefined;
+
+    if (recoveryToken) {
+      skipSessionRedirectRef.current = true;
+      return undefined;
+    }
+
     let cancelled = false;
 
     async function loadSession() {
+      if (skipSessionRedirectRef.current) return;
       const session = await getSession();
-      if (!cancelled && session) {
+      if (!cancelled && session && !skipSessionRedirectRef.current) {
         router.replace(nextPath);
       }
     }
@@ -44,7 +74,47 @@ export default function Login() {
     return () => {
       cancelled = true;
     };
-  }, [nextPath, router]);
+  }, [nextPath, recoveryToken, router]);
+
+  useEffect(() => {
+    if (!router.isReady || !recoveryToken || recoveryVerifiedRef.current) return undefined;
+
+    let cancelled = false;
+    skipSessionRedirectRef.current = true;
+    setLinkStatus("checking");
+    setMode("reset");
+    setErr("");
+    setMessage("");
+
+    async function verifyResetLink() {
+      const { error } = await verifyRecoveryToken(recoveryToken);
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error("Unable to verify password reset link", error);
+        recoveryVerifiedRef.current = false;
+        skipSessionRedirectRef.current = false;
+        setLinkStatus("invalid");
+        setMode("forgot");
+        setErr("This reset link is invalid or expired. Enter your email to send a new one.");
+        return;
+      }
+
+      recoveryVerifiedRef.current = true;
+      setLinkStatus("ready");
+      setMode("reset");
+      setMessage("Enter a new password for this account.");
+      setErr("");
+      router.replace("/login?mode=reset", undefined, { shallow: true });
+    }
+
+    verifyResetLink();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [recoveryToken, router]);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -52,6 +122,9 @@ export default function Login() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
+        skipSessionRedirectRef.current = true;
+        recoveryVerifiedRef.current = true;
+        setLinkStatus("ready");
         setMode("reset");
         setMessage("Enter a new password for this account.");
         setErr("");
@@ -64,12 +137,13 @@ export default function Login() {
   }, []);
 
   useEffect(() => {
+    if (!router.isReady || recoveryToken || recoveryVerifiedRef.current) return;
     if (isResetMode) {
-      setMode("forgot");
+      setMode((current) => (current === "reset" ? current : "forgot"));
       setErr("");
       setMessage("Check your email for the reset link, or enter your email below to send another one.");
     }
-  }, [isResetMode]);
+  }, [isResetMode, recoveryToken, router.isReady]);
 
   async function onSubmit(e){
     e.preventDefault();
@@ -108,6 +182,14 @@ export default function Login() {
         }
 
         await updatePassword({ password: resetPassword });
+        try {
+          await clearSession();
+        } catch (signOutError) {
+          console.error("Password updated, but sign-out failed", signOutError);
+        }
+        skipSessionRedirectRef.current = false;
+        recoveryVerifiedRef.current = false;
+        setLinkStatus("idle");
         setMessage("Password updated. You can sign in now.");
         setMode("signin");
         setPassword("");
@@ -192,7 +274,7 @@ export default function Login() {
           <div className="card pad" style={{ boxShadow:"none", borderStyle:"dashed", marginBottom: 14, background:"rgba(255,255,255,.75)" }}>
             <div className="small">
               {mode === "forgot"
-                ? "Enter your email and we'll send a password reset link from your custom email setup."
+                ? "Enter your email and the Hub will send you a link to choose a new password."
                 : mode === "reset"
                   ? "Set a new password for your LST app account."
                   : "Create your LST app account here. If your email already matches a worker on a trip, we will link it automatically."}
@@ -200,6 +282,9 @@ export default function Login() {
           </div>
         ) : null}
 
+        {linkStatus === "checking" ? (
+          <div className="small">Checking your reset link…</div>
+        ) : (
         <form onSubmit={onSubmit} style={{ display:"grid", gap: 12 }}>
           {mode === "signup" ? (
             <>
@@ -374,6 +459,7 @@ export default function Login() {
             </button>
           )}
         </form>
+        )}
       </div>
     </div>
   );
