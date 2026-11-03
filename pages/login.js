@@ -87,7 +87,7 @@ export default function Login() {
     setMessage("");
 
     async function verifyResetLink() {
-      const { error } = await verifyRecoveryToken(recoveryToken);
+      const { data, error } = await verifyRecoveryToken(recoveryToken);
 
       if (cancelled) return;
 
@@ -102,6 +102,8 @@ export default function Login() {
       }
 
       recoveryVerifiedRef.current = true;
+      const accountEmail = data?.user?.email || data?.session?.user?.email || "";
+      if (accountEmail) setEmail(accountEmail);
       setLinkStatus("ready");
       setMode("reset");
       setMessage("Enter a new password for this account.");
@@ -120,10 +122,12 @@ export default function Login() {
     const supabase = getSupabaseClient();
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
         skipSessionRedirectRef.current = true;
         recoveryVerifiedRef.current = true;
+        const accountEmail = session?.user?.email || "";
+        if (accountEmail) setEmail(accountEmail);
         setLinkStatus("ready");
         setMode("reset");
         setMessage("Enter a new password for this account.");
@@ -368,7 +372,7 @@ export default function Login() {
                 />
               </div>
             </>
-          ) : (
+          ) : mode === "reset" ? null : (
             <>
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>Email</div>
@@ -377,7 +381,6 @@ export default function Login() {
                   value={email}
                   onChange={(e)=>setEmail(e.target.value)}
                   placeholder="you@org.org"
-                  disabled={mode === "reset"}
                 />
               </div>
               {mode === "signin" ? (
@@ -396,6 +399,9 @@ export default function Login() {
           )}
           {mode === "reset" ? (
             <>
+              {email ? (
+                <div className="small">This new password is for {email}.</div>
+              ) : null}
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>New Password</div>
                 <input className="input" type="password" value={resetPassword} onChange={(e)=>setResetPassword(e.target.value)} placeholder="••••••••" />
