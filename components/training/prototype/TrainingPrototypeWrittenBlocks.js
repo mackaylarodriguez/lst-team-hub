@@ -15,7 +15,7 @@ function shouldShowBlockHeading(block, sectionTitle) {
   return normalizeHeading(block.heading) !== normalizeHeading(sectionTitle);
 }
 
-function SampleCollapsible({ title, body, className = "" }) {
+function SampleCollapsible({ title, body, embedUrl, short = false, className = "" }) {
   return (
     <CollapsibleSection
       variant="slim"
@@ -23,7 +23,24 @@ function SampleCollapsible({ title, body, className = "" }) {
       defaultOpen={false}
       className={["trainingPrototypeSampleCollapse", className].filter(Boolean).join(" ")}
     >
-      <TrainingPrototypeRichText text={body} />
+      {body ? <TrainingPrototypeRichText text={body} /> : null}
+      {embedUrl ? (
+        <div
+          className={[
+            "trainingPrototypeVideoWrap",
+            short ? "trainingPrototypeVideoWrapShort" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <iframe
+            title={title}
+            src={embedUrl}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        </div>
+      ) : null}
     </CollapsibleSection>
   );
 }
@@ -55,6 +72,7 @@ export default function TrainingPrototypeWrittenBlocks({ blocks = [], sectionTit
           : "trainingPrototypeWrittenSection";
         const showHeading = shouldShowBlockHeading(block, sectionTitle);
         const samples = Array.isArray(block.samples) ? block.samples : [];
+        const videos = Array.isArray(block.videos) ? block.videos : [];
 
         return (
           <div key={block.heading || `block-${blockIndex}`} className={sectionClassName}>
@@ -80,6 +98,19 @@ export default function TrainingPrototypeWrittenBlocks({ blocks = [], sectionTit
                     key={sample.title}
                     title={sample.title}
                     body={sample.body}
+                    className="trainingPrototypeSampleItem"
+                  />
+                ))}
+              </div>
+            ) : null}
+            {videos.length ? (
+              <div className="trainingPrototypeSampleStack">
+                {videos.map((video) => (
+                  <SampleCollapsible
+                    key={video.title}
+                    title={video.title}
+                    embedUrl={video.embedUrl}
+                    short={Boolean(video.short)}
                     className="trainingPrototypeSampleItem"
                   />
                 ))}

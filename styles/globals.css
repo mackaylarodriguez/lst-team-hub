@@ -6564,6 +6564,11 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .trainingPrototypeVideoWrapCompact{
   max-width:560px;
 }
+.trainingPrototypeVideoWrapShort{
+  max-width:320px;
+  margin-inline:auto;
+  aspect-ratio:9/16;
+}
 .trainingPrototypeVideoPlaceholder{
   padding:28px 16px;
   border-radius:12px;
