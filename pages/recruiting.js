@@ -2197,6 +2197,22 @@ export default function RecruitingPage() {
   const [potentialEditShowMemberTripDates, setPotentialEditShowMemberTripDates] = useState(false);
   const potentialEditSnapshotKey = useRef("");
   const importInputRef = useRef(null);
+  const recordsRef = useRef([]);
+  const potentialTeamEditDraftRef = useRef(potentialTeamEditDraft);
+  const potentialEditShowMemberTripDatesRef = useRef(potentialEditShowMemberTripDates);
+  const recordDetailsModalOpenRef = useRef(recordDetailsModalOpen);
+  const selectedRecordIdRef = useRef(selectedRecordId);
+  const selectedYearRef = useRef(selectedYear);
+  const recruitingLoadGenRef = useRef(0);
+  const recruitingSaveTailRef = useRef(Promise.resolve());
+  const loadRecruitingBoardRef = useRef(async () => false);
+  const closeDiscardArmedRef = useRef(false);
+  recordsRef.current = records;
+  potentialTeamEditDraftRef.current = potentialTeamEditDraft;
+  potentialEditShowMemberTripDatesRef.current = potentialEditShowMemberTripDates;
+  recordDetailsModalOpenRef.current = recordDetailsModalOpen;
+  selectedRecordIdRef.current = selectedRecordId;
+  selectedYearRef.current = selectedYear;
   const [staffTaskDraft, setStaffTaskDraft] = useState({
     recordId: "",
     contactMethod: "email",
@@ -2344,20 +2360,14 @@ export default function RecruitingPage() {
 
   useEffect(() => {
     if (!session) return;
+    let cancelled = false;
 
     async function loadRecruitingData() {
       try {
-        const [nextRecords, nextTripTeamMembers, nextSiteNotes] = await Promise.all([
-          listRecruitingCycleContacts(selectedYear),
-          listTripTeamMembersForDuplicateCheck(),
-          listSiteBudgetNotes(),
-        ]);
-        setRecords(nextRecords);
-        setTripTeamMembers(nextTripTeamMembers);
-        setSiteBudgetNotes(nextSiteNotes);
-        await loadContactActivityForRecords(nextRecords);
-        setError("");
+        const applied = await loadRecruitingBoardRef.current();
+        if (!cancelled && applied) setError("");
       } catch (loadError) {
+        if (cancelled) return;
         console.error("Unable to load recruiting records", loadError);
         setError(loadError.message || "Unable to load recruiting records.");
       }
@@ -2371,6 +2381,7 @@ export default function RecruitingPage() {
 
     window.addEventListener(RECRUITING_UPDATED_EVENT, handleRecruitingUpdate);
     return () => {
+      cancelled = true;
       window.removeEventListener(RECRUITING_UPDATED_EVENT, handleRecruitingUpdate);
     };
   }, [session, selectedYear]);
@@ -2670,30 +2681,67 @@ export default function RecruitingPage() {
 
   const sitePickerLabels = useMemo(() => buildSiteLabelsOrdered(siteBudgetNotes), [siteBudgetNotes]);
 
-  async function loadContactActivityForRecords(nextRecords) {
+  async function loadContactActivityForRecords(nextRecords, gen) {
     const recordIds = (nextRecords || []).map((record) => record.id).filter(Boolean);
     if (!recordIds.length) {
-      setContactActivityByRecordId({});
+      if (gen === undefined || gen === recruitingLoadGenRef.current) {
+        setContactActivityByRecordId({});
+      }
       return;
     }
     try {
       const nextActivity = await listRecruitingContactActivityByIds(recordIds);
+      if (gen !== undefined && gen !== recruitingLoadGenRef.current) return;
       setContactActivityByRecordId(nextActivity);
     } catch (activityError) {
       console.error("Unable to load recruiting contact activity", activityError);
     }
   }
 
+  async function loadRecruitingBoard() {
+    const gen = ++recruitingLoadGenRef.current;
+    const year = selectedYearRef.current;
+    try {
+      const [nextRecords, nextTripTeamMembers, nextSiteNotes] = await Promise.all([
+        listRecruitingCycleContacts(year),
+        listTripTeamMembersForDuplicateCheck(),
+        listSiteBudgetNotes(),
+      ]);
+      if (gen !== recruitingLoadGenRef.current) return false;
+      recordsRef.current = nextRecords;
+      setRecords(nextRecords);
+      setTripTeamMembers(nextTripTeamMembers);
+      setSiteBudgetNotes(nextSiteNotes);
+      await loadContactActivityForRecords(nextRecords, gen);
+      return gen === recruitingLoadGenRef.current;
+    } catch (loadError) {
+      if (gen !== recruitingLoadGenRef.current) return false;
+      throw loadError;
+    }
+  }
+
+  loadRecruitingBoardRef.current = loadRecruitingBoard;
+
+  function persistRecruitingCycleContact(payload) {
+    const pending = recruitingSaveTailRef.current.then(() => saveRecruitingCycleContact(payload));
+    recruitingSaveTailRef.current = pending.then(
+      () => undefined,
+      () => undefined
+    );
+    return pending;
+  }
+
+  function noteSavedRecruitingRecord(saved) {
+    if (!saved?.id) return;
+    recruitingLoadGenRef.current += 1;
+    const next = recordsRef.current.map((row) => (row.id === saved.id ? saved : row));
+    recordsRef.current = next;
+    setRecords(next);
+  }
+
   async function refreshCurrentYear() {
-    const [nextRecords, nextTripTeamMembers, nextSiteNotes] = await Promise.all([
-      listRecruitingCycleContacts(selectedYear),
-      listTripTeamMembersForDuplicateCheck(),
-      listSiteBudgetNotes(),
-    ]);
-    setRecords(nextRecords);
-    setTripTeamMembers(nextTripTeamMembers);
-    setSiteBudgetNotes(nextSiteNotes);
-    await loadContactActivityForRecords(nextRecords);
+    const applied = await loadRecruitingBoard();
+    if (!applied) return;
   }
 
   const duplicateSourceLookup = useMemo(() => {
@@ -3185,7 +3233,7 @@ export default function RecruitingPage() {
     const sendToPotential = activeTab === "potential";
     const stage = sendToPotential ? Math.max(Number(newContactDraft.stage) || 0, 2) : 0;
     try {
-      await saveRecruitingCycleContact(
+      await persistRecruitingCycleContact(
         {
           recruitingYear: selectedYear,
           firstName: primary.firstName,
@@ -3225,7 +3273,10 @@ export default function RecruitingPage() {
 
   async function openRecordDetails(recordId) {
     if (!recordId) return;
-    const record = records.find((item) => item.id === recordId);
+    recordDetailsModalOpenRef.current = true;
+    selectedRecordIdRef.current = recordId;
+    closeDiscardArmedRef.current = false;
+    const record = recordsRef.current.find((item) => item.id === recordId);
     const currentYear = Number(record?.recruitingYear || selectedYear || CURRENT_RECRUITING_YEAR);
     const yearOptions = [...new Set([...years, currentYear + 1, CURRENT_RECRUITING_YEAR + 1])]
       .filter((year) => Number(year) !== currentYear)
@@ -3239,10 +3290,45 @@ export default function RecruitingPage() {
   }
 
   function closeRecordDetailsModal() {
+    recordDetailsModalOpenRef.current = false;
+    selectedRecordIdRef.current = "";
+    closeDiscardArmedRef.current = false;
     setRecordDetailsModalOpen(false);
     setSelectedRecordId("");
     setConfirmingDeleteRecordId("");
     setError("");
+  }
+
+  async function requestCloseRecordDetailsModal() {
+    if (closeDiscardArmedRef.current) {
+      closeRecordDetailsModal();
+      return;
+    }
+
+    const recordId = selectedRecordIdRef.current;
+    const record = recordsRef.current.find((item) => item.id === recordId);
+    if (!record) {
+      closeRecordDetailsModal();
+      return;
+    }
+
+    const lockStyle =
+      (activeTab === "potential" || activeTab === "outreach") && !record.isConvertedToTeam;
+    if (lockStyle) {
+      if (!potentialEditSnapshotKey.current) {
+        closeDiscardArmedRef.current = true;
+        showToast("Could not save yet. Click Close again to leave without saving.", "error");
+        return;
+      }
+      await handleSavePotentialTeamDetails();
+    } else {
+      await handleSaveRecord(recordId, { closeModal: true, fromModal: true });
+    }
+
+    if (recordDetailsModalOpenRef.current) {
+      closeDiscardArmedRef.current = true;
+      showToast("Could not save yet. Click Close again to leave without saving.", "error");
+    }
   }
 
   /** Ignore double-clicks on row controls when opening the edit modal. */
@@ -3507,9 +3593,16 @@ export default function RecruitingPage() {
     }));
   }
 
-  async function handleSaveRecord(recordId = selectedRecordId, options = {}) {
+  async function handleSaveRecord(recordId = selectedRecordIdRef.current, options = {}) {
     const closeModal = options.closeModal === true;
-    const recordToSave = records.find((record) => record.id === recordId);
+    if (
+      !options.fromModal &&
+      recordDetailsModalOpenRef.current &&
+      String(recordId) === String(selectedRecordIdRef.current)
+    ) {
+      return;
+    }
+    const recordToSave = recordsRef.current.find((record) => record.id === recordId);
     if (!recordToSave) return;
     if (notifyDuplicateTeamName(recordToSave.teamName, { excludeRecordId: recordToSave.id })) {
       hideBusy();
@@ -3518,14 +3611,22 @@ export default function RecruitingPage() {
 
     try {
       setIsSavingNotes(true);
-      await saveRecruitingCycleContact(buildRecruitingRecordPayload(recordToSave));
-      await refreshCurrentYear();
+      const saved = await persistRecruitingCycleContact(buildRecruitingRecordPayload(recordToSave));
+      noteSavedRecruitingRecord(saved);
       if (closeModal) closeRecordDetailsModal();
       setPageStatus("Saved.");
+      if (options.fromModal) showToast("Saved.", "success");
       if (isBusyActive()) showBusyDone("Saved");
+      try {
+        await refreshCurrentYear();
+      } catch (refreshError) {
+        console.error("Saved recruiting record, but the list did not refresh", refreshError);
+      }
     } catch (saveError) {
       console.error("Unable to save recruiting record", saveError);
-      setError(saveError.message || "Unable to save record.");
+      const message = saveError.message || "Unable to save record.";
+      setError(message);
+      if (options.fromModal) showToast(message, "error");
       hideBusy();
     } finally {
       setIsSavingNotes(false);
@@ -3533,12 +3634,18 @@ export default function RecruitingPage() {
   }
 
   async function handleSavePotentialTeamDetails() {
-    const record = records.find((item) => item.id === selectedRecordId);
-    if (!record) {
+    const record = recordsRef.current.find((item) => item.id === selectedRecordIdRef.current);
+    if (!record || !potentialEditSnapshotKey.current) {
       hideBusy();
       return;
     }
-    const d = potentialTeamEditDraft;
+    const d = {
+      ...potentialTeamEditDraftRef.current,
+      teamMembers: (potentialTeamEditDraftRef.current.teamMembers || []).map((member) =>
+        tryLinkTeamMemberRow(member, registeredWorkers)
+      ),
+    };
+    const showMemberTripDates = potentialEditShowMemberTripDatesRef.current;
     if (notifyDuplicateTeamName(d.name, { excludeRecordId: record.id })) {
       hideBusy();
       return;
@@ -3567,7 +3674,7 @@ export default function RecruitingPage() {
     try {
       setIsSavingNotes(true);
       setError("");
-      await saveRecruitingCycleContact(
+      const saved = await persistRecruitingCycleContact(
         buildRecruitingRecordPayload({
           ...record,
           ...synced,
@@ -3581,18 +3688,25 @@ export default function RecruitingPage() {
           departureDate: d.recruitingDepartureDate,
           mackaylaNotes: d.mackaylaNotes,
           lesleeNotes: d.lesleeNotes,
-          pendingLockTeamSetup: buildPendingLockTeamSetupFromDraft(d, potentialEditShowMemberTripDates),
+          pendingLockTeamSetup: buildPendingLockTeamSetupFromDraft(d, showMemberTripDates),
         })
       );
-      await refreshCurrentYear();
+      noteSavedRecruitingRecord(saved);
       closeRecordDetailsModal();
       setPageStatus("Saved.");
+      showToast("Saved.", "success");
       if (isBusyActive()) showBusyDone("Saved");
-      potentialEditSnapshotKey.current = "";
+      try {
+        await refreshCurrentYear();
+      } catch (refreshError) {
+        console.error("Saved recruiting record, but the list did not refresh", refreshError);
+      }
     } catch (saveError) {
       console.error("Unable to save recruiting record", saveError);
-      setError(saveError.message || "Unable to save record.");
+      const message = saveError.message || "Unable to save record.";
+      setError(message);
       setPageStatus("");
+      showToast(message, "error");
       hideBusy();
     } finally {
       setIsSavingNotes(false);
@@ -3695,7 +3809,7 @@ export default function RecruitingPage() {
     setError("");
 
     try {
-      await saveRecruitingCycleContact(buildRecruitingRecordPayload(nextRecord));
+      await persistRecruitingCycleContact(buildRecruitingRecordPayload(nextRecord));
     } catch (saveError) {
       console.error("Unable to save worker reference status", saveError);
       setRecords((current) => current.map((item) => (item.id === recordId ? record : item)));
@@ -3954,7 +4068,7 @@ export default function RecruitingPage() {
       if (!record.lastContactedAt && !record.lastContactMethod) return false;
       try {
         setLoggingOutreachRecordId(record.id);
-        await saveRecruitingCycleContact(
+        await persistRecruitingCycleContact(
           buildRecruitingRecordPayload(record, {
             lastContactedAt: "",
             lastContactMethod: "",
@@ -4060,7 +4174,7 @@ export default function RecruitingPage() {
         // Keep the cycle row's "last contact" in sync when editing the newest activity.
         const recent = getRecentContactActivities(record.id, contactActivityByRecordId, 1)[0];
         if (!recent || recent.id === activityId) {
-          await saveRecruitingCycleContact(
+          await persistRecruitingCycleContact(
             buildRecruitingRecordPayload(record, {
               lastContactedAt: parseLastContactActionDate(outreachContactDraft.date),
               lastContactMethod: normalizedMethod,
@@ -5235,7 +5349,7 @@ export default function RecruitingPage() {
         <div
           className="appModalOverlay"
           role="presentation"
-          onClick={closeRecordDetailsModal}
+          onClick={() => void requestCloseRecordDetailsModal()}
           style={{
             position: "fixed",
             inset: 0,
@@ -5281,7 +5395,12 @@ export default function RecruitingPage() {
                       : "Delete"}
                 </button>
               ) : null}
-              <button className="btn" type="button" onClick={closeRecordDetailsModal}>
+              <button
+                className="btn"
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => void requestCloseRecordDetailsModal()}
+              >
                 Close
               </button>
             </div>
@@ -5359,6 +5478,7 @@ export default function RecruitingPage() {
                           <button
                             className="btn btnPrimary"
                             type="button"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() => void handleSavePotentialTeamDetails()}
                           >
                             {isSavingNotes ? "Saving..." : "Save record"}
@@ -5804,7 +5924,10 @@ export default function RecruitingPage() {
                       <button
                         className="btn btnPrimary"
                         type="button"
-                        onClick={() => void handleSaveRecord(selectedRecordId, { closeModal: true })}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() =>
+                          void handleSaveRecord(selectedRecordId, { closeModal: true, fromModal: true })
+                        }
                       >
                         {isSavingNotes ? "Saving..." : "Save record"}
                       </button>
