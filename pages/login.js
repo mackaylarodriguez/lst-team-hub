@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import {
-  clearSession,
   getSession,
   signInWithPassword,
   signUpWithPassword,
@@ -186,19 +185,10 @@ export default function Login() {
         }
 
         await updatePassword({ password: resetPassword });
-        try {
-          await clearSession();
-        } catch (signOutError) {
-          console.error("Password updated, but sign-out failed", signOutError);
-        }
         skipSessionRedirectRef.current = false;
         recoveryVerifiedRef.current = false;
         setLinkStatus("idle");
-        setMessage("Password updated. You can sign in now.");
-        setMode("signin");
-        setPassword("");
-        setResetPassword("");
-        setConfirmResetPassword("");
+        router.push(nextPath);
         return;
       }
 
@@ -386,13 +376,15 @@ export default function Login() {
               {mode === "signin" ? (
                 <div>
                   <div className="small" style={{ marginBottom: 6 }}>Password</div>
-                  <input
-                    className="input"
-                    type="password"
-                    value={password}
-                    onChange={(e)=>setPassword(e.target.value)}
-                    placeholder="••••••••"
-                  />
+                <input
+                  className="input"
+                  type="password"
+                  name="current-password"
+                  value={password}
+                  onChange={(e)=>setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                />
                 </div>
               ) : null}
             </>
@@ -404,11 +396,11 @@ export default function Login() {
               ) : null}
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>New Password</div>
-                <input className="input" type="password" value={resetPassword} onChange={(e)=>setResetPassword(e.target.value)} placeholder="••••••••" />
+                <input className="input" type="password" name="new-password" value={resetPassword} onChange={(e)=>setResetPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
               </div>
               <div>
                 <div className="small" style={{ marginBottom: 6 }}>Confirm Password</div>
-                <input className="input" type="password" value={confirmResetPassword} onChange={(e)=>setConfirmResetPassword(e.target.value)} placeholder="••••••••" />
+                <input className="input" type="password" name="confirm-new-password" value={confirmResetPassword} onChange={(e)=>setConfirmResetPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
               </div>
             </>
           ) : null}
