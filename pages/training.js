@@ -6,7 +6,7 @@ import StaffTrainingPrototypeWalkthrough from "@/components/training/prototype/S
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import { requireSession } from "@/lib/auth";
-import { isManagerRole } from "@/lib/roles";
+import { canViewTrainingCenter, isManagerRole } from "@/lib/roles";
 import { listStaffTrainingRoster, partitionStaffTrainingRows } from "@/lib/staffTrainingRoster";
 
 const STAFF_TRAINING_TABS = [
@@ -42,7 +42,8 @@ export default function TrainingStaffPage() {
       if (cancelled || !nextSession) return;
 
       setSession(nextSession);
-      if (!isManagerRole(nextSession.permissionRole || nextSession.role)) {
+      const sessionRole = nextSession.permissionRole || nextSession.role;
+      if (!canViewTrainingCenter(sessionRole)) {
         router.replace("/trips");
         return;
       }
@@ -81,6 +82,10 @@ export default function TrainingStaffPage() {
 
   if (!session) return null;
 
+  const canEditTraining = isManagerRole(session.permissionRole || session.role);
+  const visibleTabs = canEditTraining
+    ? STAFF_TRAINING_TABS
+    : STAFF_TRAINING_TABS.filter((panel) => panel.id === "training" || panel.id === "overview");
   const isWalkthrough = activePanel === "training";
 
   return (
@@ -95,24 +100,26 @@ export default function TrainingStaffPage() {
         ) : null}
       </div>
 
-      <div className="trainingPrototypeStaffTabBar" style={{ marginBottom: 18 }}>
-        {STAFF_TRAINING_TABS.map((panel) => (
-          <button
-            key={panel.id}
-            type="button"
-            className={
-              "trainingPrototypeStaffTab" +
-              (activePanel === panel.id ? " trainingPrototypeStaffTabActive" : "")
-            }
-            onClick={() => setActivePanel(panel.id)}
-          >
-            {panel.label}
-          </button>
-        ))}
-      </div>
+      {visibleTabs.length > 1 ? (
+        <div className="trainingPrototypeStaffTabBar" style={{ marginBottom: 18 }}>
+          {visibleTabs.map((panel) => (
+            <button
+              key={panel.id}
+              type="button"
+              className={
+                "trainingPrototypeStaffTab" +
+                (activePanel === panel.id ? " trainingPrototypeStaffTabActive" : "")
+              }
+              onClick={() => setActivePanel(panel.id)}
+            >
+              {panel.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {isWalkthrough ? (
-        <StaffTrainingPrototypeWalkthrough session={session} />
+        <StaffTrainingPrototypeWalkthrough session={session} canEdit={canEditTraining} />
       ) : (
         <TrainingStaffTripSections
           mode={activePanel === "gradebook" ? "gradebook" : "overview"}

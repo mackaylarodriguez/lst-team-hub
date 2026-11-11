@@ -78,7 +78,7 @@ function emptyParticipantSectionStates(participants) {
   return states;
 }
 
-export default function StaffTrainingPrototypeWalkthrough({ session }) {
+export default function StaffTrainingPrototypeWalkthrough({ session, canEdit = false }) {
   const sessionStaffEmail = normalizeEmail(session?.email);
   const [staffProfiles, setStaffProfiles] = useState([]);
   const [staffLoadError, setStaffLoadError] = useState("");
@@ -395,7 +395,7 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
               module={module}
               completedSectionIds={completedSectionIds}
               defaultOpen={index === 0}
-              canEdit
+              canEdit={canEdit}
               canViewSectionAckRoster
               sectionCompletionRosters={sectionCompletionRosters}
               teamParticipants={participantProgress}
@@ -445,7 +445,7 @@ export default function StaffTrainingPrototypeWalkthrough({ session }) {
         />
       ) : null}
 
-      {editingModule ? (
+      {canEdit && editingModule ? (
         <TrainingPrototypeModuleEditModal
           module={editingModule}
           onSave={handleSaveModule}

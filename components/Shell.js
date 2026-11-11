@@ -12,7 +12,7 @@ import {
   setImpersonatedProfile,
 } from "@/lib/auth";
 import { useEffect, useState } from "react";
-import { isManagerRole, ROLE_ADMIN } from "@/lib/roles";
+import { canViewTrainingCenter, isManagerRole, ROLE_ADMIN } from "@/lib/roles";
 
 function SidebarIcon({ name }) {
   if (name === "trips") {
@@ -148,7 +148,9 @@ export default function Shell({ children }) {
     };
   }, []);
 
-  const canManageTrips = isManagerRole(session?.permissionRole || session?.role);
+  const sessionRole = session?.permissionRole || session?.role;
+  const canManageTrips = isManagerRole(sessionRole);
+  const canViewTraining = canViewTrainingCenter(sessionRole);
   const isAdminUser = session?.actualRole === ROLE_ADMIN;
 
   useEffect(() => {
@@ -241,7 +243,7 @@ export default function Shell({ children }) {
     canManageTrips
       ? { href: "/recruiting", label: "Recruiting", active: path === "/recruiting", icon: "recruiting" }
       : null,
-    canManageTrips
+    canViewTraining
       ? { href: "/training", label: "Training", active: path === "/training", icon: "training" }
       : null,
     canManageTrips
