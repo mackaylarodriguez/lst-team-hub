@@ -65,6 +65,7 @@ export default function AdminActivityPage() {
   const [emailTestTo, setEmailTestTo] = useState("");
   const [emailTestStatus, setEmailTestStatus] = useState("");
   const [emailTestSending, setEmailTestSending] = useState("");
+  const [emailTestUnlockReason, setEmailTestUnlockReason] = useState("");
   const [weeklyTasksStaffKey, setWeeklyTasksStaffKey] = useState(WEEKLY_TASK_DIGEST_STAFF[0].key);
   const [weeklyWorkerEmail, setWeeklyWorkerEmail] = useState("");
   const [weeklyWorkerOptions, setWeeklyWorkerOptions] = useState([]);
@@ -210,6 +211,10 @@ export default function AdminActivityPage() {
         setEmailTestStatus("Pick a trip and enter a test email address.");
         return;
       }
+      if (template === "team_unlock" && !String(emailTestUnlockReason || "").trim()) {
+        setEmailTestStatus("Enter a reason for the unlock email.");
+        return;
+      }
 
       setEmailTestSending(template);
       setEmailTestStatus("");
@@ -239,6 +244,7 @@ export default function AdminActivityPage() {
             workerEmail: weeklyWorkerEmail,
             recipientName:
               weeklyWorkerOptions.find((worker) => worker.email === weeklyWorkerEmail)?.label || "",
+            unlockReason: emailTestUnlockReason,
           }),
         });
 
@@ -281,7 +287,9 @@ export default function AdminActivityPage() {
             ? "Worker invite"
             : template === "fundraising_ready"
               ? "Fundraising ready"
-              : "Team lock";
+              : template === "team_unlock"
+                ? "Team unlock"
+                : "Team lock";
         setEmailTestStatus(`${label} test sent to ${sentTo}.`);
       } catch (error) {
         console.error("Unable to send admin test email", error);
@@ -290,7 +298,7 @@ export default function AdminActivityPage() {
         setEmailTestSending("");
       }
     },
-    [emailTestTo, emailTestTripId, session, weeklyTasksStaffKey, weeklyWorkerEmail, weeklyWorkerOptions]
+    [emailTestTo, emailTestTripId, emailTestUnlockReason, session, weeklyTasksStaffKey, weeklyWorkerEmail, weeklyWorkerOptions]
   );
 
   const loadEmailSchedule = useCallback(async () => {
@@ -437,6 +445,25 @@ export default function AdminActivityPage() {
               onClick={() => void sendTestEmail("team_lock")}
             >
               {emailTestSending === "team_lock" ? "Sending…" : "Test lock email"}
+            </button>
+          </div>
+          <div className="adminEmailTestGrid adminEmailTestGridWeekly">
+            <input
+              className="input"
+              type="text"
+              value={emailTestUnlockReason}
+              onChange={(event) => setEmailTestUnlockReason(event.target.value)}
+              placeholder="Reason for unlock"
+              aria-label="Reason for unlock test email"
+            />
+            <button
+              type="button"
+              className="btn"
+              disabled={!emailTestTripId || !emailTestTo || !emailTestUnlockReason.trim() || !!emailTestSending}
+              onClick={() => void sendTestEmail("team_unlock")}
+              title="Sends the unlock email to the test address only. Does not unlock the team."
+            >
+              {emailTestSending === "team_unlock" ? "Sending…" : "Test unlock email"}
             </button>
           </div>
           <div className="adminEmailTestGrid adminEmailTestGridWeekly">

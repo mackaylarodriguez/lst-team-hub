@@ -28,7 +28,11 @@ import {
   saveRecruitingCycleContact,
 } from "@/lib/recruitingCycles";
 import { buildSiteLabelsOrdered, resolveEffectiveSiteHostName } from "@/lib/siteMaterials";
-import { sendTeamLockStaffNotify, buildTeamLockNotifyPayload } from "@/lib/teamLockNotify";
+import {
+  sendTeamLockStaffNotify,
+  sendTeamUnlockStaffNotify,
+  buildTeamLockNotifyPayload,
+} from "@/lib/teamLockNotify";
 import { firstRecruitingDateRange } from "@/lib/recruitingDateRange";
 import {
   computeWeeksBetweenDepartAndEnd,
@@ -2186,6 +2190,8 @@ export default function RecruitingPage() {
   const [confirmingDeleteRecordId, setConfirmingDeleteRecordId] = useState("");
   const [deletingRecordId, setDeletingRecordId] = useState("");
   const [unlockingLockedTeamRecordId, setUnlockingLockedTeamRecordId] = useState("");
+  const [unlockTeamPrompt, setUnlockTeamPrompt] = useState(null);
+  const [unlockReason, setUnlockReason] = useState("");
   const [staffTaskModalOpen, setStaffTaskModalOpen] = useState(false);
   const [isSavingStaffTask, setIsSavingStaffTask] = useState(false);
   const [recordDetailsModalOpen, setRecordDetailsModalOpen] = useState(false);
@@ -3493,26 +3499,66 @@ export default function RecruitingPage() {
     }
   }
 
-  async function handleUnlockLockedTeam(record) {
+  function openUnlockTeamPrompt(record) {
     if (!record?.id || !record.convertedTeamId) return;
-    const tripLabel = record.linkedTrip?.name || record.teamName || "this team";
-    if (
-      !window.confirm(
-        `Unlock "${tripLabel}"?\n\nThis deletes the trip from the Trips dashboard and moves this recruiting row back to Potential Teams. This cannot be undone.`
-      )
-    ) {
+    setUnlockTeamPrompt(record);
+    setUnlockReason("");
+    setError("");
+  }
+
+  function closeUnlockTeamPrompt() {
+    if (unlockingLockedTeamRecordId) return;
+    setUnlockTeamPrompt(null);
+    setUnlockReason("");
+  }
+
+  async function confirmUnlockLockedTeam() {
+    const record = unlockTeamPrompt;
+    if (!record?.id || !record.convertedTeamId) return;
+    const reason = String(unlockReason || "").trim();
+    if (!reason) {
+      setError("Enter a reason for unlock.");
       return;
     }
+
+    const tripLabel = record.linkedTrip?.name || record.teamName || "this team";
     try {
       setUnlockingLockedTeamRecordId(record.id);
       setError("");
-      await revertRecruitingLockedTeam(record);
+
+      let emailNote = "";
+      try {
+        const notifyResult = await sendTeamUnlockStaffNotify({
+          tripId: record.convertedTeamId,
+          reason,
+        });
+        if (notifyResult?.email?.sent) {
+          emailNote = " Staff unlock email sent.";
+        } else if (notifyResult?.email?.reason === "missing_team_lock_notify_email") {
+          emailNote = " (Set TEAM_LOCK_NOTIFY_EMAIL to send staff unlock email.)";
+        } else if (notifyResult?.email && !notifyResult.email.sent) {
+          emailNote = " Staff unlock email did not send.";
+        }
+      } catch (notifyError) {
+        console.warn("Staff unlock email failed", notifyError);
+        emailNote = " Staff unlock email did not send.";
+      }
+
+      try {
+        await revertRecruitingLockedTeam(record);
+      } catch (unlockError) {
+        console.error("Unable to unlock team", unlockError);
+        setError(`${unlockError.message || "Unable to unlock team."}${emailNote}`);
+        return;
+      }
+      setUnlockTeamPrompt(null);
+      setUnlockReason("");
       if (selectedRecordId === record.id) {
         closeRecordDetailsModal();
       }
       await refreshCurrentYear();
       handleChangeTab("potential");
-      setPageStatus(`${tripLabel} unlocked — row is back on Potential Teams.`);
+      setPageStatus(`${tripLabel} unlocked — row is back on Potential Teams.${emailNote}`);
     } catch (unlockError) {
       console.error("Unable to unlock team", unlockError);
       setError(unlockError.message || "Unable to unlock team.");
@@ -5091,7 +5137,7 @@ export default function RecruitingPage() {
                           type="button"
                           style={RECRUITING_UNLOCK_TEAM_BUTTON_STYLE}
                           disabled={unlockingLockedTeamRecordId === record.id}
-                          onClick={() => void handleUnlockLockedTeam(record)}
+                          onClick={() => openUnlockTeamPrompt(record)}
                         >
                           {unlockingLockedTeamRecordId === record.id ? "Unlocking…" : "Unlock team"}
                         </button>
@@ -5183,7 +5229,7 @@ export default function RecruitingPage() {
                   type="button"
                   style={RECRUITING_UNLOCK_TEAM_BUTTON_STYLE}
                   disabled={unlockingLockedTeamRecordId === record.id}
-                  onClick={() => void handleUnlockLockedTeam(record)}
+                  onClick={() => openUnlockTeamPrompt(record)}
                 >
                   {unlockingLockedTeamRecordId === record.id ? "Unlocking…" : "Unlock team"}
                 </button>
@@ -5985,7 +6031,7 @@ export default function RecruitingPage() {
                           type="button"
                           style={RECRUITING_UNLOCK_TEAM_BUTTON_STYLE}
                           disabled={unlockingLockedTeamRecordId === selectedRecord.id}
-                          onClick={() => void handleUnlockLockedTeam(selectedRecord)}
+                          onClick={() => openUnlockTeamPrompt(selectedRecord)}
                         >
                           {unlockingLockedTeamRecordId === selectedRecord.id ? "Unlocking…" : "Unlock team"}
                         </button>
@@ -6626,6 +6672,67 @@ export default function RecruitingPage() {
                   Save recruiting row
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {unlockTeamPrompt ? (
+        <div
+          className="appModalOverlay"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 60,
+          }}
+        >
+          <div className="card pad appModalCard" style={{ width: "min(520px, 100%)" }}>
+            <div className="row" style={{ marginBottom: 10 }}>
+              <div className="recruitingFormModalTitle">Unlock team</div>
+              <div className="spacer" />
+              <button className="btn" type="button" onClick={closeUnlockTeamPrompt} disabled={!!unlockingLockedTeamRecordId}>
+                Close
+              </button>
+            </div>
+            <div className="small" style={{ marginBottom: 14 }}>
+              {unlockTeamPrompt.linkedTrip?.name || unlockTeamPrompt.teamName || "This team"} will be removed from
+              Trips and moved back to Potential Teams. Staff get an email with this reason in red, then the same team
+              details as the lock email.
+            </div>
+            {error ? (
+              <div className="card pad" style={{ marginBottom: 14, color: "var(--danger)" }}>
+                {error}
+              </div>
+            ) : null}
+            <label className="small" htmlFor="unlock-team-reason" style={{ display: "block", marginBottom: 6 }}>
+              Reason for unlock
+            </label>
+            <textarea
+              id="unlock-team-reason"
+              className="input"
+              rows={4}
+              value={unlockReason}
+              onChange={(event) => setUnlockReason(event.target.value)}
+              placeholder="Why is this team being unlocked?"
+              disabled={!!unlockingLockedTeamRecordId}
+            />
+            <div className="row" style={{ marginTop: 12, gap: 8 }}>
+              <button
+                className="btn"
+                type="button"
+                style={RECRUITING_UNLOCK_TEAM_BUTTON_STYLE}
+                onClick={() => void confirmUnlockLockedTeam()}
+                disabled={!!unlockingLockedTeamRecordId || !String(unlockReason || "").trim()}
+              >
+                {unlockingLockedTeamRecordId ? "Unlocking…" : "Unlock team"}
+              </button>
+              <button className="btn" type="button" onClick={closeUnlockTeamPrompt} disabled={!!unlockingLockedTeamRecordId}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>

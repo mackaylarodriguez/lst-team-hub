@@ -2,7 +2,8 @@
  * Admin-only: send test copies of Hub notification emails without locking teams or creating invites.
  *
  * POST body:
- * - template: "worker_invite" | "team_lock" | "fundraising_ready" | "weekly_tasks" | "weekly_worker" | "flight_documents"
+ * - template: "worker_invite" | "team_lock" | "team_unlock" | "fundraising_ready" | "weekly_tasks" | "weekly_worker" | "flight_documents"
+ * - unlockReason: required for team_unlock (shown in red at the top of the email)
  * - tripId: uuid (not used by weekly_tasks or weekly_worker)
  * - staffKey: whose tasks to preview for weekly_tasks ("craig" | "leslee" | "mackayla" | "donna")
  * - workerEmail: whose weekly worker email to preview
@@ -22,6 +23,8 @@ import {
 import {
   buildTeamLockStaffEmailHtml,
   buildTeamLockStaffEmailSubject,
+  buildTeamUnlockStaffEmailHtml,
+  buildTeamUnlockStaffEmailSubject,
 } from "@/lib/teamLockStaffEmail";
 import {
   buildFundraisingReadyEmailHtml,
@@ -368,12 +371,18 @@ export default async function handler(req, res) {
   if (
     template !== "worker_invite" &&
     template !== "team_lock" &&
+    template !== "team_unlock" &&
     template !== "fundraising_ready"
   ) {
     return res.status(400).json({
       error:
-        'template must be "worker_invite", "team_lock", "fundraising_ready", "weekly_tasks", "weekly_worker", or "flight_documents".',
+        'template must be "worker_invite", "team_lock", "team_unlock", "fundraising_ready", "weekly_tasks", "weekly_worker", or "flight_documents".',
     });
+  }
+
+  const unlockReason = normalizeText(req.body?.unlockReason);
+  if (template === "team_unlock" && !unlockReason) {
+    return res.status(400).json({ error: "Enter a reason for the unlock email." });
   }
 
   try {
@@ -496,6 +505,27 @@ export default async function handler(req, res) {
         projectWeeksLabel: projectWeeksLabel || "3 weeks",
         startDate: context.startDate,
       });
+    } else if (template === "team_unlock") {
+      const unlockPayload = {
+        teamName: context.tripName,
+        site: context.tripLocation,
+        host: context.host,
+        teamDeveloper: context.teamDeveloper,
+        projectLengthSummary: context.projectLengthSummary,
+        weeks: context.weeks,
+        projectDates: context.projectDates,
+        startDate: context.startDate,
+        endDate: context.endDate,
+        teamMembers: context.teamMembers,
+        extraTravelStatus: context.extraTravelStatus,
+        fundraisingGoalAmount: context.fundraisingGoalAmount,
+        tripFeeAmount: context.tripFeeAmount,
+        materialsFeeAmount: context.materialsFeeAmount,
+        hannoverHousingFeeAmount: context.hannoverHousingFeeAmount,
+        unlockReason,
+      };
+      subject = `[TEST] ${buildTeamUnlockStaffEmailSubject(unlockPayload)}`;
+      html = buildTeamUnlockStaffEmailHtml(unlockPayload);
     } else {
       const lockPayload = {
         teamName: context.tripName,
