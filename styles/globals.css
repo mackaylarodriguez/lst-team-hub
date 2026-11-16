@@ -5522,10 +5522,18 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
 .adminActivityPage{
   display:grid;
   gap:12px;
+  min-width:0;
+  max-width:100%;
 }
 .adminActivityToolbar{
   display:grid;
   gap:12px;
+  min-width:0;
+  max-width:100%;
+}
+.adminActivityToolbar > *{
+  min-width:0;
+  max-width:100%;
 }
 .adminActivityToolbarRow{
   display:flex;
@@ -5549,18 +5557,36 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   font-size:15px;
 }
 .adminEmailTestGrid{
-  display:grid;
-  grid-template-columns:minmax(180px, 1.4fr) minmax(160px, 1fr) auto auto;
+  display:flex;
+  flex-wrap:wrap;
   gap:8px;
   align-items:center;
+  min-width:0;
+  max-width:100%;
 }
-.adminEmailTestGridWeekly{
-  grid-template-columns:minmax(180px, 1.4fr) auto;
+.adminEmailTestGrid > .input,
+.adminEmailTestGrid > select.input{
+  flex:1 1 220px;
+  width:auto;
+  min-width:min(100%, 180px);
+  max-width:100%;
+}
+.adminEmailTestGrid > .btn{
+  flex:0 0 auto;
+  max-width:100%;
+  white-space:normal;
+}
+.adminEmailTestGrid > .small{
+  flex:1 1 220px;
+  min-width:0;
 }
 @media (max-width: 720px){
-  .adminEmailTestGrid,
-  .adminEmailTestGridWeekly{
-    grid-template-columns:1fr;
+  .adminEmailTestGrid > .input,
+  .adminEmailTestGrid > select.input,
+  .adminEmailTestGrid > .btn,
+  .adminEmailTestGrid > .small{
+    flex:1 1 100%;
+    width:100%;
   }
 }
 .adminActivityPillRow{
@@ -5572,6 +5598,8 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
   gap:12px;
+  min-width:0;
+  max-width:100%;
 }
 .adminActivitySummaryCard{
   text-align:center;
@@ -5586,9 +5614,18 @@ table.sitesLogisticsTable .sitesLogisticsActionCell{
   display:grid;
   gap:12px;
 }
+.adminActivityPage .tableWrap{
+  max-width:100%;
+  overflow-x:auto;
+}
+.adminActivityStaffTable{
+  width:100%;
+}
 .adminActivityStaffTable th,
 .adminActivityStaffTable td{
-  white-space:nowrap;
+  white-space:normal;
+  vertical-align:top;
+  overflow-wrap:break-word;
 }
 .adminActivityFeed{
   display:grid;
