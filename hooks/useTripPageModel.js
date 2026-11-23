@@ -4284,7 +4284,7 @@ function parseDateSafe(dateStr) {
     ) {
       return "Travel";
     }
-    if (title.includes("training")) return "Training";
+    if (title.includes("training") || title.includes("end meeting")) return "Training";
 
     return "General";
   }
