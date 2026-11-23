@@ -65,6 +65,9 @@ export default function TrainingPrototypeModuleBlock({
           </span>
           <div className="trainingPrototypeModuleHeadingContent">
             <h2 className="trainingPrototypeModuleHeading">{module.title}</h2>
+            {module.id === "proto-module-2" ? (
+              <span className="trainingPrototypeRecentlyUpdated">Recently Updated</span>
+            ) : null}
           </div>
         </button>
         <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
