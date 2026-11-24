@@ -415,6 +415,15 @@ async function parseRecruitingImportRows(file) {
   }));
 }
 
+function summarizeRecruitingImportRows(rows) {
+  const candidates = (rows || []).filter(
+    (row) => row.firstName || row.lastName || row.email
+  );
+  const ready = candidates.filter((row) => String(row.email || "").trim());
+  const ignored = candidates.filter((row) => !String(row.email || "").trim());
+  return { ready, ignored };
+}
+
 function recruitingExportPeopleFromRecords(records) {
   const people = [];
   for (const record of records || []) {
@@ -2203,6 +2212,8 @@ export default function RecruitingPage() {
   const [potentialEditShowMemberTripDates, setPotentialEditShowMemberTripDates] = useState(false);
   const potentialEditSnapshotKey = useRef("");
   const importInputRef = useRef(null);
+  const [pendingBulkImport, setPendingBulkImport] = useState(null);
+  const [isImportingContacts, setIsImportingContacts] = useState(false);
   const recordsRef = useRef([]);
   const potentialTeamEditDraftRef = useRef(potentialTeamEditDraft);
   const potentialEditShowMemberTripDatesRef = useRef(potentialEditShowMemberTripDates);
@@ -4280,14 +4291,47 @@ export default function RecruitingPage() {
 
   async function handleImportFileChange(event) {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
 
     try {
       const rows = await parseRecruitingImportRows(file);
-      const result = await importRecruitingContacts({
+      const { ready, ignored } = summarizeRecruitingImportRows(rows);
+      setPendingBulkImport({
+        fileName: file.name,
+        destination: activeTab === "potential" ? "potential" : "outreach",
         recruitingYear: selectedYear,
         rows,
-        destination: activeTab === "potential" ? "potential" : "outreach",
+        readyCount: ready.length,
+        ignoredCount: ignored.length,
+        preview: ready.slice(0, 12).map((row) => ({
+          firstName: row.firstName,
+          lastName: row.lastName,
+          email: row.email,
+        })),
+      });
+      setError("");
+    } catch (importError) {
+      console.error("Unable to read recruiting contacts file", importError);
+      setError(importError.message || "Unable to read contacts file.");
+      showToast(importError.message || "Unable to read contacts file.", "error");
+    }
+  }
+
+  function closePendingBulkImport() {
+    if (isImportingContacts) return;
+    setPendingBulkImport(null);
+  }
+
+  async function handleConfirmBulkImport() {
+    if (!pendingBulkImport || isImportingContacts || pendingBulkImport.readyCount < 1) return;
+
+    try {
+      setIsImportingContacts(true);
+      const result = await importRecruitingContacts({
+        recruitingYear: pendingBulkImport.recruitingYear,
+        rows: pendingBulkImport.rows,
+        destination: pendingBulkImport.destination,
         staffMember: session?.name || session?.email || "Staff",
       });
       setError("");
@@ -4295,13 +4339,14 @@ export default function RecruitingPage() {
         `Imported ${result.createdCount} contacts · Skipped ${result.duplicateCount} duplicates · Ignored ${result.ignoredCount} invalid rows`
       );
       showToast(`Imported ${result.createdCount} contacts.`, "success");
+      setPendingBulkImport(null);
       await refreshCurrentYear();
     } catch (importError) {
       console.error("Unable to import recruiting contacts", importError);
       setError(importError.message || "Unable to import contacts.");
       showToast(importError.message || "Unable to import contacts.", "error");
     } finally {
-      event.target.value = "";
+      setIsImportingContacts(false);
     }
   }
 
@@ -6336,6 +6381,92 @@ export default function RecruitingPage() {
                   </button>
                 </>
               ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingBulkImport ? (
+        <div
+          className="appModalOverlay"
+          role="presentation"
+          onClick={closePendingBulkImport}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            zIndex: 50,
+          }}
+        >
+          <div
+            className="card pad appModalCard recruitingFormModal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-import-confirm-title"
+            onClick={(event) => event.stopPropagation()}
+            style={{ width: "min(640px, 100%)", maxHeight: "85vh", overflow: "auto" }}
+          >
+            <div className="row recruitingFormModalHeader" style={{ marginBottom: 10 }}>
+              <div id="bulk-import-confirm-title" className="recruitingFormModalTitle">
+                Confirm bulk contacts
+              </div>
+              <div className="spacer" />
+              <button className="btn" type="button" onClick={closePendingBulkImport} disabled={isImportingContacts}>
+                Close
+              </button>
+            </div>
+            <div className="small recruitingFormModalLead" style={{ marginBottom: 12 }}>
+              {pendingBulkImport.fileName} is ready for the{" "}
+              <strong>
+                {pendingBulkImport.destination === "potential" ? "Potential Teams" : "Recruiting list"}
+              </strong>{" "}
+              in <strong>{pendingBulkImport.recruitingYear}</strong>. Nothing is added until you confirm.
+            </div>
+            <div className="small" style={{ marginBottom: 12 }}>
+              {pendingBulkImport.readyCount} contact{pendingBulkImport.readyCount === 1 ? "" : "s"} can be uploaded.
+              {pendingBulkImport.ignoredCount
+                ? ` ${pendingBulkImport.ignoredCount} row${pendingBulkImport.ignoredCount === 1 ? "" : "s"} will be skipped because they have no email.`
+                : ""}
+            </div>
+            {pendingBulkImport.preview.length ? (
+              <div style={{ display: "grid", gap: 6, marginBottom: 14 }}>
+                {pendingBulkImport.preview.map((row, index) => (
+                  <div key={`${row.email}-${index}`} className="small">
+                    <strong>
+                      {[row.firstName, row.lastName].filter(Boolean).join(" ") || "Unnamed contact"}
+                    </strong>
+                    {" · "}
+                    {row.email}
+                  </div>
+                ))}
+                {pendingBulkImport.readyCount > pendingBulkImport.preview.length ? (
+                  <div className="small" style={{ color: "var(--muted)" }}>
+                    And {pendingBulkImport.readyCount - pendingBulkImport.preview.length} more.
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="small" style={{ marginBottom: 14, color: "var(--danger)" }}>
+                This file has no contacts with an email, so there is nothing to upload.
+              </div>
+            )}
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <button
+                className="btn btnPrimary"
+                type="button"
+                disabled={isImportingContacts || pendingBulkImport.readyCount < 1}
+                onClick={() => void handleConfirmBulkImport()}
+              >
+                {isImportingContacts
+                  ? "Uploading..."
+                  : `Confirm upload (${pendingBulkImport.readyCount})`}
+              </button>
+              <button className="btn" type="button" onClick={closePendingBulkImport} disabled={isImportingContacts}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>
