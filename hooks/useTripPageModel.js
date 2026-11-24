@@ -85,6 +85,7 @@ import {
   effectiveStaffTaskDueDate,
   applyStaffTaskDueDateRules,
   syncStaffTaskDueDatesForTrip,
+  completeSendReferenceRequestsTask,
   getStaffTaskAreaSortRank,
   listStaffTaskTemplateWorkAreas,
   STAFF_TASKS_UPDATED_EVENT,
@@ -144,7 +145,10 @@ import {
   isWorkerPassportOrVisaUploadTask,
 } from "@/lib/workerTaskTemplate";
 import { isUsMassachusettsMissionSite } from "@/lib/usMassachusettsSite";
-import { findStaffTaskTemplate } from "@/lib/staffTaskTemplate";
+import {
+  findStaffTaskTemplate,
+  SEND_REFERENCE_REQUESTS_TASK_ID,
+} from "@/lib/staffTaskTemplate";
 import {
   EMPTY_RECORD as TRAVEL_FORM_EMPTY,
   getTravelFormForRef,
@@ -314,6 +318,7 @@ export function useTripPageModel() {
   const [referenceEmails, setReferenceEmails] = useState({});
   const [referenceSaveStatusByKey, setReferenceSaveStatusByKey] = useState({});
   const referenceEmailsRef = useRef({});
+  const referenceRequestTaskSyncRef = useRef(false);
   const dirtyReferenceFieldKeysRef = useRef(new Set());
   const [docsError, setDocsError] = useState("");
   const [tripDocsUndoBanner, setTripDocsUndoBanner] = useState(null);
@@ -6120,6 +6125,31 @@ function parseDateSafe(dateStr) {
       .filter((row) => shouldIncludeInTripWorkerPipeline(trip, row.email))
       .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [trip]);
+
+  useEffect(() => {
+    if (!trip?.id || !staffViewAllParticipants || referenceRequestTaskSyncRef.current) return;
+    if (!referenceTableRows.length || !editableStaffTasks.length) return;
+
+    const allSentAndReceived = referenceTableRows.every((row) => {
+      const status = getReferenceStatus(row.refKey);
+      return !!status.sent && !!status.received;
+    });
+    if (!allSentAndReceived) return;
+
+    const task = editableStaffTasks.find(
+      (item) => findStaffTaskTemplate(item)?.id === SEND_REFERENCE_REQUESTS_TASK_ID
+    );
+    if (!task || String(task.progress || "").trim().toLowerCase() === "complete") return;
+
+    referenceRequestTaskSyncRef.current = true;
+    void completeSendReferenceRequestsTask(trip.id)
+      .catch((error) => {
+        console.error("Unable to complete reference request staff task", error);
+      })
+      .finally(() => {
+        referenceRequestTaskSyncRef.current = false;
+      });
+  }, [trip?.id, staffViewAllParticipants, referenceEmails, referenceTableRows, editableStaffTasks]);
 
   const travelFormTableRows = useMemo(() => {
     if (!trip) return [];
